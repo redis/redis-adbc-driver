@@ -611,7 +611,208 @@
         "shape": "partitions",
         "written_bytes": 775584
       }
+    ],
+    "final": [
+      {
+        "allocated_bytes": 5698400,
+        "allocations": 120548,
+        "client_cpu_seconds": 0.02480299999999999,
+        "elapsed_ms": 252.852291,
+        "read_bytes": 353650,
+        "rows": 4095,
+        "sample": 1,
+        "shape": "narrow",
+        "written_bytes": 751640
+      },
+      {
+        "allocated_bytes": 5789656,
+        "allocations": 120563,
+        "client_cpu_seconds": 0.020482000000000028,
+        "elapsed_ms": 166.604,
+        "read_bytes": 353650,
+        "rows": 4095,
+        "sample": 2,
+        "shape": "narrow",
+        "written_bytes": 751640
+      },
+      {
+        "allocated_bytes": 5697744,
+        "allocations": 120550,
+        "client_cpu_seconds": 0.03134799999999999,
+        "elapsed_ms": 262.143,
+        "read_bytes": 353650,
+        "rows": 4095,
+        "sample": 3,
+        "shape": "narrow",
+        "written_bytes": 751640
+      },
+      {
+        "allocated_bytes": 22613368,
+        "allocations": 494499,
+        "client_cpu_seconds": 0.10142099999999998,
+        "elapsed_ms": 335.87775,
+        "read_bytes": 1954886,
+        "rows": 4095,
+        "sample": 1,
+        "shape": "wide",
+        "written_bytes": 1820696
+      },
+      {
+        "allocated_bytes": 22635768,
+        "allocations": 494480,
+        "client_cpu_seconds": 0.10096499999999997,
+        "elapsed_ms": 320.558959,
+        "read_bytes": 1954887,
+        "rows": 4095,
+        "sample": 2,
+        "shape": "wide",
+        "written_bytes": 1820696
+      },
+      {
+        "allocated_bytes": 22568864,
+        "allocations": 494477,
+        "client_cpu_seconds": 0.09505800000000009,
+        "elapsed_ms": 326.559,
+        "read_bytes": 1954888,
+        "rows": 4095,
+        "sample": 3,
+        "shape": "wide",
+        "written_bytes": 1820696
+      },
+      {
+        "allocated_bytes": 1290824,
+        "allocations": 13507,
+        "client_cpu_seconds": 0.005899999999999905,
+        "elapsed_ms": 42.595083,
+        "read_bytes": 59328,
+        "rows": 101,
+        "sample": 1,
+        "shape": "filter",
+        "written_bytes": 30957
+      },
+      {
+        "allocated_bytes": 1273712,
+        "allocations": 13445,
+        "client_cpu_seconds": 0.005734999999999935,
+        "elapsed_ms": 45.610708,
+        "read_bytes": 59328,
+        "rows": 101,
+        "sample": 2,
+        "shape": "filter",
+        "written_bytes": 30957
+      },
+      {
+        "allocated_bytes": 1287984,
+        "allocations": 13482,
+        "client_cpu_seconds": 0.004986999999999964,
+        "elapsed_ms": 39.697584,
+        "read_bytes": 59328,
+        "rows": 101,
+        "sample": 3,
+        "shape": "filter",
+        "written_bytes": 30957
+      },
+      {
+        "allocated_bytes": 8838944,
+        "allocations": 129447,
+        "client_cpu_seconds": 0.03138299999999994,
+        "elapsed_ms": 53.687208,
+        "read_bytes": 314289,
+        "rows": 1,
+        "sample": 1,
+        "shape": "aggregate",
+        "written_bytes": 720831
+      },
+      {
+        "allocated_bytes": 8939056,
+        "allocations": 129465,
+        "client_cpu_seconds": 0.02926099999999998,
+        "elapsed_ms": 52.129541,
+        "read_bytes": 314289,
+        "rows": 1,
+        "sample": 2,
+        "shape": "aggregate",
+        "written_bytes": 720831
+      },
+      {
+        "allocated_bytes": 8937680,
+        "allocations": 129474,
+        "client_cpu_seconds": 0.028363999999999945,
+        "elapsed_ms": 62.44575,
+        "read_bytes": 314289,
+        "rows": 1,
+        "sample": 3,
+        "shape": "aggregate",
+        "written_bytes": 720831
+      },
+      {
+        "allocated_bytes": 1474712,
+        "allocations": 18545,
+        "client_cpu_seconds": 0.0070629999999999304,
+        "elapsed_ms": 76.947167,
+        "read_bytes": 79470,
+        "rows": 17,
+        "sample": 1,
+        "shape": "limit",
+        "written_bytes": 15090
+      },
+      {
+        "allocated_bytes": 1476128,
+        "allocations": 18546,
+        "client_cpu_seconds": 0.009950000000000014,
+        "elapsed_ms": 81.557,
+        "read_bytes": 79474,
+        "rows": 17,
+        "sample": 2,
+        "shape": "limit",
+        "written_bytes": 15090
+      },
+      {
+        "allocated_bytes": 1475656,
+        "allocations": 18546,
+        "client_cpu_seconds": 0.007815999999999934,
+        "elapsed_ms": 76.37375,
+        "read_bytes": 79476,
+        "rows": 17,
+        "sample": 3,
+        "shape": "limit",
+        "written_bytes": 15090
+      },
+      {
+        "allocated_bytes": 10931024,
+        "allocations": 163669,
+        "client_cpu_seconds": 0.06143500000000013,
+        "elapsed_ms": 283.75825,
+        "read_bytes": 584387,
+        "rows": 4095,
+        "sample": 1,
+        "shape": "partitions",
+        "written_bytes": 775584
+      },
+      {
+        "allocated_bytes": 10890000,
+        "allocations": 163620,
+        "client_cpu_seconds": 0.058393999999999835,
+        "elapsed_ms": 254.341042,
+        "read_bytes": 584387,
+        "rows": 4095,
+        "sample": 2,
+        "shape": "partitions",
+        "written_bytes": 775584
+      },
+      {
+        "allocated_bytes": 10894264,
+        "allocations": 163588,
+        "client_cpu_seconds": 0.06780800000000009,
+        "elapsed_ms": 310.053208,
+        "read_bytes": 584387,
+        "rows": 4095,
+        "sample": 3,
+        "shape": "partitions",
+        "written_bytes": 775584
+      }
     ]
   },
-  "candidate_status": "Rejected ordinary-scan/formatting prototype; final candidate samples pending"
+  "candidate_status": "Final candidate changes selective candidate scratch only; rejected_prototype is not shipped",
+  "final_runtime_revision": "528ef2dd07b904eb239d153d7c246cd94dfafacf"
 }

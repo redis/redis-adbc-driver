@@ -1,0 +1,2786 @@
+{
+  "runtime_revision": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+  "method": "Separate process/library; mutable/reference/current then reverse order in each mode; 1 warmup + 5 complete checked Arrow results per process/case; settled topology recorded outside timers",
+  "observations": [
+    {
+      "mode": "normal",
+      "round": 0,
+      "source": "mutable",
+      "result": {
+        "source": "f4d5b787e8c28c036baf49de9190c4e6f83ca2e8",
+        "driver_sha256": "cc7ff80c8439ac8932f9baf8c308b6bc7f58514d1cbbe4c03538f0e66b3518f1",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "mutable",
+        "snapshot_protocol": null,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "not applicable to mutable storage",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "implicit_all": {
+            "median_ms": 116.57250003190711,
+            "samples_ms": [
+              120.38029200630262,
+              116.57250003190711,
+              115.73183303698897,
+              114.58724999101833,
+              127.17566697392613
+            ],
+            "client_cpu_samples_ms": [
+              60.12100000000004,
+              61.33499999999997,
+              59.314000000000036,
+              59.72599999999994,
+              63.860999999999976
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "selective": {
+            "median_ms": 6.195458001457155,
+            "samples_ms": [
+              6.904667010530829,
+              7.073707995004952,
+              5.603583995252848,
+              6.107082997914404,
+              6.195458001457155
+            ],
+            "client_cpu_samples_ms": [
+              3.0170000000000474,
+              3.1750000000000944,
+              2.8430000000000955,
+              2.4840000000000417,
+              3.098999999999963
+            ],
+            "output_rows": 0,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "matching_selective": {
+            "median_ms": 3.7345419987104833,
+            "samples_ms": [
+              3.6877919919788837,
+              3.637292014900595,
+              3.7345419987104833,
+              3.7633749889209867,
+              3.7497919984161854
+            ],
+            "client_cpu_samples_ms": [
+              2.253000000000005,
+              2.28899999999993,
+              2.375000000000016,
+              2.2949999999999915,
+              2.1739999999998982
+            ],
+            "output_rows": 2,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "grouped": {
+            "median_ms": 4.4017499894835055,
+            "samples_ms": [
+              4.493832995649427,
+              4.4017499894835055,
+              4.6232499880716205,
+              4.162041994277388,
+              4.262082977220416
+            ],
+            "client_cpu_samples_ms": [
+              2.766999999999853,
+              2.7000000000000357,
+              2.3969999999999825,
+              2.524999999999833,
+              2.6289999999999925
+            ],
+            "output_rows": 64,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "distinct": {
+            "median_ms": 4.468957951758057,
+            "samples_ms": [
+              4.355292010586709,
+              4.468957951758057,
+              4.504542041104287,
+              4.6646250411868095,
+              4.292000026907772
+            ],
+            "client_cpu_samples_ms": [
+              2.344999999999986,
+              2.2980000000000222,
+              2.3099999999998677,
+              2.6179999999999537,
+              2.4640000000000217
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "topk": {
+            "median_ms": 75.35104098496959,
+            "samples_ms": [
+              74.72787500591949,
+              76.02041703648865,
+              75.35104098496959,
+              82.75179198244587,
+              69.31891600834206
+            ],
+            "client_cpu_samples_ms": [
+              60.292999999999985,
+              58.53899999999984,
+              57.999999999999886,
+              57.54200000000004,
+              58.416000000000025
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "topk_nulls_last": {
+            "median_ms": 4.148292005993426,
+            "samples_ms": [
+              4.532375023700297,
+              4.163166042417288,
+              4.148292005993426,
+              4.039417020976543,
+              3.9914590306580067
+            ],
+            "client_cpu_samples_ms": [
+              3.188000000000024,
+              2.4780000000000357,
+              2.444999999999975,
+              2.514000000000016,
+              2.2990000000001065
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "point": {
+            "median_ms": 5.078541988041252,
+            "samples_ms": [
+              4.913041018880904,
+              5.004582984838635,
+              6.527708959765732,
+              5.126582982484251,
+              5.078541988041252
+            ],
+            "client_cpu_samples_ms": [
+              2.8200000000001557,
+              2.999999999999947,
+              3.1529999999999614,
+              2.901000000000098,
+              2.9990000000000294
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "normal",
+      "round": 0,
+      "source": "reference",
+      "result": {
+        "source": "1970bf4a49d13f70f764bf647caa6dad15dc8018",
+        "driver_sha256": "9b1e8ab19d2c2db3aadcf90b67051b82a2b9dca10e00d41ef310af61a682d826",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "implicit_all": {
+            "median_ms": 550.5287920241244,
+            "samples_ms": [
+              277.81729196431115,
+              418.28187502687797,
+              550.5287920241244,
+              776.7281659762375,
+              787.4298329697922
+            ],
+            "client_cpu_samples_ms": [
+              136.81000000000003,
+              106.06899999999992,
+              149.66500000000005,
+              116.9079999999999,
+              123.97200000000008
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "selective": {
+            "median_ms": 15.14274999499321,
+            "samples_ms": [
+              17.72883301600814,
+              15.455624961759895,
+              14.247750048525631,
+              13.765749987214804,
+              15.14274999499321
+            ],
+            "client_cpu_samples_ms": [
+              7.97099999999995,
+              5.80800000000009,
+              7.950000000000069,
+              7.826999999999917,
+              9.163999999999895
+            ],
+            "output_rows": 0,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "matching_selective": {
+            "median_ms": 13.261582993436605,
+            "samples_ms": [
+              14.015582972206175,
+              13.261582993436605,
+              13.818540959618986,
+              12.916999985463917,
+              13.105916965287179
+            ],
+            "client_cpu_samples_ms": [
+              7.523000000000057,
+              5.675999999999903,
+              8.094000000000046,
+              7.983000000000128,
+              7.772999999999808
+            ],
+            "output_rows": 2,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "grouped": {
+            "median_ms": 13.398833980318159,
+            "samples_ms": [
+              13.604625011794269,
+              13.099792005959898,
+              12.994625023566186,
+              13.398833980318159,
+              17.15324999531731
+            ],
+            "client_cpu_samples_ms": [
+              5.802000000000085,
+              5.099000000000076,
+              5.10799999999989,
+              5.841000000000096,
+              5.937999999999999
+            ],
+            "output_rows": 64,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "distinct": {
+            "median_ms": 13.614249997772276,
+            "samples_ms": [
+              13.614249997772276,
+              13.65974999498576,
+              14.261500036809593,
+              13.571000017691404,
+              13.442416966427118
+            ],
+            "client_cpu_samples_ms": [
+              6.434000000000051,
+              6.447999999999787,
+              6.22900000000004,
+              6.133999999999973,
+              6.072000000000077
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk": {
+            "median_ms": 16.038166009820998,
+            "samples_ms": [
+              15.469042002223432,
+              16.12220797687769,
+              16.038166009820998,
+              18.37962499121204,
+              15.527833020314574
+            ],
+            "client_cpu_samples_ms": [
+              5.469999999999975,
+              5.973999999999813,
+              6.013999999999742,
+              8.206999999999965,
+              6.174000000000124
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk_nulls_last": {
+            "median_ms": 12.463708990253508,
+            "samples_ms": [
+              12.463708990253508,
+              11.991749983280897,
+              12.878083973191679,
+              12.743500003125519,
+              12.412499985657632
+            ],
+            "client_cpu_samples_ms": [
+              6.355999999999806,
+              5.830000000000224,
+              5.421000000000009,
+              5.298000000000025,
+              4.991999999999774
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "point": {
+            "median_ms": 9.483875008299947,
+            "samples_ms": [
+              9.483875008299947,
+              10.109625000040978,
+              9.518834005575627,
+              8.979958016425371,
+              9.323000034783036
+            ],
+            "client_cpu_samples_ms": [
+              4.923999999999928,
+              4.821999999999771,
+              4.610999999999921,
+              4.167000000000032,
+              4.400999999999988
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "normal",
+      "round": 0,
+      "source": "current",
+      "result": {
+        "source": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+        "driver_sha256": "03d3634013a9cbb13be733d7730914b0f02f979f99b2c7af0463e46f4ecd307f",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "implicit_all": {
+            "median_ms": 394.18670802842826,
+            "samples_ms": [
+              295.8999170223251,
+              253.88049997854978,
+              394.18670802842826,
+              710.0833339500241,
+              442.13608402060345
+            ],
+            "client_cpu_samples_ms": [
+              136.36300000000006,
+              128.9249999999999,
+              140.693,
+              139.194,
+              129.382
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "selective": {
+            "median_ms": 12.815458991099149,
+            "samples_ms": [
+              15.139334020204842,
+              13.469957979395986,
+              12.815458991099149,
+              12.059708999004215,
+              11.6719999932684
+            ],
+            "client_cpu_samples_ms": [
+              6.3990000000000435,
+              6.215999999999999,
+              5.877000000000021,
+              5.238000000000021,
+              5.523000000000167
+            ],
+            "output_rows": 0,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "matching_selective": {
+            "median_ms": 12.415040982887149,
+            "samples_ms": [
+              12.693208002019674,
+              12.415040982887149,
+              12.458042008802295,
+              12.3346250038594,
+              11.959999974351376
+            ],
+            "client_cpu_samples_ms": [
+              6.569999999999743,
+              6.051999999999946,
+              6.257000000000068,
+              6.03700000000007,
+              5.364999999999842
+            ],
+            "output_rows": 2,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "grouped": {
+            "median_ms": 13.468416989780962,
+            "samples_ms": [
+              13.469457975588739,
+              13.268415990751237,
+              14.048415992874652,
+              12.759000004734844,
+              13.468416989780962
+            ],
+            "client_cpu_samples_ms": [
+              4.958000000000129,
+              5.667999999999784,
+              5.651000000000184,
+              5.558000000000063,
+              5.657000000000134
+            ],
+            "output_rows": 64,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "distinct": {
+            "median_ms": 13.699500006623566,
+            "samples_ms": [
+              12.931165983900428,
+              13.57370801270008,
+              13.699500006623566,
+              14.784708037041128,
+              13.848249975126237
+            ],
+            "client_cpu_samples_ms": [
+              4.623000000000044,
+              5.078000000000027,
+              6.060999999999983,
+              5.946000000000118,
+              6.2910000000000466
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk": {
+            "median_ms": 15.870041970629245,
+            "samples_ms": [
+              16.30333298817277,
+              15.870041970629245,
+              16.02241600630805,
+              15.724125027190894,
+              15.709459024947137
+            ],
+            "client_cpu_samples_ms": [
+              7.304000000000088,
+              7.10999999999995,
+              7.584000000000035,
+              7.112999999999925,
+              6.292999999999993
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk_nulls_last": {
+            "median_ms": 12.910749996080995,
+            "samples_ms": [
+              12.910749996080995,
+              12.589249992743134,
+              15.308792004361749,
+              13.06512497831136,
+              12.566208024509251
+            ],
+            "client_cpu_samples_ms": [
+              6.001999999999952,
+              5.990999999999969,
+              5.948000000000064,
+              6.328000000000111,
+              6.03599999999993
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "point": {
+            "median_ms": 9.631124965380877,
+            "samples_ms": [
+              9.631124965380877,
+              9.51137498486787,
+              9.73704201169312,
+              9.465542039833963,
+              11.596208030823618
+            ],
+            "client_cpu_samples_ms": [
+              4.753999999999814,
+              4.901999999999851,
+              4.818999999999907,
+              4.742999999999942,
+              4.333000000000142
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "normal",
+      "round": 1,
+      "source": "current",
+      "result": {
+        "source": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+        "driver_sha256": "03d3634013a9cbb13be733d7730914b0f02f979f99b2c7af0463e46f4ecd307f",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "implicit_all": {
+            "median_ms": 459.7356669837609,
+            "samples_ms": [
+              517.9172919597477,
+              363.1989170098677,
+              436.6400419967249,
+              506.1970829847269,
+              459.7356669837609
+            ],
+            "client_cpu_samples_ms": [
+              137.65500000000003,
+              148.18599999999998,
+              148.08199999999994,
+              145.94399999999985,
+              146.82899999999998
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "selective": {
+            "median_ms": 15.06200002040714,
+            "samples_ms": [
+              16.042832983657718,
+              15.02795802662149,
+              14.079499989748001,
+              16.15041703917086,
+              15.06200002040714
+            ],
+            "client_cpu_samples_ms": [
+              7.377999999999996,
+              7.789999999999964,
+              8.074999999999887,
+              7.715000000000027,
+              8.013000000000158
+            ],
+            "output_rows": 0,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "matching_selective": {
+            "median_ms": 12.285750010050833,
+            "samples_ms": [
+              12.85762496991083,
+              12.285750010050833,
+              12.922708003316075,
+              11.735708045307547,
+              11.494958016555756
+            ],
+            "client_cpu_samples_ms": [
+              6.012999999999935,
+              5.335999999999896,
+              7.355999999999918,
+              5.375000000000075,
+              5.72800000000001
+            ],
+            "output_rows": 2,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "grouped": {
+            "median_ms": 13.129832979757339,
+            "samples_ms": [
+              12.88158301031217,
+              13.094249996356666,
+              13.717958005145192,
+              13.129832979757339,
+              14.241957978811115
+            ],
+            "client_cpu_samples_ms": [
+              5.285999999999902,
+              5.176999999999876,
+              5.117000000000038,
+              4.919999999999813,
+              5.010999999999988
+            ],
+            "output_rows": 64,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "distinct": {
+            "median_ms": 13.534249970689416,
+            "samples_ms": [
+              13.534249970689416,
+              13.809584022965282,
+              13.142000010702759,
+              13.135500019416213,
+              13.929165957961231
+            ],
+            "client_cpu_samples_ms": [
+              5.093999999999932,
+              4.89700000000004,
+              4.869000000000123,
+              4.7600000000000975,
+              4.963000000000051
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk": {
+            "median_ms": 15.462332987226546,
+            "samples_ms": [
+              15.462332987226546,
+              15.649207984097302,
+              15.272499993443489,
+              15.766417025588453,
+              15.056500036735088
+            ],
+            "client_cpu_samples_ms": [
+              5.299000000000165,
+              5.58700000000012,
+              5.185000000000217,
+              5.552999999999919,
+              5.584000000000144
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk_nulls_last": {
+            "median_ms": 12.403958011418581,
+            "samples_ms": [
+              12.326541997026652,
+              12.403958011418581,
+              12.879832996986806,
+              12.276583001948893,
+              12.492083013057709
+            ],
+            "client_cpu_samples_ms": [
+              4.714999999999914,
+              4.515000000000047,
+              5.450000000000177,
+              4.954000000000236,
+              4.869000000000012
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "point": {
+            "median_ms": 9.498249972239137,
+            "samples_ms": [
+              9.846083994489163,
+              8.96341702900827,
+              9.297709038946778,
+              9.547291963826865,
+              9.498249972239137
+            ],
+            "client_cpu_samples_ms": [
+              5.085000000000006,
+              4.107000000000083,
+              4.238000000000075,
+              4.495000000000027,
+              4.481999999999986
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "normal",
+      "round": 1,
+      "source": "reference",
+      "result": {
+        "source": "1970bf4a49d13f70f764bf647caa6dad15dc8018",
+        "driver_sha256": "9b1e8ab19d2c2db3aadcf90b67051b82a2b9dca10e00d41ef310af61a682d826",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "implicit_all": {
+            "median_ms": 469.6364590199664,
+            "samples_ms": [
+              616.7366669978946,
+              469.6364590199664,
+              393.8573749619536,
+              618.584833049681,
+              409.81516701867804
+            ],
+            "client_cpu_samples_ms": [
+              137.3559999999999,
+              136.66499999999994,
+              134.35999999999993,
+              132.89900000000011,
+              145.68200000000016
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "selective": {
+            "median_ms": 14.50425002258271,
+            "samples_ms": [
+              15.043625026009977,
+              14.32033401215449,
+              14.50425002258271,
+              14.726417022757232,
+              13.345583982300013
+            ],
+            "client_cpu_samples_ms": [
+              6.940999999999975,
+              6.617999999999846,
+              7.137999999999922,
+              9.150999999999854,
+              8.070000000000022
+            ],
+            "output_rows": 0,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "matching_selective": {
+            "median_ms": 12.074750033207238,
+            "samples_ms": [
+              13.156000000890344,
+              14.43337503587827,
+              12.074750033207238,
+              11.921667028218508,
+              11.892459006048739
+            ],
+            "client_cpu_samples_ms": [
+              5.960000000000132,
+              5.088999999999788,
+              6.326000000000054,
+              5.987999999999993,
+              5.895999999999846
+            ],
+            "output_rows": 2,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "grouped": {
+            "median_ms": 13.235999969765544,
+            "samples_ms": [
+              13.235999969765544,
+              13.673292007297277,
+              13.300791964866221,
+              13.044582970906049,
+              13.081166020128876
+            ],
+            "client_cpu_samples_ms": [
+              6.546000000000163,
+              6.488000000000049,
+              6.363000000000119,
+              6.35600000000025,
+              6.312000000000095
+            ],
+            "output_rows": 64,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "distinct": {
+            "median_ms": 13.451375009026378,
+            "samples_ms": [
+              13.451375009026378,
+              16.552707995288074,
+              13.404708006419241,
+              13.448624988086522,
+              14.196834003087133
+            ],
+            "client_cpu_samples_ms": [
+              5.002000000000173,
+              6.204000000000098,
+              6.141000000000063,
+              5.824000000000051,
+              6.2709999999999155
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk": {
+            "median_ms": 15.478874964173883,
+            "samples_ms": [
+              15.708625025581568,
+              15.44179196935147,
+              15.225499984808266,
+              15.478874964173883,
+              15.508249984122813
+            ],
+            "client_cpu_samples_ms": [
+              4.99000000000005,
+              5.701999999999874,
+              5.019999999999913,
+              5.108999999999919,
+              5.299999999999749
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "topk_nulls_last": {
+            "median_ms": 12.722582963760942,
+            "samples_ms": [
+              13.068625004962087,
+              12.641375011298805,
+              12.019750021863729,
+              12.756541022099555,
+              12.722582963760942
+            ],
+            "client_cpu_samples_ms": [
+              4.873000000000127,
+              5.193999999999921,
+              4.608999999999974,
+              5.0640000000000684,
+              4.926999999999904
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "point": {
+            "median_ms": 9.390000021085143,
+            "samples_ms": [
+              9.242500003892928,
+              9.23516700277105,
+              9.390000021085143,
+              9.655540983658284,
+              9.418208966962993
+            ],
+            "client_cpu_samples_ms": [
+              4.705999999999877,
+              4.478000000000204,
+              4.342999999999986,
+              4.341000000000039,
+              4.5639999999999015
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "normal",
+      "round": 1,
+      "source": "mutable",
+      "result": {
+        "source": "f4d5b787e8c28c036baf49de9190c4e6f83ca2e8",
+        "driver_sha256": "cc7ff80c8439ac8932f9baf8c308b6bc7f58514d1cbbe4c03538f0e66b3518f1",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "mutable",
+        "snapshot_protocol": null,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "not applicable to mutable storage",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "implicit_all": {
+            "median_ms": 118.65912500070408,
+            "samples_ms": [
+              116.78629199741408,
+              110.88379198918119,
+              120.85033400217071,
+              121.76679202821106,
+              118.65912500070408
+            ],
+            "client_cpu_samples_ms": [
+              61.46499999999999,
+              61.399000000000065,
+              59.41400000000002,
+              61.48499999999996,
+              61.62699999999999
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "selective": {
+            "median_ms": 6.065833033062518,
+            "samples_ms": [
+              6.191709020640701,
+              5.979500012472272,
+              6.599791988264769,
+              6.065833033062518,
+              5.829791014548391
+            ],
+            "client_cpu_samples_ms": [
+              2.82099999999999,
+              2.737999999999907,
+              2.865000000000034,
+              2.7939999999999907,
+              3.0939999999999577
+            ],
+            "output_rows": 0,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "matching_selective": {
+            "median_ms": 3.780666971579194,
+            "samples_ms": [
+              3.746209025848657,
+              3.780666971579194,
+              3.7676250212825835,
+              4.100333957467228,
+              3.86850000359118
+            ],
+            "client_cpu_samples_ms": [
+              2.137,
+              2.3220000000000187,
+              2.0399999999999583,
+              2.3439999999999572,
+              2.0560000000000853
+            ],
+            "output_rows": 2,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "grouped": {
+            "median_ms": 4.490582970902324,
+            "samples_ms": [
+              4.490582970902324,
+              6.060790969058871,
+              4.502208961639553,
+              4.383666964713484,
+              4.437124996911734
+            ],
+            "client_cpu_samples_ms": [
+              2.7079999999999327,
+              2.656999999999965,
+              2.5800000000000542,
+              2.5990000000000455,
+              2.7820000000000067
+            ],
+            "output_rows": 64,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "distinct": {
+            "median_ms": 4.408749984577298,
+            "samples_ms": [
+              4.493459011428058,
+              4.567250027321279,
+              4.307917028199881,
+              4.408749984577298,
+              4.377917037345469
+            ],
+            "client_cpu_samples_ms": [
+              2.1349999999999705,
+              2.531999999999951,
+              2.773999999999943,
+              2.523999999999915,
+              2.4709999999999734
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "topk": {
+            "median_ms": 77.4829579750076,
+            "samples_ms": [
+              78.66308302618563,
+              76.7970000160858,
+              77.4829579750076,
+              71.32866600295529,
+              79.77387501159683
+            ],
+            "client_cpu_samples_ms": [
+              58.43900000000002,
+              60.925999999999924,
+              59.223000000000084,
+              58.207999999999984,
+              59.46399999999985
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "topk_nulls_last": {
+            "median_ms": 4.310999996960163,
+            "samples_ms": [
+              4.362999985460192,
+              4.253249964676797,
+              4.310999996960163,
+              4.339375009294599,
+              4.025207948870957
+            ],
+            "client_cpu_samples_ms": [
+              2.5319999999999787,
+              2.525999999999917,
+              2.3199999999999887,
+              2.2320000000000118,
+              2.6560000000001582
+            ],
+            "output_rows": 10,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "point": {
+            "median_ms": 5.2480410085991025,
+            "samples_ms": [
+              5.742041044868529,
+              5.138707987498492,
+              5.325125006493181,
+              5.09562500519678,
+              5.2480410085991025
+            ],
+            "client_cpu_samples_ms": [
+              2.8429999999999844,
+              3.148999999999902,
+              2.848000000000017,
+              2.8939999999998967,
+              2.999999999999947
+            ],
+            "output_rows": 1,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "wide",
+      "round": 0,
+      "source": "mutable",
+      "result": {
+        "source": "f4d5b787e8c28c036baf49de9190c4e6f83ca2e8",
+        "driver_sha256": "cc7ff80c8439ac8932f9baf8c308b6bc7f58514d1cbbe4c03538f0e66b3518f1",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 17143,
+        "storage_model": "mutable",
+        "snapshot_protocol": null,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "not applicable to mutable storage",
+        "unrelated_tables": 0,
+        "wide_columns": 64,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "wide_directory": {
+            "median_ms": 646.3505830033682,
+            "samples_ms": [
+              646.3505830033682,
+              622.2712499438785,
+              633.2339170039631,
+              673.0831669992767,
+              677.348334051203
+            ],
+            "client_cpu_samples_ms": [
+              311.9070000000001,
+              302.19800000000004,
+              299.5830000000002,
+              301.7540000000003,
+              303.7619999999998
+            ],
+            "output_rows": 17143,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "wide_candidates": {
+            "median_ms": 159.83437496470287,
+            "samples_ms": [
+              149.35404201969504,
+              158.99404103402048,
+              162.37191599793732,
+              163.0007089697756,
+              159.83437496470287
+            ],
+            "client_cpu_samples_ms": [
+              17.919999999999604,
+              15.659999999999897,
+              18.140000000000043,
+              19.557000000000045,
+              17.485000000000195
+            ],
+            "output_rows": 87,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "wide",
+      "round": 0,
+      "source": "reference",
+      "result": {
+        "source": "1970bf4a49d13f70f764bf647caa6dad15dc8018",
+        "driver_sha256": "9b1e8ab19d2c2db3aadcf90b67051b82a2b9dca10e00d41ef310af61a682d826",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 17143,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": 64,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "wide_directory": {
+            "median_ms": 1546.6590420110151,
+            "samples_ms": [
+              1613.593749993015,
+              1484.4956659944728,
+              1587.987459031865,
+              1546.6590420110151,
+              1499.5664999587461
+            ],
+            "client_cpu_samples_ms": [
+              607.6659999999999,
+              546.745,
+              583.823,
+              525.0630000000001,
+              562.5559999999997
+            ],
+            "output_rows": 17143,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "wide_candidates": {
+            "median_ms": 71.8688330380246,
+            "samples_ms": [
+              73.717332968954,
+              66.73270801547915,
+              69.27562499186024,
+              77.07962504355237,
+              71.8688330380246
+            ],
+            "client_cpu_samples_ms": [
+              13.549999999999951,
+              13.881000000000032,
+              17.050999999999704,
+              18.89400000000019,
+              16.488000000000504
+            ],
+            "output_rows": 87,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "wide",
+      "round": 0,
+      "source": "current",
+      "result": {
+        "source": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+        "driver_sha256": "03d3634013a9cbb13be733d7730914b0f02f979f99b2c7af0463e46f4ecd307f",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 17143,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": 64,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "wide_directory": {
+            "median_ms": 1571.6205000062473,
+            "samples_ms": [
+              1538.2433330523781,
+              1571.6205000062473,
+              1586.698915984016,
+              1622.2043329617009,
+              1533.452124975156
+            ],
+            "client_cpu_samples_ms": [
+              572.0610000000003,
+              590.8260000000002,
+              601.9010000000001,
+              575.6919999999999,
+              524.7050000000004
+            ],
+            "output_rows": 17143,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "wide_candidates": {
+            "median_ms": 74.90162499016151,
+            "samples_ms": [
+              82.9714999999851,
+              81.6935829934664,
+              67.2878329642117,
+              69.66454203939065,
+              74.90162499016151
+            ],
+            "client_cpu_samples_ms": [
+              18.56699999999978,
+              16.15399999999978,
+              17.700000000000273,
+              20.73500000000017,
+              19.82600000000034
+            ],
+            "output_rows": 87,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "wide",
+      "round": 1,
+      "source": "current",
+      "result": {
+        "source": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+        "driver_sha256": "03d3634013a9cbb13be733d7730914b0f02f979f99b2c7af0463e46f4ecd307f",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 17143,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": 64,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "wide_directory": {
+            "median_ms": 1583.9114999980666,
+            "samples_ms": [
+              1583.9114999980666,
+              1598.7614579498768,
+              1575.4834589897655,
+              1594.141583016608,
+              1550.957582949195
+            ],
+            "client_cpu_samples_ms": [
+              537.2719999999998,
+              586.6949999999999,
+              606.0479999999998,
+              580.4570000000002,
+              578.6779999999998
+            ],
+            "output_rows": 17143,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "wide_candidates": {
+            "median_ms": 66.34529097937047,
+            "samples_ms": [
+              54.73429203266278,
+              66.34529097937047,
+              71.98829099070281,
+              69.11345798289403,
+              65.87616697652265
+            ],
+            "client_cpu_samples_ms": [
+              18.77199999999979,
+              18.658000000000065,
+              17.766999999999644,
+              16.996000000000457,
+              15.730999999999717
+            ],
+            "output_rows": 87,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "wide",
+      "round": 1,
+      "source": "reference",
+      "result": {
+        "source": "1970bf4a49d13f70f764bf647caa6dad15dc8018",
+        "driver_sha256": "9b1e8ab19d2c2db3aadcf90b67051b82a2b9dca10e00d41ef310af61a682d826",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 17143,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": 64,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "wide_directory": {
+            "median_ms": 1550.882083014585,
+            "samples_ms": [
+              1583.9492499944754,
+              1532.395042013377,
+              1550.882083014585,
+              1643.2874159654602,
+              1522.0193329732865
+            ],
+            "client_cpu_samples_ms": [
+              563.1179999999999,
+              580.7719999999999,
+              588.3270000000001,
+              601.9719999999998,
+              594.5540000000002
+            ],
+            "output_rows": 17143,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "wide_candidates": {
+            "median_ms": 67.61262496002018,
+            "samples_ms": [
+              65.19545800983906,
+              74.79470799444243,
+              52.34737502178177,
+              67.61262496002018,
+              73.86762497480959
+            ],
+            "client_cpu_samples_ms": [
+              11.269000000000196,
+              11.519000000000279,
+              11.001000000000483,
+              11.077000000000004,
+              10.285999999999573
+            ],
+            "output_rows": 87,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                5000,
+                2857
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "wide",
+      "round": 1,
+      "source": "mutable",
+      "result": {
+        "source": "f4d5b787e8c28c036baf49de9190c4e6f83ca2e8",
+        "driver_sha256": "cc7ff80c8439ac8932f9baf8c308b6bc7f58514d1cbbe4c03538f0e66b3518f1",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 17143,
+        "storage_model": "mutable",
+        "snapshot_protocol": null,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "not applicable to mutable storage",
+        "unrelated_tables": 0,
+        "wide_columns": 64,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "wide_directory": {
+            "median_ms": 667.453249974642,
+            "samples_ms": [
+              670.5696669523604,
+              667.453249974642,
+              660.5632089776918,
+              620.506499952171,
+              690.3567500412464
+            ],
+            "client_cpu_samples_ms": [
+              311.696,
+              302.379,
+              294.89099999999974,
+              297.72399999999965,
+              298.17800000000017
+            ],
+            "output_rows": 17143,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "wide_candidates": {
+            "median_ms": 161.9816670427099,
+            "samples_ms": [
+              155.17033397918567,
+              165.89808301068842,
+              161.9816670427099,
+              156.49620804470032,
+              171.4864589739591
+            ],
+            "client_cpu_samples_ms": [
+              10.139000000000342,
+              12.596000000000164,
+              14.256000000000046,
+              18.182999999999616,
+              18.376000000000058
+            ],
+            "output_rows": 87,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "exact",
+      "round": 0,
+      "source": "mutable",
+      "result": {
+        "source": "f4d5b787e8c28c036baf49de9190c4e6f83ca2e8",
+        "driver_sha256": "cc7ff80c8439ac8932f9baf8c308b6bc7f58514d1cbbe4c03538f0e66b3518f1",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "mutable",
+        "snapshot_protocol": null,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "not applicable to mutable storage",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "typed_all": {
+            "median_ms": 117.662750009913,
+            "samples_ms": [
+              112.46241698972881,
+              112.54837497835979,
+              117.662750009913,
+              125.09591702837497,
+              125.95683295512572
+            ],
+            "client_cpu_samples_ms": [
+              58.42499999999999,
+              62.45100000000001,
+              59.36700000000003,
+              63.122999999999955,
+              61.81100000000001
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "typed_filter": {
+            "median_ms": 29.396416968666017,
+            "samples_ms": [
+              19.120915967505425,
+              21.836624946445227,
+              29.396416968666017,
+              32.52012497978285,
+              33.52224995614961
+            ],
+            "client_cpu_samples_ms": [
+              4.093999999999931,
+              3.6460000000000106,
+              3.996999999999945,
+              4.047000000000023,
+              4.63900000000006
+            ],
+            "output_rows": 101,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "typed_limit": {
+            "median_ms": 81.8223329843022,
+            "samples_ms": [
+              81.8223329843022,
+              78.24683398939669,
+              83.8532909983769,
+              87.16179197654128,
+              76.61799999186769
+            ],
+            "client_cpu_samples_ms": [
+              70.18900000000001,
+              67.904,
+              66.411,
+              66.18599999999991,
+              66.50100000000006
+            ],
+            "output_rows": 17,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "typed_partitions": {
+            "median_ms": 165.31470802146941,
+            "samples_ms": [
+              165.31470802146941,
+              156.37612499995157,
+              177.06000001635402,
+              167.7269590436481,
+              149.47912498610094
+            ],
+            "client_cpu_samples_ms": [
+              79.12499999999994,
+              78.52899999999985,
+              77.69900000000024,
+              78.41999999999993,
+              75.264
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "exact",
+      "round": 0,
+      "source": "reference",
+      "result": {
+        "source": "1970bf4a49d13f70f764bf647caa6dad15dc8018",
+        "driver_sha256": "9b1e8ab19d2c2db3aadcf90b67051b82a2b9dca10e00d41ef310af61a682d826",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "typed_all": {
+            "median_ms": 802.3955409880728,
+            "samples_ms": [
+              982.7855000039563,
+              948.7099170219153,
+              707.9642079770565,
+              802.3955409880728,
+              674.7683749999851
+            ],
+            "client_cpu_samples_ms": [
+              148.98400000000007,
+              153.46100000000004,
+              129.6060000000001,
+              156.79700000000003,
+              147.18899999999996
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_filter": {
+            "median_ms": 28.4424580167979,
+            "samples_ms": [
+              31.085541006177664,
+              28.4424580167979,
+              18.809916044119745,
+              30.63408297020942,
+              23.324208974372596
+            ],
+            "client_cpu_samples_ms": [
+              11.004999999999932,
+              11.304999999999898,
+              7.992999999999917,
+              10.075000000000001,
+              10.957999999999913
+            ],
+            "output_rows": 101,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_limit": {
+            "median_ms": 17.186250013764948,
+            "samples_ms": [
+              18.64379196194932,
+              17.786834039725363,
+              16.14391600014642,
+              16.538208001293242,
+              17.186250013764948
+            ],
+            "client_cpu_samples_ms": [
+              7.599999999999996,
+              8.606999999999976,
+              5.975999999999814,
+              7.842000000000016,
+              7.370000000000099
+            ],
+            "output_rows": 17,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_partitions": {
+            "median_ms": 562.7406669664197,
+            "samples_ms": [
+              643.4672499890439,
+              523.7069170107134,
+              465.02537495689467,
+              727.44737501489,
+              562.7406669664197
+            ],
+            "client_cpu_samples_ms": [
+              179.361,
+              192.61700000000022,
+              177.697,
+              189.27300000000025,
+              182.49899999999997
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "exact",
+      "round": 0,
+      "source": "current",
+      "result": {
+        "source": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+        "driver_sha256": "03d3634013a9cbb13be733d7730914b0f02f979f99b2c7af0463e46f4ecd307f",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "typed_all": {
+            "median_ms": 508.36512504611164,
+            "samples_ms": [
+              508.36512504611164,
+              493.3376249973662,
+              452.59358402108774,
+              658.6772089940496,
+              602.9354170314036
+            ],
+            "client_cpu_samples_ms": [
+              138.997,
+              154.27200000000008,
+              146.50900000000004,
+              154.435,
+              152.339
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_filter": {
+            "median_ms": 25.69104201393202,
+            "samples_ms": [
+              14.578333008103073,
+              22.215250006411225,
+              25.69104201393202,
+              28.88858300866559,
+              29.566125012934208
+            ],
+            "client_cpu_samples_ms": [
+              8.018999999999998,
+              8.448999999999874,
+              9.296000000000138,
+              9.35799999999981,
+              7.995000000000029
+            ],
+            "output_rows": 101,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_limit": {
+            "median_ms": 21.30620798561722,
+            "samples_ms": [
+              17.35716697294265,
+              17.454874992836267,
+              21.30620798561722,
+              24.06345901545137,
+              37.547332991380244
+            ],
+            "client_cpu_samples_ms": [
+              7.225000000000148,
+              7.804000000000089,
+              7.654999999999912,
+              7.26899999999997,
+              6.047999999999998
+            ],
+            "output_rows": 17,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_partitions": {
+            "median_ms": 627.7039580163546,
+            "samples_ms": [
+              720.0973330182023,
+              548.3053749776445,
+              561.4146249718033,
+              658.7804590235464,
+              627.7039580163546
+            ],
+            "client_cpu_samples_ms": [
+              188.71099999999984,
+              179.70200000000014,
+              184.88099999999986,
+              188.86400000000003,
+              172.00199999999967
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "exact",
+      "round": 1,
+      "source": "current",
+      "result": {
+        "source": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+        "driver_sha256": "03d3634013a9cbb13be733d7730914b0f02f979f99b2c7af0463e46f4ecd307f",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "typed_all": {
+            "median_ms": 565.6845410121605,
+            "samples_ms": [
+              702.7846670243889,
+              348.7260000547394,
+              570.6524159759283,
+              460.49824997317046,
+              565.6845410121605
+            ],
+            "client_cpu_samples_ms": [
+              149.905,
+              104.73000000000002,
+              162.727,
+              156.80300000000003,
+              157.44499999999994
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_filter": {
+            "median_ms": 24.882333003915846,
+            "samples_ms": [
+              33.97874999791384,
+              24.590249988250434,
+              24.882333003915846,
+              18.5259580030106,
+              29.508000006899238
+            ],
+            "client_cpu_samples_ms": [
+              12.29900000000006,
+              12.128000000000029,
+              9.396999999999933,
+              8.713000000000026,
+              8.029000000000009
+            ],
+            "output_rows": 101,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_limit": {
+            "median_ms": 17.85287499660626,
+            "samples_ms": [
+              18.302000011317432,
+              17.85287499660626,
+              17.26408302783966,
+              17.271207994781435,
+              18.267208011820912
+            ],
+            "client_cpu_samples_ms": [
+              7.787000000000099,
+              8.679999999999911,
+              8.735999999999965,
+              7.237000000000049,
+              7.722999999999924
+            ],
+            "output_rows": 17,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_partitions": {
+            "median_ms": 688.3608340285718,
+            "samples_ms": [
+              586.7195829632692,
+              608.3981250412762,
+              688.3608340285718,
+              991.8438339955173,
+              810.3891669888981
+            ],
+            "client_cpu_samples_ms": [
+              197.26799999999994,
+              195.145,
+              178.92600000000002,
+              120.36999999999998,
+              160.08200000000005
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "exact",
+      "round": 1,
+      "source": "reference",
+      "result": {
+        "source": "1970bf4a49d13f70f764bf647caa6dad15dc8018",
+        "driver_sha256": "9b1e8ab19d2c2db3aadcf90b67051b82a2b9dca10e00d41ef310af61a682d826",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "per-case settled segment counts recorded; maintenance remains enabled",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "typed_all": {
+            "median_ms": 672.6752920076251,
+            "samples_ms": [
+              937.3254580423236,
+              662.8920419607311,
+              439.2183339805342,
+              672.6752920076251,
+              757.8983329585753
+            ],
+            "client_cpu_samples_ms": [
+              112.45499999999997,
+              160.66600000000008,
+              163.132,
+              166.89000000000004,
+              158.92499999999998
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_filter": {
+            "median_ms": 25.932833028491586,
+            "samples_ms": [
+              29.74662504857406,
+              30.515957972966135,
+              25.932833028491586,
+              25.439207965973765,
+              24.789499992039055
+            ],
+            "client_cpu_samples_ms": [
+              9.885000000000089,
+              11.670000000000014,
+              9.687999999999974,
+              9.971000000000174,
+              8.120000000000072
+            ],
+            "output_rows": 101,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_limit": {
+            "median_ms": 16.952834033872932,
+            "samples_ms": [
+              17.832582991104573,
+              16.952834033872932,
+              17.353375034872442,
+              16.016708977986127,
+              15.797666972503066
+            ],
+            "client_cpu_samples_ms": [
+              7.556999999999981,
+              6.9109999999999445,
+              6.0670000000001,
+              6.282000000000066,
+              5.283999999999899
+            ],
+            "output_rows": 17,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          },
+          "typed_partitions": {
+            "median_ms": 616.8880840414204,
+            "samples_ms": [
+              602.4290419882163,
+              616.8880840414204,
+              634.6249170019291,
+              576.5171659877524,
+              662.3789999866858
+            ],
+            "client_cpu_samples_ms": [
+              206.02399999999983,
+              195.565,
+              197.71900000000008,
+              200.42700000000013,
+              202.01800000000014
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "snapshot",
+              "snapshot_protocol": 16,
+              "segments": [
+                20000,
+                1,
+                1
+              ],
+              "overlay": true,
+              "maintenance_queue_and_job_empty": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "exact",
+      "round": 1,
+      "source": "mutable",
+      "result": {
+        "source": "f4d5b787e8c28c036baf49de9190c4e6f83ca2e8",
+        "driver_sha256": "cc7ff80c8439ac8932f9baf8c308b6bc7f58514d1cbbe4c03538f0e66b3518f1",
+        "harness_sha256": "8a7b35d85d47b374dc7160e72739574bf03b517595ea6ccc0712a4518b854e9e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 20000,
+        "visible_rows": 19999,
+        "storage_model": "mutable",
+        "snapshot_protocol": null,
+        "settled_reads": true,
+        "initial_segments": null,
+        "segment_count_note": "not applicable to mutable storage",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "execute + complete Arrow fetch + independent validation",
+        "cases": {
+          "typed_all": {
+            "median_ms": 118.89866698766127,
+            "samples_ms": [
+              130.08533301763237,
+              129.7884999657981,
+              113.3884169976227,
+              118.89866698766127,
+              111.99341696919873
+            ],
+            "client_cpu_samples_ms": [
+              64.56500000000005,
+              62.54599999999999,
+              62.00999999999993,
+              58.89599999999995,
+              58.81099999999995
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "typed_filter": {
+            "median_ms": 20.175624988041818,
+            "samples_ms": [
+              19.957250042352825,
+              20.484041946474463,
+              20.175624988041818,
+              18.09054199839011,
+              27.918040985241532
+            ],
+            "client_cpu_samples_ms": [
+              3.6550000000000473,
+              3.5160000000000746,
+              3.7910000000000164,
+              3.546999999999967,
+              4.279000000000116
+            ],
+            "output_rows": 101,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "typed_limit": {
+            "median_ms": 80.37612499902025,
+            "samples_ms": [
+              80.09558299090713,
+              77.45791703928262,
+              88.95408402895555,
+              83.75637501012534,
+              80.37612499902025
+            ],
+            "client_cpu_samples_ms": [
+              70.35399999999994,
+              68.35599999999994,
+              68.12900000000002,
+              68.50300000000011,
+              67.50200000000004
+            ],
+            "output_rows": 17,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          },
+          "typed_partitions": {
+            "median_ms": 167.46454103849828,
+            "samples_ms": [
+              195.14662498841062,
+              156.95441694697365,
+              171.8916249810718,
+              152.82599994679913,
+              167.46454103849828
+            ],
+            "client_cpu_samples_ms": [
+              81.41299999999984,
+              77.48800000000006,
+              78.42200000000005,
+              80.32400000000001,
+              77.93999999999996
+            ],
+            "output_rows": 19999,
+            "fixture": {
+              "storage_model": "mutable",
+              "segments": null
+            }
+          }
+        }
+      }
+    }
+  ]
+}
