@@ -412,7 +412,7 @@
         "written_bytes": 775584
       }
     ],
-    "current": [
+    "rejected_prototype": [
       {
         "allocated_bytes": 5391832,
         "allocations": 108531,
@@ -612,5 +612,6 @@
         "written_bytes": 775584
       }
     ]
-  }
+  },
+  "candidate_status": "Rejected ordinary-scan/formatting prototype; final candidate samples pending"
 }

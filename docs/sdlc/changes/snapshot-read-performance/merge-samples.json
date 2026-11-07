@@ -68,7 +68,7 @@
         "allocs_per_page": 1196
       }
     ],
-    "current": [
+    "rejected_prototype": [
       {
         "segments": 1,
         "iterations": 59805,
@@ -133,5 +133,6 @@
         "allocs_per_page": 684
       }
     ]
-  }
+  },
+  "candidate_status": "Rejected ordinary-scan/formatting prototype; final ordinary scanner is unchanged"
 }

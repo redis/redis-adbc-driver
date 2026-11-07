@@ -4,13 +4,15 @@ Date: 2026-11-06. Issue [#338](https://github.com/redis/redis-adbc-driver/issues
 
 ## Implementation and source identities
 
-Page-scoped merge scratch replaces a separate dynamic scratch slice for each row in directory and candidate scans. Directory scans compare the canonical parsed positive int64 against the 20-byte entry with only zero padding removed, avoiding padded `fmt.Sprintf` per row. Head validation, every source read, newest-winner selection, advancement of equal heads, row hydration and all server checks retain their order. No command batching, masks, transport protocol, format, grants, page bounds or lifetime rules change.
+The final change reuses page-scoped scratch in selective candidate scans only. Ordinary directory scanning is byte-for-byte identical to the reference. A prototype changed ordinary directory scratch lifetime and removed padded `fmt.Sprintf` validation; the combined prototype was rejected after complete native read regressions. The final candidate retains the original canonical validation. Head validation, every source read, newest-winner selection, advancement of equal heads, row hydration and all server checks retain their order. No command batching, masks, transport protocol, format, grants, page bounds or lifetime rules change.
 
 Clean native libraries were built with Go 1.27.3 and the Makefile driver version/linker flags:
 
 - Mutable: `f4d5b787e8c28c036baf49de9190c4e6f83ca2e8` (historical mutable storage).
 - Reference: `1970bf4a49d13f70f764bf647caa6dad15dc8018` (protocol 16).
-- Current runtime: `3cc906dca59ad205a303ead99ffaa8e1799f582c` (protocol 16). Subsequent changes are profiling/tests/evidence only; verify production-tree equivalence before delivery.
+- Rejected formatting prototype: `3cc906dca59ad205a303ead99ffaa8e1799f582c` (protocol 16).
+- Intermediate scratch-only ordinary-scanner experiment: `b514a52a` (protocol 16), built but not selected for delivery.
+- Candidate-scan-only runtime: `cdd75468eb207dc0968356a1e2e4fa5113f4f328`; a clean evidence commit will identify its final native library. Ordinary scans are restored to the reference. Final measurements are pending.
 
 The native JSON retains actual library and harness SHA-256s. Each process loads one library and resets only its owned disposable fixture. All complete Arrow results are independently checked. Each case has one warmup plus five recorded samples. Narrow cases include 32 unrelated tables. Wide cases have 64 columns. Exact cases include BIGINT above 2^53, decimal(24,4), NULL, arbitrary binary bytes, replacements/deletions, filters, ordering/limits and four live partitions. The partition timing includes production, all worker fetches, concatenation/sorting and validation; explicit group release follows the timer. It does not measure distributed workers on different hosts. Existing native snapshot validation separately tests visibility through concurrent writes, producer Close and recreation.
 
@@ -18,7 +20,7 @@ The native JSON retains actual library and harness SHA-256s. Each process loads 
 
 Redis Software 8.2.6-25, Redis 8.8.0, active/effective 4x QPF verified through management API, strict authenticated TLS, noeviction, three primary shards behind the local proxy. Software image digest `sha256:b3993a5ed453ffe2aeacff63db7dd3702253b7e2f732032676e2b221413e0e06`. macOS 26.7.2 arm64, Apple M5 Max, 18 logical CPUs, 36 GiB host memory; Docker Desktop: 18 CPUs, 25,420,967,936 memory bytes. Python/Arrow/client versions and hashes are retained in the evidence metadata. This is synthetic owned-fixture testing, not ClickBench.
 
-Managed row versions share the metadata hash slot; mutable rows can distribute across the three shards. This compares actual storage models, not identical per-shard engine cost. Background maintenance is enabled during native runs and segment topology is not sampled, so these are end-to-end comparisons rather than a causal decomposition of the merge optimization. Named local build/test processes were checked before/during timing; this is not a guarantee that the whole host was idle. Resource attribution uses a separate controlled Go fixture with background workers disabled.
+Managed row versions share the metadata hash slot; mutable rows can distribute across the three shards. This compares actual storage models, not identical per-shard engine cost. Initial native series leave maintenance enabled without sampling topology. A separate controlled series waits for both the compaction queue and active job to empty, then records per-case immutable segment row counts outside query timers. Results from different harness revisions/conditions are reported separately. Named local build/test processes were checked before/during timing; this is not a guarantee that the whole host was idle. Resource attribution uses a separate controlled Go fixture with background workers disabled.
 
 ## Upstream capability review
 
@@ -28,7 +30,7 @@ The older EVAL_RO wrapper reduced request bytes but worsened full read latency; 
 
 ## Resource attribution and native latency
 
-Final tables and complete samples will be attached after the balanced repeat and validation finish. Fewer allocations are not a claim of lower query latency, general speedup or mutable performance parity.
+The rejected prototype’s complete native samples are in [prototype-native-samples.json](prototype-native-samples.json); the ordinary merge microbenchmark and initial resource samples also describe that prototype, not the final candidate. Final tables and complete samples will be attached after the balanced repeat and validation finish. The combined ordinary-scan/formatting prototype reduced merge CPU/allocations but materially regressed native full reads in controlled repeats; neither ordinary-scan change is shipped. Fewer allocations are not a claim of lower query latency, general speedup or mutable performance parity.
 
 ## Reproduction and review
 
