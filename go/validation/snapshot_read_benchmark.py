@@ -424,6 +424,9 @@ def main():
     parser.add_argument("--unrelated-tables", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
+    if args.settle_reads and any((args.writes, args.write_batches, args.rewrite_batches,
+                                 args.foreign_imports, args.sustained_writes)):
+        parser.error("--settle-reads applies only to the normal, wide and exact read modes")
     if (
         (args.rows != 1 if args.writes else not 128 <= args.rows <= 50000)
         or args.repeats < 1

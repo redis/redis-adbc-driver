@@ -130,13 +130,12 @@ func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, e
 	if limit == 0 {
 		limit = snapshotDeltaPage
 	}
-	// Reuse merge scratch for the whole page, rather than allocating per row.
-	heads := make([]string, len(d.sources))
 	for len(logical) < limit {
 		if err := cancelled(ctx); err != nil {
 			return nil, nil, err
 		}
 		smallest := ""
+		heads := make([]string, len(d.sources))
 		for i := range d.sources {
 			id, err := d.head(ctx, i)
 			if err != nil {
