@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -62,18 +63,37 @@ func snapshotClusterFreshClient() (*goredis.ClusterClient, error) {
 // It is test-only: command replies and the original error are never changed.
 // A later healthy read is diagnostic evidence, not proof of the failure cause.
 type snapshotClusterProofObserver struct {
-	logf       func(string, ...any)
-	captured   atomic.Int64
-	recognized atomic.Int64
-	directory  string
+	logf            func(string, ...any)
+	captured        atomic.Int64
+	recognized      atomic.Int64
+	executions      sync.Map
+	executionProofs atomic.Int64
+	directory       string
 }
 
 func (*snapshotClusterProofObserver) DialHook(next goredis.DialHook) goredis.DialHook { return next }
-func (*snapshotClusterProofObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
-	return next
+
+// Managed SQL creates its execution pool before acquiring its snapshot on the
+// maintenance client. Attach there, before the execution pool's first command.
+// This observer is used only by the serialized owned recovery fixtures.
+func (o *snapshotClusterProofObserver) observeExecution(ctx context.Context) {
+	transport, _ := ctx.Value(transportContextKey{}).(*executionTransport)
+	if transport == nil {
+		return
+	}
+	if _, loaded := o.executions.LoadOrStore(transport, true); !loaded {
+		transport.client.AddHook(o)
+	}
+}
+func (o *snapshotClusterProofObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		o.observeExecution(ctx)
+		return next(ctx, cmd)
+	}
 }
 func (o *snapshotClusterProofObserver) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		o.observeExecution(ctx)
 		originalErr := next(ctx, cmds)
 		if originalErr != nil && !errors.Is(originalErr, goredis.Nil) {
 			return originalErr
@@ -102,6 +122,9 @@ func (o *snapshotClusterProofObserver) ProcessPipelineHook(next goredis.ProcessP
 			return originalErr
 		}
 		o.recognized.Add(1)
+		if transport, _ := ctx.Value(transportContextKey{}).(*executionTransport); transport != nil {
+			o.executionProofs.Add(1)
+		}
 		observed := snapshotClusterTuple(proof.Val(), count.Val(), fields.Val())
 		if observed.healthy() {
 			return originalErr
@@ -123,12 +146,20 @@ func (o *snapshotClusterProofObserver) ProcessPipelineHook(next goredis.ProcessP
 		n := pipe.HLen(probe, bucket)
 		d := pipe.ZCard(probe, directory)
 		root := pipe.HGet(probe, snapshotCatalogKey, "root")
+		mapped := pipe.HGet(probe, snapshotMetadataMap(scope.id), pieces[1])
+		pinToken := ""
+		if scope.pin != nil {
+			pinToken = scope.pin.token
+		}
+		pin := pipe.HGet(probe, snapshotCatalogKey, "p:"+pinToken)
+		clock := pipe.Time(probe)
 		_, freshErr = pipe.Exec(probe)
 		independent := snapshotClusterTuple(p.Val(), n.Val(), d.Val())
 		current := root.Val() == scope.id
 		saved := false
 		if o.directory != "" {
-			record := map[string]any{"utc": time.Now().UTC().Format(time.RFC3339Nano), "scope": scope.id, "current_root": root.Val(), "bucket": bucket, "directory": directory, "observed": observed, "fresh": independent, "fresh_error": freshErr != nil}
+			record := map[string]any{"utc": time.Now().UTC().Format(time.RFC3339Nano), "scope": scope.id, "current_root": root.Val(), "bucket": bucket, "directory": directory, "observed": observed, "fresh": independent, "fresh_error": freshErr != nil,
+				"mapped_owner": mapped.Val(), "mapped_owner_error": mapped.Err() != nil, "pin": pin.Val(), "pin_error": pin.Err() != nil, "server_time": clock.Val(), "server_time_error": clock.Err() != nil, "write_scope": scope.write}
 			if raw, err := json.Marshal(record); err == nil {
 				// Never follow or overwrite an existing artifact, or inherit its mode.
 				f, err := os.OpenFile(filepath.Join(o.directory, fmt.Sprintf("metadata-proof-%d.json", attempt)), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)

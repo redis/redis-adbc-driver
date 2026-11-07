@@ -1,11 +1,57 @@
 """Offline admission checks for the owned Software recovery orchestrator."""
 
 import io
+import contextlib
+from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 import snapshot_software_cluster as cluster
+
+
+class RecoveryArtifactTests(unittest.TestCase):
+    def test_private_attempt_archives_are_distinct_and_restrictive(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            def copy(*args, **kwargs):
+                destination = Path(args[-1])
+                (destination / "nested").mkdir(mode=0o755)
+                record = destination / "nested" / "metadata-proof-1.json"
+                record.write_text('{"private_identity":"synthetic"}')
+                record.chmod(0o644)
+                return ""
+            with patch.object(cluster, "docker", side_effect=copy):
+                first = cluster.archive_recovery_artifacts(Path(temporary), "restart", "client", "/private-attempt")
+                second = cluster.archive_recovery_artifacts(Path(temporary), "restart", "client", "/private-attempt")
+            self.assertNotEqual(first, second)
+            for archive in (first, second):
+                self.assertEqual(archive.stat().st_mode & 0o777, 0o700)
+                self.assertEqual((archive / "nested").stat().st_mode & 0o777, 0o700)
+                self.assertEqual((archive / "nested" / "metadata-proof-1.json").stat().st_mode & 0o777, 0o600)
+
+    def test_capture_rejects_symlinks_without_changing_target(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            outside = root / "outside"
+            outside.write_text("synthetic")
+            outside.chmod(0o640)
+            def copy(*args, **kwargs):
+                (Path(args[-1]) / "link").symlink_to(outside)
+                return ""
+            with patch.object(cluster, "docker", side_effect=copy):
+                with self.assertRaisesRegex(ValueError, "unexpected symlink"):
+                    cluster.archive_recovery_artifacts(root, "restart", "client", "/private-attempt")
+            self.assertEqual(outside.stat().st_mode & 0o777, 0o640)
+
+    def test_missing_artifacts_do_not_replace_original_failure_or_pass(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(SystemExit) as failure:
+                cluster.finish_recovery("restart", 7, False)
+            self.assertEqual(failure.exception.code, 7)
+            with self.assertRaisesRegex(RuntimeError, "artifacts are unavailable"):
+                cluster.finish_recovery("restart", 0, False)
+            cluster.finish_recovery("restart", 0, True)
 
 
 def checkpoint(second, **overrides):
