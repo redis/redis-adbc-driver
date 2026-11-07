@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import re
+import secrets
 from pathlib import Path
 import subprocess
 import sys
@@ -573,19 +574,42 @@ def checkpoint_rdb(config, api, command, output):
     print("Fresh completed RDB checkpoints and disabled AOF verified on every shard", flush=True)
 
 
+def archive_recovery_artifacts(directory, action, client, chaos):
+    archive = directory.resolve() / (action + "-diagnostics-" + secrets.token_hex(8))
+    archive.mkdir(mode=0o700)
+    docker("cp", client + ":" + chaos + "/.", str(archive))
+    for artifact in archive.rglob("*"):
+        if artifact.is_symlink():
+            raise ValueError("unexpected symlink in private recovery artifacts")
+        artifact.chmod(0o700 if artifact.is_dir() else 0o600)
+    return archive
+
+
+def finish_recovery(action, code, artifacts_saved):
+    print(action + " regression exit:", code, flush=True)
+    if code:
+        raise SystemExit(code)
+    if not artifacts_saved:
+        raise RuntimeError("recovery passed but private diagnostic artifacts are unavailable")
+
+
 def recovery_tests(args):
     import binascii
 
     config, api = load_fixture(args)
     client = client_container(args.project)
     command = test_command(args, config)
-    chaos = "/tmp/snapshot-chaos"
-    docker("exec", client, "mkdir", "-p", chaos)
-    docker("exec", client, "rm", "-f", chaos + "/ready", chaos + "/continue")
-    command[2:2] = ["-e", "REDIS_SNAPSHOT_CHAOS_DIR=" + chaos]
+    chaos = "/tmp/snapshot-chaos-" + secrets.token_hex(8)
+    docker("exec", client, "mkdir", "-m", "700", chaos)
+    command[2:2] = ["-e", "REDIS_SNAPSHOT_CHAOS_DIR=" + chaos,
+                    "-e", "REDIS_SNAPSHOT_KEEP_FAILED_FIXTURE=1"]
+    # Stop before any later test can reset a failed recovery subject. Keep the
+    # final argument as the test pattern for checkpoint subprocess selection.
+    command.insert(-2, "-test.failfast")
     if config.get("persistence", "aof") == "snapshot" and args.action == "restart":
         command[2:2] = ["-e", "REDIS_SNAPSHOT_RDB_REQUIRED=1"]
     path = args.directory.resolve() / (args.action + "-tests.log")
+    artifacts_saved = False
     with path.open("w") as output:
         process = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT)
         try:
@@ -693,9 +717,15 @@ def recovery_tests(args):
                 )
                 process.terminate()
                 process.wait(timeout=10)
-    print(args.action + " regression exit:", code, flush=True)
-    if code:
-        raise SystemExit(code)
+            # Do not lose the failed native proof when a later run starts.
+            # This captures test artifacts only; it never saves or repairs Redis.
+            try:
+                archive_recovery_artifacts(args.directory, args.action, client, chaos)
+                artifacts_saved = True
+            except (OSError, ValueError, subprocess.CalledProcessError):
+                # Never replace the original native/orchestration failure.
+                print("Private recovery artifact capture failed", flush=True)
+    finish_recovery(args.action, code, artifacts_saved)
 
 
 def proxy_regressions(args):

@@ -72,7 +72,14 @@ func snapshotClusterHarness(t *testing.T) (*sqlHarness, *goredis.ClusterClient, 
 		}
 	}
 	reset()
-	t.Cleanup(func() { reset(); _ = raw.Close() })
+	t.Cleanup(func() {
+		if !t.Failed() || os.Getenv("REDIS_SNAPSHOT_KEEP_FAILED_FIXTURE") != "1" {
+			reset()
+		} else {
+			t.Log("failed owned recovery fixture retained for diagnosis")
+		}
+		_ = raw.Close()
+	})
 	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, map[string]string{adbc.OptionKeyURI: uri, OptionStringCluster: "true"})
 	if err != nil {
 		t.Fatal(err)
@@ -475,7 +482,7 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	observer := &snapshotClusterProofObserver{logf: t.Logf, directory: os.Getenv("REDIS_SNAPSHOT_CHAOS_DIR")}
 	s.client.AddHook(observer)
 	defer func() {
-		t.Logf("proof pipeline diagnostic: matched=%d mismatches=%d", observer.recognized.Load(), observer.captured.Load())
+		t.Logf("proof pipeline diagnostic: matched=%d execution=%d mismatches=%d", observer.recognized.Load(), observer.executionProofs.Load(), observer.captured.Load())
 	}()
 	token := snapshotID()
 	for i := 0; i < 2; i++ {
@@ -684,6 +691,14 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer fresh.Close(h.ctx)
+	freshStatement, err := fresh.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	freshStatement.(*statementImpl).conn.store.client.AddHook(observer)
+	if err := freshStatement.Close(h.ctx); err != nil {
+		t.Fatal(err)
+	}
 	h2 := &sqlHarness{t: t, ctx: h.ctx, conn: fresh}
 	h2.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "1001|102|9007199254740993")
 	h2.exec("INSERT INTO t VALUES (1002,77)")
