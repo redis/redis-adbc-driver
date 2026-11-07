@@ -144,8 +144,14 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   remain reclaimable. Replacement may clear only registered private HASHes;
   preserve NULL/provenance and track tombstones plus acknowledged batch writes
   for no-op detection independently of unbatched quotas. Arrow conversion slices
-  at 4096 rows; metadata/utilities retain their separate staging limits. This is not process resume
-  of unread input or a persisted SQL plan.
+  at 4096 rows; metadata/control commands retain cumulative admission limits. This is not process resume
+  of unread input or a persisted SQL plan. Public HASH copy/adoption/foreign
+  refresh already use bounded native row images; do not describe the defensive
+  legacy 100,000-HSET guard as their row limit. The 64 MiB metadata/control budget
+  still includes row-ID allocation. For private outputs, raise TAG/NaN facts only
+  beyond the current acknowledged descriptor; retain identity checks and never
+  cache an uncertain metadata mutation as successful. Return independent HASH
+  copy statistics so keeping a result does not retain its input scan/key map.
   Exact-ID/private-index/mask-budget fallbacks must retain the full SQL predicate. Preserve exact, score-zero row-ID directories
   registered atomically by writer fences. Publish dirty-table compaction eligibility atomically with the root; never
   enumerate the catalog to find work. Preserve FIFO age, candidate identity and

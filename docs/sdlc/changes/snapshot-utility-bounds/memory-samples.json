@@ -1,0 +1,63 @@
+{
+  "date": "2026-11-06",
+  "source_base": "9c838db7a24d40f35ac503efc7861a0805a8abde",
+  "candidate_sha256": {
+    "go/hashcopy.go": "c07bc2ac2c002b25bb45d75d8c877927f34ac098c5ea57448924925177ffc0e5",
+    "go/tags.go": "30215820dbdf819776bae37c54bdc4f00a2603507229b8e1c0e31f648e2bfefc",
+    "go/snapshot_utility_copy_integration_test.go": "278146c7e584ffe1bfc1ecb6aacf0fd2e0f57400653cb1bcdf5b0ede2e3dae6f",
+    "go/snapshot_utility_bounds_integration_test.go": "2904bb7552e906165934660dc73afc072964869f4e996950608f26d1d299dd9b",
+    "go/hashcopy_retention_test.go": "2f2d81d0882baf269cb2ee2e7d7fc5eb2eb135e675dce426c9fe4c7cdf14cc2d"
+  },
+  "client": "Go 1.27.3 darwin/arm64",
+  "server": "Redis Software 8.2.6-25 / Redis 8.8.0",
+  "verified_effective_qpf": 4,
+  "transport": "strict TLS/RESP3",
+  "policy": "noeviction",
+  "race_instrumented": false,
+  "samples": [
+    {
+      "rows": 100000,
+      "payload_bytes": 7,
+      "elapsed_ms": 7124.405,
+      "batches": 400,
+      "max_batch_rows": 256,
+      "sampled_heap_growth": 34843088,
+      "total_alloc_bytes": 516823272,
+      "post_gc_heap_delta": 345880,
+      "directory_bytes": 9783024,
+      "sample_row_bytes": 207
+    },
+    {
+      "rows": 100001,
+      "payload_bytes": 7,
+      "elapsed_ms": 7220.321,
+      "batches": 401,
+      "max_batch_rows": 256,
+      "sampled_heap_growth": 36451856,
+      "total_alloc_bytes": 516508608,
+      "post_gc_heap_delta": 59696,
+      "directory_bytes": 9792384,
+      "sample_row_bytes": 207
+    },
+    {
+      "rows": 33,
+      "payload_bytes": 2097152,
+      "elapsed_ms": 459.732,
+      "batches": 33,
+      "max_batch_rows": 1,
+      "sampled_heap_growth": 346068920,
+      "total_alloc_bytes": 548623520,
+      "post_gc_heap_delta": 17616,
+      "directory_bytes": 895,
+      "sample_row_bytes": 2621898
+    }
+  ],
+  "interpretation": [
+    "One complete CopyHashes API operation per sample; input generation and subsequent result/source assertions are outside elapsed_ms.",
+    "Heap sampled at acknowledged write batches and API return; this is not exact peak heap or RSS.",
+    "total_alloc_bytes is cumulative allocation, not retained memory.",
+    "post_gc_heap_delta is a live-heap difference while returned statistics remain live; it includes runtime/client caches and is not a leak proof or hard memory bound.",
+    "Directory and sample-row sizes are Redis MEMORY USAGE observations, not total database memory.",
+    "No controlled latency/throughput comparison or constant-memory claim."
+  ]
+}

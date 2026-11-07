@@ -339,6 +339,33 @@ func (s *store) raiseNeeds(ctx context.Context, meta *tableMeta, need valueNeeds
 	if len(need.levels) == 0 && len(need.nans) == 0 {
 		return nil
 	}
+	if snapshotOwns(ctx, meta.prefix()) {
+		// A streamed writer retains its input descriptor across batches. Its
+		// private descriptor already contains earlier acknowledged facts; these
+		// only increase within this physical output. Do not charge another
+		// metadata rewrite for every page containing the same kind of value.
+		// Read the descriptor rather than caching an uncertain mutation outcome.
+		current, err := s.getTableMetadata(ctx, meta.Schema, meta.Name)
+		if err != nil {
+			return err
+		}
+		if !current.sameKeysAs(meta) {
+			return writeMovedErr(meta)
+		}
+		var pending valueNeeds
+		for _, c := range current.Columns {
+			if level, ok := need.levels[c.field()]; ok && tagRank(level) > tagRank(c.TagValues) {
+				pending.level(c.field(), level)
+			}
+			if need.nans[c.field()] && c.Type.Kind.isFloat() && !c.NaNs {
+				pending.nan(c.field())
+			}
+		}
+		need = pending
+		if len(need.levels) == 0 && len(need.nans) == 0 {
+			return nil
+		}
+	}
 	return s.updateTable(ctx, meta.Schema, meta.Name, func(m *tableMeta) error {
 		for i := range m.Columns {
 			c := &m.Columns[i]
