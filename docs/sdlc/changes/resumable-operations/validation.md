@@ -1,13 +1,15 @@
 # Retained operation validation
 
 Date: 2026-11-09. Issue: [#335](https://github.com/redis/redis-adbc-driver/issues/335).
-Author: Codex. Status: local validation complete for the focused checks below;
-broader snapshot regression and delivery checks are in progress.
+Author: Codex. Status: local validation complete; delivery CI is tracked in
+[PR #355](https://github.com/redis/redis-adbc-driver/pull/355).
 
-Implementation started at main `cc2d6601`; checkpoint `93e2a8f3` and the subsequent
-working-tree changes introduced the tested APIs and additional regressions. Final
-PR checks must identify the final delivery commit. Historical saved-branch results
-are not evidence for this implementation.
+Implementation started at main `cc2d6601`; implementation commits `93e2a8f3` and
+`db7b4324` contain the tested APIs and regressions. Earlier recovery runs used
+the working tree leading to those commits; final focused checks were repeated
+on `db7b4324`. Documentation-only delivery records do not change the tested code.
+Final CI must identify the PR head. Historical saved-branch results are not evidence
+for this implementation.
 
 ## Environments and observed results
 
@@ -44,6 +46,11 @@ with `make -C go redis-up`; it is not counted as a Cluster API deployment.
 - Three native C/ADBC tests passed through the built versioned shared library:
   SQL and Arrow preparation followed by separate Python-process continuation;
   and conflict SQLSTATE/handle preservation followed by explicit abort.
+- The broader `^TestSnapshot` selection passed with race detection on the verified
+  single-endpoint Software fixture in 423.458 seconds. Environment-gated Cluster,
+  recovery-orchestration and optional profile/ACL tests are not counted as
+  backend coverage by this run; the dedicated Cluster checks above supply their
+  separate evidence.
 - All six Go packages passed a unit-only run with race detection. Backend-gated
   skips in that run are expected and are not backend compatibility evidence.
 

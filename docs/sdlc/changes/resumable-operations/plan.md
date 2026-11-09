@@ -1,8 +1,9 @@
 # Implementation plan
 
 Date: 2026-11-09. Issue: [#335](https://github.com/redis/redis-adbc-driver/issues/335).
-Status: implementation and focused recovery validation complete; broader
-regression and PR delivery checks pending. See [validation](validation.md).
+Status: implementation, focused recovery and broader local snapshot regression
+complete. Delivery checks are tracked in [PR #355](https://github.com/redis/redis-adbc-driver/pull/355).
+See [validation](validation.md) and [review](review.md).
 
 1. Audit current protocol-16 capture, mutation, publication, GC and native/ADBC
    execution lifecycles. Review saved branch 1a641d7f selectively.
