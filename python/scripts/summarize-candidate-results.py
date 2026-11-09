@@ -5,10 +5,12 @@ from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 
+from integration_registry import PROFILES
+
 
 def main():
     root = Path(sys.argv[1])
-    profiles = sys.argv[2:] or ["core", "workflows", "models", "orchestrators", "spark", "airflow", "superset", "dbt", "documents", "analysis", "beam", "mage", "kestra", "ray-tls"]
+    profiles = sys.argv[2:] or list(PROFILES)
     summary = {}
     failed = False
     for profile in profiles:

@@ -5,7 +5,6 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 uv_bin="${UV:-uv}"
 env_root="${CANDIDATE_ENV_ROOT:-${TMPDIR:-/tmp}/redis-adbc-native-candidates}"
 results="${CANDIDATE_RESULTS_DIR:-$env_root/results}"
-mkdir -p "$results"
 if ! command -v "$uv_bin" >/dev/null 2>&1; then
   echo "Install uv or set UV to its executable before running all candidates" >&2
   exit 2
@@ -19,7 +18,10 @@ export TF_CPP_MIN_LOG_LEVEL=2
 export OMP_NUM_THREADS=1
 export CANDIDATE_SDK_CACHE="${CANDIDATE_SDK_CACHE:-$env_root/fivetran-tester}"
 status=0
-profiles=(core workflows models orchestrators spark airflow superset dbt documents analysis beam mage kestra ray-tls)
+registry="$repo_root/python/scripts/integration_registry.py"
+profile_names="$(python3 "$registry" profiles)"
+profiles=()
+while IFS= read -r profile; do profiles+=("$profile"); done <<< "$profile_names"
 if [[ -n "${CANDIDATE_PROFILES:-}" ]]; then
   read -r -a profiles <<< "$CANDIDATE_PROFILES"
 fi
@@ -27,12 +29,11 @@ if [[ ${#profiles[@]} -eq 0 ]]; then
   echo "CANDIDATE_PROFILES must include at least one profile" >&2
   exit 2
 fi
+# Validate the entire request before creating environments or reports.
 for profile in "${profiles[@]}"; do
-  case "$profile" in
-    core|workflows|models|orchestrators|spark|airflow|superset|dbt|documents|analysis|beam|mage|kestra|ray-tls) ;;
-    *) echo "Unknown native candidate profile: $profile" >&2; exit 2 ;;
-  esac
+  python3 "$registry" profile "$profile" >/dev/null
 done
+mkdir -p "$results"
 
 run_profile() {
   local profile=$1 python_version=$2 extras=$3
@@ -67,39 +68,26 @@ for profile in "${profiles[@]}"; do
   echo "Running native candidate profile: $profile"
   rm -f "$results/$profile.xml" "$results/$profile.exitcode"
   : > "$results/$profile.log"
-  case "$profile" in
-    core) args=(3.12 'test,candidate-tests' driver pandas polars ml sqlalchemy arrow duckdb dask dagster prefect dlt ray) ;;
-    ray-tls) args=(3.12 ray-tests ray-tls) ;;
-    workflows) args=(3.12 workflow-tests jupyter datasets streamlit scipy) ;;
-    models) args=(3.12 'plotting-tests,model-tests' plotly matplotlib xgboost pytorch tensorflow keras transformers) ;;
-    orchestrators) args=(3.12 orchestrator-tests kubeflow metaflow fivetran) ;;
-    spark) args=(3.12 spark-tests spark) ;;
-    airflow) args=(3.14 airflow-tests airflow) ;;
-    superset) args=(3.12 'superset,test-runner' superset) ;;
-    dbt) args=(3.14 dbt-tests dbt) ;;
-    analysis) args=(3.12 analysis-tests ibis mlflow) ;;
-    beam) args=(3.12 beam-tests beam) ;;
-    mage) args=(3.12 mage-tests mage) ;;
-    kestra) args=(3.12 kestra-tests kestra) ;;
-    documents)
-      args=(3.12 workflow-tests r quarto)
-      if ! command -v "${RSCRIPT:-Rscript}" >/dev/null 2>&1 || \
-          ! command -v "${QUARTO:-quarto}" >/dev/null 2>&1; then
-        rm -f "$results/$profile.xml"
-        echo "Rscript and Quarto are required for the documents profile" | tee "$results/$profile.log" >&2
-        echo 2 > "$results/$profile.exitcode"
-        status=1
-        continue
-      fi
-      export R_LIBS_USER="${R_LIBS_USER:-$env_root/r-library}"
-      mkdir -p "$R_LIBS_USER"
-      if ! "${RSCRIPT:-Rscript}" -e 'p <- c("DBI", "adbi", "adbcdrivermanager"); missing <- p[!vapply(p, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) install.packages(missing, lib=Sys.getenv("R_LIBS_USER"), repos="https://cloud.r-project.org")' 2>&1 | tee "$results/$profile.log"; then
-        status=1
-        echo 1 > "$results/$profile.exitcode"
-        continue
-      fi
-      ;;
-  esac
+  profile_args="$(python3 "$registry" profile "$profile")"
+  args=()
+  while IFS= read -r value; do args+=("$value"); done <<< "$profile_args"
+  if [[ "$profile" == documents ]]; then
+    if ! command -v "${RSCRIPT:-Rscript}" >/dev/null 2>&1 || \
+        ! command -v "${QUARTO:-quarto}" >/dev/null 2>&1; then
+      rm -f "$results/$profile.xml"
+      echo "Rscript and Quarto are required for the documents profile" | tee "$results/$profile.log" >&2
+      echo 2 > "$results/$profile.exitcode"
+      status=1
+      continue
+    fi
+    export R_LIBS_USER="${R_LIBS_USER:-$env_root/r-library}"
+    mkdir -p "$R_LIBS_USER"
+    if ! "${RSCRIPT:-Rscript}" -e 'p <- c("DBI", "adbi", "adbcdrivermanager"); missing <- p[!vapply(p, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) install.packages(missing, lib=Sys.getenv("R_LIBS_USER"), repos="https://cloud.r-project.org")' 2>&1 | tee "$results/$profile.log"; then
+      status=1
+      echo 1 > "$results/$profile.exitcode"
+      continue
+    fi
+  fi
   if run_profile "$profile" "${args[@]}" 2>&1 | tee "$results/$profile.log"; then
     echo 0 > "$results/$profile.exitcode"
   else
