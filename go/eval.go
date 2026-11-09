@@ -121,53 +121,16 @@ func walkExprPruned(e Expr, fn func(Expr) bool) {
 	}
 }
 
-// walkOutsideAggregates visits the nodes of e that are not inside an
-// aggregate call.
+// walkOutsideAggregates uses the same child and query/window scope boundaries
+// as walkExpr. Aggregate calls themselves and their children are excluded.
 func walkOutsideAggregates(e Expr, fn func(Expr)) {
-	if e == nil {
-		return
-	}
-	if f, ok := e.(*Func); ok && aggregateFuncs[f.Name] {
-		return
-	}
-	fn(e)
-	switch x := e.(type) {
-	case *Unary:
-		walkOutsideAggregates(x.X, fn)
-	case *Binary:
-		walkOutsideAggregates(x.L, fn)
-		walkOutsideAggregates(x.R, fn)
-	case *IsNull:
-		walkOutsideAggregates(x.X, fn)
-	case *Cast:
-		walkOutsideAggregates(x.X, fn)
-		walkOutsideAggregates(x.OnError, fn)
-	case *Func:
-		for _, a := range x.Args {
-			walkOutsideAggregates(a, fn)
+	walkExprPruned(e, func(x Expr) bool {
+		if f, ok := x.(*Func); ok && aggregateFuncs[f.Name] {
+			return false
 		}
-	case *Case:
-		walkOutsideAggregates(x.Operand, fn)
-		for _, w := range x.Whens {
-			walkOutsideAggregates(w.When, fn)
-			walkOutsideAggregates(w.Then, fn)
-		}
-		walkOutsideAggregates(x.Else, fn)
-	case *Subquery:
-		for _, it := range subqueryOperands(x) {
-			walkOutsideAggregates(it, fn)
-		}
-	case *RowExpr:
-		for _, it := range x.Items {
-			walkOutsideAggregates(it, fn)
-		}
-	case *FieldSelect:
-		walkOutsideAggregates(x.X, fn)
-	case *WindowFunc:
-		for _, c := range x.children() {
-			walkOutsideAggregates(c, fn)
-		}
-	}
+		fn(x)
+		return true
+	})
 }
 
 // columnRefs returns the distinct column names referenced by an expression.
