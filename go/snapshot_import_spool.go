@@ -285,10 +285,24 @@ func (p *snapshotImportSpool) applyPage(ctx context.Context, keys []string) erro
 			return err
 		}
 	}
-	allocation, err := p.store.allocRows(ctx, p.meta, rows)
+	capture, err := p.captureOutcome(ctx)
 	if err != nil {
 		return err
 	}
+	if capture.Remaining < int64(len(rows)) {
+		return errorf(adbc.StatusIO, "invalid import row ID reservation")
+	}
+	for _, row := range rows {
+		for i, col := range p.meta.Columns {
+			if row[i].Null && !col.Nullable {
+				return notNullErr(col.Name, p.meta.Name)
+			}
+		}
+	}
+	if err := p.store.checkWritable(ctx, p.meta); err != nil {
+		return err
+	}
+	allocation := rowAlloc{first: capture.Total - capture.Remaining + 1}
 	allocation.sourceKeys = make([]Value, len(keys))
 	for i, key := range keys {
 		allocation.sourceKeys[i] = stringValue(key)

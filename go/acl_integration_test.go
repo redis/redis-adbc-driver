@@ -131,7 +131,7 @@ func (a *aclHarness) user(name string, rules ...string) {
 }
 
 // Preserve each fixture's explicit command denials and external HASH grants.
-// Only logical SQL schema patterns gain the format-16 physical equivalent.
+// Only logical SQL schema patterns gain the format-17 physical equivalent.
 // Restricted clients use the production lease selectors, never catalog writes.
 func aclSnapshotRules(name string, rules []string) ([]string, string) {
 	writer := slices.Contains(rules, "+hset") && (slices.Contains(rules, "~adbc:*") || slices.Contains(rules, "~*"))
@@ -139,7 +139,7 @@ func aclSnapshotRules(name string, rules []string) ([]string, string) {
 	var out []string
 	namespace := ""
 	if writer {
-		out = append(out, "~adbc_snapshot16_{meta}_*")
+		out = append(out, "~adbc_snapshot17_{meta}_*")
 	}
 	if metadata && !writer {
 		policy := SnapshotReaderPermissions("acl-fixture:" + name)

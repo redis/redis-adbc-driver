@@ -57,6 +57,12 @@ func dialHashes(ctx context.Context, options map[string]string) (*hashConn, erro
 
 // Explicit sweep must preview its candidates before any connection-side GC.
 func dialHashesMode(ctx context.Context, options map[string]string, reap bool) (*hashConn, error) {
+	return dialHashesWithPin(ctx, options, reap, true)
+}
+
+// Operation control uses retained ownership directly. Status must not depend on
+// acquiring/validating the current catalog root or trigger connection-side GC.
+func dialHashesWithPin(ctx context.Context, options map[string]string, reap, pinCurrent bool) (*hashConn, error) {
 	db, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, options)
 	if err != nil {
 		return nil, err
@@ -76,6 +82,9 @@ func dialHashesMode(ctx context.Context, options map[string]string, reap bool) (
 		if err := c.st.openSnapshotCatalog(ctx, true); err != nil {
 			c.close(ctx)
 			return nil, err
+		}
+		if !pinCurrent {
+			return c, nil
 		}
 		sctx, pin, err := c.st.acquireSnapshotMode(ctx, reap)
 		if err != nil {

@@ -81,7 +81,7 @@ local catalog,names,own,producer=unpack(KEYS)
 local op,ns,token,id,root,ttl,count=unpack(ARGV)
 local t=redis.call('TIME');local now=tonumber(t[1])*1000+math.floor(tonumber(t[2])/1000)
 ttl=tonumber(ttl);count=tonumber(count)
-if catalog~='` + snapshotCatalogKey + `' or redis.call('HGET',catalog,'format')~='16' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if catalog~='` + snapshotCatalogKey + `' or redis.call('HGET',catalog,'format')~='17' then return redis.error_reply('missing or unsupported snapshot catalog') end
 if names~='` + snapshotReaderDirectory + `' or not reader_hex(ns,64) or own~='` + snapshotReaderPrefix + `'..ns or not reader_hex(token,32) then return redis.error_reply('invalid reader lease identity') end
 if redis.call('HSTRLEN',own,token)>1024 then return redis.error_reply('reader lease value exceeds resource limit') end
 local raw=redis.call('HGET',own,token)

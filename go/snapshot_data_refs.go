@@ -39,7 +39,7 @@ local function descriptor_refs(value,graph)
  local refs,seen={},{}
  local function add(prefix,index)
   local parsed,id,access=snapshot_row_key(prefix)
-  if not parsed or parsed~=prefix or access~=m.snapshot_access_id or type(index)~='string' or string.sub(index,1,#('adbc_snapshot16_{meta}_'..id..'_'))~='adbc_snapshot16_{meta}_'..id..'_' then error('invalid snapshot segment identity') end
+  if not parsed or parsed~=prefix or access~=m.snapshot_access_id or type(index)~='string' or string.sub(index,1,#('adbc_snapshot17_{meta}_'..id..'_'))~='adbc_snapshot17_{meta}_'..id..'_' then error('invalid snapshot segment identity') end
   local raw=redis.call('HGET',graph,'d:'..id)
   if not raw or cjson.decode(raw).prefix~=prefix then error('snapshot descriptor physical prefix is not owned') end
   if not seen[id] then table.insert(refs,id);seen[id]=true end

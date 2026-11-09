@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const snapshotRowMarker = ":{meta}:snapshot:16:rows:"
+const snapshotRowMarker = ":{meta}:snapshot:17:rows:"
 
 func snapshotSchemaPart(schema string) string {
 	part := escapeKeyPart(schema)
@@ -67,9 +67,9 @@ func snapshotAccessPrefix(meta *tableMeta) string { return meta.SnapshotAccessID
 const snapshotRowLayoutLua = `
 local function snapshot_row_key(key)
  if type(key)~='string' then return nil end
- local access,schema,id,suffix=string.match(key,'^([0-9a-f]+)~([^:{}]+):{meta}:snapshot:16:rows:([0-9a-f]+):(.*)$')
+ local access,schema,id,suffix=string.match(key,'^([0-9a-f]+)~([^:{}]+):{meta}:snapshot:17:rows:([0-9a-f]+):(.*)$')
  if not access or #access~=32 or schema=='adbc' or #id~=32 then return nil end
- return access..'~'..schema..':{meta}:snapshot:16:rows:'..id..':',id,access
+ return access..'~'..schema..':{meta}:snapshot:17:rows:'..id..':',id,access
 end
 local function valid_data_prefix(prefix,id)
  local parsed,data=snapshot_row_key(prefix)

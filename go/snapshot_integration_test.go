@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -793,5 +794,32 @@ func TestSnapshotNestedReadsShareRoot(t *testing.T) {
 				t.Fatalf("mixed root: %v", result.res.rows)
 			}
 		})
+	}
+}
+
+func TestSnapshotPublicationOutcomeLookupIsReadOnly(t *testing.T) {
+	h, raw, _ := newSnapshotHarness(t)
+	h.exec("CREATE TABLE outcome_readonly(v INTEGER)")
+	root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expired := snapshotID()
+	pin, _ := json.Marshal(map[string]any{"root": root, "expires": 1})
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "p:"+expired, pin).Err(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := raw.HGetAll(h.ctx, snapshotCatalogKey).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := snapshotTestStore(t, raw)
+	outcome, err := s.snapshotControl(h.ctx, "outcome", snapshotID(), snapshotID(), root).Text()
+	if err != nil || outcome != "unknown" {
+		t.Fatal(outcome, err)
+	}
+	after, err := raw.HGetAll(h.ctx, snapshotCatalogKey).Result()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatal("outcome resolution mutated the catalog", err)
 	}
 }

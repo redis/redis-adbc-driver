@@ -128,6 +128,13 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 	if err := spool.complete(wctx); err != nil {
 		return err
 	}
+	if request := snapshotOperationRequestOf(wctx); request != nil {
+		n, err := spool.ready(wctx)
+		if err != nil {
+			return err
+		}
+		return s.prepareSnapshotOperation(wctx, request, "import", n, target)
+	}
 	if err := spool.apply(wctx); err != nil {
 		return err
 	}
@@ -333,10 +340,13 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 		}
 		return rows, done, nil
 	}
+	if a.o.operation != nil {
+		ctx = context.WithValue(ctx, snapshotOperationRequestKey{}, a.o.operation)
+	}
 	if err := a.c.st.importSnapshotTable(ctx, meta, a.schema, a.table, true, only, reader); err != nil {
 		return a.res, err
 	}
-	a.res.Applied = true
+	a.res.Applied = a.o.operation == nil
 	return a.res, nil
 }
 

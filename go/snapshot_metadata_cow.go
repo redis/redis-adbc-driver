@@ -142,9 +142,15 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 		m.bucketChecked = map[string]bool{}
 		m.ready = map[string]bool{}
 		m.building = map[string]string{}
-		m.dirty = map[string]bool{}
-		m.prune = map[string]bool{}
-		m.changed = map[string]bool{}
+		if m.dirty == nil {
+			m.dirty = map[string]bool{}
+		}
+		if m.prune == nil {
+			m.prune = map[string]bool{}
+		}
+		if m.changed == nil {
+			m.changed = map[string]bool{}
+		}
 		if m.reads == nil {
 			m.reads = map[string]string{}
 		}

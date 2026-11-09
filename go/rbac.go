@@ -88,7 +88,7 @@ type SnapshotReaderPolicy struct {
 // SQL RBAC uses its dedicated ACL name as domain. Users sharing the ACL share
 // this trust boundary; row SELECT grants are added separately.
 func SnapshotReaderPermissions(domain string) SnapshotReaderPolicy {
-	return SnapshotReaderPolicy{16, snapshotReaderNamespace(domain), rbacReaderACL(domain), snapshotReaderDomains}
+	return SnapshotReaderPolicy{17, snapshotReaderNamespace(domain), rbacReaderACL(domain), snapshotReaderDomains}
 }
 
 func newRBAC(raw string) (*rbacManager, error) {

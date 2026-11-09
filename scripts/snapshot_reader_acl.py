@@ -20,7 +20,7 @@ def reader_policy(domain):
     if result.returncode:
         raise RuntimeError('canonical snapshot reader policy generation failed')
     policy = json.loads(result.stdout)
-    assert policy['format'] == 16
+    assert policy['format'] == 17
     assert re.fullmatch('[0-9a-f]{64}', policy['namespace'])
     return policy
 
@@ -48,5 +48,5 @@ def unregister_reader(control, domain):
 def access_prefix(physical):
     prefix = physical.split('~', 1)[0] + '~'
     assert re.fullmatch('[0-9a-f]{32}~', prefix)
-    assert ':{meta}:snapshot:16:rows:' in physical
+    assert ':{meta}:snapshot:17:rows:' in physical
     return prefix

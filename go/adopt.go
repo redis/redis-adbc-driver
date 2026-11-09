@@ -31,6 +31,7 @@ import (
 // HashAdoptOptions selects the HASHes that AdoptHashes adopts, and the
 // table they become.
 type HashAdoptOptions struct {
+	operation *snapshotOperationRequest
 	// Encodings overrides inferred storage encodings (column -> text/native).
 	Encodings map[string]string
 	Prefix    string
