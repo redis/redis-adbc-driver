@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"reflect"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/array"
@@ -439,4 +440,84 @@ func TestSnapshotClusterOperationPlanIntegrityAndUnsafeIndexPhase(t *testing.T) 
 	if _, err := s.resumeSnapshotOperation(h.ctx, id); err == nil {
 		t.Fatal("aborted operation reported resume success")
 	}
+}
+
+func TestSnapshotClusterOperationRecordLimitAndReadOnlyStatus(t *testing.T) {
+	h, raw, _ := snapshotClusterHarness(t)
+	h.exec("CREATE TABLE operation_limit(v INTEGER)")
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	if err := st.SetOption(h.ctx, OptionStringOperationAction, "prepare"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetSqlQuery(h.ctx, "UPDATE operation_limit SET v=1 WHERE FALSE"); err != nil {
+		t.Fatal(err)
+	}
+	var handle string
+	for i := 0; i < snapshotOperationMaxRecords; i++ {
+		if n, err := st.ExecuteUpdate(h.ctx); err != nil || n != 0 {
+			t.Fatal("record admission", i, n, err)
+		}
+		handle, err = st.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringOperationHandle)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	before, err := raw.HGetAll(h.ctx, snapshotCatalogKey).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_CLUSTER_URI"), OptionStringCluster: "true"}
+	status, err := GetOperationStatus(h.ctx, options, handle)
+	if err != nil || status.State != "committed" || status.AffectedRows != 0 {
+		t.Fatal(status, err)
+	}
+	after, err := raw.HGetAll(h.ctx, snapshotCatalogKey).Result()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatal("status mutated catalog or performed GC", err)
+	}
+	if _, err := st.ExecuteUpdate(h.ctx); err == nil || !strings.Contains(err.Error(), "operation limit") {
+		t.Fatal("retained record limit exceeded", err)
+	}
+	h.expectRows("SELECT COUNT(*) FROM operation_limit", "0")
+}
+
+func TestSnapshotClusterOperationAlterAndTemporaryTarget(t *testing.T) {
+	h, _, _ := snapshotClusterHarness(t)
+	h.exec("CREATE TABLE operation_alter(v BIGINT)")
+	h.exec("INSERT INTO operation_alter VALUES(9007199254740993)")
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	if err := st.SetOption(h.ctx, OptionStringOperationAction, "prepare"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetSqlQuery(h.ctx, "ALTER TABLE operation_alter RENAME COLUMN v TO renamed"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ExecuteUpdate(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	handle, err := st.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringOperationHandle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.expectRows("SELECT v FROM operation_alter", "9007199254740993")
+	options := map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_CLUSTER_URI"), OptionStringCluster: "true"}
+	if _, err := ResumeOperation(h.ctx, options, handle); err != nil {
+		t.Fatal(err)
+	}
+	h.expectRows("SELECT renamed FROM operation_alter", "9007199254740993")
+	if err := st.SetSqlQuery(h.ctx, "CREATE TEMPORARY TABLE operation_temporary(v INTEGER)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ExecuteUpdate(h.ctx); err == nil || !strings.Contains(err.Error(), "temporary") {
+		t.Fatal("temporary target detached", err)
+	}
+	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='operation_temporary'", "0")
 }

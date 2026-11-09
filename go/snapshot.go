@@ -1242,7 +1242,6 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 // Rows and indexes are already frozen and validated. This is the only phase a
 // prepared operation may re-enter after a separate-process checkpoint.
 func (s *store) publishPreparedSnapshot(ctx context.Context, pin *snapshotPin, id string) error {
-	defer s.wakeSnapshotCompactor()
 	if err := pin.valid(ctx); err != nil {
 		return err
 	}

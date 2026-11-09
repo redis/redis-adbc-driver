@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 type operationCountingInput struct {
@@ -129,6 +131,14 @@ func TestOperationProcessHelper(t *testing.T) {
 	var status *SnapshotOperationStatus
 	var err error
 	switch action {
+	case "publish-lost":
+		c, e := dialHashesWithPin(ctx, options, false, false)
+		if e != nil {
+			t.Fatal(e)
+		}
+		c.st.client.AddHook(operationExitPublishHook{})
+		status, err = c.st.resumeSnapshotOperation(ctx, handle)
+		t.Fatal("publication hook did not terminate the process", status, err)
 	case "crash-output":
 		testHookRowsWritten = func(_ *tableMeta, n int) {
 			if n > 0 {
@@ -187,6 +197,33 @@ func TestOperationProcessHelper(t *testing.T) {
 	}
 	if err := os.WriteFile(os.Getenv("REDIS_OPERATION_TEST_RESULT"), encoded, 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The server acknowledges publication, then the client process exits before
+// its API can observe or resolve that reply. No deferred cleanup runs.
+type operationExitPublishHook struct{ snapshotHook }
+
+func (operationExitPublishHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		err := next(ctx, cmd)
+		args := snapshotObservedControlArgs(cmd)
+		if err == nil && len(args) > 2 && fmt.Sprint(args[0]) == "EVAL" && args[1] == snapshotControl {
+			if n, e := strconv.Atoi(fmt.Sprint(args[2])); e == nil && len(args) > 3+n && args[3+n] == "publish" {
+				result, ok := cmd.(interface{ Int64() (int64, error) })
+				if !ok {
+					return fmt.Errorf("unexpected publication result type")
+				}
+				if n, e := result.Int64(); e != nil || n != 1 {
+					return err
+				}
+				if e := os.WriteFile(os.Getenv("REDIS_OPERATION_TEST_RESULT"), []byte("publication acknowledged"), 0600); e != nil {
+					return e
+				}
+				os.Exit(86)
+			}
+		}
+		return err
 	}
 }
 
@@ -274,6 +311,11 @@ func TestSnapshotClusterOperationKilledOwner(t *testing.T) {
 	}
 	prepared := runOperationProcess(t, "prepare", "")
 	result := filepath.Join(t.TempDir(), "acknowledged")
+	options := map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_CLUSTER_URI"), OptionStringCluster: "true"}
+	_, expiring, err := PrepareAdoptHashes(h.ctx, options, HashAdoptOptions{Prefix: "operation:process:", Table: "operation_expiring", Types: map[string]string{"v": "BIGINT"}}, snapshotLease)
+	if err != nil {
+		t.Fatal(err)
+	}
 	command := exec.Command(os.Args[0], "-test.run=^TestOperationProcessHelper$", "-test.timeout=4m")
 	command.Env = append(os.Environ(), "REDIS_OPERATION_TEST_ACTION=crash-output", "REDIS_OPERATION_TEST_HANDLE="+prepared.Handle, "REDIS_OPERATION_TEST_RESULT="+result)
 	if err := command.Start(); err != nil {
@@ -296,7 +338,6 @@ func TestSnapshotClusterOperationKilledOwner(t *testing.T) {
 	if err := command.Wait(); err == nil {
 		t.Fatal("child exited cleanly instead of being killed")
 	}
-	options := map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_CLUSTER_URI"), OptionStringCluster: "true"}
 	status, err := GetOperationStatus(h.ctx, options, prepared.Handle)
 	if err != nil || !status.OwnerActive || status.RemainingRows <= 0 || status.RemainingRows >= 257 {
 		t.Fatal("crash checkpoint", status, err)
@@ -320,6 +361,16 @@ func TestSnapshotClusterOperationKilledOwner(t *testing.T) {
 		t.Fatal(status)
 	}
 	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v),COUNT(__key) FROM operation_process", "257|9007199254740993|9007199254740993|257")
+	if _, err := GetOperationStatus(h.ctx, options, expiring.Handle); err == nil {
+		t.Fatal("expired operation remained resumable")
+	}
+	s := &store{client: raw, snapshots: true}
+	for i := 0; i < 128 && raw.HExists(h.ctx, snapshotCatalogKey, "w:"+expiring.Handle).Val(); i++ {
+		s.reapSnapshot(h.ctx)
+	}
+	if raw.HExists(h.ctx, snapshotCatalogKey, "w:"+expiring.Handle).Val() || raw.Exists(h.ctx, snapshotOperationKey(expiring.Handle)).Val() != 0 {
+		t.Fatal("expired operation retained its workspace or plan")
+	}
 }
 
 func TestSnapshotClusterOperationRecovery(t *testing.T) {
@@ -328,6 +379,7 @@ func TestSnapshotClusterOperationRecovery(t *testing.T) {
 		t.Skip("requires owned promotion/persistence recovery orchestration")
 	}
 	h, raw, _ := snapshotClusterHarness(t)
+	h.exec("CREATE TABLE operation_recovery_sql(v INTEGER)")
 	for i := 0; i < 257; i++ {
 		if err := raw.HSet(h.ctx, fmt.Sprintf("operation:process:%05d", i), "v", "9007199254740993").Err(); err != nil {
 			t.Fatal(err)
@@ -340,7 +392,7 @@ func TestSnapshotClusterOperationRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = st.SetSqlQuery(h.ctx, "CREATE TABLE operation_recovery_sql AS SELECT 17 AS v"); err != nil {
+	if err = st.SetSqlQuery(h.ctx, "INSERT INTO operation_recovery_sql VALUES (17)"); err != nil {
 		t.Fatal(err)
 	}
 	if err = st.SetOption(h.ctx, OptionStringOperationAction, "prepare"); err != nil {
@@ -387,4 +439,28 @@ func TestSnapshotClusterOperationRecovery(t *testing.T) {
 	h.expectRows("SELECT v FROM operation_recovery_sql", "17")
 	h.expectRows("SELECT COUNT(*),MAX(v),COUNT(__key) FROM operation_process", "257|9007199254740993|257")
 	snapshotClusterAuditMetadata(t, h.ctx, raw, "resumable operation recovery")
+}
+
+func TestSnapshotClusterOperationProcessLostPublicationReply(t *testing.T) {
+	h, raw, _ := snapshotClusterHarness(t)
+	if err := raw.HSet(h.ctx, "operation:process:one", "v", "9007199254740993").Err(); err != nil {
+		t.Fatal(err)
+	}
+	prepared := runOperationProcess(t, "prepare", "")
+	result := filepath.Join(t.TempDir(), "published")
+	command := exec.Command(os.Args[0], "-test.run=^TestOperationProcessHelper$", "-test.timeout=4m")
+	command.Env = append(os.Environ(), "REDIS_OPERATION_TEST_ACTION=publish-lost", "REDIS_OPERATION_TEST_HANDLE="+prepared.Handle, "REDIS_OPERATION_TEST_RESULT="+result)
+	output, err := command.CombinedOutput()
+	exit, ok := err.(*exec.ExitError)
+	if !ok || exit.ExitCode() != 86 {
+		t.Fatalf("client did not die at publication reply: %v\n%s", err, output)
+	}
+	if _, err := os.Stat(result); err != nil {
+		t.Fatal("publication boundary was not exercised", err)
+	}
+	status := runOperationProcess(t, "resume", prepared.Handle)
+	if status.State != "committed" || status.AffectedRows != 1 {
+		t.Fatal(status)
+	}
+	h.expectRows("SELECT v FROM operation_process", "9007199254740993")
 }

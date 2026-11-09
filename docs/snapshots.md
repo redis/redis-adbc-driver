@@ -5,7 +5,7 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 16 rejects earlier draft
+migration path is included. Storage protocol version 17 rejects earlier draft
 formats. It requires an indexed tombstone marker for visibility-safe server reduction.
 Reader leases use separate backend role/ACL domains; SQL grants use stable
 logical table identities across physical generations. Versioned rows, Search
@@ -40,6 +40,77 @@ Use the installed library's `.so`, `.dylib` or `.dll` path for your platform.
 The database and connection report `adbc.redis.statement_snapshots` as `true`;
 setting it to `false` is rejected. Passing `true` explicitly is accepted but
 unnecessary.
+
+## Explicit retained operations
+
+Ordinary statements still publish synchronously. An application may explicitly
+prepare a write for later publication by another process. Preparation finishes
+SQL evaluation or Arrow consumption and retains private results. For HASH adoption
+and foreign refresh it finishes typed source capture before retaining the input.
+It never saves a SQL program, external SCAN cursor or unread Arrow stream.
+Application writes during external capture retain its existing weaker consistency;
+the retained copy freezes the values actually captured.
+
+The statement options are:
+
+| Option | Value / behavior |
+|---|---|
+| `adbc.redis.operation_action` | `prepare`, `status`, `resume`, `abort`, or empty for ordinary execution |
+| `adbc.redis.operation_handle` | Opaque handle returned by preparation; set it on a new statement for later actions |
+| `adbc.redis.operation_status` | Read-only JSON status fetched from the server |
+| `adbc.redis.operation_retention_ms` | Integer milliseconds, 120000–86400000; default 3600000 |
+
+Use `ExecuteUpdate` for operation actions. Preparation returns zero affected rows,
+since it has not published. Status `rows` describes the evaluated/captured count;
+`affected_rows` is zero until commit. A successful resume returns the committed
+count. Status and abort return zero affected rows. A statement used only for
+status/resume/abort needs no SQL or bound input.
+
+In the native Go API, `PrepareCopyHashes`, `PrepareAdoptHashes` and
+`PrepareForeignIndexRefresh` return a `SnapshotOperationStatus` with a handle.
+Use `GetOperationStatus`, `ResumeOperation` and `AbortOperation` with that handle
+and normal connection options in a new process. `SnapshotOperationError.Handle`
+and the ADBC error message preserve the handle after uncertain replies. A native
+retention of zero uses the default hour. Capture failures before durable
+registration return no resumable operation; do not automatically rerun their input.
+
+The status states are `ready`, `running`, `abort_only`, `committed` and `aborted`.
+A two-minute renewable exclusive owner lease is separate from the fixed retention
+deadline. Competing resumes and aborts refuse a live owner. After a crash, a new
+owner must wait for that lease to expire. All private mutations fence stale tokens.
+Status is read-only and never publishes; background workers never publish these
+user operations. Resume validates original semantic dependencies, can rebase
+unrelated changes, and reports SQLSTATE `40001` if a target or managed read source
+changed. It does not reevaluate defaults, consume sequences again, repeat source
+scans, or reread Arrow input.
+
+Complete output batches can continue from durable progress. Before native Search
+index preparation starts, the operation enters a non-repeatable phase. A runtime
+or process interruption before the complete sealed checkpoint makes it abort-only;
+it cannot retry uncertain index creation, deletion or notifications. After that
+checkpoint, a new process validates and publishes the same indexes without
+rebuilding them. Incomplete row-image or checkpoint mutations are also abort-only.
+Cancellation can therefore leave a ready checkpoint or require explicit abort,
+depending on the boundary reached. Already committed outcomes survive workspace
+collection; repeated resume reports the original result. Abort cannot undo commit.
+
+Retention protects the original base and private references until commit, abort
+or expiry. Both active and terminal handles count toward a maximum of 128 retained
+records per catalog; ordinary workspace/pin limits also apply. Terminal outcomes
+last until the original deadline. Expiry releases ownership through normal
+reference-safe collection, rather than deleting shared data. Plans are limited
+to 16 MiB and share a cumulative 64 MiB metadata/control admission budget with
+continuation. Row-image batch limits are unchanged. Retention adds storage for
+captured input/private output and can keep an older base alive; it does not copy
+the entire catalog or extend retention automatically.
+
+Preparation accepts one SQL write statement and at most one parameter row, or
+bound Arrow ingestion. Temporary targets, internal maintenance, Substrait/IPC
+preparation and query-result streams cannot detach. Ordinary synchronous support
+for these features is unchanged. Foreign refresh detaches only the requested
+managed copy. The optional `CopyHashes` key column retains its existing UTF-8 text
+type; adoption provenance supports arbitrary binary source keys. Storage protocol
+17 fences earlier clients and collectors; there is no migration path.
 
 ## Guarantee
 
@@ -146,8 +217,9 @@ an incompatible declared result schema change between executions returns an erro
   captured inputs and record the durable outcome. A lost output reply is resolved
   without resending rows. There is no whole-import 100,000-row foreign capture or
   200,000-candidate HASH Apply ceiling. Adoption planning, source-page allocations,
-  single-row limits and statement timeouts still constrain large copies. There is
-  no public import resume handle or process-crash resume contract.
+  single-row limits and statement timeouts still constrain large copies. Ordinary
+  calls do not detach; the explicit prepare APIs above retain completed input
+  for process continuation.
 - InspectHashes is available alongside snapshot catalogs. SweepReleased previews
   registered zero-reference row generations without connection-side reclamation.
   Preview reports currently eligible HASHes; `metadata_pending` / `more` indicate
@@ -339,7 +411,7 @@ older base versions hidden. Balanced/ambiguous size estimates use a full merge.
 The exact source range, older prefix and newer publications remain protected.
 Selective jobs retain queue eligibility until publication. The older-worker
 decline/full-merge behavior was verified historically within protocol 15;
-protocol 16 requires matching clients and does not interoperate with that older
+protocol 17 requires matching clients and does not interoperate with that older
 storage format. Selective compaction introduces no new user option. Normal writes
 allocate deltas and never perform compaction row copies.
 
@@ -381,7 +453,8 @@ An uncertain copy reply is resolved by reading the durable checkpoint, without
 resending the mutation. Another managed connection resumes after cooperative
 release or crash-lease expiration; it can repair registered incomplete images from
 the retained immutable source. These optional job outcome fields retain storage
-protocol 16. This recovery does not resume public SQL plans or unread Arrow input.
+protocol 17. Background recovery does not resume public SQL plans or unread Arrow input;
+explicit retained operations have the separate contract above.
 Connection close stops its worker and releases ownership when reachable. With all
 connections closed, progress waits for the next open.
 
@@ -435,8 +508,8 @@ Row-image batches retain one bounded outcome in their private work record. A los
 reply is resolved with an independent read; the driver never resends an uncertain
 batch or rereads SQL/Arrow input. Rows and directory entries precede the outcome,
 and the final catalog publication still follows complete input, constraints and
-index validation. Failed/unknown batches cannot publish. There is no public
-resume token or process-crash resume for unread Arrow input. SQL planning can
+index validation. Failed/unknown batches cannot publish. Explicit retained handles
+cover only completely captured/evaluated input; unread Arrow input cannot resume. SQL planning can
 still materialize complete result rows, and whole-statement timeouts remain.
 Replacement batches can clear only registered HASHes in the writer's private
 generation; published/shared sources and unregistered objects cannot be replaced.
@@ -504,7 +577,8 @@ connections. Its client must reach all advertised primary endpoints; provide
 [protocol-16 checkpoint](sdlc/changes/snapshot-parity/cluster16-validation.md)
 for the separate native, promotion and persistence checks and their limits.
 
-See [design and validation evidence](sdlc/changes/statement-snapshots/validation.md).
+See [design and validation evidence](sdlc/changes/statement-snapshots/validation.md)
+and [retained-operation evidence](sdlc/changes/resumable-operations/validation.md).
 
 Statement acquisition checks the committed metadata directory. Each referenced
 table validates its immutable segment indexes and exact directory counts once

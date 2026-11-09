@@ -1,7 +1,7 @@
 # Recovery and ownership contract
 
 Date: 2026-11-09. Issue: [#335](https://github.com/redis/redis-adbc-driver/issues/335).
-Status: design/implementation in progress; API details remain under review.
+Status: implemented; focused local validation passed; delivery checks pending.
 
 Capture must close and validate before an operation can detach. Imports retain
 exact typed journal values and binary source keys, with stable source-to-row-ID

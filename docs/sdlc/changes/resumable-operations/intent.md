@@ -2,7 +2,7 @@
 
 Date: 2026-11-09. Requestor: repository owner. Author: Codex.
 Issue: [#335](https://github.com/redis/redis-adbc-driver/issues/335).
-Status: implementation in progress; no public resume guarantee is shipped yet.
+Status: implemented; focused local validation passed; delivery checks pending.
 
 Allow an explicit new process to inspect, resume or abort a retained operation
 only after its complete immutable input/evaluated write set is durable. Reuse

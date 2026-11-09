@@ -10,6 +10,8 @@ recovery tests; see docs/snapshots.md.
 """
 
 import os
+import json
+import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
@@ -89,6 +91,87 @@ class SnapshotValidation(unittest.TestCase):
                 if state != "40001" or time.monotonic() >= deadline:
                     raise
                 time.sleep(0.005)
+
+    def resume_operation_process(self, handle):
+        code = """
+import json, os
+import adbc_driver_manager.dbapi
+with adbc_driver_manager.dbapi.connect(
+    driver=os.environ["OPERATION_LIBRARY"],
+    db_kwargs={"uri": os.environ["OPERATION_URI"]}, autocommit=True,
+) as conn:
+    with conn.cursor() as cur:
+        st = cur.adbc_statement
+        st.set_options(**{"adbc.redis.operation_action": "resume",
+                          "adbc.redis.operation_handle": os.environ["OPERATION_HANDLE"]})
+        count = st.execute_update()
+        status = json.loads(st.get_option("adbc.redis.operation_status"))
+        assert count == status["affected_rows"]
+        print(json.dumps(status))
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", code], check=True, capture_output=True, text=True,
+            env={**os.environ, "OPERATION_LIBRARY": self.driver,
+                 "OPERATION_URI": self.uri, "OPERATION_HANDLE": handle}, timeout=120,
+        )
+        return json.loads(result.stdout)
+
+    def test_operation_sql_separate_process(self):
+        with self.conn.cursor() as cur:
+            cur.execute("CREATE TABLE operation_native_sql(v BIGINT)")
+            st = cur.adbc_statement
+            st.set_options(**{"adbc.redis.operation_action": "prepare"})
+            st.set_sql_query("INSERT INTO operation_native_sql VALUES (9007199254740993),(NULL)")
+            self.assertEqual(st.execute_update(), 0)
+            handle = st.get_option("adbc.redis.operation_handle")
+            status = json.loads(st.get_option("adbc.redis.operation_status"))
+            self.assertEqual((status["state"], status["rows"], status["affected_rows"]), ("ready", 2, 0))
+        self.conn.close()
+        self.conn = self.connect()
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM operation_native_sql")
+            self.assertEqual(cur.fetchall(), [(0,)])
+        self.assertEqual(self.resume_operation_process(handle)["affected_rows"], 2)
+        self.assertEqual(self.resume_operation_process(handle)["state"], "committed")
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT v FROM operation_native_sql ORDER BY v NULLS LAST")
+            self.assertEqual(cur.fetchall(), [(9007199254740993,), (None,)])
+        self.conn.close()
+
+    def test_operation_arrow_separate_process(self):
+        data = pa.table({"v": pa.array([9007199254740993, None], pa.int64()),
+                         "payload": pa.array([b"\x00\xff", b""], pa.binary())})
+        with self.conn.cursor() as cur:
+            cur.adbc_statement.set_options(**{"adbc.redis.operation_action": "prepare"})
+            self.assertEqual(cur.adbc_ingest("operation_native_arrow", data), 0)
+            handle = cur.adbc_statement.get_option("adbc.redis.operation_handle")
+        self.conn.close()
+        self.assertEqual(self.resume_operation_process(handle)["affected_rows"], 2)
+        self.conn = self.connect()
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT v,payload FROM operation_native_arrow ORDER BY v NULLS LAST")
+            self.assertTrue(cur.fetch_arrow_table().equals(data))
+        self.conn.close()
+
+    def test_operation_conflict_c_error(self):
+        with self.conn.cursor() as cur:
+            cur.execute("CREATE TABLE operation_native_conflict(v INTEGER)")
+            cur.adbc_statement.set_options(**{"adbc.redis.operation_action": "prepare"})
+            cur.adbc_statement.set_sql_query("INSERT INTO operation_native_conflict VALUES (1)")
+            cur.adbc_statement.execute_update()
+            handle = cur.adbc_statement.get_option("adbc.redis.operation_handle")
+        with self.conn.cursor() as cur:
+            cur.execute("INSERT INTO operation_native_conflict VALUES (2)")
+            st = cur.adbc_statement
+            st.set_options(**{"adbc.redis.operation_action": "resume", "adbc.redis.operation_handle": handle})
+            with self.assertRaises(adbc_driver_manager.Error) as observed:
+                st.execute_update()
+            self.assertIn(handle, str(observed.exception))
+            self.assertIn(observed.exception.sqlstate, ("40001", b"40001"))
+            st.set_options(**{"adbc.redis.operation_action": "abort"})
+            self.assertEqual(st.execute_update(), 0)
+            status = json.loads(st.get_option("adbc.redis.operation_status"))
+            self.assertEqual((status["state"], status["affected_rows"]), ("aborted", 0))
 
     def test_segmented_ordered_late_projection(self):
         with self.conn.cursor() as cur:
