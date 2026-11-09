@@ -8,7 +8,9 @@ Implementation started at main `cc2d6601`; implementation commits `93e2a8f3` and
 `db7b4324` contain the tested APIs and regressions. Earlier recovery runs used
 the working tree leading to those commits; final focused checks were repeated
 on `db7b4324`. Documentation-only delivery records do not change the tested code.
-Final CI must identify the PR head. Historical saved-branch results are not evidence
+Follow-up `87a496a5` removes an unnecessary ordinary-publication lease check;
+the retained-operation path is unchanged. Final CI must identify the PR head.
+Historical saved-branch results are not evidence
 for this implementation.
 
 ## Environments and observed results
