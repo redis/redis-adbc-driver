@@ -14,7 +14,11 @@ compactor wake introduced by helper extraction was removed; both production entr
 points retain their original single deferred wake. The helper also introduced
 a duplicate lease-validation round trip on ordinary writes. Its extra entry-point
 check now applies only to restored operations; ordinary writes retain their
-original pre-index check and atomic publication fence.
+original pre-index check and atomic publication fence. A final reply-path audit
+found that the reused outcome controller pruned expired pins before returning its
+answer. `TestSnapshotPublicationOutcomeLookupIsReadOnly` reproduced that mutation;
+outcome now returns before directory validation or pin cleanup. The regression and
+existing conflict/publication/rebase tests passed with race detection after the fix.
 
 The ownership/security pass checked physical prefix identities, complete capture
 and sequence reservation proofs, bounded records/plans/control charges, atomic plan

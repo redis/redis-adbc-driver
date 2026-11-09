@@ -9,7 +9,11 @@ Implementation started at main `cc2d6601`; implementation commits `93e2a8f3` and
 the working tree leading to those commits; final focused checks were repeated
 on `db7b4324`. Documentation-only delivery records do not change the tested code.
 Follow-up `87a496a5` removes an unnecessary ordinary-publication lease check;
-the retained-operation path is unchanged. Final CI must identify the PR head.
+the retained-operation path is unchanged. A subsequent reproduced regression,
+`TestSnapshotPublicationOutcomeLookupIsReadOnly`, showed expired-pin pruning in
+the shared outcome path. Moving outcome lookup ahead of cleanup made that lookup
+strictly read-only; thirteen publication/conflict/rebase tests passed with race
+detection after the fix. Final CI must identify the PR head.
 Historical saved-branch results are not evidence
 for this implementation.
 

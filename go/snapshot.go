@@ -98,7 +98,8 @@ if op == 'init' then
   return 1
 end
 if redis.call('HGET', k, 'format') ~= '17' then return redis.error_reply('missing or unsupported snapshot catalog') end
--- Lease operations need only their own records. Admission and reclamation
+-- Lease operations and read-only outcomes need only their own records.
+-- Outcome lookup must return before any expired-pin pruning. Admission and reclamation
 -- below still enumerate/prune expired pins before accounting or collection.
 if op == 'renew' or op == 'valid' then
   local raw = redis.call('HGET', k, 'p:'..token)
@@ -122,6 +123,15 @@ if op == 'renew' or op == 'valid' then
 elseif op == 'release' then
   redis.call('HDEL', k, 'p:'..token)
   return 1
+elseif op == 'outcome' then
+  local terminal=redis.call('HGET',k,'o:'..id)
+  if terminal then
+    local outcome=cjson.decode(terminal)
+    if outcome.deadline>now then return outcome.state end
+  end
+  local raw = redis.call('HGET', k, 'w:'..id)
+  if not raw then return 'unknown' end
+  return cjson.decode(raw).state
 end
 local readerCount=tonumber(ARGV[9]) or 0
 if #KEYS~=controlN+1+readerCount or not reader_directory(controlN+1,readerCount) then return redis.error_reply('reader namespace changed before mutation') end
@@ -466,15 +476,6 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     redis.call('HSET', k, 'p:'..token,cjson.encode(pin))
   end
   return 1
-elseif op == 'outcome' then
-  local terminal=redis.call('HGET',k,'o:'..id)
-  if terminal then
-    local outcome=cjson.decode(terminal)
-    if outcome.deadline>now then return outcome.state end
-  end
-  local raw = redis.call('HGET', k, 'w:'..id)
-  if not raw then return 'unknown' end
-  return cjson.decode(raw).state
 elseif op == 'abort' then
   local raw = redis.call('HGET', k, 'w:'..id)
   if raw then
