@@ -30,6 +30,8 @@ on:
       - scripts/test_ci_test_matrix.py
       - scripts/test_device_staging.c
       - scripts/test_acceptance_runner.py
+      - scripts/test_integration_registry.py
+      - scripts/test_candidate_tls_runner.py
       - .github/workflows/acceptance.yml
       - .github/actions/build-adbc-scanner/**
       - .github/actions/duckdb-build-cache/**
@@ -95,6 +97,10 @@ jobs:
       - uses: actions/checkout@v7
       - name: Check CI coverage selection
         run: python3 -m unittest discover -s scripts -p test_ci_test_matrix.py -v
+      - name: Check integration registry and TLS runner lifecycle
+        run: |
+          python3 -m unittest discover -s scripts -p test_integration_registry.py -v
+          python3 -m unittest discover -s scripts -p test_candidate_tls_runner.py -v
       - name: Check upstream acceptance runner
         run: python3 -m unittest discover -s scripts -p test_acceptance_runner.py -v
       - name: Check cluster readiness gate

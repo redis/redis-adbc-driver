@@ -11,7 +11,12 @@ spec = importlib.util.spec_from_file_location(
     "guide_check", Path(__file__).resolve().parents[1] / "scripts/check_integration_guide.py"
 )
 checker = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(checker)
+# Match direct script execution, where Python adds the script directory.
+sys.path.insert(0, str(Path(spec.origin).parent))
+try:
+    spec.loader.exec_module(checker)
+finally:
+    sys.path.pop(0)
 
 
 @pytest.mark.parametrize("code,output", [(0, "read-only success"), (1, "REDIS_ADBC_READ_WRITE_OK")])

@@ -93,3 +93,27 @@ guide contributions and remaining upstream submissions.
 [Live example validation](../sdlc/changes/upstream-status-249/validation.md) records
 Redis Software runs for all eighteen integration paths, including the six new
 guides, the corrected DuckDB SQL and the dbt Core starter project.
+
+## Maintaining the local harness
+
+The standard-library [integration registry](../../python/scripts/integration_registry.py)
+is the source for guide choices, guide read/write requirements, candidate pytest
+selectors, profile membership, Python versions and dependency extras. Update it
+when adding an integration; keep dependency pins in
+[pyproject.toml](../../python/pyproject.toml). Guide names and candidate aliases
+are distinct: for example, `huggingface-datasets` uses candidate `datasets`,
+`pyarrow` uses `arrow`, and the R / DBI and RStudio guides share candidate `r`.
+The guide and candidate execution orders are retained separately in the registry.
+
+The runners keep explicit setup hooks for R/Quarto, Kestra and dbt. `ray-tls`
+remains a separate execution mode that owns its TLS fixture. Registry queries
+emit plain lines, never shell code. Run the offline contracts with:
+
+```sh
+python3 -m unittest discover -s scripts -p test_integration_registry.py -v
+python3 -m unittest discover -s scripts -p test_candidate_tls_runner.py -v
+```
+
+Real Redis runs still require `make -C go redis-up` and verified effective
+Software 4x QPF before tests; offline runner mocks do not establish integration
+compatibility.

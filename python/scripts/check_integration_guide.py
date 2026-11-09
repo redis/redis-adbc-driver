@@ -14,17 +14,12 @@ import subprocess
 import sys
 import tempfile
 
-TOOLS = ("numpy", "scikit-learn", "jupyter", "huggingface-datasets", "streamlit", "scipy",
-         "pyarrow", "pytorch", "tensorflow", "keras", "xgboost", "transformers", "plotly",
-         "matplotlib", "ibis", "mlflow", "spark", "kubeflow", "metaflow", "fivetran",
-         "beam", "mage", "r-dbi", "rstudio", "quarto", "kestra", "pandas", "polars",
-         "sqlalchemy", "prefect", "dask", "ray", "dlt", "dagster", "airflow", "superset",
-         "dbt", "duckdb")
+from integration_registry import GUIDES
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tool", choices=TOOLS)
+    parser.add_argument("tool", choices=GUIDES)
     parser.add_argument("--require-read-write", action="store_true",
                         help="fail unless the executed workflow verifies an output write and read-back")
     args = parser.parse_args()

@@ -6,7 +6,7 @@ python_bin="${PYTHON:-python3}"
 
 usage() {
   echo "Usage: $0 [all | acceptance [SUITE ...] | TOOL ...]"
-  echo "Tools: driver airflow dagster dask duckdb pandas polars ml ray ray-tls prefect dlt jupyter datasets streamlit scipy plotly matplotlib xgboost pytorch tensorflow keras transformers spark r quarto kubeflow metaflow fivetran sqlalchemy arrow superset dbt ibis mlflow beam mage kestra"
+  echo "Tools: $(python3 "$repo_root/python/scripts/integration_registry.py" tools)"
 }
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
   usage
@@ -20,56 +20,13 @@ if [[ $# == 0 || ( $# == 1 && "${1:-}" == all ) ]]; then
   exec "$repo_root/python/scripts/run-all-native-candidates.sh"
 fi
 # TLS owns a fresh Software fixture and must never fall through to plaintext.
-if [[ " $* " == *" ray-tls "* ]]; then
-  if [[ $# != 1 ]]; then
-    echo "ray-tls must be run on its own" >&2
-    exit 2
-  fi
+if [[ $# == 1 && "$1" == ray-tls ]]; then
   exec "$repo_root/python/scripts/run-ray-tls-candidates.sh"
 fi
+test_names="$(python3 "$repo_root/python/scripts/integration_registry.py" tests "$@")"
 tests=()
-for tool in "$@"; do
-  case "$tool" in
-    driver) tests+=(test_driver.py) ;;
-    airflow) tests+=(test_airflow_hook.py test_airflow.py) ;;
-    dagster) tests+=(test_dagster.py test_dagster_adbc.py) ;;
-    dask) tests+=(test_dask.py) ;;
-    duckdb) tests+=(test_duckdb.py) ;;
-    pandas) tests+=(test_pandas.py test_pandas_direct_reads.py test_pandas_writes.py) ;;
-    polars) tests+=(test_polars.py) ;;
-    ml) tests+=(test_ml_ingest.py) ;;
-    ray) tests+=(test_ray.py test_ray_arrow.py test_ray_datasource.py) ;;
-    prefect) tests+=(test_prefect.py) ;;
-    dlt) tests+=(test_dlt.py) ;;
-    jupyter) tests+=(test_jupyter.py) ;;
-    datasets) tests+=(test_hf_datasets.py) ;;
-    streamlit) tests+=(test_streamlit.py) ;;
-    scipy) tests+=(test_scipy.py) ;;
-    plotly) tests+=(test_plotting_candidates.py::test_plotly_html_and_json) ;;
-    matplotlib) tests+=(test_plotting_candidates.py::test_matplotlib_agg_png) ;;
-    xgboost) tests+=(test_model_candidates.py::test_xgboost_train_save_reload) ;;
-    pytorch) tests+=(test_model_candidates.py::test_pytorch_dataloader_and_forward) ;;
-    tensorflow) tests+=(test_model_candidates.py::test_tensorflow_dataset_batches) ;;
-    keras) tests+=(test_model_candidates.py::test_keras_model_input_and_persistence) ;;
-    transformers) tests+=(test_model_candidates.py::test_transformers_local_tokenizer_model) ;;
-    spark) tests+=(test_spark_candidate.py) ;;
-    r) tests+=(test_document_candidates.py::test_r_dbi_native_driver test_document_candidates.py::test_r_dbi_parameter_binding) ;;
-    quarto) tests+=(test_document_candidates.py::test_quarto_python_document) ;;
-    kubeflow) tests+=(test_orchestrator_candidates.py::test_kubeflow_local_component) ;;
-    metaflow) tests+=(test_orchestrator_candidates.py::test_metaflow_local_flow) ;;
-    fivetran) tests+=(test_orchestrator_candidates.py::test_fivetran_sdk_local_tester) ;;
-    sqlalchemy) tests+=(test_sqlalchemy.py) ;;
-    arrow) tests+=(test_arrays.py test_ipc.py test_union_stream.py test_guide_output.py) ;;
-    superset) tests+=(test_superset.py) ;;
-    dbt) tests+=(test_dbt_candidate.py) ;;
-    ibis) tests+=(test_analysis_candidates.py::test_ibis_arrow_expressions) ;;
-    mlflow) tests+=(test_analysis_candidates.py::test_mlflow_dataset_tracking test_analysis_candidates.py::test_mlflow_default_empty_digest) ;;
-    beam) tests+=(test_beam_candidate.py) ;;
-    mage) tests+=(test_mage_candidate.py) ;;
-    kestra) tests+=(test_kestra_candidate.py) ;;
-    *) usage >&2; echo "Unknown tool: $tool" >&2; exit 2 ;;
-  esac
-done
+while IFS= read -r test_file; do tests+=("$test_file"); done <<< "$test_names"
+
 paths=()
 for test_file in "${tests[@]}"; do
   paths+=("$repo_root/python/tests/$test_file")
