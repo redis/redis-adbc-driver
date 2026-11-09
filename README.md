@@ -317,6 +317,10 @@ implementation and follow-up are merged in
 [PR #323](https://github.com/redis/redis-adbc-driver/pull/323) and
 [PR #331](https://github.com/redis/redis-adbc-driver/pull/331).
 
+The [historical Cloud report](docs/redis-flex-compatibility.md#historical-redis-cloud-test-configuration-2026-10-06)
+excludes the October 6 database without Search from Search-on-Flex compatibility
+results. Its provisioning rejection is historical; Cloud SQL remains unvalidated.
+
 ## Quick start
 
 Install the driver from PyPI, start Redis Software, and load the sample dataset.

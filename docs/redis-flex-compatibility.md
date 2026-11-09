@@ -10,7 +10,8 @@ not currently support Redis Flex. A local Redis Software Flex database
 confirmed that the driver refuses the connection before writing metadata,
 and direct Search probes identified the missing server capabilities. The live
 Redis Cloud Pro test authenticated to a new minimum-size Flex database.
-The Cloud database had no Redis Search capability, so the driver stopped
+The Cloud database had no Redis Search capability and is excluded from
+Search-on-Flex compatibility results. The driver stopped
 at `FT._LIST` before reaching its Flex-specific
 `FT.AGGREGATE` guard.
 
@@ -74,14 +75,15 @@ QPF setting; they do not validate the current default TLS/4x QPF fixture.
 Requirements and limitations are documented in Redis's
 [8.2.6-25 release notes](https://redis.io/docs/latest/operate/rs/release-notes/rs-8-2-releases/rs-8-2-6-25/)
 and [Search on Flex documentation](https://redis.io/docs/latest/operate/rs/flex/search/).
-The Word report retains the historical 2026-10-06 results.
+The Word report retains the historical 2026-10-06 results and does not include
+the later Cloud evidence clarification below.
 
 ## Test status
 
 | Target | Status | Result |
 |-|-|-|
 | Local Redis Software Flex | Completed | Expected pass: the driver returned ADBC `NotImplemented`, reported that Redis Flex is unsupported, and did not change the database key count. |
-| New Redis Cloud Pro Flex | Completed; incompatible target | A minimum-size disposable database was created and authenticated successfully. `PING` worked, but `FT._LIST`, `FT.CREATE`, `FT.SEARCH`, and `FT.AGGREGATE` were not registered. The focused test failed because the Search module was absent. |
+| New Redis Cloud Pro Flex, 2026-10-06 | Setup lacked Search; excluded from Search-on-Flex compatibility results | Authentication and `PING` succeeded, but no Search commands were registered. No valid Cloud Search-on-Flex compatibility test was completed. |
 
 ## Local Redis Software settings
 
@@ -223,7 +225,12 @@ Redis's documentation says Redis Software already has `NUMERIC`, `GEO`, and
 above confirms that the newer build supports all three, with remaining
 limitations on sortable fields and cursors.
 
-## Redis Cloud test configuration
+## Historical Redis Cloud test configuration: 2026-10-06
+
+These settings, commands and API responses describe the historical attempt,
+not current provisioning requirements or a current test procedure. The current
+driver requires RESP3 and rejects Flex snapshot execution; see the separate
+[experimental stopgap scope](redis-flex-stopgap.md). Cloud SQL remains unvalidated.
 
 Resource names, numeric IDs, endpoint names, and credentials are omitted
 because this report may be stored in a public repository. Database passwords
@@ -302,12 +309,29 @@ documented feature gaps of Search on Flex beta.
 
 Redis documentation instructs users to enable a beta flag for the Pro subscription in the Cloud console, but does not identify an exact menu path. The documented Setup > Advanced options > Redis Flex option enables tiered storage and does not confirm Search beta enablement. If the Search beta control is absent, ask Redis Support to confirm subscription eligibility and the required enablement procedure. Backend enablement may be required, but this was not confirmed during testing.
 
-### Cloud cleanup status
+### Historical Terraform follow-up and resource status
 
-The disposable database remains active because deleting a Cloud database is
-irreversible and was not part of the original authorization. Delete this
-specific test database promptly from the Cloud console or API to stop its
-hourly charge.
+[Private PR #209](https://github.com/alberttwong/redis-adbc-driver/pull/209),
+head `ad56da770b5fb77d5466abcfc82fac5070436d43`, records a second provisioning
+attempt on 2026-10-06 with Terraform 1.15.2 and the official
+`RedisLabs/rediscloud` provider 2.19.1. It requested Redis 8.6, a 250 GB Flex
+dataset, 10% RAM, TLS and `query_performance_factor = "Standard"`.
+The plan proposed one addition, but apply returned
+`DATABASE_QUERY_PERFORMANCE_FACTOR_SEARCH_IS_REQUIRED`. The recorded empty
+Terraform state and API inventory showed that this request created no database.
+That inventory also showed the earlier disposable database was absent.
+
+This is historical evidence from the PR, not a new provisioning attempt or
+current resource inventory. The provider/schema and beta enablement conclusions
+from that attempt have not been revalidated. The Terraform fixture is not
+ported here, and the rejection does not establish a present-day Cloud blocker.
+
+A Cloud Search-on-Flex validation must establish Search availability on the
+actual target before claiming compatibility: confirm authenticated `FT._LIST`,
+create a uniquely named HASH index with a supported field, insert a matching
+document, and fully validate the `FT.SEARCH` result. Clean up the owned probe
+index and document. A missing Search capability is a setup blocker; successful
+Search probes alone do not establish driver SQL or snapshot compatibility.
 
 ## Driver functions not implemented independent of Flex
 
