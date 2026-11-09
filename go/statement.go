@@ -33,12 +33,14 @@ import (
 func asAdbc(err error, target *adbc.Error) bool { return errors.As(err, target) }
 
 type statementImpl struct {
-	executionBackend string
-	cudaDevice       int
-	gpuMetrics       *gpuMetrics
-	resultLayouts    resultLayouts
-	extensionPolicy  string
-	streamRequired   bool
+	operationAction, operationHandle string
+	operationRetention               time.Duration
+	executionBackend                 string
+	cudaDevice                       int
+	gpuMetrics                       *gpuMetrics
+	resultLayouts                    resultLayouts
+	extensionPolicy                  string
+	streamRequired                   bool
 	driverbase.StatementImplBase
 
 	conn       *connectionImpl
@@ -85,6 +87,10 @@ var (
 func (s *statementImpl) Base() *driverbase.StatementImplBase { return &s.StatementImplBase }
 
 func (s *statementImpl) GetOption(ctx context.Context, key string) (string, error) {
+	switch key {
+	case OptionStringOperationAction, OptionStringOperationHandle, OptionStringOperationStatus, OptionIntOperationRetention:
+		return s.operationOption(ctx, key)
+	}
 	switch key {
 	case OptionStringExecutionBackend:
 		if s.executionBackend == "" {
@@ -152,6 +158,10 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 }
 
 func (s *statementImpl) GetOptionInt(ctx context.Context, key string) (int64, error) {
+	if key == OptionIntOperationRetention {
+		value, err := operationRetention(s.operationRetention)
+		return value.Milliseconds(), err
+	}
 	if key == OptionIntCUDADevice {
 		return int64(s.cudaDevice), nil
 	}
@@ -174,6 +184,16 @@ func (s *statementImpl) GetOptionInt(ctx context.Context, key string) (int64, er
 }
 
 func (s *statementImpl) SetOptionInt(ctx context.Context, key string, value int64) error {
+	if key == OptionIntOperationRetention {
+		if err := s.checkOpen(); err != nil {
+			return err
+		}
+		if value < 120000 || value > 86400000 {
+			return errorf(adbc.StatusInvalidArgument, "operation retention must be 120000..86400000 milliseconds")
+		}
+		s.operationRetention = time.Duration(value) * time.Millisecond
+		return nil
+	}
 	if key == OptionIntCUDADevice {
 		return s.SetOption(ctx, key, strconv.FormatInt(value, 10))
 	}
@@ -247,6 +267,27 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		return err
 	}
 	switch key {
+	case OptionStringOperationAction:
+		switch val {
+		case "", "prepare", "status", "resume", "abort":
+			s.operationAction = val
+			return nil
+		}
+		return errorf(adbc.StatusInvalidArgument, "operation_action must be prepare, status, resume, abort or empty")
+	case OptionStringOperationHandle:
+		if val != "" && !snapshotMetadataID(val) {
+			return errorf(adbc.StatusInvalidArgument, "invalid operation handle")
+		}
+		s.operationHandle = val
+		return nil
+	case OptionIntOperationRetention:
+		value, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return errorf(adbc.StatusInvalidArgument, "invalid operation retention")
+		}
+		return s.SetOptionInt(ctx, key, value)
+	case OptionStringOperationStatus:
+		return errorf(adbc.StatusInvalidArgument, "operation status is read-only")
 	case OptionStringExecutionBackend, OptionIntCUDADevice:
 		return s.setGPUOption(key, val)
 	case OptionStringStreamRequired:
@@ -599,9 +640,15 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 		}
 		s.gpuMetrics = &gpuMetrics{}
 	}
+	if snapshotOperationRequestOf(ctx) != nil && len(parsed) != 1 {
+		return execResult{}, errorf(adbc.StatusInvalidArgument, "operation preparation requires one SQL statement")
+	}
 	paramRows, paramTypes, err := s.paramRows()
 	if err != nil {
 		return execResult{}, err
+	}
+	if snapshotOperationRequestOf(ctx) != nil && len(paramRows) > 1 {
+		return execResult{}, errorf(adbc.StatusInvalidArgument, "operation preparation accepts at most one parameter row")
 	}
 	exec := s.executor()
 	op, _ := ctx.Value(usageOperationContextKey{}).(*usageOperation)
@@ -708,6 +755,9 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 }
 
 func (s *statementImpl) ExecuteQuery(ctx context.Context) (reader array.RecordReader, count int64, resultErr error) {
+	if s.operationAction != "" {
+		return nil, -1, errorf(adbc.StatusInvalidState, "operation actions require ExecuteUpdate")
+	}
 	op := s.startUsage()
 	if op != nil {
 		ctx = context.WithValue(ctx, usageOperationContextKey{}, op)
@@ -788,6 +838,18 @@ func (s *statementImpl) ExecuteUpdate(ctx context.Context) (count int64, resultE
 	}()
 	if err := s.checkExecution(); err != nil {
 		return -1, err
+	}
+	if s.operationAction != "" && s.operationAction != "prepare" {
+		return s.executeOperationAction(ctx)
+	}
+	if s.operationAction == "prepare" {
+		if s.substrait != nil || s.ipc.active() {
+			return -1, errorf(adbc.StatusNotImplemented, "operation preparation requires SQL or bound Arrow ingestion")
+		}
+		s.operationHandle = ""
+		request := &snapshotOperationRequest{Retention: s.operationRetention}
+		ctx = context.WithValue(ctx, snapshotOperationRequestKey{}, request)
+		defer func() { s.operationHandle = request.Handle; resultErr = operationError(request.Handle, resultErr) }()
 	}
 	if s.substrait != nil {
 		r, _, err := s.subQuery(ctx)

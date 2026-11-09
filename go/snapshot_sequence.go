@@ -59,7 +59,7 @@ if catalog~='` + snapshotCatalogKey + `' or graph~='` + snapshotMetadataGraph + 
  not string.match(counter,'^` + snapshotPrefix + `workspace:[0-9a-f]+:sequence%-state:') then
  return redis.error_reply('invalid sequence counter keys')
 end
-if redis.call('HGET',catalog,'format')~='16' then return redis.error_reply('unsupported snapshot catalog format') end
+if redis.call('HGET',catalog,'format')~='17' then return redis.error_reply('unsupported snapshot catalog format') end
 local pinkey=KEYS[7];local pinfield='p:'..token
 if pinkey~=catalog then
  local ns=string.sub(pinkey,#'` + snapshotReaderPrefix + `'+1)

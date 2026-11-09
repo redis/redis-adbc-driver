@@ -56,7 +56,7 @@ func snapshotImportBatchFixture(t *testing.T) (*sqlHarness, *goredis.Client, *st
 }
 
 func TestSnapshotImportBatchAdmission(t *testing.T) {
-	for _, mode := range []string{"missing_input", "duplicate_input", "wrong_score", "wrong_namespace", "unregistered_journal", "incomplete"} {
+	for _, mode := range []string{"missing_input", "duplicate_input", "wrong_score", "wrong_namespace", "unregistered_journal", "incomplete", "wrong_ordinal", "wrong_order", "missing_reservation"} {
 		t.Run(mode, func(t *testing.T) {
 			h, raw, s, ctx, meta, journal, rows := snapshotImportBatchFixture(t)
 			switch mode {
@@ -72,6 +72,20 @@ func TestSnapshotImportBatchAdmission(t *testing.T) {
 				journal.rows = "app:batch:foreign"
 			case "unregistered_journal":
 				if err := raw.HDel(ctx, snapshotMetadataGraph, "v:"+journal.rows).Err(); err != nil {
+					t.Fatal(err)
+				}
+			case "wrong_ordinal":
+				rows[0].key = meta.prefix() + "3"
+				rows[0].member = fmt.Sprintf("%020d", 3)
+				rows[0].fields[1] = "3"
+			case "wrong_order":
+				rows[0].fields[3], rows[1].fields[3] = rows[1].fields[3], rows[0].fields[3]
+			case "missing_reservation":
+				key, err := resolveSnapshotMetadata(ctx, strings.TrimPrefix(seqKey(meta.Schema, meta.Name), metaPrefix), false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := raw.Del(ctx, key).Err(); err != nil {
 					t.Fatal(err)
 				}
 			case "incomplete":

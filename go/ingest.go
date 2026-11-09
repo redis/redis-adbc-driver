@@ -73,6 +73,12 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		if err != nil {
 			return -1, err
 		}
+		if request := snapshotOperationRequestOf(wctx); request != nil {
+			if err := s.conn.store.prepareSnapshotOperation(wctx, request, "arrow", n, nil); err != nil {
+				return -1, err
+			}
+			return 0, nil
+		}
 		if err := s.conn.store.publishSnapshot(wctx, pin, id); err != nil {
 			return -1, err
 		}

@@ -44,7 +44,7 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 - Managed-table statement snapshots are always enabled, using immutable
   generations in one hash slot; see [snapshots](docs/snapshots.md). Storage
-  protocol version 16 rejects earlier draft formats; there is no disable switch
+  protocol version 17 rejects earlier draft formats; there is no disable switch
   or upgrade path. Row HASHes use escaped schema prefixes with `{meta}`; schema
   `adbc` uses `%61dbc` to stay outside the metadata ACL grant. Durable data records
   retain exact physical prefixes; descriptor registration and row/Search fences

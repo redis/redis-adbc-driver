@@ -30,7 +30,7 @@ const (
 	// OptionStringStatementSnapshots reports the mandatory managed-table
 	// consistency guarantee. It cannot be disabled. See docs/snapshots.md.
 	OptionStringStatementSnapshots = "adbc.redis.statement_snapshots"
-	snapshotPrefix                 = metaPrefix + "snapshot:16:"
+	snapshotPrefix                 = metaPrefix + "snapshot:17:"
 	snapshotCatalogKey             = metaPrefix + "snapshot:catalog"
 	snapshotLease                  = 2 * time.Minute
 	snapshotTimeout                = 15 * time.Minute
@@ -41,6 +41,7 @@ const (
 type snapshotContextKey struct{}
 
 type snapshotScope struct {
+	operation           bool // explicit retained operation; durable control admission applies
 	compactionUpdates   string
 	store               *store
 	metadataMu          sync.Mutex
@@ -67,7 +68,7 @@ func snapshotOf(ctx context.Context) *snapshotScope {
 
 func snapshotWorkspace(id string) string    { return snapshotPrefix + "workspace:" + id + ":" }
 func snapshotMetadataKeys(id string) string { return snapshotWorkspace(id) + "__keys" }
-func snapshotIndexPrefix(id string) string  { return "adbc_snapshot16_{meta}_" + id + "_" }
+func snapshotIndexPrefix(id string) string  { return "adbc_snapshot17_{meta}_" + id + "_" }
 func snapshotID() string                    { return strings.ReplaceAll(uuid.NewString(), "-", "") }
 
 // The bounded catalog contains at most 16 generations and 128 live pins. Redis
@@ -91,12 +92,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '16', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '17', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '16' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '17' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '16' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '17' then return redis.error_reply('missing or unsupported snapshot catalog') end
 -- Lease operations need only their own records. Admission and reclamation
 -- below still enumerate/prune expired pins before accounting or collection.
 if op == 'renew' or op == 'valid' then
@@ -112,7 +113,8 @@ if op == 'renew' or op == 'valid' then
       if not wr then return 0 end
       local w = cjson.decode(wr)
       if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now then return 0 end
-      w.expires = expiry
+      if w.operation and w.operation.deadline<=now then return 0 end
+      w.expires = w.operation and math.min(expiry,w.operation.deadline) or expiry
       redis.call('HSET', k, 'w:'..id, cjson.encode(w))
     end
   end
@@ -146,7 +148,14 @@ for n=1,#entries,2 do
       protected[pin.root] = true
       owners[string.sub(field,3)] = pin.root
     else redis.call('HDEL', k, field) end
-  elseif string.sub(field,1,2) == 'w:' then works = works + 1 end
+  elseif string.sub(field,1,2) == 'w:' then
+    works = works + 1
+    local work=cjson.decode(entries[n+1])
+    if work.operation and work.operation.deadline>now and (work.state=='staging' or work.state=='sealed') then
+      protected[string.sub(field,3)]=true
+      protected[work.base]=true
+    end
+  end
 end
 if op == 'compact_candidates' then
   local members=redis.call('ZRANGEBYSCORE',compactionqueue,'-inf',now,'LIMIT',0,16)
@@ -352,7 +361,7 @@ elseif op == 'seal' then
   local w=cjson.decode(raw)
   if (w.state~='staging' and w.state~='sealed') or w.token~=token or w.expires<=now then return 0 end
   if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
-  if w.import_capture and (not import_capture_ready(w.import_capture) or w.import_capture.remaining~=0) then return redis.error_reply('import capture is incomplete or unconsumed') end
+  if w.import_capture and (not import_capture_reservation(w.import_capture,graph,id) or w.import_capture.remaining~=0) then return redis.error_reply('import capture is incomplete or unconsumed') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   local incomplete=snapshot_metadata_publication_error(KEYS[3],graph)
   if incomplete then return redis.error_reply(incomplete) end
@@ -362,9 +371,17 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   if not raw then return -1 end
   local w = cjson.decode(raw)
   if w.state == 'committed' then return 1 end
+  if w.operation then
+    if w.operation.deadline<=now or w.operation.pending or w.operation.phase~='sealed' or w.operation.state~='running' or redis.call('EXISTS','` + snapshotPrefix + `operation:'..id)~=1 then
+      return redis.error_reply('operation is not owned for publication')
+    end
+    if not redis.acl_check_cmd('DEL','` + snapshotPrefix + `operation:'..id) then
+      return redis.error_reply('NOPERM operation publication requires checkpoint retirement')
+    end
+  end
   if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
-  if w.import_capture and (not import_capture_ready(w.import_capture) or w.import_capture.remaining~=0) then return redis.error_reply('import capture is incomplete or unconsumed') end
+  if w.import_capture and (not import_capture_reservation(w.import_capture,graph,id) or w.import_capture.remaining~=0) then return redis.error_reply('import capture is incomplete or unconsumed') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   local incomplete=snapshot_metadata_publication_error(KEYS[3],graph)
   if incomplete then return redis.error_reply(incomplete) end
@@ -427,7 +444,14 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     redis.call('DEL',KEYS[controlN-4])
     redis.call('HSET',k,'w:'..merge.id,cjson.encode({state='deleting'}))
   end
-  redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2]),metadata_buckets=redis.call('HLEN',KEYS[3])}), 'r:'..id, '[]')
+  local committed=cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2]),metadata_buckets=redis.call('HLEN',KEYS[3])})
+  if w.operation then
+    local terminal=cjson.encode({state='committed',deadline=w.operation.deadline,kind=w.operation.kind,affected=w.operation.affected})
+    -- The terminal outcome survives manifest GC. It shares the exact command
+    -- that installs the new root, rather than a later best-effort job update.
+    redis.call('HSET',k,'root',id,'w:'..id,committed,'r:'..id,'[]','o:'..id,terminal)
+    redis.call('DEL','` + snapshotPrefix + `operation:'..id)
+  else redis.call('HSET',k,'root',id,'w:'..id,committed,'r:'..id,'[]') end
   data_release(graph,dataqueue,refs)
   for _,update in ipairs(queueupdates) do
     if update.candidate then
@@ -443,6 +467,11 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   end
   return 1
 elseif op == 'outcome' then
+  local terminal=redis.call('HGET',k,'o:'..id)
+  if terminal then
+    local outcome=cjson.decode(terminal)
+    if outcome.deadline>now then return outcome.state end
+  end
   local raw = redis.call('HGET', k, 'w:'..id)
   if not raw then return 'unknown' end
   return cjson.decode(raw).state
@@ -450,7 +479,7 @@ elseif op == 'abort' then
   local raw = redis.call('HGET', k, 'w:'..id)
   if raw then
     local w = cjson.decode(raw)
-    if (w.state == 'staging' or w.state == 'sealed') and w.token == token then
+    if not w.operation and (w.state == 'staging' or w.state == 'sealed') and w.token == token then
       redis.call('HSET', k, 'w:'..id, cjson.encode({state='deleting'}))
     end
   end
@@ -860,7 +889,7 @@ if w.import_capture then
  end
 end
 if command=='ft.create' then
- local data=string.match(ARGV[6],'^adbc_snapshot16_{meta}_([0-9a-f]+)_')
+ local data=string.match(ARGV[6],'^adbc_snapshot17_{meta}_([0-9a-f]+)_')
  local expected=data and data_prefixes[data]
  local found=false
  for i=7,#ARGV do
@@ -879,7 +908,7 @@ if w.state == 'compacting' then
   local job = cjson.decode(jr)
   local early_index=false
   if command=='ft.create' and job.phase=='copy' and (job.after or '')=='' and not job.copy_pending then
-    local data=string.match(ARGV[6],'^adbc_snapshot16_{meta}_([0-9a-f]+)_')
+    local data=string.match(ARGV[6],'^adbc_snapshot17_{meta}_([0-9a-f]+)_')
     local skip=false
     for i=7,#ARGV do
       if string.lower(ARGV[i])=='schema' then break end
@@ -1080,6 +1109,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	if write {
 		scope.mu.Lock()
 		defer scope.mu.Unlock()
+		before := scope.bytes
 		for n := 1; n < len(args); n++ {
 			scope.bytes += int64(len(fmt.Sprint(args[n])))
 		}
@@ -1107,6 +1137,11 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		}
 		if scope.bytes > snapshotMaxBytes || scope.writes > snapshotMaxWrites {
 			return errorf(adbc.StatusIO, "snapshot staging budget exceeded (64 MiB command data or 100000 row writes)")
+		}
+		if scope.operation {
+			if err := chargeSnapshotOperation(ctx, scope.bytes-before); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -1201,6 +1236,16 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 	if err := s.pruneSnapshotMetadata(ctx); err != nil {
 		return err
 	}
+	return s.publishPreparedSnapshot(ctx, pin, id)
+}
+
+// Rows and indexes are already frozen and validated. This is the only phase a
+// prepared operation may re-enter after a separate-process checkpoint.
+func (s *store) publishPreparedSnapshot(ctx context.Context, pin *snapshotPin, id string) error {
+	defer s.wakeSnapshotCompactor()
+	if err := pin.valid(ctx); err != nil {
+		return err
+	}
 	operation := "publish"
 	if snapshotOf(ctx).maintenance {
 		operation = "publish_compaction"
@@ -1252,7 +1297,7 @@ func snapshotDataID(key string) string {
 	if prefix := snapshotRowPrefix(key); prefix != "" {
 		return prefix[len(prefix)-33 : len(prefix)-1]
 	}
-	for _, prefix := range []string{snapshotPrefix + "members:", "adbc_snapshot16_{meta}_"} {
+	for _, prefix := range []string{snapshotPrefix + "members:", "adbc_snapshot17_{meta}_"} {
 		if rest, ok := strings.CutPrefix(key, prefix); ok {
 			if (len(rest) == 32 && prefix == snapshotPrefix+"members:") || (len(rest) >= 33 && (rest[32] == ':' || rest[32] == '_')) {
 				id := rest[:32]
@@ -1684,6 +1729,10 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	for _, cte := range statementWith(ps.Stmt) {
 		write = write || cte.Statement != nil
 	}
+	if snapshotOperationRequestOf(ctx) != nil && !write {
+		return execResult{}, errorf(adbc.StatusNotImplemented, "operation preparation requires a write statement")
+	}
+
 	var target *TableName
 	switch stmt := ps.Stmt.(type) {
 	case *InsertStmt:
@@ -1750,7 +1799,13 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	if err != nil {
 		return execResult{}, err
 	}
-	if write && !snapshotNoopDML(sctx, ps) {
+	if request := snapshotOperationRequestOf(sctx); request != nil {
+		request.Noop = snapshotNoopDML(sctx, ps)
+		err = e.store.prepareSnapshotOperation(sctx, request, "sql", res.affected, nil)
+		if err == nil {
+			res.affected = 0
+		}
+	} else if write && !snapshotNoopDML(sctx, ps) {
 		err = e.store.publishSnapshot(sctx, pin, id)
 		published = err == nil
 	} else {
@@ -1839,7 +1894,7 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 		if err != nil {
 			return err
 		}
-		if format != "16" {
+		if format != "17" {
 			return errorf(adbc.StatusInvalidState, "unsupported snapshot catalog format; existing storage is not upgraded or modified")
 		}
 		capable, err := once(ctx, s.client, "EVAL", `return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`, 1, snapshotCatalogKey).Int()

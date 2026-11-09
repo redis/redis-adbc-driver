@@ -32,7 +32,7 @@ import pyarrow as pa
 
 def read_fixture(uri, ca, table):
     """Owned-fixture diagnostics, outside all query timers; no SQL retries."""
-    prefix = "adbc:{meta}:snapshot:16:"
+    prefix = "adbc:{meta}:snapshot:17:"
     catalog = "adbc:{meta}:snapshot:catalog"
     suffix = "table:public:" + table
     slot = 2166136261

@@ -38,10 +38,10 @@ func TestSnapshotReaderFormatFencesPreviousStorage(t *testing.T) {
 		t.Fatal("old collector modified new storage")
 	}
 	pin.release()
-	if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", "15").Err(); err != nil {
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", "16").Err(); err != nil {
 		t.Fatal(err)
 	}
-	defer raw.HSet(h.ctx, snapshotCatalogKey, "format", "16")
+	defer raw.HSet(h.ctx, snapshotCatalogKey, "format", "17")
 	before, err := raw.HGetAll(h.ctx, snapshotCatalogKey).Result()
 	if err != nil {
 		t.Fatal(err)

@@ -166,7 +166,7 @@ func TestACLSweep(t *testing.T) {
 	a := newACLHarness(t)
 	// Read access lets index validation reach the actual deletion permission
 	// boundary; the other schema deliberately has no write grant.
-	a.user("it_sw_acl", slices.Concat(a.driverCommands(), aclSweepCommands, []string{"~adbc:*", "~public:*", "%R~it_sw_acls:*", "%R~*~it_sw_acls:{meta}:snapshot:16:rows:*"})...)
+	a.user("it_sw_acl", slices.Concat(a.driverCommands(), aclSweepCommands, []string{"~adbc:*", "~public:*", "%R~it_sw_acls:*", "%R~*~it_sw_acls:{meta}:snapshot:17:rows:*"})...)
 	stopMatviewTestMaintenance(t, a.sqlHarness)
 	runSweep(t, sweepOpts(adminURI()), true)
 	a.dropTables("it_sw_acl")

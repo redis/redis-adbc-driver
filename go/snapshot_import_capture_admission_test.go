@@ -12,9 +12,12 @@ import (
 
 // This fixture also runs against the pre-barrier source: the negative case
 // proves why a durable incomplete-capture record must fence server mutation.
-func snapshotClusterCaptureFixture(t *testing.T, count int) (*sqlHarness, *store, context.Context, *tableMeta, *snapshotImportSpool) {
+func snapshotClusterCaptureFixture(t *testing.T, count int, setup ...func(*sqlHarness)) (*sqlHarness, *store, context.Context, *tableMeta, *snapshotImportSpool) {
 	t.Helper()
 	h, _, _ := snapshotClusterHarness(t)
+	for _, seed := range setup {
+		seed(h)
+	}
 	st, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
 		t.Fatal(err)

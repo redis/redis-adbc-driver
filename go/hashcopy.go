@@ -28,6 +28,7 @@ import (
 // HashCopyOptions selects the HASHes that CopyHashes copies, their
 // columns (as for InspectHashes), and the table they are copied into.
 type HashCopyOptions struct {
+	operation *snapshotOperationRequest
 	Prefix    string
 	Sample    int
 	KeyColumn string
@@ -150,7 +151,11 @@ func CopyHashes(ctx context.Context, options map[string]string, o HashCopyOption
 	if err := st.BindStream(ctx, s); err != nil {
 		return nil, err
 	}
-	if _, err := st.ExecuteUpdate(ctx); err != nil {
+	executeCtx := ctx
+	if o.operation != nil {
+		executeCtx = context.WithValue(ctx, snapshotOperationRequestKey{}, o.operation)
+	}
+	if _, err := st.ExecuteUpdate(executeCtx); err != nil {
 		var ae adbc.Error
 		if !s.conn.st.snapshots && o.Mode == adbc.OptionValueIngestModeCreate && !(asAdbc(err, &ae) && ae.Code == adbc.StatusAlreadyExists) {
 			// The table is this copy's: the ingest created it.

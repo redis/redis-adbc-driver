@@ -26,7 +26,7 @@ import adbc_driver_manager.dbapi
 import redis
 
 META = "adbc:{meta}:"
-PREFIX = META + "snapshot:16:"
+PREFIX = META + "snapshot:17:"
 CATALOG = META + "snapshot:catalog"
 
 
