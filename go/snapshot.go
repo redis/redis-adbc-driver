@@ -1242,8 +1242,13 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 // Rows and indexes are already frozen and validated. This is the only phase a
 // prepared operation may re-enter after a separate-process checkpoint.
 func (s *store) publishPreparedSnapshot(ctx context.Context, pin *snapshotPin, id string) error {
-	if err := pin.valid(ctx); err != nil {
-		return err
+	// Ordinary publication already validates its pin before preparing indexes.
+	// Preserve its command budget; only a restored operation needs this new
+	// entry-point check. The atomic publish fence validates both paths again.
+	if snapshotOf(ctx).operation {
+		if err := pin.valid(ctx); err != nil {
+			return err
+		}
 	}
 	operation := "publish"
 	if snapshotOf(ctx).maintenance {
