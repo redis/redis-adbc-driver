@@ -93,6 +93,9 @@ return 1
 // Retry only a proven CAS refusal. The already evaluated SQL arguments are not
 // evaluated again, and an uncertain allocation is never resent or guessed.
 func (e *executor) mutateSnapshotSequenceValue(ctx context.Context, schema, name string, fn func(*sequenceMeta) error, drop, ifExists bool) error {
+	if sharedSnapshotScope(ctx) {
+		return sharedSnapshotUnsupported()
+	}
 	if drop || ifExists {
 		return errorf(adbc.StatusInternal, "invalid volatile sequence mutation")
 	}
