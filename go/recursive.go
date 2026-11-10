@@ -51,9 +51,9 @@ package redis
 // Otherwise it is Postgres's "has type … in non-recursive term but type …
 // overall" error.
 //
-// The whole result is computed before the query reads it (Postgres stops as
-// soon as the query has read what it needs, for instance with LIMIT), so the
-// recursive term needs a stop condition: a CTE whose recursive term still
+// A sole simple LIMIT consumer can bound single-row progressions (see
+// recursive_limit.go). Other forms compute the whole result before it is read.
+// A CTE whose recursive term still
 // returns new rows after maxRecursion iterations, or that produces more than
 // maxRecursiveRows rows, fails.
 
@@ -108,6 +108,7 @@ type recursivePlan struct {
 	scopes      []*scope
 	ctes        []map[string]*CTE
 	cteLevel    []int
+	demand      int // consumer-local row bound; zero requires complete evaluation
 }
 
 // materializeRecursive evaluates a recursive CTE (see the file comment).
@@ -167,7 +168,7 @@ func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recur
 		}
 	}
 	rp := &recursivePlan{def: def, rc: rc, nonrec: nonrec, rec: rec, cols: cols, wt: wt, tr: tr,
-		scopes: slices.Clone(e.scopes), ctes: slices.Clone(e.ctes), cteLevel: slices.Clone(e.cteLevel)}
+		scopes: slices.Clone(e.scopes), ctes: slices.Clone(e.ctes), cteLevel: slices.Clone(e.cteLevel), demand: demandedRecursiveRows(ctx, def)}
 	if sq.correlated {
 		meta, err := e.recursiveResult(def, cols, tr, nil)
 		if err == nil {
@@ -269,6 +270,12 @@ func (e *executor) runRecursive(ctx context.Context, rp *recursivePlan) (*tableM
 	// Up to maxRecursion iterations may return new rows; the one after them
 	// must return none.
 	for runs := 1; len(work) > 0; runs++ {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
+		if rp.demand > 0 && len(result) >= rp.demand {
+			break
+		}
 		// The recursive term reads the rows of the last iteration: all at
 		// once, or with a tracer one at a time (but for cycles).
 		groups := [][]int{work}

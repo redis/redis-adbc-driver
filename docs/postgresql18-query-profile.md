@@ -81,12 +81,19 @@ All 589 previous passes are retained; the eight remaining JSON corpus cases pass
 The broader JSON issue remains open. Separate adversarial cases are not included
 in this denominator.
 
-The latest 54 failing cases are grouped below. Counts are stable test cases, not
+The [recursive LIMIT follow-up](sdlc/changes/postgresql18-recursive-limit/validation.md)
+measured **599/651 passes (92.01%)**, **52 failures**, two allowed extensions,
+two explicit exclusions and zero infrastructure errors on Redis Software with
+verified 4x QPF. Both targeted recursive cases pass and all 597 previous passes
+remain passing. The implementation admits sole direct LIMIT consumers of
+single-row progressions; wider-frontier demand remains outside this batch.
+
+The latest 52 failing cases are grouped below. Counts are stable test cases, not
 numbers of distinct features, issues or mandatory requirements.
 
 | Category | Failing cases | Owning issues |
 |---|---:|---|
-| Query semantics and metadata | 5 | [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| Query semantics and metadata | 3 | [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
 | Numeric/temporal representation | 24 | [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
 | JSON types, operators and functions | 0 | [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
 | Comparison rules and fixture scope | 7 | [#364](https://github.com/redis/redis-adbc-driver/issues/364) |
@@ -94,7 +101,7 @@ numbers of distinct features, issues or mandatory requirements.
 | PUBLIC privileges | 2 | [#363](https://github.com/redis/redis-adbc-driver/issues/363) |
 | Enum types | 2 | [#107](https://github.com/redis/redis-adbc-driver/issues/107) |
 | Remaining functions/operators | 2 | [#110](https://github.com/redis/redis-adbc-driver/issues/110) |
-| **Total** | **54** | |
+| **Total** | **52** | |
 
 #359 retained 188 baseline failures: 122 now pass and 66 were explicitly
 deferred. #360's original eleven cases also still fail. The storage category
@@ -104,8 +111,9 @@ After the #361 follow-up, 137/188 retained cases pass and 51 remain deferred;
 the original eleven #360 cases remain failures. After the JSON batch, 145/188
 retained cases pass and 43 remain deferred.
 
-The remaining retained 43 have a separate classification: five Core-related,
-four optional-standard-related, three PostgreSQL-specific, twenty-four
+After the recursive LIMIT batch, 147/188 retained cases pass and 41 remain deferred.
+The remaining retained 41 have a separate classification: five Core-related,
+two optional-standard-related, three PostgreSQL-specific, twenty-four
 ADBC representation/comparison limitations and seven fixture/oracle cases.
 That classification does not cover all original eleven storage cases or count
 mandatory features. “Core-related” identifies an association; exact standard

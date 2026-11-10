@@ -2259,7 +2259,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Eager CTE materialization needs safe demand propagation; global truncation would corrupt sorted/filtered/shared consumers.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "postgres/with.json",
@@ -2271,7 +2271,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Eager CTE materialization needs safe demand propagation; global truncation would corrupt sorted/filtered/shared consumers.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     }
   ],
   "classification_limits": "Core-related means association, not a conformance result. Exact subfeature classification is explicitly unverified where noted. All exclusions are from this implementation change only; failures remain in #118 and in the unmodified full corpus."

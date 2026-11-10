@@ -1,0 +1,87 @@
+{
+  "area": "recursive-limit-adversarial",
+  "tier": "issues",
+  "setup": [],
+  "cases": [
+    {
+      "id": "edge-000",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t) SELECT * FROM t LIMIT 10"
+    },
+    {
+      "id": "edge-001",
+      "sql": "WITH RECURSIVE t(n)AS(SELECT 1 UNION SELECT n+1 FROM t) SELECT * FROM t LIMIT 10"
+    },
+    {
+      "id": "edge-002",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t) SELECT n FROM t LIMIT 3 OFFSET 7"
+    },
+    {
+      "id": "edge-003",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION SELECT n FROM t) SELECT * FROM t LIMIT 4"
+    },
+    {
+      "id": "edge-004",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n FROM t) SELECT * FROM t LIMIT 4"
+    },
+    {
+      "id": "edge-005",
+      "sql": "WITH RECURSIVE t(n)AS(SELECT 1 WHERE false UNION ALL SELECT n+1 FROM t) SELECT * FROM t LIMIT 4"
+    },
+    {
+      "id": "edge-006",
+      "sql": "WITH RECURSIVE t(n)AS(SELECT 1 UNION ALL SELECT n/0 FROM t) SELECT * FROM t LIMIT 1"
+    },
+    {
+      "id": "edge-007",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<3) SELECT * FROM t LIMIT 8 OFFSET 1"
+    },
+    {
+      "id": "edge-008",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t) SELECT * FROM t LIMIT 0"
+    },
+    {
+      "id": "edge-009",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<8) SELECT * FROM t ORDER BY n DESC LIMIT 2"
+    },
+    {
+      "id": "edge-010",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<8) SELECT COUNT(*) FROM t LIMIT 1"
+    },
+    {
+      "id": "edge-011",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<8) SELECT (SELECT COUNT(*) FROM t),n FROM t LIMIT 1"
+    },
+    {
+      "id": "edge-012",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<8) SELECT * FROM t WHERE n>6 LIMIT 2"
+    },
+    {
+      "id": "edge-013",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<8) SELECT a.n,b.n FROM t a JOIN t b USING(n) LIMIT 2"
+    },
+    {
+      "id": "edge-014",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<8) SELECT * FROM t LIMIT 2 OFFSET 9223372036854775807"
+    },
+    {
+      "id": "edge-015",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t) SELECT * FROM t LIMIT -1"
+    },
+    {
+      "id": "edge-016",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t) SELECT * FROM t LIMIT 1 OFFSET -1"
+    },
+    {
+      "id": "edge-017",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<3) SELECT * FROM t LIMIT NULL"
+    },
+    {
+      "id": "edge-018",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1) UNION ALL SELECT n+1 FROM t WHERE n<3) SELECT * FROM t LIMIT (1+1)"
+    },
+    {
+      "id": "edge-019",
+      "sql": "WITH RECURSIVE t(n)AS(VALUES(1),(2) UNION ALL SELECT n+2 FROM t WHERE n<3) SELECT * FROM t LIMIT 8"
+    }
+  ]
+}

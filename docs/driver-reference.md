@@ -2714,10 +2714,14 @@ allow otherwise streamable queries to stream.
   not in a subquery, on the NULL-supplying side of an outer join, under
   `EXCEPT` or `INTERSECT ALL`, or at a level with aggregates; no `ORDER BY`
   / `LIMIT` / `OFFSET` on the `UNION`; no mutual recursion between CTEs. The
-  CTE is computed in full before the query reads it (Postgres stops early,
-  for instance under a `LIMIT`), so the recursive term needs a stop
-  condition: more than 10,000 iterations that add rows, or more than
-  1,000,000 rows, is an error. A CTE of a `WITH RECURSIVE` list that doesn't
+  CTE normally computes in full before it is read. A sole direct projection
+  with finite `LIMIT` / `OFFSET` can stop a single-row progression early: its
+  seed produces at most one row and each recursive iteration produces at most
+  one row. Sorts, filters, aggregates/windows, joins, shared references,
+  SEARCH/CYCLE and wider frontiers retain full evaluation. The bounded result
+  never enters the shared CTE cache. More than 10,000 iterations that add rows,
+  or more than 1,000,000 rows, remains an error. See
+  [scope and evidence](sdlc/changes/postgresql18-recursive-limit/validation.md). A CTE of a `WITH RECURSIVE` list that doesn't
   refer to itself is an ordinary CTE
   - `SEARCH {BREADTH | DEPTH} FIRST BY col, … SET seq` adds a `BIGINT` column
     that orders the rows breadth or depth first (Postgres has a record or an
