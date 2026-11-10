@@ -13,6 +13,8 @@ with **77 failures**, two allowed extensions, two explicit exclusions and zero
 infrastructure errors. Of #359's 188 retained baseline failures, 122 now pass
 and 66 have explicit deferred dispositions; the other eleven failures are the
 original #360 storage-model cases. Deferred cases remain failing in the runner.
+The [proposed query-profile milestone and categorized failure inventory](postgresql18-query-profile.md)
+explain a narrower future claim; no complete profile pass has been established.
 
 
 On **2026-10-08**, the validation suite against the default local **Redis

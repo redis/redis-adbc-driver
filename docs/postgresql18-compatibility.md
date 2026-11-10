@@ -6,6 +6,16 @@ inventory at source revision `08d75d50888374b805a5c89f5bb94a46cf6fe8a9`, not a
 claim of complete compatibility. It replaces the proposed SQL:2023 Core audit
 as the objective for this change. Standards extensions #356–#358 remain separate.
 
+## Proposed query-profile milestone
+
+The [proposed PostgreSQL 18 query profile](postgresql18-query-profile.md)
+defines the contract, manifest, exclusions and completion evidence needed for a
+smaller, versioned query-compatibility claim through ADBC. It also groups all
+77 measured failures by category and owner, separately from their standards
+classification. No complete profile has yet been published or passed. The
+current mixed 655-case corpus and #359's closed triage do not establish that
+milestone. The broader #118 objective and deferred feature issues remain open.
+
 ## Existing resources and their limits
 
 - PostgreSQL publishes [18's regression suites](https://www.postgresql.org/docs/18/regress.html),
@@ -74,5 +84,5 @@ subsequently measured 574/651 scored passes (88.2%), 77 failures, and no
 infrastructure errors at implementation revision `b35a4739`. All 188 retained
 baseline cases have dispositions: 122 observed passes and 66 deferred failures.
 The 66 are exclusions from that implementation change, not from #118's
-compatibility goal or from the full runner. [PR #366](https://github.com/redis/redis-adbc-driver/pull/366)
-delivers the fixes; #118 and the owning feature issues retain the remaining work.
+compatibility goal or from the full runner. merged [PR #366](https://github.com/redis/redis-adbc-driver/pull/366)
+delivered the fixes; #118 and the owning feature issues retain the remaining work.
