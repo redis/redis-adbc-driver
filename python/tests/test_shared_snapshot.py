@@ -1,5 +1,6 @@
 """Native connection options preserve one full-refresh read view (#365)."""
 
+import json
 from uuid import uuid4
 
 import adbc_driver_manager.dbapi as manager
@@ -17,10 +18,12 @@ def test_shared_read_snapshot_full_refresh(uri):
             cur.execute(f"INSERT INTO \"{items}\" VALUES(1,'old'),(1,'old')")
         try:
             native = reader.adbc_connection
-            native.set_options(**{"adbc.redis.read_snapshot_retention_ms": "60000"})
-            native.set_options(**{"adbc.redis.read_snapshot": "acquire"})
+            native.set_options(**{"adbc.redis.read_snapshot_retention_ms": "120000"})
+            native.set_options(**{"adbc.redis.read_snapshot_action": "acquire"})
             try:
-                generation = native.get_option("adbc.redis.read_snapshot_id")
+                generation = json.loads(
+                    native.get_option("adbc.redis.read_snapshot_status")
+                )["generation"]
                 schemas = {
                     name: reader.adbc_get_table_schema(name, db_schema_filter="public")
                     for name in (orders, items)
@@ -43,20 +46,24 @@ def test_shared_read_snapshot_full_refresh(uri):
                 assert schemas[items] == reader.adbc_get_table_schema(
                     items, db_schema_filter="public"
                 )
-                assert before.equals(reader.adbc_get_objects(
-                    db_schema_filter="public", table_name_filter=items
-                ).read_all())
+                assert before.equals(
+                    reader.adbc_get_objects(
+                        db_schema_filter="public", table_name_filter=items
+                    ).read_all()
+                )
                 with reader.cursor() as cur:
                     cur.execute(f'SELECT * FROM "{items}"')
                     result = cur.fetch_arrow_table()
                 assert result.schema == schemas[items]
                 assert result.to_pylist() == [{"id": 1, "label": "old"}] * 2
-                assert native.get_option("adbc.redis.read_snapshot_id") == generation
+                assert json.loads(
+                    native.get_option("adbc.redis.read_snapshot_status")
+                )["generation"] == generation
                 with pytest.raises(manager.Error, match="read-only"):
                     with reader.cursor() as cur:
                         cur.execute(f'DELETE FROM "{items}"')
             finally:
-                native.set_options(**{"adbc.redis.read_snapshot": "release"})
+                native.set_options(**{"adbc.redis.read_snapshot_action": "release"})
             with reader.cursor() as cur:
                 cur.execute(f'SELECT COUNT(*) FROM "{items}"')
                 assert cur.fetchall() == [(0,)]

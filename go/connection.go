@@ -30,7 +30,7 @@ import (
 )
 
 type connectionImpl struct {
-	readSnapshot                sharedReadSnapshot
+	readSnapshotRetention       time.Duration
 	usage                       *usageTelemetry
 	rbac                        *rbacManager
 	retainedNamespace           string
@@ -68,7 +68,7 @@ type connectionImpl struct {
 func (c *connectionImpl) executor() *executor {
 	metrics := &partitionMetrics{}
 	c.aggregateMetrics.Store(metrics)
-	return &executor{readSnapshot: &c.readSnapshot, store: c.store, rbac: c.rbac, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
+	return &executor{store: c.store, rbac: c.rbac, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
@@ -79,30 +79,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return string(c.usage.snapshot()), nil
 	}
 	switch key {
-	case OptionStringReadSnapshot, OptionStringReadSnapshotID, OptionStringReadSnapshotRetention:
-		v := &c.readSnapshot
-		v.mu.Lock()
-		defer v.mu.Unlock()
-		if key == OptionStringReadSnapshotRetention {
-			ttl := v.retention
-			if ttl == 0 {
-				ttl = time.Hour
-			}
-			return strconv.FormatInt(ttl.Milliseconds(), 10), nil
-		}
-		if v.pin == nil {
-			return "", nil
-		}
-		if err := cancelled(v.ctx); err != nil {
-			return "", errorf(adbc.StatusInvalidState, "shared read snapshot expired or released; restart the full refresh")
-		}
-		if err := v.pin.valid(ctx); err != nil {
-			return "", err
-		}
-		if key == OptionStringReadSnapshotID {
-			return v.pin.root, nil
-		}
-		return "acquired", nil
+	case OptionStringReadSnapshotAction, OptionStringReadSnapshotStatus, OptionIntReadSnapshotRetention:
+		return c.readSnapshotOption(ctx, key)
 	case OptionStringStatementSnapshots:
 		return strconv.FormatBool(c.store != nil && c.store.snapshots), nil
 	case OptionStringPartitionResultNamespace:
@@ -136,13 +114,6 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 }
 
 func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error {
-	switch key {
-	case OptionStringReadSnapshot, OptionStringReadSnapshotID, OptionStringReadSnapshotRetention:
-		return c.sharedSnapshotOption(ctx, key, value)
-	}
-	if c.readSnapshot.active() && (key == OptionStringForeignIndexesRefresh || key == OptionStringForeignIndexes) {
-		return sharedSnapshotUnsupported()
-	}
 	if key == OptionStringStatementSnapshots {
 		if value == "true" && c.store != nil && c.store.snapshots {
 			return nil
@@ -150,7 +121,12 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		return snapshotUnsupported()
 	}
 	switch key {
+	case OptionStringReadSnapshotAction, OptionStringReadSnapshotStatus, OptionIntReadSnapshotRetention:
+		return c.setReadSnapshotOption(ctx, key, value)
 	case OptionStringForeignIndexesRefresh:
+		if c.store.hasSharedReadView() {
+			return sharedSnapshotUnsupported()
+		}
 		if value != "true" {
 			return errorf(adbc.StatusInvalidArgument, "foreign_indexes_refresh must be true")
 		}
@@ -162,6 +138,9 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		}
 		return c.store.refreshSnapshotForeign(ctx, true)
 	case OptionStringForeignIndexes:
+		if c.store.hasSharedReadView() {
+			return sharedSnapshotUnsupported()
+		}
 		if c.store.flexEnabled() && value == "true" {
 			return flexUnsupported("foreign indexes")
 		}
@@ -265,7 +244,6 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	}
 	// Renames running on other goroutines stop, and are rolled back, while
 	// the client is open (see rekey.go).
-	c.readSnapshot.close()
 	c.store.stopSnapshotCompactor()
 	c.store.stopRekeys(ctx)
 	executions := c.store.activeExecutions()
@@ -289,6 +267,7 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 		}
 	}
 	cancelCleanup()
+	c.store.releaseSharedReadView()
 	// Best effort: whatever can't be dropped now is swept by a later
 	// connection (see temp.go).
 	_ = c.store.dropTempSchema(ctx)
@@ -361,7 +340,7 @@ func (c *connectionImpl) SetCurrentCatalog(ctx context.Context, catalog string) 
 }
 
 func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) error {
-	ctx, pin, snapshotErr := c.acquireReadSnapshot(ctx)
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return snapshotErr
 	}
@@ -384,7 +363,7 @@ func (c *connectionImpl) ListTableTypes(ctx context.Context) ([]string, error) {
 }
 
 func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, dbSchema *string, tableName string) (*arrow.Schema, error) {
-	ctx, pin, snapshotErr := c.acquireReadSnapshot(ctx)
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return nil, snapshotErr
 	}
@@ -458,7 +437,7 @@ func (c *connectionImpl) GetCatalogs(ctx context.Context, catalogFilter *string)
 }
 
 func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog string, schemaFilter *string) ([]string, error) {
-	ctx, pin, snapshotErr := c.acquireReadSnapshot(ctx)
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return nil, snapshotErr
 	}
@@ -485,7 +464,7 @@ func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog str
 }
 
 func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog string, schema string, tableFilter *string, columnFilter *string, includeColumns bool) ([]driverbase.TableInfo, error) {
-	ctx, pin, snapshotErr := c.acquireReadSnapshot(ctx)
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return nil, snapshotErr
 	}

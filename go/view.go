@@ -71,6 +71,9 @@ func viewNotFound(schema, name string) error {
 }
 
 func (s *store) getView(ctx context.Context, schema, name string) (*viewMeta, error) {
+	if sharedSnapshotScope(ctx) && (isTempSchema(schema) || isTempAlias(schema)) {
+		return nil, sharedSnapshotUnsupported()
+	}
 	raw, err := s.redis(ctx).Get(ctx, viewKey(schema, name)).Result()
 	if errors.Is(err, goredis.Nil) {
 		return nil, viewNotFound(schema, name)

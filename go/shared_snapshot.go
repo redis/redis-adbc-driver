@@ -5,181 +5,226 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
-	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
 const (
-	// OptionStringReadSnapshot acquires or releases a connection-local read view.
-	OptionStringReadSnapshot = "adbc.redis.read_snapshot"
-	// OptionStringReadSnapshotID reports the generation for diagnostics, not attachment.
-	OptionStringReadSnapshotID = "adbc.redis.read_snapshot_id"
-	// OptionStringReadSnapshotRetention sets the fixed lifetime in milliseconds.
-	OptionStringReadSnapshotRetention = "adbc.redis.read_snapshot_retention_ms"
+	OptionStringReadSnapshotAction = "adbc.redis.read_snapshot_action"
+	OptionStringReadSnapshotStatus = "adbc.redis.read_snapshot_status"
+	OptionIntReadSnapshotRetention = "adbc.redis.read_snapshot_retention_ms"
 )
 
-// sharedReadSnapshot owns one normal renewable pin. Children borrow it locally;
-// they cannot export its token or extend its fixed deadline. The mutex serializes
-// acquisition/release with binding, not SQL execution or Arrow consumption.
-type sharedReadSnapshot struct {
-	mu        sync.Mutex
-	pin       *snapshotPin
-	ctx       context.Context
-	cancel    context.CancelFunc
-	retention time.Duration
-}
-
-func (v *sharedReadSnapshot) active() bool {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	return v.pin != nil
+// One ordinary, authenticated server pin owns the generation. The connection
+// and each executing statement/live reader hold separate local references. No
+// token is exported and no attachment authority is created.
+type sharedReadView struct {
+	mu       sync.Mutex
+	pin      *snapshotPin
+	cancel   context.CancelFunc
+	deadline time.Time
+	refs     int
 }
 
 func sharedSnapshotUnsupported() error {
-	return errorf(adbc.StatusNotImplemented, "shared read snapshots support connection-local read-only SQL and metadata; writes, temporary objects, partitions and attachment are unsupported")
+	return errorf(adbc.StatusNotImplemented, "shared read snapshots support connection-local metadata and read-only SELECTs only; sharing, partitions, writes and temporary objects are unsupported")
 }
 
-func (c *connectionImpl) sharedSnapshotOption(ctx context.Context, key, value string) error {
-	v := &c.readSnapshot
+func (v *sharedReadView) release() {
 	v.mu.Lock()
-	defer v.mu.Unlock()
+	v.refs--
+	last := v.refs == 0
+	v.mu.Unlock()
+	if last {
+		v.cancel()
+		v.pin.release()
+	}
+}
+
+func (v *sharedReadView) borrow(ctx context.Context) (context.Context, *snapshotPin, error) {
+	if err := v.valid(ctx); err != nil {
+		return ctx, nil, err
+	}
+	v.mu.Lock()
+	v.refs++
+	v.mu.Unlock()
+	child := &snapshotPin{ctx: ctx, store: v.pin.store, root: v.pin.root, token: v.pin.token, shared: v}
+	scope := &snapshotScope{id: child.root, pin: child, store: child.store}
+	return context.WithValue(ctx, snapshotContextKey{}, scope), child, nil
+}
+
+func (s *store) hasSharedReadView() bool {
+	if s == nil {
+		return false
+	}
+	s.sharedMu.Lock()
+	defer s.sharedMu.Unlock()
+	return s.sharedView != nil
+}
+
+func (s *store) releaseSharedReadView() {
+	s.sharedMu.Lock()
+	v := s.sharedView
+	s.sharedView = nil
+	s.sharedMu.Unlock()
+	if v != nil {
+		v.release()
+	}
+}
+
+func (c *connectionImpl) setReadSnapshotOption(ctx context.Context, key, value string) error {
 	if c.store == nil || c.store.isClosed() {
 		return errConnClosed
 	}
-	switch key {
-	case OptionStringReadSnapshotID:
-		return errorf(adbc.StatusInvalidArgument, "%s is read-only; snapshot attachment is unsupported", key)
-	case OptionStringReadSnapshotRetention:
-		if v.pin != nil {
-			return errorf(adbc.StatusInvalidState, "release the shared read snapshot before changing retention")
-		}
-		n, err := strconv.ParseInt(value, 10, 64)
-		if err != nil || n < 1000 || n > 86400000 {
-			return errorf(adbc.StatusInvalidArgument, "read_snapshot_retention_ms must be 1000–86400000")
-		}
-		v.retention = time.Duration(n) * time.Millisecond
+	s := c.store
+	if key == OptionStringReadSnapshotStatus {
+		return errorf(adbc.StatusInvalidArgument, "%s is read-only", key)
+	}
+	if key == OptionStringReadSnapshotAction && value == "release" {
+		s.releaseSharedReadView()
 		return nil
 	}
-	switch value {
-	case "acquire":
-		if v.pin != nil {
-			return errorf(adbc.StatusInvalidState, "shared read snapshot already acquired; release it before starting a new full refresh")
-		}
-		if !c.store.snapshots || c.readerOnly || c.store.hasTempObjects() {
-			return sharedSnapshotUnsupported()
-		}
-		ttl := v.retention
-		if ttl == 0 {
-			ttl = time.Hour
-		}
-		// Acquisition observes caller cancellation; after success the parent survives
-		// the SetOption call and is owned by release, Close or its fixed deadline.
-		parent, cancel := context.WithTimeout(context.WithoutCancel(ctx), ttl)
-		stop := context.AfterFunc(ctx, cancel)
-		_, pin, err := c.store.acquireSnapshot(parent)
-		stopped := stop()
-		if err != nil || !stopped || ctx.Err() != nil {
-			cancel()
-			pin.release()
-			if err != nil {
-				return err
-			}
-			return cancelled(ctx)
-		}
-		v.ctx, v.cancel, v.pin = parent, cancel, pin
-		return nil
-	case "release":
-		if v.pin != nil {
-			v.cancel()
-			v.pin.release()
-			v.pin, v.ctx, v.cancel = nil, nil, nil
-		}
-		return nil
-	default:
-		return errorf(adbc.StatusInvalidArgument, "read_snapshot must be acquire or release; cross-connection attachment is unsupported")
+	retention, err := c.prepareReadSnapshotBinding(key, value)
+	if err != nil || key == OptionIntReadSnapshotRetention {
+		return err
 	}
+	defer func() { s.sharedMu.Lock(); s.sharedAcquiring = false; s.sharedMu.Unlock() }()
+	deadline := time.Now().Add(retention)
+	// Acquisition obeys caller cancellation, but a successful binding belongs to
+	// the connection rather than the short-lived SetOption call context.
+	life, cancel := context.WithDeadline(context.Background(), deadline)
+	stop := context.AfterFunc(ctx, cancel)
+	_, pin, err := s.acquireSnapshotMode(life, true)
+	stopped := stop()
+	if err != nil || !stopped || ctx.Err() != nil {
+		cancel()
+		pin.release()
+		if err != nil {
+			return err
+		}
+		return cancelled(ctx)
+	}
+	s.sharedMu.Lock()
+	defer s.sharedMu.Unlock()
+	if s.isClosed() {
+		cancel()
+		pin.release()
+		return errConnClosed
+	}
+	s.sharedView = &sharedReadView{pin: pin, cancel: cancel, deadline: deadline, refs: 1}
+	return nil
 }
 
-func (c *connectionImpl) acquireReadSnapshot(ctx context.Context) (context.Context, *snapshotPin, error) {
+// Reserve local acquisition without keeping the mutex through server admission.
+// Background compaction can need a fresh pin while foreground acquisition waits.
+func (c *connectionImpl) prepareReadSnapshotBinding(key, value string) (time.Duration, error) {
+	s := c.store
+	s.sharedMu.Lock()
+	defer s.sharedMu.Unlock()
+	if s.sharedView != nil || s.sharedAcquiring {
+		return 0, errorf(adbc.StatusInvalidState, "release the bound read snapshot before acquiring or changing retention")
+	}
+	if key == OptionIntReadSnapshotRetention {
+		ms, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || ms < 120000 || ms > 3600000 {
+			return 0, errorf(adbc.StatusInvalidArgument, "read snapshot retention must be 120000..3600000 milliseconds")
+		}
+		c.readSnapshotRetention = time.Duration(ms) * time.Millisecond
+		return 0, nil
+	}
+	if value != "acquire" || !s.snapshots || c.readerOnly || s.hasTempObjects() {
+		return 0, sharedSnapshotUnsupported()
+	}
+	c.streams.mu.Lock()
+	busy := len(c.streams.open) != 0
+	c.streams.mu.Unlock()
+	if busy {
+		return 0, errorf(adbc.StatusInvalidState, "close active readers before acquiring a shared read snapshot")
+	}
+	retention := c.readSnapshotRetention
+	if retention == 0 {
+		retention = snapshotTimeout
+	}
+	s.sharedAcquiring = true
+	return retention, nil
+}
+
+func (c *connectionImpl) readSnapshotOption(ctx context.Context, key string) (string, error) {
 	if c.store == nil || c.store.isClosed() {
-		return ctx, nil, errConnClosed
+		return "", errConnClosed
 	}
-	return c.readSnapshot.acquire(ctx, c.store)
+	s := c.store
+	s.sharedMu.Lock()
+	defer s.sharedMu.Unlock()
+	if key == OptionIntReadSnapshotRetention {
+		retention := c.readSnapshotRetention
+		if retention == 0 {
+			retention = snapshotTimeout
+		}
+		return strconv.FormatInt(retention.Milliseconds(), 10), nil
+	}
+	if key == OptionStringReadSnapshotAction {
+		return "", errorf(adbc.StatusInvalidArgument, "%s is write-only", key)
+	}
+	if s.sharedView == nil {
+		return `{"state":"unbound"}`, nil
+	}
+	v := s.sharedView
+	if err := v.valid(ctx); err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(struct {
+		State      string    `json:"state"`
+		Generation string    `json:"generation"`
+		Deadline   time.Time `json:"deadline"`
+	}{"active", v.pin.root, v.deadline})
+	return string(raw), err
 }
 
-func (v *sharedReadSnapshot) acquire(ctx context.Context, s *store) (context.Context, *snapshotPin, error) {
-	if snapshotOf(ctx) != nil {
-		return ctx, nil, nil
-	}
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	if v.pin == nil {
-		return s.acquireSnapshot(ctx)
-	}
-	if err := cancelled(v.ctx); err != nil {
-		return ctx, nil, errorf(adbc.StatusInvalidState, "shared read snapshot expired or released; restart the full refresh")
-	}
-	if err := v.pin.valid(ctx); err != nil {
-		return ctx, nil, err
-	}
-	deadline, _ := v.ctx.Deadline()
-	child, cancel := context.WithDeadline(ctx, deadline)
-	stop := context.AfterFunc(v.ctx, cancel)
-	p := &snapshotPin{parent: v.pin, root: v.pin.root, token: v.pin.token, store: s, reader: v.pin.reader, childRelease: func() { stop(); cancel() }}
-	scope := &snapshotScope{id: p.root, pin: p, store: s, sharedRead: true}
-	return context.WithValue(child, snapshotContextKey{}, scope), p, nil
+func sharedSnapshotScope(ctx context.Context) bool {
+	scope := snapshotOf(ctx)
+	return scope != nil && scope.pin != nil && scope.pin.shared != nil
 }
 
-func (v *sharedReadSnapshot) close() {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	if v.pin != nil {
-		v.cancel()
-		v.pin.release()
-		v.pin, v.ctx, v.cancel = nil, nil, nil
-	}
-}
-
-// GetObjects finishes construction under one binding, including discovery with
-// only catalog depth. The base enumerator materializes its Arrow result before
-// returning, so no Redis lease is needed by the returned reader.
-func (c *connectionImpl) GetObjects(ctx context.Context, depth adbc.ObjectDepth, catalog, schema, table, column *string, types []string) (array.RecordReader, error) {
-	ctx, pin, err := c.acquireReadSnapshot(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer pin.release()
-	helper := &snapshotObjects{connection: c, scope: snapshotOf(ctx)}
-	reader, err := driverbase.NewConnectionBuilder(c).WithDbObjectsEnumerator(helper).Connection().GetObjects(ctx, depth, catalog, schema, table, column, types)
+// Loss is terminal for the binding, including a transient failure to establish
+// whether its authority is still valid. Only an explicit new attempt can bind
+// another generation; a successful later network request cannot revive it.
+func (v *sharedReadView) valid(ctx context.Context) error {
+	err := cancelled(ctx)
 	if err == nil {
-		err = pin.valid(ctx)
+		if v.pin.ctx.Err() != nil {
+			err = errorf(adbc.StatusIO, "shared read snapshot lifetime ended; start a new full read attempt")
+		} else {
+			err = v.pin.valid(ctx)
+		}
 	}
-	if err != nil && reader != nil {
-		reader.Release()
-		reader = nil
+	if err != nil && ctx.Err() == nil {
+		v.pin.mu.Lock()
+		if v.pin.err == nil {
+			v.pin.err = err
+		}
+		v.pin.mu.Unlock()
 	}
-	return reader, err
+	return err
 }
 
-type snapshotObjects struct {
-	connection *connectionImpl
-	scope      *snapshotScope
+func (c *connectionImpl) SetOptionInt(ctx context.Context, key string, value int64) error {
+	if key == OptionIntReadSnapshotRetention {
+		return c.setReadSnapshotOption(ctx, key, strconv.FormatInt(value, 10))
+	}
+	return c.ConnectionImplBase.SetOptionInt(ctx, key, value)
 }
-
-func (o *snapshotObjects) bind(ctx context.Context) context.Context {
-	return context.WithValue(ctx, snapshotContextKey{}, o.scope)
-}
-func (o *snapshotObjects) GetCatalogs(ctx context.Context, filter *string) ([]string, error) {
-	return o.connection.GetCatalogs(o.bind(ctx), filter)
-}
-func (o *snapshotObjects) GetDBSchemasForCatalog(ctx context.Context, catalog string, filter *string) ([]string, error) {
-	return o.connection.GetDBSchemasForCatalog(o.bind(ctx), catalog, filter)
-}
-func (o *snapshotObjects) GetTablesForDBSchema(ctx context.Context, catalog, schema string, table, column *string, columns bool) ([]driverbase.TableInfo, error) {
-	return o.connection.GetTablesForDBSchema(o.bind(ctx), catalog, schema, table, column, columns)
+func (c *connectionImpl) GetOptionInt(ctx context.Context, key string) (int64, error) {
+	if key == OptionIntReadSnapshotRetention {
+		value, err := c.readSnapshotOption(ctx, key)
+		if err != nil {
+			return 0, err
+		}
+		return strconv.ParseInt(value, 10, 64)
+	}
+	return c.ConnectionImplBase.GetOptionInt(ctx, key)
 }

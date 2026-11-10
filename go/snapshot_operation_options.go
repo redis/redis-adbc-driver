@@ -275,6 +275,9 @@ func (s *statementImpl) operationOption(ctx context.Context, key string) (string
 }
 
 func (s *statementImpl) executeOperationAction(ctx context.Context) (int64, error) {
+	if s.conn.store.hasSharedReadView() {
+		return -1, sharedSnapshotUnsupported()
+	}
 	ctx, transport := s.conn.executionContext(ctx, &s.streams, &s.conn.streams)
 	if transport != nil {
 		defer transport.finish()

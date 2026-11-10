@@ -1,28 +1,22 @@
-# Shared read snapshots: intent
+# Shared snapshot metadata discovery: intent
 
-Date: 2026-11-10. Source baseline: `85509485`.
-Requestor: Albert Wong. Status: implemented and locally verified; awaiting PR review.
+Date: 2026-11-10. Source baseline: `2c50655c` (includes PR #369).
+Requestor: Albert Wong. Status: implemented and locally validated; awaiting review.
 Issue: [#365](https://github.com/redis/redis-adbc-driver/issues/365).
 Related: [specification](spec.md), [plan](plan.md), [validation](validation.md).
 
 ## Problem
 
-Airbyte full-refresh reads multiple tables in separate SELECT statements.
-Statement snapshots alone can return individually consistent tables from
-different catalog generations, including inconsistent discovery schemas.
+The merged shared-view implementation binds schema/table enumeration callbacks,
+but GetObjects can return catalog-only or empty filtered metadata without invoking
+those callbacks. An unavailable bound view can therefore appear to succeed.
+Independently binding callbacks also gives no single ownership boundary for the
+whole metadata operation.
 
-## Requested outcome
+## Requested outcome and boundaries
 
-Acquire a single committed managed read view before discovery and retain it for
-all metadata calls and sequential SQL reads on the owning native connection.
-Preserve exact values and multiplicities despite concurrent supported writes,
-schema/view changes, truncate/drop and reclamation. Fail explicitly after loss.
-
-## Boundaries
-
-Use existing protocol-17 reader pins with finite retention. The first API is
-connection-local, read-only and excludes temporary objects and partition workers.
-No process/connection attachment, write transaction, distributed-shard guarantee,
-native upstream read primitive, Flight SQL session or connector release is added.
-A released driver version and connector rollout remain release/integration work;
-this PR must not claim those acceptance items are already delivered.
+Acquire one view before any GetObjects discovery, including catalog-only and
+nonmatching-filter requests; hold it until complete Arrow metadata construction.
+Reuse the published #369 API, retention limits and parent/reader ownership rules.
+Add automated Python full-refresh coverage and document the existing API in the
+option reference. Release and connector evidence remains outstanding in #365.

@@ -318,7 +318,7 @@ func (r *subReader) Next() bool {
 // Metadata-only operations bind one committed generation without retaining it
 // in the installed plan. Execution rebinds its declared schema under a fresh pin.
 func (s *statementImpl) bindSubstraitMetadata(ctx context.Context, plan *subPlan) (*selectPlan, error) {
-	ctx, pin, err := s.conn.acquireReadSnapshot(ctx)
+	ctx, pin, err := s.conn.store.acquireSnapshot(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (s *statementImpl) subQuery(ctx context.Context) (reader array.RecordReader
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	ctx, cancelCause := context.WithCancelCause(ctx)
-	ctx, pin, err := s.conn.acquireReadSnapshot(ctx)
+	ctx, pin, err := s.conn.store.acquireSnapshot(ctx)
 	if err != nil {
 		cancelCause(nil)
 		cancel()

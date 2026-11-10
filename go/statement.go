@@ -532,7 +532,7 @@ func (s *statementImpl) GetParameterSchema(ctx context.Context) (*arrow.Schema, 
 	if err := s.checkExecution(); err != nil {
 		return nil, err
 	}
-	ctx, pin, snapshotErr := s.conn.acquireReadSnapshot(ctx)
+	ctx, pin, snapshotErr := s.conn.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return nil, snapshotErr
 	}
@@ -700,7 +700,7 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 			if len(paramRows) > 0 {
 				exec.params = paramRows[0]
 			}
-			planCtx, pin, err := s.conn.acquireReadSnapshot(ctx)
+			planCtx, pin, err := exec.store.acquireSnapshot(ctx)
 			if err != nil {
 				return execResult{}, err
 			}
@@ -839,9 +839,6 @@ func (s *statementImpl) ExecuteUpdate(ctx context.Context) (count int64, resultE
 	if err := s.checkExecution(); err != nil {
 		return -1, err
 	}
-	if s.conn.readSnapshot.active() && (s.operationAction != "" || s.ipc.active()) {
-		return -1, sharedSnapshotUnsupported()
-	}
 	if s.operationAction != "" && s.operationAction != "prepare" {
 		return s.executeOperationAction(ctx)
 	}
@@ -884,7 +881,7 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 	if err := s.checkExecution(); err != nil {
 		return nil, err
 	}
-	ctx, pin, snapshotErr := s.conn.acquireReadSnapshot(ctx)
+	ctx, pin, snapshotErr := s.conn.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return nil, snapshotErr
 	}

@@ -1,24 +1,17 @@
-# Shared read snapshots: plan
+# Shared snapshot metadata discovery: plan
 
-Date: 2026-11-10. Source baseline: `85509485`. Status: implementation and local validation complete; awaiting PR review. Requestor: Albert Wong.
+Date: 2026-11-10. Source baseline: `2c50655c`. Status: implemented and locally validated; awaiting review.
 Issue: [#365](https://github.com/redis/redis-adbc-driver/issues/365).
 Related: [intent](intent.md), [specification](spec.md), [validation](validation.md).
 
-## Ordered work
+1. Preserve the merged #369 runtime/API while resolving concurrent branch changes.
+2. Reproduce unavailable-view GetObjects success at catalog-only depth and with
+   nonmatching catalog filters.
+3. Wrap driverbase metadata construction in one captured scope and pin.
+4. Add automated Python full-refresh coverage using the published option names,
+   and add those options to the driver reference.
+5. Validate focused/race, RBAC, native Python, unit and documentation checks;
+   update PR #373 around the final scope and evidence.
 
-1. Define native connection options and borrow/release ownership without a new
-   durable format (`go/shared_snapshot.go`, `go/snapshot.go`).
-2. Bind SQL, schema/parameter discovery, GetObjects, statistics and Substrait;
-   preserve internal store/compaction independence and read-only admission.
-3. Add catalog/stream/expiry/ownership/quota/process-death regressions and a
-   management-backed SQL RBAC revocation regression.
-4. Document the exact native Python API, transport/storage boundaries and
-   connector enablement prerequisites.
-5. Record actual validation and review findings, commit, push and open a PR.
-
-## Deferred acceptance evidence
-
-A published release version and end-to-end Airbyte integration are not produced
-by opening this PR. Flight SQL shared snapshots are explicitly unsupported.
-Do not close #365 as fully delivered without the release/integration evidence
-requested by that issue. No merge or release approval is inferred from code review.
+Issue #365 remains open for its released-version and connector enablement evidence.
+No release or merge approval is inferred by this change.

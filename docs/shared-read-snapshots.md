@@ -1,151 +1,151 @@
-# Reusing one managed read snapshot
+# Connection-scoped shared read snapshots
 
-The native Redis ADBC driver can bind a connection to one committed catalog
-before discovery and reuse it for a sequential full-refresh extraction. This
-capability is introduced by [issue #365](https://github.com/redis/redis-adbc-driver/issues/365).
-It is not present in v0.0.23. A release containing this implementation must be
-published and validated before a connector enables `read_consistency=shared_snapshot`.
-No released version is claimed by this document.
+Native ADBC can explicitly bind one managed catalog generation to a connection
+for sequential full-refresh reads. This is a read-only API, not a multi-statement
+write transaction. It extends [statement snapshots](snapshots.md).
 
-## Native ADBC API
+**Release status:** unreleased; v0.0.23 does not expose these options. Do not enable
+Airbyte `read_consistency=shared_snapshot` against v0.0.23. A release containing
+this implementation and its validation must be selected and pinned before that
+connector setting can be enabled. Source validation is recorded in the
+[change evidence](sdlc/changes/shared-read-snapshot/verification.md).
 
-These are string **connection** options, available through ADBC SetOption/GetOption:
+## Native connection API
 
-| Option | SetOption | GetOption |
-|---|---|---|
-| `adbc.redis.read_snapshot` | `acquire` captures and binds the current generation; `release` unbinds it | `acquired` while valid; empty before acquire/after release; error after loss/expiry |
-| `adbc.redis.read_snapshot_id` | Read-only; setting an ID rejects attachment | Generation identity for diagnostics; empty when unbound; error when invalid |
-| `adbc.redis.read_snapshot_retention_ms` | Integer 1000–86400000, set while unbound | Configured retention; default 3600000 (one hour) |
+| Connection option | Contract |
+|---|---|
+| `adbc.redis.read_snapshot_retention_ms` | String or ADBC int64 milliseconds, 120000–3600000, default 900000. Set before acquire. Fixed maximum lifetime, including active readers; cannot be extended. |
+| `adbc.redis.read_snapshot_action=acquire` | Acquire and immediately bind a committed generation. Refuse an existing binding, active readers, temporary objects or a retained-reader-only connection. Cancellation during acquisition fails it. The successful binding outlives the option call's context. |
+| `adbc.redis.read_snapshot_status` | Read-only JSON: `state`, `generation`, `deadline` (UTC). Unbound: `{"state":"unbound"}`. An unavailable bound view returns an error. The generation is diagnostic, not an attachment capability. |
+| `adbc.redis.read_snapshot_action=release` | Idempotently unbind. Active readers retain their original generation until close/exhaustion/cancellation or the original deadline. Subsequent new statements use ordinary statement snapshots. |
 
-Acquire must succeed **before** GetObjects, GetTableSchema, schema validation or
-any table SELECT. Acquiring again while bound fails, including after expiry.
-There is no exportable capability or implicit bind on a second connection. The
-ID cannot be used for attachment. Use one authenticated connection for discovery
-and all reads; connection pools must retain that exact connection. Connection
-options are not safe to change concurrently with initiating other operations.
-Use another connection for writers.
+Only the acquiring connection can use the binding. There is no exported handle,
+attachment, cross-process API or snapshot-enabled partition descriptor.
+`ExecutePartitions` and `ReadPartition` refuse while bound. `attach` and all
+unknown action values fail explicitly. Acquire on another connection establishes
+an independent view and must never be described as joining this one.
 
-Supported operations are read-only SQL SELECTs (including joins, managed views,
-CTEs and complete streamed Arrow consumption), GetObjects, GetTableSchema,
-ExecuteSchema, GetParameterSchema and GetStatistics. Substrait binding/execution
-uses the same view. Session schema selection may select a schema in that view.
-Temporary objects are excluded: acquisition refuses a connection with temporary
-objects, and creation is forbidden while bound. Writes, data-modifying CTEs,
-sequence functions, SQL session/utility statements, Arrow ingestion, retained
-operations, foreign refresh, ExecutePartitions and ReadPartition are rejected.
-No worker descriptors are produced. Partition-reader-only connections cannot
-acquire this view. There is no cross-connection or cross-process attachment.
+While bound, GetObjects callbacks, GetTableSchema, schema selection, parameter
+schema discovery, ExecuteSchema and supported read-only SQL SELECTs use the same
+generation. GetObjects retains one view for its complete discovery call and
+validates it even for catalog-only depth or filters matching no catalog.
+Managed tables, imported managed copies and SQL view definitions are
+versioned together. Statement-local caches are rebuilt against that generation.
+DML, DDL, grants, retained operation actions, ingestion, sequence allocation
+(`nextval`/`setval`), temporary objects, Substrait, IPC and CUDA execution are
+unsupported on the bound connection. Use another connection for publications.
+Volatile expressions (time, random values and session settings), sequence counter
+inspection and live server/system information are not frozen catalog data.
 
-## Consistency and authorization
+## Boundary, authority and bounds
 
-The same immutable catalog root supplies schema names, table schemas, view
-definitions and managed row versions throughout the view. Other clients can
-publish DML/DDL, TRUNCATE, DROP or storage compaction without changing it. Fresh
-ordinary connections see subsequent publications. Exact values, NULLs, duplicate
-multiplicities and imported hidden provenance retain their statement-snapshot
-meaning. The boundary is the existing protocol-17 metadata slot and managed
-storage, described in [statement snapshots](snapshots.md). This adds no
-coordinated snapshot over independently distributed shards (#340) and no native
-Redis read-view primitive (#339). It adds no write transaction or rollback.
+The boundary is the existing managed catalog and its storage protocol 17 in one
+Redis hash slot. Supported DML/DDL, TRUNCATE, DROP and compaction preserve pinned
+row versions and metadata. This provides neither coordinated snapshots over
+independently distributed shards (#340) nor upstream native Redis read views
+(#339). It adds no persisted format or upgrade path: fresh-storage requirements
+and rejection of earlier protocols remain unchanged.
 
-Authentication and native Redis ACLs are those of the owning connection, including
-SQL SELECT grants translated into native ACLs. A generation ID grants no access.
-Each operation constructs fresh metadata/segment validation state; row and Search
-commands remain subject to current native permissions. Revocation can fail an
-ongoing read; this view does not freeze or bypass permissions. Metadata retains
-its existing discovery permissions, separate from row SELECT grants. Follow
-[SQL RBAC](sql-rbac.md), TLS and tenant isolation requirements; do not distribute
-IDs as credentials.
+Imported copies retain exactly the captured managed values and hidden source-key
+provenance. Their earlier application HASH/index capture remains weaker and is
+not made atomic by this binding. Later external source TTL expiry does not expire
+the managed copy. Direct mutation, eviction or expiry of driver-owned metadata,
+rows, directories or indexes is outside the managed protocol. Existing complete
+row/index/directory proofs and read fences must fail on unavailable data; no
+successful partial extraction or fallback to live storage is allowed. Use
+noeviction and the documented ownership/ACL policies.
 
-An already published managed import is immutable within this view. Its earlier
-application HASH/index capture still has the documented weaker consistency.
-External source TTL expiry does not expire the independent managed copy.
-Out-of-protocol writes, expiration or eviction of managed storage are unsupported;
-missing/damaged rows or indexes must produce the existing snapshot validation
-errors, never a successful partial extraction. Use noeviction and ACL isolation.
+The view uses its connection's authenticated Redis client, catalog and reader
+ACL domain. Every command remains subject to current Redis command/key
+permissions and stable logical SQL grants across physical generations. A retained
+view does not retain a revoked SELECT grant; subsequent data access fails after
+Redis Software propagates revocation. As in [SQL RBAC](sql-rbac.md), REVOKE
+is not a synchronous barrier for in-flight queries, open cursors or already
+fetched/buffered results; it cannot retract copies already read by a client.
+Metadata retains the existing metadata
+visibility policy; it does not grant row access. No token or credential is
+exported. Authorization cannot transfer to another principal, catalog or tenant.
 
-## Ownership, retention and failure
+The connection and live readers locally reference one existing server pin.
+Closing one consumer releases only its reference. Connection Close cancels its
+readers, releases the binding, and then closes its clients. Release without
+closing readers allows those readers to finish under the original view. Detached,
+fully materialized Arrow results hold no server pin. Consumer cancellation does
+not silently unbind the connection; release it in a finally block when abandoning
+a sync.
 
-Acquisition owns one normal server reader pin. It renews every 30 seconds under
-a two-minute lease, independently of individual statement cancellation, until
-release, connection close, lease loss or the fixed retention deadline. Renewal
-never extends the retention deadline. Statement execution/streams retain the
-existing 15-minute SQL deadline (Substrait retains its existing shorter bound).
-Command timeouts and cancellation still apply. One bound view consumes one of
-the catalog's 128 reader pins and retains its generation within the existing
-16-generation admission bound. Older data can consume storage and cause writer
-backpressure or quota refusal. Bounds fail explicitly; they never truncate a
-successful result or silently choose a newer generation.
+The existing two-minute server lease renews automatically every 30 seconds, only
+until the configured fixed lifetime. There is no manual renewal or extension API.
+Expiry is checked before handing out buffered streamed batches. Process death
+stops renewal; after at most two minutes from the last acknowledged renewal,
+normal acquisition/sweep can prune the pin and collect retired generations.
+Collectors run on subsequent activity; an idle server does not promise immediate
+physical deletion. Failed cleanup is bounded and uses the existing idempotent
+release retry/expiry mechanism.
 
-Children borrow the connection-local parent pin. Exhausting a result, closing a
-reader early, canceling a statement or encountering a query failure retires only
-that child. The application must release in `finally` on success **and failure**.
-Release cancels active Redis-backed readers; they must fail rather than complete
-under another generation. Already fully materialized Arrow results need no pin.
-Connection close also releases the parent and closes its readers. Release is
-idempotent; ordinary reads after explicit release intentionally acquire fresh
-statement snapshots. Do not release until all required tables are fully consumed
-and validated.
+Existing limits remain 128 live catalog pins and 16 catalog generations, with
+existing metadata/control byte budgets, row/stream budgets and Redis capacity
+limits. Retaining an old root can backpressure publishers; limits return explicit
+errors rather than dropping old data or truncating results. There is no new
+unbounded retention domain. Individual SELECT timeouts remain in force even when
+the connection lifetime is longer.
 
-Expiry/lease loss leaves the connection bound to a failed view. Metadata and
-subsequent reads fail; a second acquire also fails until explicit release. A
-retry may reuse the same view only while valid and authorized. Otherwise discard
-the partial full refresh and start a new attempt with a new view. No durable
-Airbyte checkpoint, process resume or exactly-once destination effect is implied.
-After process death, heartbeat renewal stops and server ownership expires within
-two minutes of its last acknowledged renewal; normal admission/collection prunes
-expired pins and reclaims unreferenced manifests/segments. Cleanup failures leave
-only bounded lease protection and existing reference-safe reclamation.
+Expiry, lease loss, unavailable authority or incompatible storage fails the
+requested view. It is never replaced with a newer generation. A failed validity
+check is terminal for that binding (caller cancellation alone does not poison
+it). Retry a statement on the same connection only while that view remains
+valid and authorized. Otherwise release it, discard the failed full-refresh
+attempt, acquire a new view and redo discovery and all table reads. Already
+emitted batches are provisional until the whole attempt succeeds. This API
+provides no durable Airbyte checkpoints or exactly-once destination effects.
 
 ## Python ADBC example
+
+Acquire before discovery and drain each result on the same dedicated connection.
+Use an installed native library containing the API; this example expects existing
+`orders` and `order_items` managed tables.
 
 ```python
 import adbc_driver_manager.dbapi
 
 with adbc_driver_manager.dbapi.connect(
     driver="/path/to/libadbc_driver_redis.so",
-    db_kwargs={"uri": "rediss://USER:PASSWORD@HOST:PORT/0"},
+    db_kwargs={"uri": "rediss://user:password@host:port/0"},
     autocommit=True,
 ) as conn:
-    native = conn.adbc_connection
-    native.set_options(**{"adbc.redis.read_snapshot_retention_ms": "3600000"})
-    native.set_options(**{"adbc.redis.read_snapshot": "acquire"})
+    options = conn.adbc_connection
+    options.set_options(**{"adbc.redis.read_snapshot_retention_ms": 900000})
+    options.set_options(**{"adbc.redis.read_snapshot_action": "acquire"})
     try:
-        # Discovery must happen after acquire, on this same connection.
-        orders_schema = conn.adbc_get_table_schema("orders", db_schema_filter="public")
-        items_schema = conn.adbc_get_table_schema("order_items", db_schema_filter="public")
+        with conn.adbc_get_objects() as metadata:
+            objects = metadata.read_all()
+        orders_schema = conn.adbc_get_table_schema("orders")
+        items_schema = conn.adbc_get_table_schema("order_items")
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM public.orders")
-            orders = cur.fetch_arrow_table()  # finish all batches
-            cur.execute("SELECT * FROM public.order_items")
-            items = cur.fetch_arrow_table()
-        # Validate schemas, exact values and counts before completing the sync.
-        assert orders.schema == orders_schema
-        assert items.schema == items_schema
+            cur.execute("SELECT * FROM orders")
+            orders = cur.fetch_arrow_table()
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM order_items")
+            order_items = cur.fetch_arrow_table()
     finally:
-        native.set_options(**{"adbc.redis.read_snapshot": "release"})
+        options.set_options(**{"adbc.redis.read_snapshot_action": "release"})
 ```
 
-Use a trusted TLS CA configured for the client; choose the platform's library
-extension. Connector integration must feature-probe acquisition on its pinned
-native connection, acquire before discovery, disable connection/partition
-parallelism for the sync, fully consume/validate each result and release in
-`finally`. Never degrade a requested shared snapshot to ordinary statements.
-Pin the released driver version once its acceptance evidence exists.
+Use `.dylib` or `.dll` as appropriate. The executable native-boundary regression
+is [shared_snapshot_validation.py](../go/validation/shared_snapshot_validation.py).
 
-## Flight SQL
+## Airbyte and Flight SQL
 
-Shared snapshots are **unsupported over Flight SQL**. Native ADBC option support
-does not establish gateway support. A gateway would need an authenticated,
-connection-affine metadata/query session, explicit acquire/release propagation,
-fixed retention and cancellation/expiry ownership across RPCs, and rejection of
-workers or requests that cannot preserve that session. No such transport
-implementation or validation is claimed here. Airbyte using Flight SQL must
-reject `read_consistency=shared_snapshot` until independently implemented/tested.
+Native connector integration must feature-detect successful acquisition, pin a
+released driver version containing this API, bind **before** discovery/schema
+validation, and use that connection for all selected managed tables/views.
+Disable parallel connections and partition workers for this mode. Drain/close
+all Arrow readers and release in success, failure and cancellation paths. Treat
+acquire/metadata/read failures as a failed full-refresh attempt, never as
+permission to downgrade to per-statement consistency.
 
-## Storage compatibility
-
-This API uses existing protocol-17 reader pins and persists no new record format.
-It requires an initialized protocol-17 managed catalog or fresh empty storage;
-legacy catalogs have no in-place upgrade path. Existing compatible clients can
-publish while this client retains its normal reader pin.
+Flight SQL shared snapshots are unsupported. No gateway metadata-session binding,
+connection option propagation or gateway ownership/lease protocol is implemented
+or validated here. A Flight SQL connector must explicitly reject
+`read_consistency=shared_snapshot` until its own transport implementation and
+independent evidence exist. Native results do not establish gateway support.

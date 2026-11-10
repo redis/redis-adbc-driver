@@ -32,7 +32,7 @@ type incrementalPartitions struct {
 }
 
 func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, adbc.Partitions, int64, error) {
-	if s.conn.readSnapshot.active() {
+	if s.conn.store.hasSharedReadView() {
 		return nil, adbc.Partitions{}, -1, sharedSnapshotUnsupported()
 	}
 	if s.substrait != nil {

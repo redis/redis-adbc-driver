@@ -63,6 +63,9 @@ func (s *statementImpl) checkExecution() error {
 	if err := s.checkOpen(); err != nil {
 		return err
 	}
+	if s.conn.store.hasSharedReadView() && (s.substrait != nil || s.ipc.active() || s.operationAction != "" || s.executionBackend == "cuda") {
+		return sharedSnapshotUnsupported()
+	}
 	if s.conn.readerOnly {
 		return errorf(adbc.StatusInvalidState, "retained reader-only connections do not execute SQL or ingestion")
 	}

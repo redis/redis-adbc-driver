@@ -4,237 +4,299 @@
 package redis
 
 import (
-	"bufio"
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	goredis "github.com/redis/go-redis/v9"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
-
-	"github.com/apache/arrow-adbc/go/adbc"
-	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
-func sharedSnapshotSet(t *testing.T, h *sqlHarness, key, value string) {
-	t.Helper()
-	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, key, value); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSharedReadSnapshotCatalog(t *testing.T) {
-	h, raw, db := newSnapshotHarness(t)
-	h.exec("CREATE TABLE orders(id INTEGER, v BIGINT)")
-	h.exec("INSERT INTO orders VALUES(1,9007199254740993),(1,9007199254740993),(2,NULL)")
-	h.exec("CREATE TABLE items(id INTEGER, label VARCHAR)")
-	h.exec("INSERT INTO items VALUES(1,'old'),(2,NULL)")
-	h.exec("CREATE VIEW item_view AS SELECT id,label FROM items")
-	other, err := db.Open(h.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer other.Close(h.ctx)
-	w := &sqlHarness{t: t, ctx: h.ctx, conn: other}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "acquire")
-	root, err := h.conn.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringReadSnapshotID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if root != raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() {
-		t.Fatal("wrong acquired generation")
-	}
-	before, err := h.conn.GetTableSchema(h.ctx, nil, ptr("public"), "items")
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedObjects, err := h.conn.GetObjects(h.ctx, adbc.ObjectDepthAll, nil, ptr("public"), ptr("orders"), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !expectedObjects.Next() {
-		t.Fatal(expectedObjects.Err())
-	}
-	expectedMetadata := expectedObjects.RecordBatch()
-	expectedMetadata.Retain()
-	defer expectedMetadata.Release()
-	if expectedObjects.Next() || expectedObjects.Err() != nil {
-		t.Fatal("unexpected metadata batches")
-	}
-	expectedObjects.Release()
-	h.expectRows("SELECT id,v FROM orders ORDER BY id", "1|9007199254740993\n1|9007199254740993\n2|NULL")
-	w.exec("INSERT INTO orders VALUES(3,7)")
-	w.exec("UPDATE orders SET v=42 WHERE id=1")
-	w.exec("DELETE FROM orders WHERE id=2")
-	w.exec("ALTER TABLE items ADD COLUMN extra INTEGER DEFAULT 7")
-	w.exec("DROP VIEW item_view")
-	w.exec("CREATE VIEW item_view AS SELECT id,extra FROM items")
-	w.exec("TRUNCATE items")
-	w.exec("DROP TABLE orders")
-	h.expectRows("SELECT id,v FROM orders ORDER BY id", "1|9007199254740993\n1|9007199254740993\n2|NULL")
-	h.expectRows("SELECT id,label FROM item_view ORDER BY id", "1|old\n2|NULL")
-	after, err := h.conn.GetTableSchema(h.ctx, nil, ptr("public"), "items")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !before.Equal(after) {
-		t.Fatalf("schema changed: %s / %s", before, after)
-	}
-	vr, err := h.conn.GetTableSchema(h.ctx, nil, ptr("public"), "item_view")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if vr.Field(1).Name != "label" {
-		t.Fatal("view definition changed")
-	}
-	objects, err := h.conn.GetObjects(h.ctx, adbc.ObjectDepthAll, nil, ptr("public"), ptr("orders"), nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !objects.Next() {
-		t.Fatal(objects.Err())
-	}
-	if !array.RecordEqual(expectedMetadata, objects.RecordBatch()) {
-		t.Fatal("complete metadata changed after publication")
-	}
-	if objects.Next() || objects.Err() != nil {
-		t.Fatal("unexpected metadata batches")
-	}
-	objects.Release()
-	w.expectRows("SELECT COUNT(*) FROM items", "0")
-	w.expectError("SELECT * FROM orders", "does not exist")
-	same, err := h.conn.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringReadSnapshotID)
-	if err != nil || same != root {
-		t.Fatalf("view changed: %s %v", same, err)
-	}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "release")
-	h.expectError("SELECT * FROM orders", "does not exist")
-}
-
-func TestSharedReadSnapshotStreamOwnership(t *testing.T) {
+func TestSharedSnapshotMetadataAndSequentialReads(t *testing.T) {
 	h, _, db := newSnapshotHarness(t)
-	h.exec("CREATE TABLE t(id INTEGER,v BIGINT)")
-	h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,12001) AS g(i)")
+	h.exec("CREATE TABLE orders (id INTEGER, v BIGINT)")
+	h.exec("CREATE TABLE items (id INTEGER, v BIGINT)")
+	h.exec("INSERT INTO orders VALUES (1,9007199254740993),(1,9007199254740993),(2,NULL)")
+	h.exec("INSERT INTO items VALUES (1,10),(1,10),(2,20)")
+	h.exec("CREATE VIEW item_view AS SELECT id,v FROM items")
 	other, err := db.Open(h.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer other.Close(h.ctx)
-	w := &sqlHarness{t: t, ctx: h.ctx, conn: other}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "acquire")
-	query := func() adbc.StatementWithContext {
-		st, err := h.conn.NewStatement(h.ctx)
-		if err != nil {
-			t.Fatal(err)
+	writer := &sqlHarness{t: t, ctx: h.ctx, conn: other}
+	expectedObjects := sharedSnapshotObjects(t, h)
+	defer func() {
+		for _, r := range expectedObjects {
+			r.Release()
 		}
-		if err = st.SetOption(h.ctx, OptionIntStreamBatchRows, "7"); err != nil {
-			t.Fatal(err)
-		}
-		if err = st.SetSqlQuery(h.ctx, "SELECT id,v FROM t"); err != nil {
-			t.Fatal(err)
-		}
-		return st
+	}()
+	before, err := h.conn.GetTableSchema(h.ctx, nil, nil, "items")
+	if err != nil {
+		t.Fatal(err)
 	}
-	st := query()
+	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, "adbc.redis.read_snapshot_action", "acquire"); err != nil {
+		t.Fatal(err)
+	}
+	defer h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, "adbc.redis.read_snapshot_action", "release")
+	h.expectRows("SELECT id,v FROM orders ORDER BY id", "1|9007199254740993", "1|9007199254740993", "2|NULL")
+	writer.exec("UPDATE orders SET v=42")
+	writer.exec("INSERT INTO items VALUES (3,30)")
+	writer.exec("DELETE FROM items WHERE id=2")
+	writer.exec("UPDATE items SET v=99 WHERE id=1")
+	writer.exec("ALTER TABLE items ADD COLUMN newer INTEGER")
+	writer.exec("DROP VIEW item_view")
+	writer.exec("CREATE VIEW item_view AS SELECT id FROM items")
+	schema, err := h.conn.GetTableSchema(h.ctx, nil, nil, "items")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !schema.Equal(before) {
+		t.Fatalf("schema changed: %v != %v", schema, before)
+	}
+	actualObjects := sharedSnapshotObjects(t, h)
+	defer func() {
+		for _, r := range actualObjects {
+			r.Release()
+		}
+	}()
+	if len(actualObjects) != len(expectedObjects) {
+		t.Fatal("metadata batch count changed")
+	}
+	for i := range expectedObjects {
+		if !array.RecordEqual(expectedObjects[i], actualObjects[i]) {
+			t.Fatal("GetObjects schema, columns or constraints changed")
+		}
+	}
+	h.expectRows("SELECT id,v FROM item_view ORDER BY id", "1|10", "1|10", "2|20")
+	writer.exec("TRUNCATE items")
+	writer.exec("DROP TABLE items")
+	h.expectRows("SELECT id,v FROM items ORDER BY id", "1|10", "1|10", "2|20")
+	writer.expectRows("SELECT v FROM orders ORDER BY id", "42", "42", "42")
+	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, "adbc.redis.read_snapshot_action", "release"); err != nil {
+		t.Fatal(err)
+	}
+	h.expectRows("SELECT v FROM orders ORDER BY id", "42", "42", "42")
+}
+
+func sharedSnapshotConnection(t *testing.T, h *sqlHarness) *connectionImpl {
+	t.Helper()
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := st.(*statementImpl).conn
+	if err := st.Close(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestSharedSnapshotStreamOwnership(t *testing.T) {
+	h, raw, db := newSnapshotHarness(t)
+	h.exec("CREATE TABLE t (id INTEGER, v BIGINT)")
+	h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,1201) AS g(i)")
+	c := sharedSnapshotConnection(t, h)
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+		t.Fatal(err)
+	}
+	parent := c.store.sharedView.pin
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer st.Close(h.ctx)
+	if err := st.SetOption(h.ctx, OptionIntStreamBatchRows, "7"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetSqlQuery(h.ctx, "SELECT id,v FROM t"); err != nil {
+		t.Fatal(err)
+	}
 	r, n, err := st.ExecuteQuery(h.ctx)
-	if err != nil || n != -1 {
-		t.Fatalf("stream: %d %v", n, err)
+	if err != nil {
+		t.Fatal(err)
 	}
 	defer r.Release()
-	if !r.Next() {
-		t.Fatal(r.Err())
+	if n != -1 || !r.Next() {
+		t.Fatal("expected live stream", n, r.Err())
 	}
 	count := 0
 	check := func() {
-		batch := r.RecordBatch()
-		values := batch.Column(1).(*array.Int64)
-		for i := 0; i < int(batch.NumRows()); i++ {
-			if values.Value(i) != 9007199254740993 {
-				t.Fatal("mixed streamed generation")
+		b := r.RecordBatch()
+		v := b.Column(1).(*array.Int64)
+		for i := 0; i < v.Len(); i++ {
+			if v.Value(i) != 9007199254740993 {
+				t.Fatal("mixed generation")
 			}
 			count++
 		}
 	}
 	check()
-	w.exec("UPDATE t SET v=42")
-	w.exec("TRUNCATE t")
-	w.exec("DROP TABLE t")
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "release"); err != nil {
+		t.Fatal(err)
+	}
+	if !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+parent.token).Val() {
+		t.Fatal("parent release retired active reader")
+	}
+	other, err := db.Open(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close(h.ctx)
+	writer := &sqlHarness{t: t, ctx: h.ctx, conn: other}
+	writer.exec("UPDATE t SET v=42")
+	writer.exec("DROP TABLE t")
 	for r.Next() {
 		check()
 	}
-	if err := r.Err(); err != nil {
-		t.Fatal(err)
+	if r.Err() != nil || count != 1201 {
+		t.Fatal("incomplete stream", count, r.Err())
 	}
-	if count != 12001 {
-		t.Fatal(count)
-	}
-	// Exhaustion/early consumer close/cancellation do not release the parent.
-	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "12001|9007199254740993|9007199254740993")
-	early := query()
-	er, _, err := early.ExecuteQuery(h.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	er.Release()
-	early.Close(h.ctx)
-	h.expectRows("SELECT COUNT(*) FROM t", "12001")
-	ctx, cancel := context.WithCancel(h.ctx)
-	canceled := query()
-	cr, _, err := canceled.ExecuteQuery(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cancel()
-	for cr.Next() {
-	}
-	if cr.Err() == nil {
-		t.Fatal("cancellation succeeded silently")
-	}
-	cr.Release()
-	canceled.Close(h.ctx)
-	h.expectRows("SELECT COUNT(*) FROM t", "12001")
-	pending := query()
-	defer pending.Close(h.ctx)
-	pr, _, err := pending.ExecuteQuery(h.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pr.Release()
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "release")
-	for pr.Next() {
-	}
-	if pr.Err() == nil {
-		t.Fatal("released parent allowed successful stream")
+	if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+parent.token).Val() {
+		t.Fatal("reader exhaustion leaked parent")
 	}
 }
 
-func TestSharedReadSnapshotFailures(t *testing.T) {
-	h, raw, _ := newSnapshotHarness(t)
-	h.exec("CREATE TABLE t(id INTEGER)")
-	h.exec("INSERT INTO t VALUES(1)")
-	for _, value := range []string{"0", "999", "86400001", "-1", "garbage"} {
-		if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringReadSnapshotRetention, value); err == nil {
-			t.Fatal(value)
+func TestSharedSnapshotFailureAndCancellation(t *testing.T) {
+	for _, failure := range []string{"lease-loss", "expiry"} {
+		t.Run(failure, func(t *testing.T) {
+			h, raw, _ := newSnapshotHarness(t)
+			h.exec("CREATE TABLE t (v INTEGER)")
+			h.exec("INSERT INTO t SELECT i FROM generate_series(1,101) AS g(i)")
+			c := sharedSnapshotConnection(t, h)
+			if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+				t.Fatal(err)
+			}
+			defer c.SetOption(h.ctx, OptionStringReadSnapshotAction, "release")
+			v := c.store.sharedView
+			st, err := h.conn.NewStatement(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer st.Close(h.ctx)
+			st.SetOption(h.ctx, OptionIntStreamBatchRows, "7")
+			st.SetSqlQuery(h.ctx, "SELECT v FROM t")
+			r, _, err := st.ExecuteQuery(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer r.Release()
+			if !r.Next() {
+				t.Fatal(r.Err())
+			}
+			if failure == "lease-loss" {
+				if err := raw.HDel(h.ctx, snapshotCatalogKey, "p:"+v.pin.token).Err(); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				v.cancel()
+			}
+			if r.Next() || r.Err() == nil {
+				t.Fatal("unavailable view emitted buffered rows", r.Err())
+			}
+			if _, err := c.GetTableSchema(h.ctx, nil, nil, "t"); err == nil {
+				t.Fatal("metadata fell back to live view")
+			}
+			st.SetSqlQuery(h.ctx, "SELECT v FROM t")
+			if r, _, err := st.ExecuteQuery(h.ctx); err == nil {
+				r.Release()
+				t.Fatal("query fell back to live view")
+			}
+			if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err == nil {
+				t.Fatal("reacquired without explicit release")
+			}
+		})
+	}
+	t.Run("cancel-and-early-close", func(t *testing.T) {
+		h, raw, _ := newSnapshotHarness(t)
+		h.exec("CREATE TABLE t (v INTEGER)")
+		h.exec("INSERT INTO t SELECT i FROM generate_series(1,101) AS g(i)")
+		c := sharedSnapshotConnection(t, h)
+		if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+			t.Fatal(err)
+		}
+		token := c.store.sharedView.pin.token
+		for _, cancel := range []bool{false, true} {
+			st, err := h.conn.NewStatement(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st.SetOption(h.ctx, OptionIntStreamBatchRows, "7")
+			st.SetSqlQuery(h.ctx, "SELECT v FROM t")
+			r, _, err := st.ExecuteQuery(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !r.Next() {
+				t.Fatal(r.Err())
+			}
+			if cancel {
+				if err := st.(*statementImpl).Cancel(h.ctx); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r.Release()
+			st.Close(h.ctx)
+			if !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
+				t.Fatal("consumer close released binding")
+			}
+			h.expectRows("SELECT COUNT(*) FROM t", "101")
+		}
+		if err := h.conn.Close(h.ctx); err != nil {
+			t.Fatal(err)
+		}
+		if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
+			t.Fatal("connection close leaked binding")
+		}
+	})
+}
+
+func TestSharedSnapshotRejectsUnsupportedUse(t *testing.T) {
+	h, _, _ := newSnapshotHarness(t)
+	h.exec("CREATE TABLE t (v INTEGER)")
+	h.exec("CREATE SEQUENCE seq")
+	c := sharedSnapshotConnection(t, h)
+	for _, retention := range []string{"0", "119999", "3600001", "overflow"} {
+		if err := c.SetOption(h.ctx, OptionIntReadSnapshotRetention, retention); err == nil {
+			t.Fatal("accepted invalid retention", retention)
 		}
 	}
-	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringReadSnapshotID, "other"); err == nil {
+	if err := c.SetOptionInt(h.ctx, OptionIntReadSnapshotRetention, 120000); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := c.GetOptionInt(h.ctx, OptionIntReadSnapshotRetention); err != nil || got != 120000 {
+		t.Fatal(got, err)
+	}
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "attach"); err == nil {
 		t.Fatal("accepted attachment")
 	}
-	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringReadSnapshot, "other"); err == nil {
-		t.Fatal("accepted handle")
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+		t.Fatal(err)
 	}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshotRetention, "1000")
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "acquire")
-	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringReadSnapshot, "acquire"); err == nil {
-		t.Fatal("reacquired live view")
+	defer c.SetOption(h.ctx, OptionStringReadSnapshotAction, "release")
+	for _, sql := range []string{"INSERT INTO t VALUES(1)", "TRUNCATE t", "DROP TABLE t", "CREATE TEMP TABLE x(v INTEGER)", "GRANT SELECT ON t TO role1", "SELECT nextval('seq')", "WITH changed AS (INSERT INTO t VALUES(1) RETURNING v) SELECT * FROM changed"} {
+		st, err := h.conn.NewStatement(h.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.SetSqlQuery(h.ctx, sql); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.ExecuteUpdate(h.ctx); err == nil {
+			t.Fatal("accepted unsupported SQL", sql)
+		}
+		st.Close(h.ctx)
 	}
-	h.expectError("INSERT INTO t VALUES(2)", "read-only")
-	h.expectError("CREATE TEMP TABLE temp_t(id INTEGER)", "read-only")
-	h.expectError("SELECT nextval('missing')", "read-only")
 	st, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -242,214 +304,249 @@ func TestSharedReadSnapshotFailures(t *testing.T) {
 	defer st.Close(h.ctx)
 	st.SetSqlQuery(h.ctx, "SELECT * FROM t")
 	if _, _, _, err := st.ExecutePartitions(h.ctx); err == nil {
-		t.Fatal("exported partitions")
+		t.Fatal("accepted partitions")
 	}
-	if _, err := h.conn.ReadPartition(h.ctx, nil); err == nil {
-		t.Fatal("accepted worker")
+	if r, err := h.conn.ReadPartition(h.ctx, []byte("{}")); err == nil {
+		r.Release()
+		t.Fatal("accepted partition attachment")
 	}
-	time.Sleep(1100 * time.Millisecond)
-	h.expectError("SELECT * FROM t", "snapshot")
-	if _, err := h.conn.GetTableSchema(h.ctx, nil, ptr("public"), "t"); err == nil {
-		t.Fatal("expired metadata fell back")
-	}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "release")
-	h.expectRows("SELECT id FROM t", "1")
-	sharedSnapshotSet(t, h, OptionStringReadSnapshotRetention, "60000")
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "acquire")
-	// Remove the real server pin to model lost/collected ownership. This must
-	// never bind a replacement root even though the live table is readable.
-	fields := raw.HKeys(h.ctx, snapshotCatalogKey).Val()
-	for _, field := range fields {
-		if strings.HasPrefix(field, "p:") {
-			raw.HDel(h.ctx, snapshotCatalogKey, field)
-		}
-	}
-	h.expectError("SELECT * FROM t", "snapshot")
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "release")
-	h.exec("CREATE TEMP TABLE temp_t(id INTEGER)")
-	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringReadSnapshot, "acquire"); err == nil {
-		t.Fatal("accepted temporary objects")
-	}
+	h.expectRows("SELECT COUNT(*) FROM t", "0")
 }
 
-func TestSharedReadSnapshotQuotaAndClose(t *testing.T) {
-	h, raw, _ := newSnapshotHarness(t)
-	h.exec("CREATE TABLE t(id INTEGER)")
-	// Populate the actual bounded catalog with live reader reservations using
-	// server time. No SQL work or input may run after refused acquisition.
-	script := `local t=redis.call('TIME');local expiry=tonumber(t[1])*1000+math.floor(tonumber(t[2])/1000)+120000;local root=redis.call('HGET',KEYS[1],'root');for i=1,128 do redis.call('HSET',KEYS[1],'p:quota-'..i,cjson.encode({root=root,expires=expiry})) end;return 1`
-	if err := raw.Eval(h.ctx, script, []string{snapshotCatalogKey}).Err(); err != nil {
-		t.Fatal(err)
-	}
-	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringReadSnapshot, "acquire"); err == nil || !strings.Contains(err.Error(), "limit") {
-		t.Fatalf("quota: %v", err)
-	}
-	for i := 1; i <= 128; i++ {
-		raw.HDel(h.ctx, snapshotCatalogKey, fmt.Sprintf("p:quota-%d", i))
-	}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "acquire")
-	st, err := h.conn.NewStatement(h.ctx)
+func sharedSnapshotObjects(t *testing.T, h *sqlHarness) []arrow.RecordBatch {
+	t.Helper()
+	r, err := h.conn.GetObjects(h.ctx, adbc.ObjectDepthAll, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	impl := st.(*statementImpl).conn
-	st.Close(h.ctx)
-	token := impl.readSnapshot.pin.token
-	if !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
-		t.Fatal("missing parent pin")
+	defer r.Release()
+	var out []arrow.RecordBatch
+	for r.Next() {
+		b := r.RecordBatch()
+		b.Retain()
+		out = append(out, b)
 	}
-	if err := h.conn.Close(h.ctx); err != nil {
-		t.Fatal(err)
+	if r.Err() != nil {
+		t.Fatal(r.Err())
 	}
-	if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
-		t.Fatal("Close retained parent pin")
-	}
-	if _, _, err := impl.acquireReadSnapshot(h.ctx); err == nil {
-		t.Fatal("closed view acquired live state")
-	}
+	return out
 }
 
-func TestSharedReadSnapshotProcessDeath(t *testing.T) {
-	if os.Getenv("REDIS_SHARED_SNAPSHOT_CHILD") == "1" {
-		db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(context.Background(), testUsageOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI")}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		conn, err := db.Open(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := conn.(adbc.GetSetOptionsWithContext).SetOption(context.Background(), OptionStringReadSnapshot, "acquire"); err != nil {
-			t.Fatal(err)
-		}
-		fmt.Println("shared snapshot acquired")
-		// The parent kills the process without calling Close or releasing the view.
-		select {}
-	}
+func TestSharedSnapshotQuota(t *testing.T) {
 	h, raw, _ := newSnapshotHarness(t)
-	h.exec("CREATE TABLE t(id INTEGER)")
-	h.exec("INSERT INTO t VALUES(1)")
-	s := snapshotTestStore(t, raw)
-	ctx, pin, err := s.acquireSnapshot(h.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	meta, err := s.getTable(ctx, "public", "t")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pin.release()
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	child := exec.Command(exe, "-test.run=^TestSharedReadSnapshotProcessDeath$")
-	child.Env = append(os.Environ(), "REDIS_SHARED_SNAPSHOT_CHILD=1")
-	pipe, err := child.StdoutPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var stderr bytes.Buffer
-	child.Stderr = &stderr
-	if err := child.Start(); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { child.Process.Kill(); child.Wait() }()
-	ready := make(chan bool, 1)
-	go func() {
-		scanner := bufio.NewScanner(pipe)
-		for scanner.Scan() {
-			if scanner.Text() == "shared snapshot acquired" {
-				ready <- true
-				return
-			}
+	c := sharedSnapshotConnection(t, h)
+	var tokens []string
+	defer func() {
+		for _, token := range tokens {
+			c.store.snapshotControl(h.ctx, "release", token, "", "")
 		}
-		ready <- false
 	}()
-	select {
-	case ok := <-ready:
-		if !ok {
-			t.Fatalf("child failed: %s", stderr.String())
+	for i := 0; i < 128; i++ {
+		token := snapshotID()
+		if err := c.store.snapshotControl(h.ctx, "acquire", token, "", "").Err(); err != nil {
+			t.Fatal(err)
 		}
-	case <-time.After(20 * time.Second):
-		t.Fatal("child acquisition timed out")
+		tokens = append(tokens, token)
 	}
-	h.exec("DROP TABLE t")
-	if raw.Exists(h.ctx, meta.prefix()+"1").Val() != 1 {
-		t.Fatal("child did not retain generation")
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err == nil || !strings.Contains(err.Error(), "reader limit") {
+		t.Fatal("quota did not refuse binding", err)
 	}
-	if err := child.Process.Kill(); err != nil {
-		t.Fatal(err)
+	if c.store.sharedView != nil {
+		t.Fatal("failed acquisition bound a view")
 	}
-	child.Wait()
-	deadline := time.Now().Add(snapshotLease + 10*time.Second)
-	for raw.Exists(h.ctx, meta.prefix()+"1").Val() != 0 {
-		snapshotReapTest(s, h.ctx)
-		if time.Now().After(deadline) {
-			t.Fatal("dead process generation was not collected after lease expiry")
-		}
-		time.Sleep(time.Second)
+	if n := raw.HLen(h.ctx, snapshotCatalogKey).Val(); n < 128 {
+		t.Fatal("lost existing pins")
 	}
 }
 
-func TestSharedReadSnapshotSubstrait(t *testing.T) {
-	h, _, db := newSnapshotHarness(t)
-	h.exec("CREATE TABLE t(id BIGINT NOT NULL)")
-	h.exec("INSERT INTO t VALUES(9007199254740993)")
+// A real process exits without Close, releasing neither its local owner nor
+// its server lease. The parent waits out the unmodified two-minute lease.
+func TestSharedSnapshotProcessHelper(t *testing.T) {
+	result := os.Getenv("REDIS_SHARED_SNAPSHOT_PROCESS_RESULT")
+	if result == "" {
+		t.Skip("separate-process helper")
+	}
+	ctx := context.Background()
+	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, testUsageOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI")}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := db.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &sqlHarness{t: t, ctx: ctx, conn: conn}
+	c := sharedSnapshotConnection(t, h)
+	if err := c.SetOption(ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+		t.Fatal(err)
+	}
+	pin := c.store.sharedView.pin
+	raw, _ := json.Marshal(struct{ Token, Root string }{pin.token, pin.root})
+	if err := os.WriteFile(result, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	os.Exit(0)
+}
+
+func TestSharedSnapshotProcessDeath(t *testing.T) {
+	h, raw, db := newSnapshotHarness(t)
+	h.exec("CREATE TABLE t(v INTEGER)")
+	h.exec("INSERT INTO t VALUES(1)")
 	other, err := db.Open(h.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer other.Close(h.ctx)
-	w := &sqlHarness{t: t, ctx: h.ctx, conn: other}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "acquire")
-	st, err := h.conn.NewStatement(h.ctx)
+	writer := &sqlHarness{t: t, ctx: h.ctx, conn: other}
+	c := sharedSnapshotConnection(t, h)
+	if err := c.SetOptionInt(h.ctx, OptionIntReadSnapshotRetention, 120000); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+		t.Fatal(err)
+	}
+	defer c.SetOption(h.ctx, OptionStringReadSnapshotAction, "release")
+	result := filepath.Join(t.TempDir(), "pin.json")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestSharedSnapshotProcessHelper$", "-test.count=1")
+	cmd.Env = append(os.Environ(), "REDIS_SHARED_SNAPSHOT_PROCESS_RESULT="+result)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("helper: %v %s", err, output)
+	}
+	data, err := os.ReadFile(result)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer st.Close(h.ctx)
-	if err := st.SetSubstraitPlan(h.ctx, subBytes(t, subTestPlan(t, "t", []string{"id"}, subI64))); err != nil {
+	var pin struct{ Token, Root string }
+	if err := json.Unmarshal(data, &pin); err != nil {
 		t.Fatal(err)
 	}
-	w.exec("DROP TABLE t")
-	for i := 0; i < 2; i++ {
-		r, _, err := st.ExecuteQuery(h.ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		rows, _ := subCollect(t, r)
-		if len(rows) != 1 || rows[0][0].I != 9007199254740993 {
-			t.Fatal(rows)
-		}
+	if !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+pin.Token).Val() {
+		t.Fatal("helper did not leave live pin")
 	}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "release")
+	writer.exec("UPDATE t SET v=2")
+	deadline := time.Now().Add(snapshotLease + 20*time.Second)
+	maintenance := snapshotTestStore(t, raw)
+	for time.Now().Before(deadline) {
+		maintenance.reapSnapshot(h.ctx)
+		if !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+pin.Token).Val() && raw.Exists(h.ctx, snapshotMetadataMap(pin.Root)).Val() == 0 {
+			if _, err := c.GetTableSchema(h.ctx, nil, nil, "t"); err == nil {
+				t.Fatal("naturally expired view fell back to current metadata")
+			}
+			if _, err := c.GetOption(h.ctx, OptionStringReadSnapshotStatus); err == nil {
+				t.Fatal("naturally expired view reported active")
+			}
+			return
+		}
+		time.Sleep(time.Second)
+	}
+	t.Fatal("dead process lease or retired generation survived collection deadline")
 }
 
-func TestSharedReadSnapshotMissingData(t *testing.T) {
-	h, raw, _ := newSnapshotHarness(t)
-	h.exec("CREATE TABLE t(id INTEGER)")
-	h.exec("INSERT INTO t VALUES(1)")
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "acquire")
-	st, err := h.conn.NewStatement(h.ctx)
+func TestSharedSnapshotSurvivesCompactionAndOptionContext(t *testing.T) {
+	h, _, db := newSnapshotHarness(t)
+	h.exec("CREATE TABLE t(v INTEGER)")
+	h.exec("INSERT INTO t VALUES(10),(10),(NULL)")
+	other, err := db.Open(h.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer st.Close(h.ctx)
-	c := st.(*statementImpl).conn
-	ctx, pin, err := c.acquireReadSnapshot(h.ctx)
+	defer other.Close(h.ctx)
+	writer := &sqlHarness{t: t, ctx: h.ctx, conn: other, afterExec: h.afterExec}
+	c := sharedSnapshotConnection(t, h)
+	ctx, cancel := context.WithCancel(h.ctx)
+	if err := c.SetOption(ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+		t.Fatal(err)
+	}
+	cancel() // The successfully acquired binding belongs to the connection.
+	defer c.SetOption(h.ctx, OptionStringReadSnapshotAction, "release")
+	status, err := c.GetOption(h.ctx, OptionStringReadSnapshotStatus)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := c.store.getTable(ctx, "public", "t")
-	if err != nil {
+	for i := 0; i < 9; i++ {
+		writer.exec("UPDATE t SET v=v+1")
+	}
+	h.expectRows("SELECT v FROM t ORDER BY v NULLS LAST", "10", "10", "NULL")
+	writer.expectRows("SELECT v FROM t ORDER BY v NULLS LAST", "19", "19", "NULL")
+	after, err := c.GetOption(h.ctx, OptionStringReadSnapshotStatus)
+	if err != nil || after != status {
+		t.Fatal("generation identity changed", err)
+	}
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "release"); err != nil {
 		t.Fatal(err)
 	}
-	pin.release()
-	if err := raw.Del(h.ctx, m.prefix()+"1").Err(); err != nil {
-		t.Fatal(err)
+	h.exec("CREATE TEMP TABLE tmp(v INTEGER)")
+	if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire"); err == nil {
+		t.Fatal("temporary objects accepted")
 	}
-	if err := h.execErr("SELECT id FROM t"); err == nil {
-		t.Fatal("out-of-protocol row deletion produced successful partial result")
+}
+
+// Admission can wait on compaction. Readers of binding state must still make
+// progress while a server acquire is outstanding, in either acquisition path.
+type sharedSnapshotAdmissionGate struct {
+	snapshotHook
+	started, unblock chan struct{}
+	once             sync.Once
+}
+
+func (g *sharedSnapshotAdmissionGate) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		a := snapshotObservedControlArgs(cmd)
+		if len(a) > 3 && snapshotObservedControlName(cmd) == "eval" && a[1] == snapshotControl {
+			keys, _ := strconv.Atoi(fmt.Sprint(a[2]))
+			if 3+keys < len(a) && a[3+keys] == "acquire" {
+				g.once.Do(func() {
+					close(g.started)
+					select {
+					case <-g.unblock:
+					case <-ctx.Done():
+					}
+				})
+			}
+		}
+		return next(ctx, cmd)
 	}
-	sharedSnapshotSet(t, h, OptionStringReadSnapshot, "release")
+}
+func TestSharedSnapshotAdmissionDoesNotHoldBindingMutex(t *testing.T) {
+	for _, shared := range []bool{false, true} {
+		t.Run(strconv.FormatBool(shared), func(t *testing.T) {
+			h, _, _ := newSnapshotHarness(t)
+			c := sharedSnapshotConnection(t, h)
+			gate := &sharedSnapshotAdmissionGate{started: make(chan struct{}), unblock: make(chan struct{})}
+			c.store.client.AddHook(gate)
+			var unblock sync.Once
+			defer unblock.Do(func() { close(gate.unblock) })
+			done := make(chan error, 1)
+			go func() {
+				if shared {
+					done <- c.SetOption(h.ctx, OptionStringReadSnapshotAction, "acquire")
+					return
+				}
+				_, pin, err := c.store.acquireSnapshot(h.ctx)
+				pin.release()
+				done <- err
+			}()
+			select {
+			case <-gate.started:
+			case <-time.After(5 * time.Second):
+				t.Fatal("acquisition did not reach server")
+			}
+			state := make(chan bool, 1)
+			go func() { state <- c.store.hasSharedReadView() }()
+			select {
+			case <-state:
+			case <-time.After(time.Second):
+				t.Error("admission holds binding mutex and can deadlock compaction")
+			}
+			unblock.Do(func() { close(gate.unblock) })
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+			if shared {
+				if err := c.SetOption(h.ctx, OptionStringReadSnapshotAction, "release"); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
 }

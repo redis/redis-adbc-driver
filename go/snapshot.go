@@ -41,7 +41,6 @@ const (
 type snapshotContextKey struct{}
 
 type snapshotScope struct {
-	sharedRead          bool
 	operation           bool // explicit retained operation; durable control admission applies
 	compactionUpdates   string
 	store               *store
@@ -599,8 +598,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 }
 
 type snapshotPin struct {
-	parent       *snapshotPin
-	childRelease func()
+	shared       *sharedReadView
 	reader       bool
 	ctx          context.Context
 	store        *store
@@ -618,6 +616,22 @@ type snapshotPin struct {
 }
 
 func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.Context, *snapshotPin, error) {
+	if s != nil {
+		s.sharedMu.Lock()
+		if s.sharedView != nil {
+			defer s.sharedMu.Unlock()
+			if len(writing) > 0 && writing[0] {
+				return ctx, nil, sharedSnapshotUnsupported()
+			}
+			if snapshotOf(ctx) != nil {
+				return ctx, nil, nil
+			}
+			return s.sharedView.borrow(ctx)
+		}
+		s.sharedMu.Unlock()
+	}
+	// Admission can wait for compaction publication, which itself acquires a
+	// fresh catalog pin. Never hold the binding mutex through that wait.
 	return s.acquireSnapshotMode(ctx, true, writing...)
 }
 
@@ -727,8 +741,8 @@ func (p *snapshotPin) heartbeat() {
 }
 
 func (p *snapshotPin) valid(ctx context.Context) error {
-	if p != nil && p.parent != nil {
-		return p.parent.valid(ctx)
+	if p != nil && p.shared != nil {
+		return p.shared.valid(ctx)
 	}
 	if p == nil {
 		return nil
@@ -757,8 +771,8 @@ func (p *snapshotPin) valid(ctx context.Context) error {
 }
 
 func (p *snapshotPin) release() {
-	if p != nil && p.childRelease != nil {
-		p.once.Do(p.childRelease)
+	if p != nil && p.shared != nil {
+		p.once.Do(p.shared.release)
 		return
 	}
 	if p == nil {
@@ -1172,9 +1186,6 @@ func snapshotNames(ctx context.Context, schema, table string, access ...string) 
 }
 
 func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (context.Context, string, error) {
-	if scope := snapshotOf(ctx); scope != nil && scope.sharedRead {
-		return ctx, "", sharedSnapshotUnsupported()
-	}
 	id := snapshotID()
 	n, err := s.snapshotControl(ctx, "reserve", pin.token, id, pin.root).Int()
 	capacityRefusal := func(err error) bool {
@@ -1718,16 +1729,6 @@ func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) (deleted 
 }
 
 func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []Value, types []ColType, so *streamOpts) (execResult, error) {
-	if e.readSnapshot != nil && e.readSnapshot.active() {
-		if _, ok := ps.Stmt.(*SelectStmt); !ok {
-			return execResult{}, sharedSnapshotUnsupported()
-		}
-		for _, cte := range statementWith(ps.Stmt) {
-			if cte.Statement != nil {
-				return execResult{}, sharedSnapshotUnsupported()
-			}
-		}
-	}
 	if drop, ok := ps.Stmt.(*DropPartitionResultStmt); ok {
 		if drop.Snapshot {
 			return execResult{affected: 0}, e.store.releasePartitionSnapshot(ctx, drop.JobID)
@@ -1783,22 +1784,15 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 		}
 		sctx, pin, err = e.store.acquireWritableSnapshot(ctx, resolve)
 	} else {
-		if e.readSnapshot != nil {
-			sctx, pin, err = e.readSnapshot.acquire(ctx, e.store)
-		} else {
-			sctx, pin, err = e.store.acquireSnapshot(ctx)
-		}
+		sctx, pin, err = e.store.acquireSnapshot(ctx)
 	}
 	if err != nil {
 		cancel()
 		return execResult{}, err
 	}
-	streamOwnsDeadline := false
 	defer func() {
 		if pin != nil {
 			pin.release()
-		}
-		if !streamOwnsDeadline {
 			cancel()
 		}
 	}()
@@ -1864,7 +1858,6 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 		r.snapshot = pin
 		r.snapshotCancel = cancel
 		r.snapshotStop = context.AfterFunc(sctx, func() { r.closeWith(cancelled(sctx)) })
-		streamOwnsDeadline = true
 		pin = nil // stream owns both lease and deadline
 		r.mu.Unlock()
 	}
