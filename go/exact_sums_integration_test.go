@@ -383,11 +383,11 @@ func TestSQLPushdownSumNulls(t *testing.T) {
 	var want, wantAvg []string
 	for g := range 20 {
 		v := 1 + g%2
-		want = append(want, fmt.Sprintf("%d|%d|%d|2|%d|%d", g, 2*v, v, 2*v, v))
-		wantAvg = append(wantAvg, fmt.Sprintf("%d|%d", g, v))
+		want = append(want, fmt.Sprintf("%d|%d|%d|2|%d|%d.0000000000000000", g, 2*v, v, 2*v, v))
+		wantAvg = append(wantAvg, fmt.Sprintf("%d|%d.0000000000000000", g, v))
 	}
-	want = append(want, "20|NULL|NULL|0|NULL|NULL", "21|NaN|NaN|2|3|1.5")
-	wantAvg = append(wantAvg, "20|NULL", "21|1.5")
+	want = append(want, "20|NULL|NULL|0|NULL|NULL", "21|NaN|NaN|2|3|1.5000000000000000")
+	wantAvg = append(wantAvg, "20|NULL", "21|1.5000000000000000")
 	byGroup := "SELECT g, sum(x), avg(x), count(x), sum(i), avg(i) FROM it_xs_nulls GROUP BY g ORDER BY g"
 	avgInt := "SELECT g, avg(i) FROM it_xs_nulls GROUP BY g ORDER BY g"
 	if _, _, indexAgg := h.planOf(avgInt); !indexAgg {

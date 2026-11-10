@@ -7,3 +7,5 @@ The stable case list in `go/pgdiff/issue359-cases.json` defines the baseline. Ev
 Fix harness defects only where independent evidence demonstrates incorrect comparison; retain tests that distinguish real mismatches. Do not change source queries or expected values to match the driver. Validate on Redis Software with management-API-verified active 4x QPF.
 
 See [intent](intent.md) and [plan](plan.md).
+
+Implementation and case dispositions are delivered in [PR #366](https://github.com/redis/redis-adbc-driver/pull/366). See [validation](validation.md) and the [case audit](cases.md); follow-up feature issues retain deferred failures.

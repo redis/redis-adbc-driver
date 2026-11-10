@@ -9,3 +9,5 @@ Date: 2026-11-09. Author: Codex. Requestor: Albert Wong. Source: `08d75d50888374
 5. Run appropriate Software and harness checks, review the diff and publish sanitized evidence. Open the requested PR; close the issue only with its requirements accounted for.
 
 See [intent](intent.md) and [spec](spec.md).
+
+Implementation and case dispositions are delivered in [PR #366](https://github.com/redis/redis-adbc-driver/pull/366). See [validation](validation.md) and the [case audit](cases.md); follow-up feature issues retain deferred failures.

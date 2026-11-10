@@ -74,6 +74,59 @@ image in [run.py](../../../../go/pgdiff/run.py).
 - Triage coverage only: the same command with `--triage`; it must say explicitly
   that deferred failures remain failures. This never changes runner results.
 
-Final counts and per-check outcomes will be recorded after the live run.
+## Observed comparison and checks
+
+The fully fetched comparison at committed implementation revision
+`b35a47395375311f4969d2c1a7bdb8825d486b20` completed with **574/651 scored
+passes (88.2%)**, **77 failures**, **2 allowed extensions**, **2 explicit scope
+exclusions**, and **0 infrastructure errors** (655 total). The comparison returns
+1 for mismatches; make translates that to exit 2. This is an expected failing
+compatibility suite, not a clean pass. No formerly passing case regressed.
+[Sanitized results](results.json) retain only aggregate/reference/configuration
+evidence and the tested revision.
+
+| Tier | Passed / scored |
+|---|---:|
+| Compatibility issues | 205 / 239 |
+| Retained PostgreSQL regression subset | 329 / 371 |
+| Captured dbt SQL | 22 / 23 |
+| Smoke | 13 / 13 |
+| Type checks | 5 / 5 |
+
+The stable #359 cases split into **122 observed passes and 66 deferred failures**.
+The eleven original #360 cases still fail. Owning issue counts below refer to
+the retained 66 only; #360 also owns the retained unique-index case, without
+double-counting it as one of the original eleven.
+
+| Owner | Retained deferred cases | Reason |
+|---|---:|---|
+| [#361](https://github.com/redis/redis-adbc-driver/issues/361) | 19 | join/whole-row/recursive/planner/type/metadata semantics |
+| [#362](https://github.com/redis/redis-adbc-driver/issues/362) | 24 | lossless NUMERIC special values and temporal range/infinity representation |
+| [#363](https://github.com/redis/redis-adbc-driver/issues/363) | 2 | PUBLIC security model |
+| [#364](https://github.com/redis/redis-adbc-driver/issues/364) | 7 | endpoint identity, extension scope and ordered peers |
+| [#98](https://github.com/redis/redis-adbc-driver/issues/98) | 9 | logical JSON type/operators/functions |
+| [#107](https://github.com/redis/redis-adbc-driver/issues/107) | 2 | enum catalog/type identity |
+| [#110](https://github.com/redis/redis-adbc-driver/issues/110) | 2 | OVERLAPS and diagnostic records |
+| [#360](https://github.com/redis/redis-adbc-driver/issues/360) / [#114](https://github.com/redis/redis-adbc-driver/issues/114) | 1 | unique-index integrity enforcement |
+
+Five deferred cases are Core-related, fifteen optional-standard-related,
+fifteen PostgreSQL-specific, twenty-four representation/comparison limitations,
+and seven fixture/oracle cases. These are case classifications, not feature
+counts. Exact standard subfeature classification remains unverified where noted.
+
+- Full unit-only Go pass completed with zero failures; integration skips are
+  expected without REDIS_URI and are not live compatibility evidence.
+- All **32 harness/completion-gate tests passed**. The provenance import checks
+  regenerated the same 371 PostgreSQL queries and 23 captured dbt cases.
+- Strict #359 pass gate correctly exits 1 with 66 unresolved failures. The
+  separate triage gate exits 0 with 188/188 accounted for, preserving failures.
+- Local Markdown file links and `git diff --check` passed.
+- Clean final full Software rerun at `b35a4739`: pending. The first sweep exposed
+  old numeric/arity assertions and the corrected integer SUM index guard; it is
+  not reported as a passing validation run.
+
+[PR #366](https://github.com/redis/redis-adbc-driver/pull/366) delivers this change.
+Closing #359 completes its documented fix-or-classify triage, not #118 or the
+remaining feature implementations.
 Credentials, endpoints, infrastructure identifiers, license files, and raw
 operational artifacts stay private in ignored build or temporary storage.

@@ -68,3 +68,11 @@ suite, does not establish universal PostgreSQL compatibility or 177/177 SQL:2023
 Core conformance. A separate [live curated comparison](sdlc/changes/postgresql18-target/validation.md)
 measured 452/651 scored cases passing (69.4%), with 199 mismatches and no
 infrastructure errors; that result does not validate the entire surface above.
+
+The [#359 fix-and-classify change](sdlc/changes/postgresql18-359/validation.md)
+subsequently measured 574/651 scored passes (88.2%), 77 failures, and no
+infrastructure errors at implementation revision `b35a4739`. All 188 retained
+baseline cases have dispositions: 122 observed passes and 66 deferred failures.
+The 66 are exclusions from that implementation change, not from #118's
+compatibility goal or from the full runner. [PR #366](https://github.com/redis/redis-adbc-driver/pull/366)
+delivers the fixes; #118 and the owning feature issues retain the remaining work.
