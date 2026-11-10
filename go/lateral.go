@@ -184,6 +184,15 @@ func renameColumns(meta *tableMeta, alias string, cols []string) (*tableMeta, er
 			seen[c.Name] = true
 		}
 	}
+	if len(meta.planConstants) > 0 {
+		m.planConstants = map[string]Value{}
+		for k, v := range meta.planConstants {
+			if n, ok := rename[k]; ok {
+				k = n
+			}
+			m.planConstants[k] = v
+		}
+	}
 	if m.isMem {
 		m.mem = make([]map[string]Value, len(meta.mem))
 		for r, row := range meta.mem {

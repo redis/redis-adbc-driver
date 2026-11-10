@@ -3338,7 +3338,12 @@ allow otherwise streamable queries to stream.
   JSON raises `22P02`.
 - Conditional functions: `NULLIF(a, b)`, `GREATEST(…)` / `LEAST(…)` (NULL
   arguments are ignored), and `IIF(cond, a, b)` (like `CASE`, only the chosen
-  branch is evaluated). `COALESCE`, `GREATEST` and `LEAST` widen their
+  branch is evaluated). `COALESCE` evaluates arguments only until the first
+  non-NULL value. Immutable constant errors in reachable CASE branches can be
+  reported during planning; provably dead constant branches are pruned. Row-dependent
+  expressions and volatile functions are not evaluated by this planning check.
+  This is scoped constant analysis, not the full PostgreSQL optimizer.
+  `COALESCE`, `GREATEST` and `LEAST` widen their
   arguments to a common type (`COALESCE(int_col, 2.5)` is `NUMERIC`); a
   string literal (see below), or a number that type holds exactly, takes the
   other arguments' type (`COALESCE(int_col, 0)` stays `INTEGER`,
@@ -3426,7 +3431,11 @@ allow otherwise streamable queries to stream.
     session time zone's offset (`10:30:00-04`), as in Postgres. Up to
     v0.0.12 it was a `TIME`, an Arrow `time64`; it is now a string column
     (see Types)
-  - `EXTRACT(field FROM x)` / `DATE_PART('field', x)` for `year`, `isoyear`,
+  - `EXTRACT(field FROM x)` returns numeric; `DATE_PART('field', x)` returns
+    double precision. EXTRACT computes fractional fields from integer components,
+    preserving microseconds without a float intermediary. Numeric arithmetic,
+    CASE and window sums retain the result's scale; Arrow uses the existing
+    numeric result-shape resolution. Both support `year`, `isoyear`,
     `quarter`, `month`, `week` (ISO), `day`, `dow` (0 = Sunday), `isodow`,
     `doy`, `hour`, `minute`, `second`, `milliseconds`, `microseconds`, `epoch`,
     `decade`, `century`, `millennium`, and for a timestamp with time zone

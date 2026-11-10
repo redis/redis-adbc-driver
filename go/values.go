@@ -110,5 +110,21 @@ func (e *executor) valuesRelation(ctx context.Context, rows [][]Expr) (*tableMet
 			values = append(values, out)
 		}
 	}
-	return e.retainedMemTable(ctx, "*VALUES*", cols, values, nil)
+	meta, err := e.retainedMemTable(ctx, "*VALUES*", cols, values, nil)
+	if err == nil && len(rows) == 1 {
+		p := casePlanner{env: e.newEnv(ctx, e.scopeTypes(), nil)}
+		for i, expr := range rows[0] {
+			v, known, ferr := p.fold(expr)
+			if known && ferr == nil {
+				v, ferr = coerceIn(v, cols[i].Type, e.zone())
+				if ferr == nil {
+					if meta.planConstants == nil {
+						meta.planConstants = map[string]Value{}
+					}
+					meta.planConstants[cols[i].Name] = v
+				}
+			}
+		}
+	}
+	return meta, err
 }

@@ -4251,7 +4251,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				return &Func{Name: upper}, nil
 			}
 		case "EXTRACT":
-			// EXTRACT(field FROM expr) is DATE_PART('field', expr).
+			// EXTRACT has numeric identity, separate from DATE_PART float8.
 			if p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {
 				p.pos += 2
 				ft := p.next()
@@ -4268,7 +4268,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				if err := p.expectOp(")"); err != nil {
 					return nil, err
 				}
-				return &Func{Name: "DATE_PART", Args: []Expr{&Literal{V: stringValue(strings.ToLower(ft.text))}, x}}, nil
+				return &Func{Name: "__EXTRACT", Args: []Expr{&Literal{V: stringValue(strings.ToLower(ft.text))}, x}}, nil
 			}
 		case "SUBSTRING", "POSITION", "TRIM":
 			// SUBSTRING(s FROM a FOR b), POSITION(a IN b), TRIM(BOTH x FROM s)

@@ -287,6 +287,7 @@ type tableMeta struct {
 	isMem          bool
 	retainedSource bool // immutable captured physical rows retain explicit system columns
 	mem            []map[string]Value
+	planConstants  map[string]Value // query-only immutable facts, never persisted
 	// dups are the names (in lower case) that more than one column of an
 	// in-memory relation has (see nameColumns).
 	dups map[string]bool

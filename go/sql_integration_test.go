@@ -1250,11 +1250,11 @@ func TestSQLDateTimeFunctions(t *testing.T) {
 		FROM it_dt WHERE id = 1`, "2024|1|2|9|29|4|4|60")
 	h.expectRows(`SELECT EXTRACT(HOUR FROM ts), EXTRACT(MINUTE FROM ts), EXTRACT(SECOND FROM ts),
 			EXTRACT(MILLISECONDS FROM ts), EXTRACT(MICROSECONDS FROM ts), EXTRACT(EPOCH FROM ts)
-		FROM it_dt WHERE id = 1`, "13|45|30.123456|30123.456|30123456|1.709214330123456e+09")
+		FROM it_dt WHERE id = 1`, "13|45|30.123456|30123.456|30123456|1709214330.123456")
 	h.expectRows(`SELECT DATE_PART('decade', d), DATE_PART('century', d), DATE_PART('millennium', d), DATE_PART('isoyear', d)
 		FROM it_dt WHERE id = 1`, "202|21|3|2024")
 	h.expectRows(`SELECT EXTRACT(HOUR FROM t), EXTRACT(SECOND FROM t), EXTRACT(HOUR FROM tz) FROM it_dt ORDER BY id`,
-		"13|30.5|23", "0|0|3", "NULL|NULL|NULL") // row 2: 22:00-05 is 03:00 UTC
+		"13|30.500000|23", "0|0.000000|3", "NULL|NULL|NULL") // row 2: 22:00-05 is 03:00 UTC
 	h.expectError(`SELECT EXTRACT(YEAR FROM t) FROM it_dt`, "not valid for TIME")
 	h.expectError(`SELECT DATE_PART('fortnight', ts) FROM it_dt`, "unknown date/time field")
 	h.expectRows(`SELECT YEAR(d), MONTH(d), DAY(d), HOUR(ts), MINUTE(ts), SECOND(ts), DAYOFYEAR(d), QUARTER(d), WEEK(d)
@@ -1392,7 +1392,7 @@ func TestSQLIntervals(t *testing.T) {
 	h.expectRows(`SELECT EXTRACT(EPOCH FROM INTERVAL '1 day 2 hours'), EXTRACT(HOUR FROM INTERVAL '26 hours'),
 			EXTRACT(DAY FROM INTERVAL '1 month 3 days'), EXTRACT(YEAR FROM INTERVAL '14 months'),
 			EXTRACT(MONTH FROM INTERVAL '14 months'), EXTRACT(SECOND FROM INTERVAL '1 minute 30.5 seconds')`,
-		"93600|26|3|1|2|30.5")
+		"93600.000000|26|3|1|2|30.500000")
 
 	// On table data: filters push down, NULLs propagate, ORDER BY intervals.
 	h.expectRows(`SELECT id FROM it_iv WHERE ts >= TIMESTAMP '2024-03-01 12:00:00' - INTERVAL '1 day' ORDER BY id`, "2", "3")

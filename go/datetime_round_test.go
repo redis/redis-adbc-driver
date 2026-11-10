@@ -127,9 +127,9 @@ func TestRoundPrecision(t *testing.T) {
 		{"CAST(TIMESTAMP '1969-12-31 10:00:00.5' AS TIME(0))", "10:00:01", "TIME(0)"},
 		{"CAST(TIMESTAMPTZ '2024-01-10 10:00:00.5+00' AS TIME(0))", "10:00:01", "TIME(0)"},
 		// 24:00:00's fields.
-		{"EXTRACT(hour FROM CAST(TIME '23:59:59.9' AS TIME(0)))", "24", "BIGINT"},
-		{"EXTRACT(minute FROM CAST(TIME '23:59:59.9' AS TIME(0)))", "0", "BIGINT"},
-		{"EXTRACT(epoch FROM CAST(TIME '23:59:59.9' AS TIME(0)))", "86400", "DOUBLE PRECISION"},
+		{"EXTRACT(hour FROM CAST(TIME '23:59:59.9' AS TIME(0)))", "24", "NUMERIC"},
+		{"EXTRACT(minute FROM CAST(TIME '23:59:59.9' AS TIME(0)))", "0", "NUMERIC"},
+		{"EXTRACT(epoch FROM CAST(TIME '23:59:59.9' AS TIME(0)))", "86400.000000", "NUMERIC"},
 		{"CAST(TIME '23:59:59.9' AS TIME(0)) > TIME '23:59:59.999999'", "true", "BOOLEAN"},
 
 		// Text of the rounded value, and comparisons: text compared with a
@@ -242,9 +242,9 @@ func TestFractionalPrecision(t *testing.T) {
 		{"CAST(TIMESTAMPTZ '2024-01-10 10:00:00.15+00' AS TIME(1))", "10:00:00.2", "TIME(1)"},
 
 		// Fields, text and comparisons see the rounded value.
-		{"EXTRACT(epoch FROM CAST(TIME '10:00:00.125' AS TIME(2)))", "36000.13", "DOUBLE PRECISION"},
-		{"EXTRACT(microseconds FROM CAST(TIMESTAMP '2024-01-10 10:00:00.123456' AS TIMESTAMP(2)))", "120000", "BIGINT"},
-		{"EXTRACT(milliseconds FROM CAST(TIMESTAMP '2024-01-10 10:00:01.125' AS TIMESTAMP(1)))", "1100", "DOUBLE PRECISION"},
+		{"EXTRACT(epoch FROM CAST(TIME '10:00:00.125' AS TIME(2)))", "36000.130000", "NUMERIC"},
+		{"EXTRACT(microseconds FROM CAST(TIMESTAMP '2024-01-10 10:00:00.123456' AS TIMESTAMP(2)))", "120000", "NUMERIC"},
+		{"EXTRACT(milliseconds FROM CAST(TIMESTAMP '2024-01-10 10:00:01.125' AS TIMESTAMP(1)))", "1100.000", "NUMERIC"},
 		{"TO_CHAR(CAST(TIMESTAMP '2024-01-10 10:00:00.125' AS TIMESTAMP(2)), 'HH24:MI:SS.US')", "10:00:00.130000", "VARCHAR"},
 		{"CAST(CAST(TIMESTAMP '2024-01-10 10:00:00.125' AS TIMESTAMP(2)) AS VARCHAR)", "2024-01-10 10:00:00.13", "VARCHAR"},
 		{"CAST(TIMESTAMP '2024-01-10 10:00:00.125' AS TIMESTAMP(2)) = '2024-01-10 10:00:00.13'", "true", "BOOLEAN"},
@@ -295,7 +295,7 @@ func TestCurrentTimePrecision(t *testing.T) {
 		{"LOCALTIME(4)", "05:00:00.6543", "TIME(4)"},
 		{"CURRENT_TIMESTAMP(2) = CAST(CURRENT_TIMESTAMP AS TIMESTAMPTZ(2))", "true", "BOOLEAN"},
 		{"CURRENT_TIMESTAMP(6) = NOW()", "true", "BOOLEAN"},
-		{"EXTRACT(microseconds FROM CURRENT_TIMESTAMP(0))", "1000000", "BIGINT"},
+		{"EXTRACT(microseconds FROM CURRENT_TIMESTAMP(0))", "1000000", "NUMERIC"},
 		{"CAST(CURRENT_TIMESTAMP(1) AS TEXT)", "2024-01-10 05:00:00.7+00", "VARCHAR"},
 		// p is an integer constant from 0 to 9.
 		{"CURRENT_TIMESTAMP(10)", "error: CURRENT_TIMESTAMP precision must be an integer constant from 0 to 9", ""},

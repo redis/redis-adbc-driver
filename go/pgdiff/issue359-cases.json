@@ -12,7 +12,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Logical text/varchar identity is lost before information_schema; requires expression/CTAS catalog propagation.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-240.json",
@@ -733,7 +733,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs planner constant folding with dead-branch pruning and volatility rules; indiscriminate eager evaluation breaks short-circuit semantics.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "postgres/date.json",
@@ -2247,7 +2247,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Separate numeric EXTRACT from DATE_PART overloads and propagate numeric types through CASE/arithmetic/windows without rounding through float.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "postgres/with.json",

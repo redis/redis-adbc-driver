@@ -151,15 +151,6 @@ func epochSeconds(v Value, tm time.Time) float64 {
 	return float64(tm.Unix()) + float64(tm.Nanosecond())/1e9
 }
 
-// datePartType is the result type of DATE_PART / EXTRACT for a field.
-func datePartType(field string) ColType {
-	switch normalizeField(field) {
-	case "second", "milliseconds", "epoch":
-		return typeFloat64
-	}
-	return typeInt64
-}
-
 func normalizeField(f string) string {
 	f = strings.ToLower(strings.TrimSpace(f))
 	switch f {
@@ -579,12 +570,9 @@ func dateTimeFuncType(f *Func, args []ColType) (ColType, bool) {
 	case "__INTERVAL", "AGE":
 		return typeInterval, true
 	case "DATE_PART":
-		if len(f.Args) > 0 {
-			if lit, ok := f.Args[0].(*Literal); ok && !lit.V.Null {
-				return datePartType(lit.V.Text()), true
-			}
-		}
 		return typeFloat64, true
+	case "__EXTRACT":
+		return decimalType(0, 0), true
 	case "DATE_TRUNC":
 		if len(args) >= 2 {
 			return dateTruncType(args[1]), true
@@ -638,14 +626,12 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 			return done(Value{}, err)
 		}
 		return done(Value{T: t, I: v.I, Off: int32(z.offsetAt(now.Unix()))}, nil)
-	case "DATE_PART":
-		switch args[1].T.Kind {
-		case KindInterval:
-			return done(intervalPart(args[0].Text(), args[1]))
-		case KindTimeTZ:
-			return done(timeTZPart(args[0].Text(), args[1]))
+	case "DATE_PART", "__EXTRACT":
+		v, err := extractNumeric(args[0].Text(), args[1], z)
+		if err != nil || f.Name == "__EXTRACT" {
+			return done(v, err)
 		}
-		return done(datePart(args[0].Text(), args[1], z))
+		return done(Coerce(v, typeFloat64))
 	case "__INTERVAL":
 		// INTERVAL n UNIT / INTERVAL 'n' UNIT
 		u, ok := intervalUnits[args[1].Text()]
