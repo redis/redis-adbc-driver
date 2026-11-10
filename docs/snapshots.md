@@ -41,6 +41,9 @@ The database and connection report `adbc.redis.statement_snapshots` as `true`;
 setting it to `false` is rejected. Passing `true` explicitly is accepted but
 unnecessary.
 
+For an opt-in view reused across metadata calls and sequential SELECTs, see
+[shared read snapshots](shared-read-snapshots.md).
+
 ## Explicit retained operations
 
 Ordinary statements still publish synchronously. An application may explicitly

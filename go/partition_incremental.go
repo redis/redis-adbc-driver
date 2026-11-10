@@ -32,6 +32,9 @@ type incrementalPartitions struct {
 }
 
 func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, adbc.Partitions, int64, error) {
+	if s.conn.readSnapshot.active() {
+		return nil, adbc.Partitions{}, -1, sharedSnapshotUnsupported()
+	}
 	if s.substrait != nil {
 		return nil, adbc.Partitions{}, -1, subUnsupported("partition execution")
 	}

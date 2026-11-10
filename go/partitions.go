@@ -344,6 +344,9 @@ func decodePartition(data []byte) (partitionID, error) {
 }
 
 func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result array.RecordReader, resultErr error) {
+	if c.readSnapshot.active() {
+		return nil, sharedSnapshotUnsupported()
+	}
 	layoutCtx := ctx
 	if c.store == nil || c.store.isClosed() {
 		return nil, errConnClosed

@@ -40,6 +40,9 @@ func metaFromArrow(schemaName, table string, schema *arrow.Schema) (*tableMeta, 
 
 // executeIngest implements bulk ingestion: every Arrow row becomes a HASH.
 func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
+	if s.conn.readSnapshot.active() {
+		return -1, sharedSnapshotUnsupported()
+	}
 	ctx, transport := s.conn.executionContext(ctx, &s.streams, &s.conn.streams)
 	if transport != nil {
 		defer transport.finish()

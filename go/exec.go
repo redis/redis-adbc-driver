@@ -28,6 +28,7 @@ import (
 
 // executor runs parsed statements against a store.
 type executor struct {
+	readSnapshot       *sharedReadSnapshot
 	rbac               *rbacManager
 	gpuRequested       bool
 	cudaDevice         int
@@ -229,6 +230,11 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 // execute runs one statement. With so set, a query's rows may be streamed
 // (see stream.go).
 func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, paramTypes []ColType, so *streamOpts) (res execResult, err error) {
+	if scope := snapshotOf(ctx); scope != nil && scope.sharedRead {
+		if _, ok := ps.Stmt.(*SelectStmt); !ok {
+			return execResult{}, sharedSnapshotUnsupported()
+		}
+	}
 	if e.store != nil && e.store.snapshots && snapshotOf(ctx) == nil {
 		return e.executeSnapshot(ctx, ps, params, paramTypes, so)
 	}

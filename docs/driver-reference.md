@@ -4312,6 +4312,9 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | Option | Level | Meaning |
 |-|-|-|
 | `adbc.redis.statement_snapshots` | database, connection | Always `true` for managed tables. Explicit `true` is accepted; `false` is rejected. See [snapshots](snapshots.md). |
+| `adbc.redis.read_snapshot` | connection | `acquire` binds one read-only managed catalog view across metadata and sequential SELECTs; `release` cancels active children and unbinds. Native connection only; no attachment/partition/Flight SQL support. See [shared read snapshots](shared-read-snapshots.md). |
+| `adbc.redis.read_snapshot_id` | connection, read-only | Diagnostic generation identity while bound and valid; empty when unbound. It cannot authorize attachment. |
+| `adbc.redis.read_snapshot_retention_ms` | connection | String integer 1000–86400000; default 3600000. Set while unbound; fixed deadline includes discovery and reads. Expired views fail until explicit release. |
 | `adbc.redis.foreign_indexes_refresh` | connection, write-only | Set `true` to refresh managed copies of external HASH indexes atomically per index. Does not modify source HASHes/indexes. Requires a managed connection. |
 | `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
 | `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |

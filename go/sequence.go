@@ -439,6 +439,9 @@ func (env *evalEnv) evalSequence(f *Func) (Value, bool, error) {
 	if !sequenceFunction(f.Name) {
 		return Value{}, false, nil
 	}
+	if scope := snapshotOf(env.ctx); scope != nil && scope.sharedRead {
+		return Value{}, true, sharedSnapshotUnsupported()
+	}
 	e := env.exec
 	if e == nil || e.store == nil {
 		return Value{}, true, stateErrorf(stateFeatureNotSupported, "sequence functions need a database connection")

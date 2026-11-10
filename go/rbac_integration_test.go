@@ -231,6 +231,41 @@ func TestSQLRBACSelect(t *testing.T) {
 		}
 	}
 	waitRows(`SELECT id FROM it_rbac_allowed`, "42")
+	t.Run("shared_read_snapshot_revocation", func(t *testing.T) {
+		local := *reader
+		local.t = t
+		options := reader.conn.(adbc.GetSetOptionsWithContext)
+		if err := options.SetOption(ctx, OptionStringReadSnapshot, "acquire"); err != nil {
+			t.Fatal(err)
+		}
+		defer options.SetOption(ctx, OptionStringReadSnapshot, "release")
+		local.expectRows("SELECT id FROM it_rbac_allowed", "42")
+		admin.exec("UPDATE it_rbac_allowed SET id=43")
+		local.expectRows("SELECT id FROM it_rbac_allowed", "42")
+		admin.expectRows("SELECT id FROM it_rbac_allowed", "43")
+		admin.exec("REVOKE SELECT ON it_rbac_allowed FROM " + roleName)
+		until := time.Now().Add(20 * time.Second)
+		for {
+			err := local.execErr("SELECT id FROM it_rbac_allowed")
+			if isStatus(err, adbc.StatusUnauthorized) {
+				break
+			}
+			if err != nil || time.Now().After(until) {
+				t.Fatalf("revocation failed: %v", err)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		// Restoring permission must not change the bound historical generation.
+		admin.exec(grant)
+		waitRows("SELECT id FROM it_rbac_allowed", "42")
+		if err := options.SetOption(ctx, OptionStringReadSnapshot, "release"); err != nil {
+			t.Fatal(err)
+		}
+		waitRows("SELECT id FROM it_rbac_allowed", "43")
+		admin.exec("UPDATE it_rbac_allowed SET id=42")
+		waitRows("SELECT id FROM it_rbac_allowed", "42")
+	})
+
 	t.Run("grants_survive_dml_ddl_and_compaction", func(t *testing.T) { checkSnapshotGrantedGenerations(t, admin, reader) })
 	reader.expectError(`SELECT * FROM it_rbac_denied`, "NOPERM")
 	if err := reader.execErr(`INSERT INTO it_rbac_allowed VALUES (7)`); err == nil {

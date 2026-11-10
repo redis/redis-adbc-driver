@@ -53,7 +53,7 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 	if transport != nil {
 		defer transport.finish()
 	}
-	ctx, pin, err := c.store.acquireSnapshot(ctx)
+	ctx, pin, err := c.acquireReadSnapshot(ctx)
 	if err != nil {
 		return nil, err
 	}
