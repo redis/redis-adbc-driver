@@ -72,3 +72,15 @@ exists in this evidence. Maintainers must review, merge and publish a release;
 Airbyte must pin that released version and implement the documented acquire,
 metadata/read, failure and release lifecycle before enabling shared_snapshot.
 The issue's released-version integration gate therefore remains pending.
+
+## PR CI follow-up: integer AVG expectations
+
+The [amd64 Software CI job](https://github.com/redis/redis-adbc-driver/actions/runs/42856810318/job/129972039473)
+failed in `TestSnapshotIndexAggregatesMergeVisibleGroups`. Its expected strings
+predated #366's exact NUMERIC integer-AVG contract. Reproduced on the verified
+local Software fixture with `-race`: actual averages were correctly scale-16
+NUMERIC values, rather than the older unscaled representations. Updated the
+three grouped expectations and the fractional scalar expectation, and asserted
+precision 76 / scale 16 for every grouped AVG, including the NULL group. Kept
+exact values, multiplicities, visibility and zero-HASH-fetch assertions intact.
+The focused regression passed with `-race -count=1 -p 1` (2.087 seconds).
