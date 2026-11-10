@@ -626,6 +626,17 @@ python -m pip install 'apache-airflow==3.3.2' './python[airflow]' pytest
 REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_airflow_hook.py
 ```
 
+## Sling
+
+[Sling](https://slingdata.io) loads the native Redis ADBC shared library directly;
+it does not require a Python integration extra. PostgreSQL → Redis → PostgreSQL
+passed twice with 10,003 rows and zero value or duplicate differences on verified
+Redis Software 4x QPF. Redis-target writes require metadata template overrides,
+a precreated table, and direct truncate-and-load. Default staging and empty Arrow
+results have documented Sling limitations; this is not a performance benchmark.
+See the [Sling guide](integrations/sling.md) for setup and the
+[standalone test](../scripts/test_sling_postgres.py) for reproduction.
+
 ## dlt
 
 Install `python -m pip install 'adbc-driver-redis[dlt]'`. This repository ships

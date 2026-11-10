@@ -1,0 +1,12 @@
+# Install only in the isolated SLING_HOME_DIR used for Redis ADBC connections.
+metadata:
+  schemas: select schema_name from information_schema.schemata order by schema_name
+  current_database: select current_database()
+  columns: |
+    select column_name, data_type, numeric_precision as precision, numeric_scale as scale
+    from information_schema.columns
+    where table_schema = '{schema}' and table_name = '{table}'
+    order by ordinal_position
+core:
+  drop_table: DROP TABLE IF EXISTS {table}
+  rename_table: ALTER TABLE {table} RENAME TO {new_table}

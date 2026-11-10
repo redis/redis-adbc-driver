@@ -38,7 +38,10 @@ class InventoryTests(unittest.TestCase):
         # DuckDB keeps its linked workflow outside docs/integrations.
         self.assertTrue((ROOT / "docs/duckdb.md").is_file())
         documented.add("duckdb")
-        self.assertEqual(set(guides), documented)
+        self.assertTrue(set(guides).isdisjoint(registry.STANDALONE_GUIDES))
+        self.assertEqual(set(guides) | set(registry.STANDALONE_GUIDES), documented)
+        for runner in registry.STANDALONE_GUIDES.values():
+            self.assertTrue((ROOT / runner).is_file(), runner)
         candidates = [c for p in registry.PROFILES.values() for c in p.candidates]
         self.assertEqual(len(candidates), len(set(candidates)))
         self.assertEqual(set(candidates), set(registry.CANDIDATES))
