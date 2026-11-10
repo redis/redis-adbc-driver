@@ -19,6 +19,16 @@ Validation:
   ten table headers and ten category anchors verified; all original inline
   links and post-inventory evidence unchanged; 72 local inline targets and
   change-record links resolved.
+- PR #372 follow-up: CI's strict MkDocs build rejected eight category links
+  because MkDocs collapses punctuation-related hyphens differently from GitHub.
+  Reproduced all eight warnings locally with MkDocs 1.6.1. The original custom
+  slug check verified only GitHub-style anchors and was insufficient for the site.
+- Added explicit category anchors and normalized index targets. Using the existing
+  `/private/tmp/redis-adbc-docs-venv/bin/python` (MkDocs 1.6.1), ran
+  `scripts/prepare_docs.py`, `-m mkdocs build --strict`, and
+  `scripts/check_docs.py`: passed, 41 pages verified. A separate rendered-HTML
+  check verified all ten category index targets; inventory coverage checks still
+  passed (two tests), and all 50 original tool rows remain unchanged.
 - `git diff --check`: passed.
 - Reference deck read through the Google Drive connector; only its grouping
   was reused. The GitHub web fetch returned a cache miss; repository content

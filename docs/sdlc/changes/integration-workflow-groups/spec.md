@@ -8,6 +8,8 @@ Notebooks, IDEs & reporting; BI & visualization; Data quality.
 
 Each original numbered tool row appears exactly once, unchanged. Repeat the
 comparison header for each subcategory and provide a linked category index.
+Use explicit HTML anchors so category links resolve in both GitHub and MkDocs,
+whose automatic heading anchors differ for punctuation.
 Explain that inventory numbers retain the original popularity-informed order.
 Preserve historical dates, validation limits, evidence links, and all content
 after the inventory. Do not import the deck's older support counts into the
