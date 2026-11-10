@@ -18,3 +18,5 @@ See [intent](intent.md) and [plan](plan.md).
 Acceptance evidence: [report](../../../../benchmarks/terra/2026-11-10/report.md)
 and [sanitized results](../../../../benchmarks/terra/2026-11-10/results.json).
 No driver behavior changes are included.
+
+PR: [#370](https://github.com/redis/redis-adbc-driver/pull/370).

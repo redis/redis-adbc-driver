@@ -12,3 +12,5 @@ identifiers or connection details.
 This change does not add Terra support, alter the driver, exercise multi-statement
 transactions, or claim successful query/ingestion performance. Whether Terra will
 expose Search or need a separate driver backend remains unresolved.
+
+PR: [#370](https://github.com/redis/redis-adbc-driver/pull/370).

@@ -18,3 +18,5 @@ Review follows [REVIEW.md](../../../../REVIEW.md): the evidence preserves the
 observed failure and its limits, and no driver/storage behavior is changed.
 The archived workload paths have no successful Terra execution evidence.
 Human acceptance remains pending in the PR; no release is proposed.
+
+PR: [#370](https://github.com/redis/redis-adbc-driver/pull/370).
