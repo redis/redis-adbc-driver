@@ -4,7 +4,8 @@ Native ADBC can explicitly bind one managed catalog generation to a connection
 for sequential full-refresh reads. This is a read-only API, not a multi-statement
 write transaction. It extends [statement snapshots](snapshots.md).
 
-**First version containing this API: v0.0.24.** v0.0.23 does not expose these
+**First supported release: [v0.0.24](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.24)**
+([PyPI 0.0.24](https://pypi.org/project/adbc-driver-redis/0.0.24/)). v0.0.23 does not expose these
 options. Pin a completed native/Python release containing this API and its
 validation; a source tag or draft release alone is not an installable artifact.
 A driver upgrade alone does not enable the current Airbyte connector's
