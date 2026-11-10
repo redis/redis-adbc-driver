@@ -44,6 +44,21 @@ verified active 4x QPF and effective Search workers/routing before each Redis ru
   passed 42 public pages, local links/assets, canonicals, sitemap, search and
   publication-scope checks.
 
+## Metadata-order failure and correction
+
+The first hosted macOS run failed the new shared-view test's exact Arrow table
+comparison (job `130067431542` in run `42884004352`). A local reproduction with
+12 schemas failed on its first attempt while reporting equal Arrow schemas and
+identical complete content after catalog/schema/table ordering. Driverbase
+collects schema callbacks concurrently; that enumeration order is unspecified.
+The validator now compares exact Arrow schemas and all metadata after sorting
+only the unordered catalog/schema/table collections. It preserves column order,
+every field and duplicate entries. An explicit eight-schema native regression
+covers this path; no result filter, skip or value tolerance was introduced.
+The complete installed-wheel native suite then passed **567 tests, 8 existing
+capability skips and 3 subtests, zero failures**, in 152.12 seconds, including
+the new multiple-schema regression.
+
 ## Hosted checks and remaining gates
 
 PR #373 merged as `018e0368`. Documentation, helpers, coverage and Superset jobs
