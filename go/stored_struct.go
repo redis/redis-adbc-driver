@@ -41,7 +41,7 @@ func namedRecordOf(fields []structField) (ColType, error) {
 	return ColType{Kind: KindRecord, Rec: r.(*recordType)}, nil
 }
 func (t ColType) namedRecord() bool {
-	return t.Kind == KindRecord && t.Rec != nil && t.Rec.named != nil
+	return t.Kind == KindRecord && t.Rec != nil && t.Rec.named != nil && !t.Rec.query
 }
 
 // Check named schema identity even for empty/all-NULL batches, where value

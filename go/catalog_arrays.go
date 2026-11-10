@@ -215,6 +215,15 @@ func evalExpandedItems(env *evalEnv, items []planItem) ([][]Value, error) {
 		if err != nil {
 			return nil, err
 		}
+		if fieldTypes, ok := jsonSRFTypes(f.Name); ok && len(fieldTypes) > 1 {
+			t := queryRecordOf([]structField{{Name: "key", Type: fieldTypes[0], Nullable: true}, {Name: "value", Type: fieldTypes[1], Nullable: true}})
+			for i, row := range rows {
+				v := recordValue(row)
+				v.T = t
+				rows[i] = []Value{v}
+			}
+			types = []ColType{t}
+		}
 		sets = append(sets, rows)
 		ts = append(ts, types)
 	}

@@ -60,6 +60,8 @@ type ColumnRef struct {
 	// enclosing query in a subquery (see bindAggregate): Name is then the
 	// hidden column that query computes it into, Outer levels up.
 	outerAgg *outerAggregate
+	// whole is the bound expansion of a relation used as a composite value.
+	whole *RowExpr
 }
 
 // Subquery is a SELECT used as an expression: a scalar subquery
@@ -124,7 +126,12 @@ type RowColumn struct {
 // record (record.go). It is also the operand of a row IN / ANY / ALL
 // subquery.
 type RowExpr struct {
-	Items []Expr
+	Items        []Expr
+	writtenItems []Expr // retain qualified stars for replanning
+	// typ and presence describe a whole-row expansion, not a stored struct.
+	typ      ColType
+	presence string
+	up       int
 }
 
 type Param struct{ Index int }
@@ -382,6 +389,9 @@ type JoinClause struct {
 	Alias  string
 	On     Expr
 	Using  []string
+	// Group preserves a parenthesized joined table; UsingAlias names only common columns.
+	Group      []JoinClause
+	UsingAlias string
 	// Func is a table function item (instead of Table or Select), Lateral
 	// marks a LATERAL item, Columns are column aliases (`AS a(x, y)`), and
 	// Natural is NATURAL JOIN (USING over the columns both sides have).
@@ -408,6 +418,7 @@ type SelectStmt struct {
 	From       *TableName
 	FromSelect *SelectStmt
 	FromAlias  string
+	FromGroup  []JoinClause
 	Where      Expr
 	GroupBy    []Expr
 	Having     Expr
@@ -871,6 +882,9 @@ func lex(src string) ([]token, error) {
 				}
 			}
 			toks = append(toks, token{kind: tokNumber, text: src[start:i], pos: start, end: i})
+		case c == '?' && i+1 < len(src) && (src[i+1] == '|' || src[i+1] == '&'):
+			toks = append(toks, token{kind: tokOp, text: src[i : i+2], pos: i, end: i + 2})
+			i += 2
 		case c == '?':
 			toks = append(toks, token{kind: tokParam, text: "", pos: i, end: i + 1})
 			i++
@@ -918,7 +932,7 @@ func lex(src string) ([]token, error) {
 			}
 			toks = append(toks, token{kind: tokOp, text: src[start:i], pos: start, end: i})
 		default:
-			ops := []string{"=>", ":=", "<<", ">>", "@>", "<@", "&&", "->>", "->", "#>>", "#>", "<>", "!=", "<=", ">=", "||", "::", "==", "(", ")", ",", ";", "*", "+", "-", "/", "%", "=", "<", ">", ".", ":", "^", "&", "|"}
+			ops := []string{"=>", ":=", "<<", ">>", "@>", "<@", "&&", "->>", "->", "#>>", "#>", "#-", "<>", "!=", "<=", ">=", "||", "::", "==", "(", ")", ",", ";", "*", "+", "-", "/", "%", "=", "<", ">", ".", ":", "^", "&", "|"}
 			matched := false
 			for _, op := range ops {
 				if strings.HasPrefix(src[i:], op) {
@@ -1725,6 +1739,7 @@ func (p *parser) parseSelectCore() (*SelectStmt, error) {
 			return nil, err
 		}
 		sel.From, sel.FromSelect, sel.FromAlias = items[0].Table, items[0].Select, items[0].Alias
+		sel.FromGroup = items[0].Group
 		sel.FromFunc, sel.FromLateral, sel.FromColumns = items[0].Func, items[0].Lateral, items[0].Columns
 		sel.Joins = items[1:]
 	}
@@ -1777,13 +1792,70 @@ func (p *parser) parseSelectCore() (*SelectStmt, error) {
 	return sel, nil
 }
 
+// isFromQueryStart looks through nested parentheses without mistaking a
+// parenthesized joined table for a parenthesized SELECT.
+func (p *parser) isFromQueryStart() bool {
+	if !p.isOp("(") {
+		return false
+	}
+	if p.isKeywordAt(1, "SELECT") || p.isKeywordAt(1, "WITH") || p.isKeywordAt(1, "VALUES") {
+		return true
+	}
+	if p.peekAt(1).text != "(" {
+		return false
+	}
+	depth := 0
+	for i := 1; ; i++ {
+		t := p.peekAt(i)
+		if t.kind == tokEOF {
+			return false
+		}
+		if t.text == "(" {
+			depth++
+		}
+		if t.text == ")" {
+			depth--
+			if depth == 0 {
+				next := p.peekAt(i + 1)
+				if next.text != ")" && !p.isKeywordAt(i+1, "UNION") && !p.isKeywordAt(i+1, "INTERSECT") && !p.isKeywordAt(i+1, "EXCEPT") && !p.isKeywordAt(i+1, "ORDER") && !p.isKeywordAt(i+1, "LIMIT") && !p.isKeywordAt(i+1, "OFFSET") && !p.isKeywordAt(i+1, "FETCH") {
+					return false
+				}
+				saved := p.pos
+				p.pos++
+				query := p.isFromQueryStart()
+				p.pos = saved
+				return query
+			}
+		}
+	}
+}
+
 // parseFromEntry parses one FROM item: `[LATERAL] (SELECT …) [AS] alias`,
 // `[LATERAL] function(args) [[AS] alias]` or `table [[AS] alias]`, each
 // alias optionally followed by column aliases `(x, y, …)`.
 func (p *parser) parseFromEntry() (JoinClause, error) {
 	jc := JoinClause{Lateral: p.acceptKeyword("LATERAL")}
 	var err error
-	if (p.isKeyword("ROWS") && p.isKeywordAt(1, "FROM")) || ((p.peek().kind == tokIdent || p.peek().kind == tokQuotedIdent) && p.peekAt(1).text == "(") || (p.isKeyword("pg_catalog") && p.peekAt(1).text == "." && p.peekAt(3).text == "(") {
+	if p.isOp("(") && !p.isFromQueryStart() {
+		if jc.Lateral {
+			return jc, syntaxErr("LATERAL requires a subquery or table function")
+		}
+		p.pos++
+		if jc.Group, err = p.parseFromList(); err != nil {
+			return jc, err
+		}
+		for _, it := range jc.Group {
+			if it.Comma {
+				return jc, syntaxErr("parenthesized joined tables cannot contain a comma list")
+			}
+		}
+		if err = p.expectOp(")"); err != nil {
+			return jc, err
+		}
+		if jc.Alias, err = p.parseAlias(); err != nil {
+			return jc, err
+		}
+	} else if (p.isKeyword("ROWS") && p.isKeywordAt(1, "FROM")) || ((p.peek().kind == tokIdent || p.peek().kind == tokQuotedIdent) && p.peekAt(1).text == "(") || (p.isKeyword("pg_catalog") && p.peekAt(1).text == "." && p.peekAt(3).text == "(") {
 		if p.acceptKeyword("ROWS") {
 			if err = p.expectKeyword("FROM"); err != nil {
 				return jc, err
@@ -1920,6 +1992,11 @@ func (p *parser) parseFromList() ([]JoinClause, error) {
 				}
 				if err := p.expectOp(")"); err != nil {
 					return nil, err
+				}
+				if p.acceptKeyword("AS") {
+					if jc.UsingAlias, err = p.parseIdent(); err != nil {
+						return nil, err
+					}
 				}
 			default:
 				return nil, syntaxErr("%s JOIN requires ON or USING", kind)
@@ -3752,11 +3829,14 @@ func (p *parser) parseOtherOp() (Expr, error) {
 	}
 	for {
 		t := p.peek()
+		if t.kind == tokParam && t.text == "" {
+			t.kind, t.text = tokOp, "?"
+		}
 		if t.kind != tokOp {
 			return l, nil
 		}
 		switch t.text {
-		case "&", "|", "<<", ">>", "||", "~", "~*", "!~", "!~*", "->", "->>", "#>", "#>>", "@>", "<@", "&&":
+		case "&", "|", "<<", ">>", "||", "~", "~*", "!~", "!~*", "->", "->>", "#>", "#>>", "@>", "<@", "&&", "?", "?|", "?&", "#-":
 		default:
 			return l, nil
 		}
@@ -3768,7 +3848,7 @@ func (p *parser) parseOtherOp() (Expr, error) {
 		switch t.text {
 		case "||":
 			l = &Binary{Op: "||", L: l, R: r}
-		case "&", "|", "<<", ">>", "->", "->>", "#>", "#>>", "@>", "<@", "&&":
+		case "&", "|", "<<", ">>", "->", "->>", "#>", "#>>", "@>", "<@", "&&", "?", "?|", "?&", "#-":
 			l = &Func{Name: t.text, Args: []Expr{l, r}}
 		default:
 			l = &Func{Name: strings.TrimPrefix(t.text, "!"), Args: []Expr{l, r}}
@@ -4693,6 +4773,10 @@ func (p *parser) parseColumnRef(first string) (Expr, error) {
 	start := p.toks[p.pos-1].pos
 	parts := []string{first}
 	for p.acceptOp(".") {
+		if p.acceptOp("*") {
+			parts = append(parts, "*")
+			break
+		}
 		n, err := p.parseIdent()
 		if err != nil {
 			return nil, err

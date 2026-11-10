@@ -68,55 +68,64 @@ func walkExpr(e Expr, fn func(Expr)) {
 // walkExprPruned is walkExpr, where fn returns whether to visit the
 // children of a node.
 func walkExprPruned(e Expr, fn func(Expr) bool) {
+	walkExprResolved(e, fn, true)
+}
+
+// Binding visits the written reference again; other visitors see its row
+// expansion so projection, grouping and correlation fetch the actual fields.
+func walkExprResolved(e Expr, fn func(Expr) bool, expand bool) {
+	if c, ok := e.(*ColumnRef); ok && expand && c.whole != nil {
+		e = c.whole
+	}
 	if e == nil || !fn(e) {
 		return
 	}
 	switch x := e.(type) {
 	case *Unary:
-		walkExprPruned(x.X, fn)
+		walkExprResolved(x.X, fn, expand)
 	case *Binary:
-		walkExprPruned(x.L, fn)
-		walkExprPruned(x.R, fn)
+		walkExprResolved(x.L, fn, expand)
+		walkExprResolved(x.R, fn, expand)
 	case *IsNull:
-		walkExprPruned(x.X, fn)
+		walkExprResolved(x.X, fn, expand)
 	case *Cast:
-		walkExprPruned(x.X, fn)
-		walkExprPruned(x.OnError, fn)
+		walkExprResolved(x.X, fn, expand)
+		walkExprResolved(x.OnError, fn, expand)
 	case *Func:
 		for _, a := range x.Args {
-			walkExprPruned(a, fn)
+			walkExprResolved(a, fn, expand)
 		}
 		for _, o := range x.OrderBy {
-			walkExprPruned(o.Expr, fn)
+			walkExprResolved(o.Expr, fn, expand)
 		}
-		walkExprPruned(x.Filter, fn)
+		walkExprResolved(x.Filter, fn, expand)
 	case *Case:
-		walkExprPruned(x.Operand, fn)
+		walkExprResolved(x.Operand, fn, expand)
 		for _, w := range x.Whens {
-			walkExprPruned(w.When, fn)
-			walkExprPruned(w.Then, fn)
+			walkExprResolved(w.When, fn, expand)
+			walkExprResolved(w.Then, fn, expand)
 		}
-		walkExprPruned(x.Else, fn)
+		walkExprResolved(x.Else, fn, expand)
 	case *Subquery:
 		// The body is a separate scope; only the IN operand belongs here. A
 		// row operand's items are visited, not the row: a *RowExpr is
 		// visited only where it is an error.
 		for _, it := range subqueryOperands(x) {
-			walkExprPruned(it, fn)
+			walkExprResolved(it, fn, expand)
 		}
 	case *RowColumn:
-		walkExprPruned(x.Sub, fn)
+		walkExprResolved(x.Sub, fn, expand)
 	case *RowExpr:
 		for _, it := range x.Items {
-			walkExprPruned(it, fn)
+			walkExprResolved(it, fn, expand)
 		}
 	case *FieldSelect:
-		walkExprPruned(x.X, fn)
+		walkExprResolved(x.X, fn, expand)
 	case *WindowFunc:
 		// The call itself is not visited as a *Func: SUM(x) OVER (…) is not
 		// an aggregate, but aggregates in its arguments (SUM(COUNT(*))) are.
 		for _, c := range x.children() {
-			walkExprPruned(c, fn)
+			walkExprResolved(c, fn, expand)
 		}
 	}
 }
@@ -136,6 +145,9 @@ func walkOutsideAggregates(e Expr, fn func(Expr)) {
 // columnRefs returns the distinct column names referenced by an expression.
 func columnRefs(e Expr, out map[string]bool) {
 	walkExpr(e, func(x Expr) {
+		if r, ok := x.(*RowExpr); ok && r.up == 0 && r.presence != "" {
+			out[r.presence] = true
+		}
 		if c, ok := x.(*ColumnRef); ok && c.Outer == 0 {
 			out[c.Name] = true
 		}
@@ -180,6 +192,9 @@ func (env *evalEnv) evalUnbudgeted(e Expr) (Value, error) {
 		}
 		return env.params[x.Index], nil
 	case *ColumnRef:
+		if x.whole != nil {
+			return env.eval(x.whole)
+		}
 		if x.Outer > 0 {
 			return env.lookupUp(x.Name, x.Outer)
 		}
@@ -336,6 +351,29 @@ func (env *evalEnv) evalUnbudgeted(e Expr) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
+		if lr, lok := x.L.(*RowExpr); lok && !x.nested && isRowComparison(x.Op) {
+			if rr, rok := x.R.(*RowExpr); rok && (rowHasStar(lr) || rowHasStar(rr)) {
+				if isDistinctOp(x.Op) {
+					distinct := false
+					for i := range l.fields() {
+						v, err := binaryOp("IS DISTINCT FROM", l.fields()[i], r.fields()[i], env.zone())
+						if err != nil {
+							return Value{}, err
+						}
+						if v.I != 0 {
+							distinct = true
+							break
+						}
+					}
+					return boolValue(distinct == (x.Op == "IS DISTINCT FROM")), nil
+				}
+				op := x.Op
+				if op == "!=" {
+					op = "<>"
+				}
+				return rowCompareValues(op, l.fields(), r.fields(), env.zone())
+			}
+		}
 		if o, ok := operatorLiteral(x); ok {
 			if l, r, err = env.literalOperands(x, o, l, r); err != nil {
 				return Value{}, err
@@ -344,13 +382,35 @@ func (env *evalEnv) evalUnbudgeted(e Expr) (Value, error) {
 		if x.Op == "||" && (isJSONExpr(x.L) || isJSONExpr(x.R)) {
 			return jsonConcat(l, r)
 		}
+		if x.Op == "-" && l.T.Kind == KindJSONB {
+			return jsonbDelete(env.ctx, l, r)
+		}
+		if x.Op == "||" && (l.T.Kind == KindJSONB || r.T.Kind == KindJSONB) {
+			return jsonConcat(l, r)
+		}
 		return binaryOp(x.Op, l, r, env.zone())
 	case *RowExpr:
+		if x.presence != "" {
+			cur := env
+			for i := 0; i < x.up; i++ {
+				if cur.outer == nil {
+					return Value{}, fmt.Errorf("whole-row reference has no enclosing row")
+				}
+				cur = cur.outer
+			}
+			if v, ok := cur.row[x.presence]; !ok || v.Null {
+				return nullValue(x.typ), nil
+			}
+		}
 		items, err := env.evalItems(x.Items)
 		if err != nil {
 			return Value{}, err
 		}
-		return recordValue(items), nil
+		v := recordValue(items)
+		if x.typ.Kind == KindRecord {
+			v.T = x.typ
+		}
+		return v, nil
 	case *FieldSelect:
 		return env.evalFieldSelect(x)
 	case *Func:
@@ -967,6 +1027,12 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 
 // arithmeticType returns the result type of an arithmetic operator.
 func arithmeticType(op string, a, b ColType) (ColType, error) {
+	if op == "-" && a.Kind == KindJSONB {
+		if b.Kind == KindNull || b.Kind == KindString || b.Kind.isInteger() {
+			return typeJSONB, nil
+		}
+		return ColType{}, stateErr(stateUndefinedFunction, "operator does not exist: jsonb - %s", sigTypeName(b))
+	}
 	if rt, ok, err := temporalType(op, a, b); ok {
 		return rt, err
 	}
@@ -1049,6 +1115,12 @@ func inferFuncType(f *Func, args []ColType) ColType {
 }
 
 func funcType(f *Func, args []ColType) ColType {
+	if ts, ok := jsonSRFTypes(f.Name); ok {
+		if len(ts) == 1 {
+			return ts[0]
+		}
+		return queryRecordOf([]structField{{Name: "key", Type: ts[0], Nullable: true}, {Name: "value", Type: ts[1], Nullable: true}})
+	}
 	if pgRegrName(f.Name) {
 		if f.Name == "REGR_COUNT" {
 			return typeInt64
@@ -1097,6 +1169,9 @@ func funcType(f *Func, args []ColType) ColType {
 		return t
 	}
 	if t, ok := jsonFuncType(f); ok {
+		if (f.Name == "->" || f.Name == "#>") && len(args) > 0 && args[0].Kind == KindJSONB {
+			return typeJSONB
+		}
 		return t
 	}
 	switch f.Name {
@@ -1162,6 +1237,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		}
 		return typeNull, nil
 	case *ColumnRef:
+		if x.whole != nil {
+			return inferType(x.whole, cols, params)
+		}
 		if x.Outer > 0 {
 			return x.OuterType, nil
 		}
@@ -1272,6 +1350,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 			}
 			args[i] = t
 		}
+		if err := jsonNativeCallError(x, args); err != nil {
+			return ColType{}, err
+		}
 		if (x.Name == "OCTET_LENGTH" || x.Name == "BIT_LENGTH") && !argBytes.accepts(args[0]) {
 			return ColType{}, noSuchFunction(x.Name, false, args)
 		}
@@ -1329,6 +1410,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 	case *WindowFunc:
 		return windowType(x, cols, params)
 	case *RowExpr:
+		if x.typ.Kind == KindRecord {
+			return x.typ, nil
+		}
 		fields := make([]ColType, len(x.Items))
 		for i, it := range x.Items {
 			t, err := inferType(it, cols, params)

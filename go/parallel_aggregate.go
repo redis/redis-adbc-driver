@@ -42,7 +42,7 @@ func parallelPredicate(x Expr) bool {
 	case nil, *Literal:
 		return true
 	case *ColumnRef:
-		return v.Outer == 0
+		return v.Outer == 0 && v.whole == nil
 	case *Func:
 		if v.Name != "LIKE" && v.Name != "ILIKE" {
 			return false
@@ -96,7 +96,7 @@ func parallelAggregates(aggs []*Func, types map[string]ColType) bool {
 			}
 			continue
 		}
-		if col.Outer != 0 {
+		if col.Outer != 0 || col.whole != nil {
 			return false
 		}
 		// Interval MIN/MAX retain the last equivalent representation; partition

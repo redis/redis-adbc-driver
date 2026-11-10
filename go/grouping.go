@@ -618,6 +618,9 @@ func (r *groupingRewriter) node(e Expr) Expr {
 	}
 	switch x := e.(type) {
 	case *ColumnRef:
+		if x.whole != nil {
+			return r.rewrite(x.whole)
+		}
 		// Outer references are constants here.
 		if x.Outer == 0 {
 			r.fail(errorf(adbc.StatusInvalidArgument,
@@ -631,7 +634,9 @@ func (r *groupingRewriter) node(e Expr) Expr {
 	case *IsNull:
 		return &IsNull{X: r.rewrite(x.X), Not: x.Not, field: x.field}
 	case *RowExpr:
-		return &RowExpr{Items: r.rewriteAll(x.Items)}
+		out := *x
+		out.Items = r.rewriteAll(x.Items)
+		return &out
 	case *FieldSelect:
 		return &FieldSelect{X: r.rewrite(x.X), Name: x.Name, Index: x.Index}
 	case *Cast:

@@ -165,6 +165,9 @@ func (l resultLayouts) schema(src *arrow.Schema) (*arrow.Schema, error) {
 		if err != nil {
 			return nil, invalidArg(fmt.Errorf("column %q: %w", f.Name, err))
 		}
+		if _, owned, _ := nativeJSONField(f); owned && dt.ID() != arrow.STRING && dt.ID() != arrow.LARGE_STRING && dt.ID() != arrow.STRING_VIEW {
+			return nil, errorf(adbc.StatusNotImplemented, "JSON result layouts require UTF-8 string storage")
+		}
 		fields[i].Type = dt
 	}
 	for name := range l {

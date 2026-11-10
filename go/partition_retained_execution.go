@@ -272,6 +272,9 @@ func (r *retainedExecution) vet(sel *SelectStmt, depth int) (err error) {
 	if err := table(sel.From); err != nil {
 		return err
 	}
+	if sel.FromGroup != nil {
+		return errorf(adbc.StatusNotImplemented, "retained grouped joins require separate admission")
+	}
 	if sel.FromFunc != nil || sel.FromLateral {
 		return errorf(adbc.StatusNotImplemented, "retained table functions and lateral FROM items require separate admission")
 	}
@@ -310,6 +313,9 @@ func (r *retainedExecution) vet(sel *SelectStmt, depth int) (err error) {
 		exprs = append(exprs, windowSpecExprs(window.Spec)...)
 	}
 	for _, join := range sel.Joins {
+		if join.Group != nil {
+			return errorf(adbc.StatusNotImplemented, "retained grouped joins require separate admission")
+		}
 		if join.Func != nil || join.Lateral {
 			return errorf(adbc.StatusNotImplemented, "retained lateral/table-function joins require separate admission")
 		}

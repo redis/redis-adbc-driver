@@ -64,6 +64,7 @@ import (
 // recordType is the field types of a record type. recordOf interns them,
 // so that record types with the same fields are the same ColType.
 type recordType struct {
+	query  bool // named query row, never a storable named struct
 	codes  []arrow.UnionTypeCode
 	named  []structField
 	fields []ColType
@@ -184,7 +185,7 @@ func coerceRecord(v Value, t ColType, z tzZone) (Value, error) {
 		out[i] = c
 	}
 	v.rec = &out
-	if t.namedRecord() {
+	if t.namedRecord() || t.Rec.query {
 		v.T = t
 	}
 	return v, nil
@@ -338,7 +339,7 @@ func writeJSONRecord(b *strings.Builder, v Value, z tzZone) {
 			b.WriteByte(',')
 		}
 		name := recordFieldName(i)
-		if v.T.namedRecord() {
+		if v.T.Rec != nil && v.T.Rec.named != nil {
 			name = v.T.Rec.named[i].Name
 		}
 		writeJSONString(b, name)
@@ -383,7 +384,7 @@ func fieldSelectType(fs *FieldSelect, t ColType) (ColType, error) {
 			"column notation .%s applied to type %s, which is not a composite type", fs.Name, sigTypeName(t))
 	}
 	types := t.Rec.fieldTypes()
-	if t.namedRecord() {
+	if fs.Name != "" && t.Rec != nil && t.Rec.named != nil {
 		fs.Index = -1
 		for i, f := range t.Rec.named {
 			if f.Name == fs.Name {
@@ -562,6 +563,9 @@ func (e *executor) recordTypeOf(x Expr) (ColType, bool) {
 // refType is the type of a bound column reference, found without building
 // scopeTypes' map; ok is false if it isn't found.
 func (e *executor) refType(c *ColumnRef) (ColType, bool) {
+	if c.whole != nil {
+		return c.whole.typ, true
+	}
 	if c.Outer > 0 {
 		return c.OuterType, true
 	}
@@ -595,6 +599,12 @@ func (e *executor) recordArgError(f *Func) error {
 	d, ok := callee(f)
 	if !ok {
 		return nil
+	}
+	if f.Name == "ROW_TO_JSON" {
+		types := inferArgTypes(f.Args, e.scopeTypes(), e.paramTypes)
+		if len(types) == 1 && types[0].Kind != KindNull && types[0].Kind != KindRecord {
+			return noSuchFunction(f.Name, false, types)
+		}
 	}
 	// The functions whose result is one of their arguments need them all
 	// records, or none.

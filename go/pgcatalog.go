@@ -277,7 +277,7 @@ func systemRelationOID(name string) int64 {
 	return legacyCatalogOID("catalog", name)
 }
 func builtinCatalogTypes() []ColType {
-	return []ColType{typeUUID, typeBool, typeBinary, typeInt16, typeInt32, typeInt64, typeFloat32, typeFloat64, decimalType(38, 0), typeString, {Kind: KindString, Text: true}, {Kind: KindString, Fixed: true}, typeDate, fracType(KindTime, 6, ""), typeTimeTZ, typeTimestamp, typeTimestampTZ, typeInterval, {Kind: KindInt64, Alias: "oid"}, {Kind: KindString, Alias: "regclass"}, {Kind: KindString, Alias: "regtype"}, {Kind: KindString, Alias: "regproc"}, {Kind: KindString, Alias: "regnamespace"}}
+	return []ColType{typeJSON, typeJSONB, typeUUID, typeBool, typeBinary, typeInt16, typeInt32, typeInt64, typeFloat32, typeFloat64, decimalType(38, 0), typeString, {Kind: KindString, Text: true}, {Kind: KindString, Fixed: true}, typeDate, fracType(KindTime, 6, ""), typeTimeTZ, typeTimestamp, typeTimestampTZ, typeInterval, {Kind: KindInt64, Alias: "oid"}, {Kind: KindString, Alias: "regclass"}, {Kind: KindString, Alias: "regtype"}, {Kind: KindString, Alias: "regproc"}, {Kind: KindString, Alias: "regnamespace"}}
 }
 func typeCategory(t ColType) string {
 	if t.Alias == "uuid" {

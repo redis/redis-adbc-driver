@@ -37,7 +37,7 @@ func TestBugIssueScalarRegressions(t *testing.T) {
 		{"1e15::float8::text", "1e+15", "VARCHAR"},
 		{"1234567::float4::text", "1.234567e+06", "VARCHAR"},
 		{"'x' || 2500000.5::float8", "x2500000.5", "VARCHAR"},
-		{"to_json(1000000::float8)", "1000000", "VARCHAR"},
+		{"to_json(1000000::float8)", "1000000", "JSON"},
 		{"1", "1", "INTEGER"},
 		{"2147483648", "2147483648", "BIGINT"},
 		{"2147483647::bigint + 1", "2147483648", "BIGINT"},

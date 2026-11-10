@@ -1,6 +1,11 @@
 # PostgreSQL 18 retained case dispositions
 
-This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest live run: 122 observed passes and 66 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
+Latest follow-up: 2026-11-10, [#98 JSON changes](../postgresql18-json/validation.md).
+The original #359 measurement remains historical; the follow-up observes 145/188
+retained passes and 43 retained failures, including five still owned by #361.
+
+
+This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest follow-up: 145 observed passes and 43 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
 
 Core-related identifies a related mandatory feature family, not proof that the precise PostgreSQL syntax/error timing is mandatory. Optional and PostgreSQL-specific classifications describe the tested form. Exact subfeature mapping remains explicitly unverified where noted. The classifications use [PostgreSQL 18 Appendix D](https://www.postgresql.org/docs/18/features-sql-standard.html); this is not an ISO normative test audit.
 
@@ -66,15 +71,15 @@ Core-related identifies a related mandatory feature family, not proof that the p
 | `issue-249.json:row-7` | `date-input-forms` | pass |
 | `issue-249.json:row-8` | `date-input-forms` | pass |
 | `issue-249.json:row-9` | `temporal-infinity` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
-| `issue-254.json:row-1` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-3` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-4` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-5` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-6` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-7` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-8` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-9` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-10` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
+| `issue-254.json:row-1` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-3` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-4` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-5` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-6` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-7` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-8` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-9` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-10` | `json-dialect` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
 | `issue-258.json:row-2` | `uuid-storage-comparison` | pass |
 | `issue-260.json:row-3` | `unique-index` | fail — deferred to [#360](https://github.com/redis/redis-adbc-driver/issues/360) |
 | `issue-263.json:row-1` | `enum-catalog` | fail — deferred to [#107](https://github.com/redis/redis-adbc-driver/issues/107) |
@@ -168,17 +173,17 @@ Core-related identifies a related mandatory feature family, not proof that the p
 | `postgres/interval.json:statement-0024` | `input-validity` | pass |
 | `postgres/interval.json:statement-0025` | `input-validity` | pass |
 | `postgres/interval.json:statement-0069` | `format-and-functions` | pass |
-| `postgres/join.json:statement-0034` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0035` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0042` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0043` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0044` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0045` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0046` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0047` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0048` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0049` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/join.json:statement-0050` | `joined-table-aliases` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| `postgres/join.json:statement-0034` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0035` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0042` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0043` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0044` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0045` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0046` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0047` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0048` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0049` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/join.json:statement-0050` | `joined-table-aliases` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
 | `postgres/numeric.json:statement-0526` | `numeric-special-values` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
 | `postgres/numeric.json:statement-0527` | `numeric-special-values` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
 | `postgres/numeric.json:statement-0528` | `numeric-special-values` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
@@ -195,9 +200,9 @@ Core-related identifies a related mandatory feature family, not proof that the p
 | `postgres/numeric.json:statement-0553` | `numeric-special-values` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
 | `postgres/numeric.json:statement-0554` | `numeric-special-values` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
 | `postgres/numeric.json:statement-0555` | `numeric-special-values` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
-| `postgres/select.json:statement-0019` | `whole-row-reference` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/select.json:statement-0020` | `whole-row-reference` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/select.json:statement-0021` | `whole-row-reference` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| `postgres/select.json:statement-0019` | `whole-row-reference` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/select.json:statement-0020` | `whole-row-reference` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
+| `postgres/select.json:statement-0021` | `whole-row-reference` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
 | `postgres/strings.json:statement-0000` | `compound-string-literal` | pass |
 | `postgres/strings.json:statement-0001` | `compound-string-literal` | pass |
 | `postgres/strings.json:statement-0017` | `unicode-literal-errors` | pass |

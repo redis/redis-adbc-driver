@@ -520,6 +520,12 @@ func TestSQLEmptySchema(t *testing.T) {
 	for _, q := range emptyShapes {
 		full, fs := h.query(q)
 		want := schemaText(fs)
+		wrappedWant := want
+		if q == "SELECT NULL AS nothing, id, TRUE AS yes FROM it_empty_t" {
+			// PostgreSQL resolves a relation's unknown NULL output to text;
+			// this remains true when the outer query reads zero rows.
+			wrappedWant = "nothing utf8, id int32, yes bool"
+		}
 		if len(full) == 0 {
 			t.Errorf("%s: the full query returned no rows", q)
 		}
@@ -531,14 +537,18 @@ func TestSQLEmptySchema(t *testing.T) {
 			"SELECT * FROM (" + q + ") AS s LIMIT 0",
 			"SELECT * FROM (" + q + ") AS s FETCH FIRST 0 ROWS ONLY",
 		} {
-			h.expectNoRows(form, want)
+			h.expectNoRows(form, wrappedWant)
 		}
 		for _, sql := range []string{q, dbtEmpty(q)} {
+			expected := want
+			if sql != q {
+				expected = wrappedWant
+			}
 			schema, err := h.executeSchema(sql)
 			if err != nil {
 				t.Errorf("ExecuteSchema(%s): %v", sql, err)
-			} else if got := schemaText(schema); got != want {
-				t.Errorf("ExecuteSchema(%s)\n schema: %s\n   want: %s", sql, got, want)
+			} else if got := schemaText(schema); got != expected {
+				t.Errorf("ExecuteSchema(%s)\n schema: %s\n   want: %s", sql, got, expected)
 			}
 		}
 		// A table created from the empty form has the full query's columns.

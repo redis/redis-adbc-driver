@@ -138,6 +138,10 @@ func TestManagedImportProvenanceJoins(t *testing.T) {
 	f.h.exec("INSERT INTO " + left + "(name,v) VALUES('Left',99)")
 	f.h.exec("INSERT INTO " + right + "(name,v) VALUES('Right',100)")
 	f.h.expectRows("SELECT a.__key,a.name,b.name FROM "+left+" a JOIN "+right+" b ON a.__key=b.__key ORDER BY a.__key", keys[0]+"|Alpha|Alpha", keys[1]+"|Snow|Snow")
+	f.h.expectRows("SELECT a.__key,a.name,b.name FROM ("+left+" a JOIN "+right+" b ON a.__key=b.__key) ORDER BY a.__key", keys[0]+"|Alpha|Alpha", keys[1]+"|Snow|Snow")
+	if schema := f.h.expectRows("SELECT * FROM ("+left+" a JOIN "+right+" b ON a.__key=b.__key) ORDER BY a.v", "Alpha|10|Alpha|10", "Snow|11|Snow|11"); schema.NumFields() != 4 {
+		t.Fatal("grouped join exposed provenance")
+	}
 	f.h.expectRows("SELECT COUNT(*),COUNT(a.__key),COUNT(b.__key) FROM "+left+" a FULL JOIN "+right+" b ON a.__key=b.__key", "4|2|2")
 	f.h.expectRows("SELECT p.__key,b.name FROM (SELECT __key FROM "+left+" WHERE __key IS NOT NULL) p JOIN "+right+" b ON p.__key=b.__key ORDER BY p.__key", keys[0]+"|Alpha", keys[1]+"|Snow")
 	f.h.expectRows("WITH p AS (SELECT __key,name FROM "+left+") SELECT p.__key,b.name FROM p JOIN "+right+" b ON p.__key=b.__key ORDER BY p.__key", keys[0]+"|Alpha", keys[1]+"|Snow")

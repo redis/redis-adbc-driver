@@ -65,11 +65,14 @@ const (
 	clsTimestamp                  // compared after converting units
 	clsTimestampTZ                // compared after converting units; apart from TIMESTAMP (the session time zone)
 	clsTimeTZ                     // compared by time and offset; apart from TIME (the session time zone)
+	clsJSONB
 	numClasses
 )
 
 func classOf(t ColType) eqClass {
 	switch k := t.Kind; {
+	case k == KindJSONB:
+		return clsJSONB
 	case k.isInteger() || k == KindDecimal:
 		return clsNum
 	case k == KindBool:
@@ -396,7 +399,7 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 	if len(pairs) == 0 || sq.outerUses != len(pairs) {
 		return
 	}
-	dsel := &SelectStmt{With: sel.With, Joins: sel.Joins, From: sel.From, FromSelect: sel.FromSelect,
+	dsel := &SelectStmt{With: sel.With, Joins: sel.Joins, From: sel.From, FromSelect: sel.FromSelect, FromGroup: sel.FromGroup,
 		FromAlias: sel.FromAlias, Where: andAll(rest)}
 	for _, p := range pairs {
 		dsel.Items = append(dsel.Items, SelectItem{Expr: p.inner})

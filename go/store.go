@@ -292,7 +292,8 @@ type tableMeta struct {
 	dups map[string]bool
 	// join is set for the relation produced by a FROM clause with joins; its
 	// rows are computed when the query is scanned.
-	join *joinPlan
+	join  *joinPlan
+	group *groupedRelation
 	// view is set for a simple view, computed when the query is scanned.
 	view *lazyView
 	// lazy is set for a derived table or CTE that reads an enclosing
@@ -338,13 +339,22 @@ func (t *tableMeta) column(name string) (columnMeta, bool) {
 	if i, ok := t.resolve(name); ok {
 		return t.Columns[i], true
 	}
+	if t.group != nil {
+		for _, c := range t.group.hidden {
+			if c.Name == name {
+				return c, true
+			}
+		}
+	}
 	if t.join != nil {
 		for _, item := range t.join.items {
-			if item.base.SnapshotSourceKey && name == item.prefix+keyField {
-				col := snapshotSourceKeyColumn()
-				col.Name, col.Field, col.Indexed = name, name, false
-				col.label = keyField
-				return col, true
+			for _, c := range item.base.scanColumns() {
+				if name != item.prefix+c.Name {
+					continue
+				}
+				c.label = c.outputName()
+				c.Name, c.Field, c.Indexed = name, name, false
+				return c, true
 			}
 		}
 	}
@@ -366,8 +376,16 @@ func (t *tableMeta) types() map[string]ColType {
 	}
 	if t.join != nil {
 		for _, item := range t.join.items {
-			if item.base.SnapshotSourceKey {
-				m[item.prefix+keyField] = typeString
+			if item.tag != "" {
+				m[item.tag] = typeBool
+			}
+			for _, rel := range item.relations() {
+				if rel.presence != "" {
+					m[rel.presence] = typeBool
+				}
+			}
+			for _, c := range item.base.scanColumns() {
+				m[item.prefix+c.Name] = c.Type
 			}
 		}
 	}

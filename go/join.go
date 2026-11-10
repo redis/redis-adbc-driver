@@ -74,9 +74,13 @@ type joinItem struct {
 	lateral *lateralItem
 	// natural is NATURAL JOIN; usingOn is then its condition over the
 	// common columns (see planNatural).
-	natural bool
-	using   []string
-	usingOn Expr
+	natural    bool
+	using      []string
+	usingAlias string
+	// scopeRels and output retain an unaliased grouped table's namespace and star order.
+	scopeRels []relation
+	output    []columnMeta
+	usingOn   Expr
 	// comma is set for an item after a comma, which starts a new FROM-list
 	// item (see JoinClause.Comma): the items from the last one on are the
 	// left side of a join (see start).
@@ -109,7 +113,7 @@ type joinPlan struct {
 func (e *executor) planJoin(ctx context.Context, sel *SelectStmt) (*tableMeta, []relation, *joinPlan, error) {
 	jp := &joinPlan{}
 	first := JoinClause{Table: sel.From, Select: sel.FromSelect, Func: sel.FromFunc, Lateral: sel.FromLateral,
-		Alias: sel.FromAlias, Columns: sel.FromColumns}
+		Alias: sel.FromAlias, Columns: sel.FromColumns, Group: sel.FromGroup}
 	items := append([]JoinClause{first}, sel.Joins...)
 	// Items that can't change the result, given the ON conditions that are
 	// never true, are only planned (see joinReads).
@@ -176,13 +180,14 @@ func (jp *joinPlan) add(kind string, rel relation) (*joinItem, error) {
 		prefix = rel.name + "\x00" + strconv.Itoa(len(jp.items)) + "."
 	}
 	it := &joinItem{alias: rel.name, aliased: rel.aliased, schema: rel.schema, base: rel.meta, prefix: prefix, kind: kind}
+	it.tag = it.prefix + "\x00presence"
 	jp.items = append(jp.items, it)
 	return it, nil
 }
 
 // rel is the item's relation in the query's scope.
 func (it *joinItem) rel() relation {
-	return relation{name: it.alias, aliased: it.aliased, schema: it.schema, meta: it.base, prefix: it.prefix}
+	return relation{name: it.alias, aliased: it.aliased, schema: it.schema, meta: it.base, prefix: it.prefix, presence: it.tag}
 }
 
 // unseenBy returns what a derived table joined as kind can't read of its
@@ -218,9 +223,9 @@ func (jp *joinPlan) start(i int) int {
 
 // rels are the relations of the items added so far.
 func (jp *joinPlan) rels() []relation {
-	rels := make([]relation, len(jp.items))
-	for i, it := range jp.items {
-		rels[i] = it.rel()
+	var rels []relation
+	for _, it := range jp.items {
+		rels = append(rels, it.relations()...)
 	}
 	return rels
 }
@@ -274,16 +279,26 @@ func (jp *joinPlan) finish() (*tableMeta, []relation) {
 	}
 	jp.checkIsolated()
 	joined := &tableMeta{Name: "join", isMem: true, join: jp}
-	rels := make([]relation, len(jp.items))
-	for i, it := range jp.items {
+	var rels []relation
+	for _, it := range jp.items {
 		for _, c := range it.base.Columns {
 			joined.Columns = append(joined.Columns, columnMeta{
 				Name: it.prefix + c.Name, label: c.outputName(), Type: c.Type, Nullable: true,
 			})
 		}
-		rels[i] = it.rel()
+		rels = append(rels, it.relations()...)
 	}
 	rels = jp.planNatural(joined, rels)
+	for i, rel := range rels {
+		if rel.name == "" {
+			continue
+		}
+		for _, prev := range rels[:i] {
+			if prev.name == rel.name && (prev.aliased || rel.aliased || prev.schema == rel.schema) {
+				jp.err = stateErrorf("42712", "table name %q specified more than once", rel.name)
+			}
+		}
+	}
 	return joined, rels
 }
 
@@ -368,7 +383,7 @@ func (jp *joinPlan) onScope(k int, rels []relation) []relation {
 	for _, rel := range rels {
 		in := false
 		for j := start; j <= k; j++ {
-			in = in || rel.prefix == jp.items[j].prefix ||
+			in = in || rel.ownerPrefix() == jp.items[j].prefix ||
 				j < k && rel.prefix == fmt.Sprintf("%s%d.", mergedPrefix, j)
 		}
 		if !in {
@@ -477,6 +492,11 @@ func (jp *joinPlan) planPushdown(where Expr) {
 // original HASH fields), for scanning it as part of a join.
 func (it *joinItem) view() *tableMeta {
 	v := *it.base
+	if v.group != nil {
+		g := *v.group
+		g.prefix = it.prefix + g.prefix
+		v.group = &g
+	}
 	columns := it.base.scanColumns()
 	v.Columns = make([]columnMeta, len(columns))
 	// Provenance is represented by its qualified scan column in this view.
@@ -507,6 +527,8 @@ func joinKey(v Value) (string, bool) {
 		return "", false
 	}
 	switch k := v.T.Kind; {
+	case k == KindJSONB:
+		return jsonbEqualityKey(v)
 	case k.isInteger() || k == KindBool:
 		return "n" + strconv.FormatInt(v.I, 10), true
 	case k == KindDecimal:
@@ -742,7 +764,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 	empty := make([]bool, len(jp.items))
 	for i, it := range jp.items {
 		kinds[i], never[i] = readsKind(it.kind, it.comma), i > 0 && e.neverTrue(ctx, it.on)
-		empty[i] = it.lateral == nil && it.base.isMem && it.base.view == nil && it.base.join == nil && it.base.lazy == nil &&
+		empty[i] = it.lateral == nil && it.base.isMem && it.base.view == nil && it.base.join == nil && it.base.lazy == nil && it.base.group == nil &&
 			len(it.base.mem) == 0
 	}
 	read, none := joinReads(kinds, never, empty)

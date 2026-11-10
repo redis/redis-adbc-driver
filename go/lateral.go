@@ -57,12 +57,16 @@ type lateralItem struct {
 // CTE or derived table (addJoinItem), or a LATERAL subquery or table
 // function. Column aliases rename the item's first columns.
 func (e *executor) addFromItem(ctx context.Context, jp *joinPlan, jc JoinClause) error {
+	if jc.Group != nil {
+		return e.addGroupedFrom(ctx, jp, jc)
+	}
 	if jc.Func == nil && !jc.Lateral {
 		if err := e.addJoinItem(ctx, jp, jc.Kind, jc.Table, jc.Select, jc.Alias); err != nil {
 			return err
 		}
 		it := jp.items[len(jp.items)-1]
 		it.natural, it.comma, it.using = jc.Natural, jc.Comma, jc.Using
+		it.usingAlias = jc.UsingAlias
 		if jc.Columns != nil {
 			m, err := renameColumns(it.base, it.alias, jc.Columns)
 			if err != nil {
@@ -124,6 +128,7 @@ func (e *executor) addFromItem(ctx context.Context, jp *joinPlan, jc JoinClause)
 		return err
 	}
 	it.lateral, it.natural, it.comma, it.using = lat, jc.Natural, jc.Comma, jc.Using
+	it.usingAlias = jc.UsingAlias
 	return nil
 }
 
@@ -262,6 +267,9 @@ func (e *executor) lateralRows(env *evalEnv, it *joinItem, wp wherePlan, memo ma
 	fenv := *env
 	var out []map[string]Value
 	keep := func(m map[string]Value) error {
+		if it.tag != "" {
+			m[it.tag] = boolValue(true)
+		}
 		if err := cancelled(env.ctx); err != nil {
 			return err
 		}

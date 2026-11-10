@@ -62,6 +62,11 @@ type relation struct {
 	// hidden are columns merged by a NATURAL JOIN: only a qualified
 	// reference reads them, an unqualified one means the merged column.
 	hidden map[string]bool
+	// keys maps an alias column onto a merged join column. owner identifies its join step.
+	keys          map[string]string
+	owner         string
+	qualifiedOnly bool
+	presence      string
 }
 
 type scope struct {
@@ -235,16 +240,21 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 		}
 	}
 	var err error
-	walkExprPruned(expr, func(x Expr) bool {
+	walkExprResolved(expr, func(x Expr) bool {
 		if err != nil {
 			return false
 		}
 		switch v := x.(type) {
+		case *RowExpr:
+			err = e.expandRowStars(v)
 		case *ColumnRef:
 			if v.outerAgg != nil {
 				err = e.bindOuterAggregate(ctx, v)
 			} else {
 				err = e.resolveColumn(v)
+				if v.whole != nil {
+					return false
+				}
 			}
 		case *Binary:
 			_, l := v.L.(*RowExpr)
@@ -272,7 +282,10 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 			err = e.bindCall(ctx, v.Func, v)
 		}
 		return err == nil
-	})
+	}, false)
+	if err == nil {
+		err = e.checkJSONComparisons(expr)
+	}
 	if err == nil {
 		// Now that the types are known.
 		err = e.checkRecords(expr)
@@ -549,8 +562,18 @@ func (e *executor) resolveColumn(c *ColumnRef) error {
 		c.written = c.Name
 	}
 	c.Name = c.written
+	c.whole = nil
+	if c.Name == "*" && c.Qualifier != "" {
+		_, err := e.resolveWholeRow(c)
+		return err
+	}
 	depth, col, err := e.findColumn(c)
 	if err != nil {
+		if sqlState(err) == stateUndefinedColumn {
+			if ok, wholeErr := e.resolveWholeRow(c); ok {
+				return wholeErr
+			}
+		}
 		return err
 	}
 	c.Name, c.Outer, c.OuterType = col.Name, depth, col.Type
@@ -600,7 +623,7 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 				return 0, columnMeta{}, errAmbiguousColumn(ref.Name)
 			}
 			col, ok := rel.meta.column(ref.Name)
-			if !ok || rel.hidesSystemColumn(col.Name) || (ref.Qualifier == "" && rel.hidden[col.Name]) {
+			if !ok || rel.hidesSystemColumn(col.Name) || (ref.Qualifier == "" && (rel.qualifiedOnly || rel.hidden[col.Name])) {
 				continue
 			}
 			found++
@@ -613,7 +636,7 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 		}
 		if found == 1 {
 			e.noteRead(matchRel.meta, match.Name)
-			match.Name = matchRel.prefix + match.Name
+			match.Name = matchRel.columnKey(match.Name)
 			return depth, match, nil
 		}
 		if named > 0 {
@@ -777,7 +800,7 @@ func hasColumn(rel relation, name string) bool {
 		return false
 	}
 	col, ok := rel.meta.column(name)
-	return ok && !rel.hidesSystemColumn(col.Name) && !rel.hidden[col.Name] || rel.meta.ambiguous(name)
+	return !rel.qualifiedOnly && (ok && !rel.hidesSystemColumn(col.Name) && !rel.hidden[col.Name] || rel.meta.ambiguous(name))
 }
 
 // fromColumns counts the FROM items of the query being bound (the innermost
@@ -836,7 +859,7 @@ func (e *executor) missingFromEntry(q qualName) error {
 				q.name, rel.name)
 		}
 	}
-	return errorf(adbc.StatusInvalidArgument, "missing FROM-clause entry for table %q", q.name)
+	return stateErrorf(stateUndefinedTable, "missing FROM-clause entry for table %q", q.name)
 }
 
 // unreadableEntry is Postgres's error for a qualifier q that names an item
@@ -1081,22 +1104,28 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 	if err != nil {
 		return nil, err
 	}
+	cols := plan.columns()
+	for i := range cols {
+		if cols[i].Type.Kind == KindNull {
+			cols[i].Type = ColType{Kind: KindString, Text: true}
+		}
+	}
 	if sq.correlated {
 		sq.plan = plan
-		meta, err := e.retainedMemTable(ctx, name, plan.columns(), nil, rename)
+		meta, err := e.retainedMemTable(ctx, name, cols, nil, rename)
 		if err == nil {
 			meta.lazy = &lazyRelation{sq: sq, scopes: slices.Clone(e.scopes)}
 		}
 		return meta, err
 	}
 	if e.planOnly {
-		return e.retainedMemTable(ctx, name, plan.columns(), nil, rename)
+		return e.retainedMemTable(ctx, name, cols, nil, rename)
 	}
 	rows, err := e.runSelect(ctx, plan, e.params)
 	if err != nil {
 		return nil, err
 	}
-	return e.retainedMemTable(ctx, name, plan.columns(), rows, rename)
+	return e.retainedMemTable(ctx, name, cols, rows, rename)
 }
 
 // fromQuery prepares the planning of the query of a derived table or WITH

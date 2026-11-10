@@ -58,6 +58,35 @@ python3 go/pgdiff/check_issue359.py go/build/pgdiff-report.json --triage
 Run these commands from the repository root. `--triage` is an accounting check;
 it does not establish compatibility or modify the runner's result/allowlist.
 
+## PostgreSQL 18 join/whole-row follow-up (2026-11-10)
+
+The [#361 follow-up](../../docs/sdlc/changes/postgresql18-361/validation.md)
+measured **589/651 scored passes (90.48%)**, **62 failures**, two allowed
+extensions, two explicit exclusions and zero infrastructure errors on Redis
+Software / Redis 8.8.0 with active, verified 4x QPF. The source-content manifest
+records the tested working tree. All fourteen targeted join/whole-row cases
+pass, as does an existing `row_to_json` case; five #361 cases remain unresolved.
+The corpus and allowlist are unchanged. This is a curated pass rate, not a
+measurement of complete PostgreSQL functionality or a passing full suite.
+
+Anonymous composites compare ordered field values and physical field types,
+using PostgreSQL binary field OIDs independently of Arrow. Struct children are
+read by position, preserving duplicate names and NULL-record versus all-NULL-field
+semantics. PostgreSQL reference results now use binary decoding; exact temporal
+range/fraction and catalog display-name conversions have dedicated checks.
+Field names are covered by SQL/Arrow regression tests, rather than inferred
+from anonymous-record wire metadata, which carries field OIDs but no names.
+
+## PostgreSQL 18 JSON follow-up (2026-11-10)
+
+The [#98 JSON batch](../../docs/sdlc/changes/postgresql18-json/validation.md)
+measured **597/651 scored passes (91.71%)**, **54 failures**, two allowed
+extensions, two explicit exclusions and zero infrastructure errors on Redis
+Software / Redis 8.8.0 with verified active 4x QPF. All 589 previous passes are
+preserved. The eight remaining JSON corpus cases pass; the broader #98 wishlist
+remains open. A separate 39-case adversarial comparison is outside the scored
+corpus and does not change its denominator. Corpus SQL and allowlists are unchanged.
+
 ## Historical PostgreSQL 16 baseline
 
 The results below are historical PostgreSQL 16 comparisons. The retained
@@ -198,7 +227,9 @@ High-precision TIME and BC/out-of-Python-range Arrow date/timestamp values still
 have representation limits; conversion errors stay visible.
 
 Postgres text/varchar/bpchar/name, JSON/JSONB and timetz map to physical Arrow
-strings. Arrow result metadata alone cannot prove those semantic identities.
+strings. Native JSON fields additionally carry canonical `arrow.json` extension
+metadata and a SQL type marker; the comparator unwraps storage without altering
+JSON text. Arrow result metadata alone cannot prove those semantic identities.
 The type corpus therefore also queries information_schema names and exercises
 JSON/JSONB and timetz values; it does not claim native JSON storage is equivalent
 to VARCHAR. Unmapped arrays/composites/user-defined result types retain their
