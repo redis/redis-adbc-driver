@@ -241,6 +241,16 @@ func TestSQLRBACSelect(t *testing.T) {
 	}
 	admin.exec(`ALTER TABLE it_rbac_allowed RENAME TO it_rbac_renamed`)
 	waitRows(`SELECT id FROM it_rbac_renamed`, "42")
+	// A long-lived read view retains data, never SQL grant authority. The old
+	// generation remains readable after DML and is refused after REVOKE below.
+	shared := reader.conn.(adbc.GetSetOptionsWithContext)
+	if err := shared.SetOption(ctx, OptionStringReadSnapshotAction, "acquire"); err != nil {
+		t.Fatal(err)
+	}
+	defer shared.SetOption(ctx, OptionStringReadSnapshotAction, "release")
+	admin.exec(`UPDATE it_rbac_renamed SET id=999`)
+	waitRows(`SELECT id FROM it_rbac_renamed`, "42")
+
 	admin.exec(`REVOKE SELECT ON it_rbac_renamed FROM ` + roleName)
 	admin.exec(`REVOKE SELECT ON it_rbac_renamed FROM ` + roleName)
 	deadline = time.Now().Add(20 * time.Second)
@@ -262,6 +272,9 @@ func TestSQLRBACSelect(t *testing.T) {
 			t.Fatal("revocation did not deny fetched results", e)
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+	if err := shared.SetOption(ctx, OptionStringReadSnapshotAction, "release"); err != nil {
+		t.Fatal(err)
 	}
 	admin.expectRows(`SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='`+roleName+`'`, "0")
 	// Stable table access survives physical replacement; REVOKE removes the

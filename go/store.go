@@ -956,6 +956,9 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	sharedMu         sync.Mutex
+	sharedAcquiring  bool
+	sharedView       *sharedReadView
 	readerNamespace  string
 	restrictedReader bool
 	readerKeys       snapshotReaderKeyCache
@@ -1130,6 +1133,9 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 
 // Metadata/reference publication does not need to open unrelated row indexes.
 func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*tableMeta, error) {
+	if sharedSnapshotScope(ctx) && (isTempSchema(schema) || isTempAlias(schema)) {
+		return nil, sharedSnapshotUnsupported()
+	}
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignTable(ctx, table)
 	}
