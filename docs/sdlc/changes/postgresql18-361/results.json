@@ -1,0 +1,990 @@
+{
+  "date": "2026-11-10",
+  "source_base": "85509485dbc07b2e2e0ea9e1b8e08bd11a290587",
+  "source_status": "working tree; source content is identified by SHA-256 below",
+  "source_sha256": {
+    "go/aggregate_scan.go": "479fbab88c2353882622199d8679ef34ee0cfe8b139371b1c2aad8f977138b30",
+    "go/bind.go": "a454bba6d8f28153cacef84e42f8589c8a4f790ef61ac423899a04870055b7aa",
+    "go/empty_results_integration_test.go": "a237deafb791eb9d5a436163aba30435ebd69882d6f13ad63e74c95411068d17",
+    "go/eval.go": "3fbfae1cf970a2784930aec38891352b97d4cb94f21f12ad5e2afbdc84d49c2f",
+    "go/exec.go": "ca93e8638abf916cd722c6f93c153d3811efa37bb8bbf6edb7fffb809f961696",
+    "go/funcs.go": "c5b7446accd56c841511f651bcec2fe3c2e964503b5afbbf76c0611640e993d5",
+    "go/funcs_test.go": "5823dff74739b51b3bd23d6bb5b40de0af7fb5db6c7b3c823aad8376ae1218ae",
+    "go/grouping.go": "7784f9a0be7a2f147bb83f622a87ec9aaa686424abf96bfa66af4b4babf353d4",
+    "go/join.go": "085b9b432813d6994f25ffef0e5b35d2949bcc426a143915e28a2d0cda7c8bfc",
+    "go/join_group.go": "0481658ea5256440ef205508bfd6a362a4a5ae488307194c60b468ca4d8c7db3",
+    "go/join_group_test.go": "574ee56cf9a691fa2a141b95148b67d57a18cdb030fcfef0ca56d16934103bdb",
+    "go/json.go": "8821ccadb731fb7fca0e6caf74be8c77eacc2b5273ce56d89a35a97024e51cbe",
+    "go/lateral.go": "109801dac87a34c3fd843fd879bbb344f00da1e694706ba741a09bc6c12948a8",
+    "go/natural.go": "b8711dcefebe8fc803db91f6386cff62c491e329f912271d4c592f25f7dfe2db",
+    "go/parallel_aggregate.go": "816fd6ca112b812d51152dc23333d197760cfeb7e868406ee13dfb48f31491ce",
+    "go/partition_retained_execution.go": "81f3036a88c31a887cfc1c1b0d9e22dcbc21481e25dd65850d2b842860038440",
+    "go/pgdiff/composites.py": "d4ea6dfb95343779ac1fda9690a5920ee5c4783ec424d1868ea94ff914e806e8",
+    "go/pgdiff/run.py": "c619babc9fbff33ad749aca68d038cbd51528cc8a747e902ec728cd452e28d3f",
+    "go/pgdiff/test_run.py": "365f24d90a90ba46237a32dc24162be8fece0358b9cf9f8d775b1847b1c7c967",
+    "go/query.go": "429cd57f95e0d0a28d6190e07d43a7e011e2a068a762024d0a9b08a143644ed7",
+    "go/record.go": "5d80ba684a3500c75c5dbfc98442c53bedb6aee3fd20818d24849a1b6b331305",
+    "go/recursive.go": "c67d20614c558e1b908426069eb7628e7702b29bbe496ee5495274c935065b4f",
+    "go/rowvalue.go": "5b989a811a484bd9f4be307f3e7287edf267ad2941b2772847d9ef30300f452f",
+    "go/semijoin.go": "cfec92e84bceab90d7eab6aa388e4f6e3526f176a5858afeefd99e6ee57098b0",
+    "go/snapshot_import_write_integration_test.go": "f5ab67af390cf424fa5dbd3eaf7f7ffce27f2008977f5bef6adcd0ec541415ab",
+    "go/snapshot_source_key.go": "719071572d232e24e5b7a41e126bd56922aca1c44f40cad37a4f4213f0d501c6",
+    "go/sql.go": "9f4840e3f69e39b7cf8c74221bab585957506b466faa0aca0fb9330473478892",
+    "go/store.go": "20b5fd61800e1951e7d9b007c2a470e376497ab46f0876b57644529bf6ad1780",
+    "go/stored_struct.go": "8a84afa6d89b370a03bfc47acdf11e12deebae3c56e9c25dd0a7dfd95cef74f7",
+    "go/view.go": "49d8318978ae03b33477da098a778b4078f99d9fead7e396753f501f90704dbb",
+    "go/whole_row.go": "b2efb0e163cd86a623abe173e8bd7f2d4d8a1f509f1ed7bcfa8c40748dbe2147",
+    "go/window.go": "ef34ddab3fdb2a84270af41265757b8a6b4a363d053209ea28037c139d38d262"
+  },
+  "reference": {
+    "image": "postgres:18@sha256:e923a22ac074261dd73970c57edf659475bf0497cb9456f17d98ed7cdd3ca913",
+    "postgres": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "collation": "C"
+  },
+  "server": {
+    "product": "Redis Software",
+    "redis": "8.8.0",
+    "shards": 3,
+    "qpf": {
+      "active": true,
+      "scaling_factor": 4
+    },
+    "search_workers": 6,
+    "routing": "mnp",
+    "internal_connections": 32
+  },
+  "summary": {
+    "counts": {
+      "pass": 589,
+      "fail": 62,
+      "allowed": 2,
+      "unsupported": 2
+    },
+    "scored": 651,
+    "pass_rate": 0.9047619047619048
+  },
+  "infrastructure_errors": 0,
+  "groups": {
+    "file": {
+      "dbt/incremental.json": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "dbt/metadata.json": {
+        "counts": {
+          "pass": 1
+        },
+        "scored": 1,
+        "pass_rate": 1.0
+      },
+      "dbt/models.json": {
+        "counts": {
+          "pass": 8
+        },
+        "scored": 8,
+        "pass_rate": 1.0
+      },
+      "dbt/utils.json": {
+        "counts": {
+          "pass": 8,
+          "fail": 1
+        },
+        "scored": 9,
+        "pass_rate": 0.8888888888888888
+      },
+      "extensions.json": {
+        "counts": {
+          "allowed": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "issue-187.json": {
+        "counts": {
+          "pass": 7
+        },
+        "scored": 7,
+        "pass_rate": 1.0
+      },
+      "issue-188.json": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "issue-237.json": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "issue-238.json": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "issue-239.json": {
+        "counts": {
+          "pass": 6
+        },
+        "scored": 6,
+        "pass_rate": 1.0
+      },
+      "issue-240.json": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "issue-241.json": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "issue-242.json": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "issue-243.json": {
+        "counts": {
+          "pass": 1
+        },
+        "scored": 1,
+        "pass_rate": 1.0
+      },
+      "issue-244.json": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "issue-245.json": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "issue-246.json": {
+        "counts": {
+          "fail": 5,
+          "pass": 8
+        },
+        "scored": 13,
+        "pass_rate": 0.6153846153846154
+      },
+      "issue-247.json": {
+        "counts": {
+          "pass": 8
+        },
+        "scored": 8,
+        "pass_rate": 1.0
+      },
+      "issue-248.json": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "issue-249.json": {
+        "counts": {
+          "pass": 7,
+          "fail": 2
+        },
+        "scored": 9,
+        "pass_rate": 0.7777777777777778
+      },
+      "issue-250.json": {
+        "counts": {
+          "pass": 9
+        },
+        "scored": 9,
+        "pass_rate": 1.0
+      },
+      "issue-251.json": {
+        "counts": {
+          "pass": 2
+        },
+        "scored": 2,
+        "pass_rate": 1.0
+      },
+      "issue-252.json": {
+        "counts": {
+          "pass": 1
+        },
+        "scored": 1,
+        "pass_rate": 1.0
+      },
+      "issue-253.json": {
+        "counts": {
+          "pass": 30
+        },
+        "scored": 30,
+        "pass_rate": 1.0
+      },
+      "issue-254.json": {
+        "counts": {
+          "fail": 8,
+          "pass": 2
+        },
+        "scored": 10,
+        "pass_rate": 0.2
+      },
+      "issue-255.json": {
+        "counts": {
+          "pass": 2
+        },
+        "scored": 2,
+        "pass_rate": 1.0
+      },
+      "issue-256.json": {
+        "counts": {
+          "pass": 23
+        },
+        "scored": 23,
+        "pass_rate": 1.0
+      },
+      "issue-257.json": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "issue-258.json": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "issue-259.json": {
+        "counts": {
+          "pass": 2
+        },
+        "scored": 2,
+        "pass_rate": 1.0
+      },
+      "issue-260.json": {
+        "counts": {
+          "pass": 2,
+          "fail": 1
+        },
+        "scored": 3,
+        "pass_rate": 0.6666666666666666
+      },
+      "issue-261.json": {
+        "counts": {
+          "pass": 2
+        },
+        "scored": 2,
+        "pass_rate": 1.0
+      },
+      "issue-262.json": {
+        "counts": {
+          "pass": 10
+        },
+        "scored": 10,
+        "pass_rate": 1.0
+      },
+      "issue-263.json": {
+        "counts": {
+          "fail": 2
+        },
+        "scored": 2,
+        "pass_rate": 0.0
+      },
+      "issue-264.json": {
+        "counts": {
+          "fail": 2
+        },
+        "scored": 2,
+        "pass_rate": 0.0
+      },
+      "issue-265.json": {
+        "counts": {
+          "pass": 6
+        },
+        "scored": 6,
+        "pass_rate": 1.0
+      },
+      "issue-266.json": {
+        "counts": {
+          "pass": 25,
+          "fail": 1
+        },
+        "scored": 26,
+        "pass_rate": 0.9615384615384616
+      },
+      "issue-267.json": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "issue-268.json": {
+        "counts": {
+          "pass": 3,
+          "fail": 1
+        },
+        "scored": 4,
+        "pass_rate": 0.75
+      },
+      "issue-269.json": {
+        "counts": {
+          "fail": 3
+        },
+        "scored": 3,
+        "pass_rate": 0.0
+      },
+      "issue-270.json": {
+        "counts": {
+          "fail": 5
+        },
+        "scored": 5,
+        "pass_rate": 0.0
+      },
+      "issue-271.json": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "issue-272.json": {
+        "counts": {
+          "fail": 3
+        },
+        "scored": 3,
+        "pass_rate": 0.0
+      },
+      "postgres/aggregates.json": {
+        "counts": {
+          "pass": 24
+        },
+        "scored": 24,
+        "pass_rate": 1.0
+      },
+      "postgres/case.json": {
+        "counts": {
+          "pass": 16,
+          "fail": 1
+        },
+        "scored": 17,
+        "pass_rate": 0.9411764705882353
+      },
+      "postgres/date.json": {
+        "counts": {
+          "pass": 24
+        },
+        "scored": 24,
+        "pass_rate": 1.0
+      },
+      "postgres/float8.json": {
+        "counts": {
+          "pass": 30,
+          "fail": 2
+        },
+        "scored": 32,
+        "pass_rate": 0.9375
+      },
+      "postgres/int4.json": {
+        "counts": {
+          "pass": 25
+        },
+        "scored": 25,
+        "pass_rate": 1.0
+      },
+      "postgres/int8.json": {
+        "counts": {
+          "pass": 28
+        },
+        "scored": 28,
+        "pass_rate": 1.0
+      },
+      "postgres/interval.json": {
+        "counts": {
+          "pass": 20
+        },
+        "scored": 20,
+        "pass_rate": 1.0
+      },
+      "postgres/join.json": {
+        "counts": {
+          "pass": 30
+        },
+        "scored": 30,
+        "pass_rate": 1.0
+      },
+      "postgres/json.json": {
+        "counts": {
+          "pass": 40
+        },
+        "scored": 40,
+        "pass_rate": 1.0
+      },
+      "postgres/numeric.json": {
+        "counts": {
+          "fail": 15,
+          "pass": 10
+        },
+        "scored": 25,
+        "pass_rate": 0.4
+      },
+      "postgres/select.json": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "postgres/strings.json": {
+        "counts": {
+          "pass": 28
+        },
+        "scored": 28,
+        "pass_rate": 1.0
+      },
+      "postgres/timestamp.json": {
+        "counts": {
+          "fail": 4,
+          "pass": 16
+        },
+        "scored": 20,
+        "pass_rate": 0.8
+      },
+      "postgres/timestamptz.json": {
+        "counts": {
+          "fail": 2,
+          "pass": 18
+        },
+        "scored": 20,
+        "pass_rate": 0.9
+      },
+      "postgres/union.json": {
+        "counts": {
+          "pass": 17
+        },
+        "scored": 17,
+        "pass_rate": 1.0
+      },
+      "postgres/window.json": {
+        "counts": {
+          "pass": 8,
+          "fail": 2
+        },
+        "scored": 10,
+        "pass_rate": 0.8
+      },
+      "postgres/with.json": {
+        "counts": {
+          "pass": 6,
+          "fail": 2
+        },
+        "scored": 8,
+        "pass_rate": 0.75
+      },
+      "smoke.json": {
+        "counts": {
+          "pass": 13
+        },
+        "scored": 13,
+        "pass_rate": 1.0
+      },
+      "types.json": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "unsupported.json": {
+        "counts": {
+          "unsupported": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      }
+    },
+    "area": {
+      "aggregates": {
+        "counts": {
+          "pass": 29
+        },
+        "scored": 29,
+        "pass_rate": 1.0
+      },
+      "arrays": {
+        "counts": {
+          "pass": 30
+        },
+        "scored": 30,
+        "pass_rate": 1.0
+      },
+      "boolean": {
+        "counts": {
+          "pass": 6
+        },
+        "scored": 6,
+        "pass_rate": 1.0
+      },
+      "case": {
+        "counts": {
+          "pass": 16,
+          "fail": 1
+        },
+        "scored": 17,
+        "pass_rate": 0.9411764705882353
+      },
+      "catalog": {
+        "counts": {
+          "pass": 6
+        },
+        "scored": 6,
+        "pass_rate": 1.0
+      },
+      "collation": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "constraints": {
+        "counts": {
+          "fail": 5
+        },
+        "scored": 5,
+        "pass_rate": 0.0
+      },
+      "date": {
+        "counts": {
+          "pass": 24
+        },
+        "scored": 24,
+        "pass_rate": 1.0
+      },
+      "datetime": {
+        "counts": {
+          "pass": 13,
+          "fail": 3
+        },
+        "scored": 16,
+        "pass_rate": 0.8125
+      },
+      "ddl": {
+        "counts": {
+          "pass": 10
+        },
+        "scored": 10,
+        "pass_rate": 1.0
+      },
+      "enum": {
+        "counts": {
+          "fail": 2
+        },
+        "scored": 2,
+        "pass_rate": 0.0
+      },
+      "extensions": {
+        "counts": {
+          "allowed": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "float": {
+        "counts": {
+          "pass": 11
+        },
+        "scored": 11,
+        "pass_rate": 1.0
+      },
+      "float8": {
+        "counts": {
+          "pass": 30,
+          "fail": 2
+        },
+        "scored": 32,
+        "pass_rate": 0.9375
+      },
+      "functions": {
+        "counts": {
+          "pass": 25,
+          "fail": 1
+        },
+        "scored": 26,
+        "pass_rate": 0.9615384615384616
+      },
+      "identifiers": {
+        "counts": {
+          "pass": 8
+        },
+        "scored": 8,
+        "pass_rate": 1.0
+      },
+      "incremental": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "indexes": {
+        "counts": {
+          "pass": 2,
+          "fail": 1
+        },
+        "scored": 3,
+        "pass_rate": 0.6666666666666666
+      },
+      "int4": {
+        "counts": {
+          "pass": 25
+        },
+        "scored": 25,
+        "pass_rate": 1.0
+      },
+      "int8": {
+        "counts": {
+          "pass": 28
+        },
+        "scored": 28,
+        "pass_rate": 1.0
+      },
+      "interval": {
+        "counts": {
+          "pass": 20
+        },
+        "scored": 20,
+        "pass_rate": 1.0
+      },
+      "join": {
+        "counts": {
+          "pass": 34
+        },
+        "scored": 34,
+        "pass_rate": 1.0
+      },
+      "json": {
+        "counts": {
+          "fail": 8,
+          "pass": 44
+        },
+        "scored": 52,
+        "pass_rate": 0.8461538461538461
+      },
+      "limit": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "locking": {
+        "counts": {
+          "fail": 3
+        },
+        "scored": 3,
+        "pass_rate": 0.0
+      },
+      "metadata": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "models": {
+        "counts": {
+          "pass": 8
+        },
+        "scored": 8,
+        "pass_rate": 1.0
+      },
+      "numeric": {
+        "counts": {
+          "pass": 15,
+          "fail": 15
+        },
+        "scored": 30,
+        "pass_rate": 0.5
+      },
+      "ordering": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "privileges": {
+        "counts": {
+          "fail": 2
+        },
+        "scored": 2,
+        "pass_rate": 0.0
+      },
+      "regex": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "select": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "sequences": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "session": {
+        "counts": {
+          "fail": 5,
+          "pass": 8
+        },
+        "scored": 13,
+        "pass_rate": 0.6153846153846154
+      },
+      "smoke": {
+        "counts": {
+          "pass": 13
+        },
+        "scored": 13,
+        "pass_rate": 1.0
+      },
+      "srf": {
+        "counts": {
+          "pass": 23
+        },
+        "scored": 23,
+        "pass_rate": 1.0
+      },
+      "strings": {
+        "counts": {
+          "pass": 32
+        },
+        "scored": 32,
+        "pass_rate": 1.0
+      },
+      "timestamp": {
+        "counts": {
+          "fail": 4,
+          "pass": 16
+        },
+        "scored": 20,
+        "pass_rate": 0.8
+      },
+      "timestamptz": {
+        "counts": {
+          "fail": 2,
+          "pass": 18
+        },
+        "scored": 20,
+        "pass_rate": 0.9
+      },
+      "transactions": {
+        "counts": {
+          "fail": 3
+        },
+        "scored": 3,
+        "pass_rate": 0.0
+      },
+      "types": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "union": {
+        "counts": {
+          "pass": 24
+        },
+        "scored": 24,
+        "pass_rate": 1.0
+      },
+      "unsupported": {
+        "counts": {
+          "unsupported": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "utils": {
+        "counts": {
+          "pass": 8,
+          "fail": 1
+        },
+        "scored": 9,
+        "pass_rate": 0.8888888888888888
+      },
+      "uuid": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "values": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "views": {
+        "counts": {
+          "pass": 2
+        },
+        "scored": 2,
+        "pass_rate": 1.0
+      },
+      "window": {
+        "counts": {
+          "pass": 8,
+          "fail": 2
+        },
+        "scored": 10,
+        "pass_rate": 0.8
+      },
+      "with": {
+        "counts": {
+          "pass": 8,
+          "fail": 2
+        },
+        "scored": 10,
+        "pass_rate": 0.8
+      }
+    },
+    "tier": {
+      "dbt": {
+        "counts": {
+          "pass": 22,
+          "fail": 1
+        },
+        "scored": 23,
+        "pass_rate": 0.9565217391304348
+      },
+      "extensions": {
+        "counts": {
+          "allowed": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "issues": {
+        "counts": {
+          "pass": 206,
+          "fail": 33
+        },
+        "scored": 239,
+        "pass_rate": 0.8619246861924686
+      },
+      "postgres": {
+        "counts": {
+          "pass": 343,
+          "fail": 28
+        },
+        "scored": 371,
+        "pass_rate": 0.9245283018867925
+      },
+      "scope": {
+        "counts": {
+          "unsupported": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "smoke": {
+        "counts": {
+          "pass": 13
+        },
+        "scored": 13,
+        "pass_rate": 1.0
+      },
+      "types": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      }
+    }
+  },
+  "baseline": {
+    "passed": 574,
+    "scored": 651,
+    "previously_passing_regressions": []
+  },
+  "additional_passes": [
+    "issue-254.json:row-10",
+    "postgres/join.json:statement-0034",
+    "postgres/join.json:statement-0035",
+    "postgres/join.json:statement-0042",
+    "postgres/join.json:statement-0043",
+    "postgres/join.json:statement-0044",
+    "postgres/join.json:statement-0045",
+    "postgres/join.json:statement-0046",
+    "postgres/join.json:statement-0047",
+    "postgres/join.json:statement-0048",
+    "postgres/join.json:statement-0049",
+    "postgres/join.json:statement-0050",
+    "postgres/select.json:statement-0019",
+    "postgres/select.json:statement-0020",
+    "postgres/select.json:statement-0021"
+  ],
+  "retained_359": {
+    "total": 188,
+    "observed_pass": 137,
+    "deferred_fail": 51
+  },
+  "remaining_361": [
+    "dbt/utils.json:event-0207-0",
+    "postgres/case.json:statement-0020",
+    "postgres/window.json:statement-0041",
+    "postgres/with.json:statement-0010",
+    "postgres/with.json:statement-0011"
+  ],
+  "corpus_sha256": "561e6fedf282319f187924d994db0e546b189bbf2a3ef767b15eed03e14b3aca",
+  "allowlist_sha256": "090fdd94e0b82a654fcf18b103680934c76061b953cf87955c7a7f38e0fd2ad3",
+  "scope": "Curated retained REL_16_15 inputs compared with PostgreSQL 18.6; not the full PostgreSQL 18 regression suite.",
+  "verification": {
+    "harness_tests_passed": 35,
+    "software_broad": {
+      "passed": 63,
+      "failed": 1,
+      "reason": "old wrapped NULL schema expectation; independently verified and corrected"
+    },
+    "software_focused_rerun": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0
+    },
+    "unit_suite": "passed; live integration skips expected without REDIS_URI",
+    "full_default_software_suite": "not run"
+  }
+}

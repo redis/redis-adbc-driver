@@ -59,12 +59,32 @@ import (
 
 // ---- parsing ----
 
+// Qualified stars need their relation's schema before row rewrites can run.
+func rowHasStar(x Expr) bool {
+	r, ok := x.(*RowExpr)
+	if !ok {
+		return false
+	}
+	if r.writtenItems != nil {
+		return true
+	}
+	for _, it := range r.Items {
+		if c, ok := it.(*ColumnRef); ok && c.Name == "*" && c.Qualifier != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // compareExpr builds `l op r` for a comparison operator (=, <>, <, <=, >, >=,
 // IS [NOT] DISTINCT FROM), rewriting a comparison of rows into comparisons
 // of their items. A comparison that isn't rewritten (rows of different
 // lengths, a row and another value) is left as it is: binding reports its
 // errors, and otherwise it compares records (record.go).
 func compareExpr(op string, l, r Expr) Expr {
+	if rowHasStar(l) || rowHasStar(r) {
+		return &Binary{Op: op, L: l, R: r}
+	}
 	lr, lok := l.(*RowExpr)
 	rr, rok := r.(*RowExpr)
 	if lok && !rok {
@@ -125,7 +145,7 @@ func rowOfSubquery(e Expr, n int) (*RowExpr, bool) {
 // NULL, whatever its fields are (see IsNull.field).
 func isNullExpr(x Expr, not bool) Expr {
 	r, ok := x.(*RowExpr)
-	if !ok {
+	if !ok || rowHasStar(x) {
 		return &IsNull{X: x, Not: not}
 	}
 	if len(r.Items) == 0 {
@@ -252,6 +272,9 @@ func (e *executor) bindRowOperator(ctx context.Context, b *Binary) error {
 
 // bindRowOperand binds the row operand of an IN / ANY / ALL subquery.
 func (e *executor) bindRowOperand(ctx context.Context, r *RowExpr) error {
+	if err := e.expandRowStars(r); err != nil {
+		return err
+	}
 	for _, it := range r.Items {
 		if err := e.bind(ctx, it); err != nil {
 			return err

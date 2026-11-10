@@ -521,7 +521,7 @@ func (rc *recursionCheck) query(sel *SelectStmt, hidden map[string]bool) {
 		rc.ctx = saved
 		return
 	}
-	items := append([]JoinClause{{Table: sel.From, Select: sel.FromSelect, Func: sel.FromFunc}}, sel.Joins...)
+	items := append([]JoinClause{{Table: sel.From, Select: sel.FromSelect, Func: sel.FromFunc, Group: sel.FromGroup}}, sel.Joins...)
 	direct := false
 	for i, jc := range items {
 		saved := rc.ctx
@@ -581,6 +581,25 @@ func nullSupplying(items []JoinClause, i int) bool {
 // the CTE.
 func (rc *recursionCheck) fromItem(jc JoinClause, hidden map[string]bool) bool {
 	switch {
+	case jc.Group != nil:
+		direct := false
+		for i, it := range jc.Group {
+			saved := rc.ctx
+			if nullSupplying(jc.Group, i) {
+				rc.ctx = recursionOuterJoin
+			}
+			if rc.fromItem(it, hidden) {
+				direct = true
+			}
+			rc.expr(it.On, hidden)
+			if it.Func != nil {
+				for _, a := range it.Func.Args {
+					rc.expr(a, hidden)
+				}
+			}
+			rc.ctx = saved
+		}
+		return direct
 	case jc.Table != nil:
 		t := jc.Table
 		key := t.Name

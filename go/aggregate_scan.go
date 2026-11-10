@@ -115,6 +115,9 @@ func aggregateRepresentativeNeed(plan *selectPlan, aggs []*Func) map[string]bool
 			if f, ok := n.(*Func); ok && aggregateFuncs[f.Name] {
 				return false
 			}
+			if r, ok := n.(*RowExpr); ok && r.up == 0 && r.presence != "" {
+				need[r.presence] = true
+			}
 			if c, ok := n.(*ColumnRef); ok && c.Outer == 0 {
 				need[c.Name] = true
 			}

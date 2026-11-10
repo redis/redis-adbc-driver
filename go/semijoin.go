@@ -396,7 +396,7 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 	if len(pairs) == 0 || sq.outerUses != len(pairs) {
 		return
 	}
-	dsel := &SelectStmt{With: sel.With, Joins: sel.Joins, From: sel.From, FromSelect: sel.FromSelect,
+	dsel := &SelectStmt{With: sel.With, Joins: sel.Joins, From: sel.From, FromSelect: sel.FromSelect, FromGroup: sel.FromGroup,
 		FromAlias: sel.FromAlias, Where: andAll(rest)}
 	for _, p := range pairs {
 		dsel.Items = append(dsel.Items, SelectItem{Expr: p.inner})

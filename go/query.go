@@ -1146,6 +1146,13 @@ func loadsExactly(c columnMeta) bool {
 // scanMem filters an in-memory relation.
 func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
 	source := req.meta.mem
+	if req.meta.group != nil {
+		rows, err := e.groupedRows(ctx, req.meta.group, params)
+		if err != nil {
+			return nil, nil, err
+		}
+		source = rows
+	}
 	if req.meta.sourceKeys != nil {
 		source = cloneMemRows(source)
 	}

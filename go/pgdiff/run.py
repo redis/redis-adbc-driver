@@ -38,6 +38,7 @@ import pyarrow as pa
 import sqlparse
 from psycopg.types.string import TextLoader
 from sqlscan import split_sql
+from composites import Composite, register as register_composites, resolve_catalog_names
 
 ROOT = Path(__file__).resolve().parent
 # Official postgres:18 linux/amd64 manifest, resolved 2026-11-09 (18.6).
@@ -45,6 +46,7 @@ IMAGE = "postgres:18@sha256:e923a22ac074261dd73970c57edf659475bf0497cb9456f17d98
 # Physical Arrow equivalents. Arrow strings cannot distinguish text/varchar/json;
 # unconstrained Postgres numeric has no fixed precision/scale to compare.
 PG_TYPES = {
+    2249: "record",
     18: "string",
     19: "string",
     2205: "string",
@@ -78,6 +80,8 @@ PG_TYPES = {
 
 
 def arrow_type(t):
+    if pa.types.is_struct(t):
+        return "record"
     if pa.types.is_list(t) or pa.types.is_large_list(t):
         return f"list<{arrow_type(t.value_type)}>"
     if pa.types.is_decimal(t):
@@ -96,6 +100,11 @@ def arrow_type(t):
 def value(v, kind):
     if v is None:
         return None
+    if kind == "record":
+        if not isinstance(v, Composite):
+            raise ValueError("record value lacks independent field types")
+        types = v.types if v.types is not None else [PG_TYPES.get(oid, f"pg_oid:{oid}") for oid in v.oids]
+        return {"types": types, "fields": [value(x, t) for x, t in zip(v.fields, types)]}
     if kind.startswith("list<"):
         return [value(x, kind[5:-1]) for x in v]
     if kind == "interval":
@@ -262,6 +271,14 @@ def civil_date(days):
 
 
 def arrow_values(column, datatype):
+    if pa.types.is_struct(datatype):
+        # Positional children retain duplicate names and distinguish a NULL
+        # struct from a present struct whose children are all NULL.
+        column = column.combine_chunks() if isinstance(column, pa.ChunkedArray) else column
+        children = [arrow_values(column.field(i), f.type) for i, f in enumerate(datatype)]
+        types = [arrow_type(f.type) for f in datatype]
+        return [None if column.is_null()[i].as_py() else Composite(None, types, [c[i] for c in children])
+                for i in range(len(column))]
     if pa.types.is_date32(datatype):
         out = []
         for raw in column.cast(pa.int32()).to_pylist():
@@ -302,9 +319,9 @@ def execute(conn, sql, postgres=False, params=None):
         with conn.cursor() as cur:
             if params is not None:
                 sql, bindings = parameter_sql(sql, params, postgres)
-                cur.execute(sql, bindings)
+                cur.execute(sql, bindings, **({"binary": True} if postgres else {}))
             else:
-                cur.execute(sql)
+                cur.execute(sql, **({"binary": True} if postgres else {}))
             if postgres:
                 if cur.description is None:
                     return {"types": [], "rows": []}
@@ -315,6 +332,8 @@ def execute(conn, sql, postgres=False, params=None):
                 raw_types = [str(c.type_code) for c in cur.description]
                 details = type_details(cur, True)
                 rows = cur.fetchall()
+                cache = {}
+                rows = [resolve_catalog_names(conn, row, cache) for row in rows]
             else:
                 table = cur.fetch_arrow_table()
                 raw_types = [str(f.type) for f in table.schema]
@@ -567,6 +586,7 @@ def run(args, uri):
             )
             manager.enter_context(conn)
             if postgres:
+                register_composites(conn)
                 for oid in (114, 3802, 1186, 1266, 1082, 1114, 1184):
                     conn.adapters.register_loader(oid, TextLoader)
             configure(conn, postgres)

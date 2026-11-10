@@ -657,11 +657,12 @@ func (e *executor) replaceAliases(expr Expr, aliases map[string]Expr) Expr {
 	case *IsNull:
 		return &IsNull{X: e.replaceAliases(x.X, aliases), Not: x.Not, field: x.field}
 	case *RowExpr:
-		r := &RowExpr{Items: make([]Expr, len(x.Items))}
+		r := *x
+		r.Items = make([]Expr, len(x.Items))
 		for i, it := range x.Items {
 			r.Items[i] = e.replaceAliases(it, aliases)
 		}
-		return r
+		return &r
 	case *FieldSelect:
 		return &FieldSelect{X: e.replaceAliases(x.X, aliases), Name: x.Name, Index: x.Index}
 	case *Cast:
@@ -1031,7 +1032,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 	var types map[string]ColType
 	var rels []relation
 	var jp *joinPlan
-	if len(sel.Joins) > 0 || sel.FromFunc != nil || sel.FromLateral || sel.FromColumns != nil {
+	if len(sel.Joins) > 0 || sel.FromGroup != nil || sel.FromFunc != nil || sel.FromLateral || sel.FromColumns != nil {
 		// Table functions, LATERAL items and column aliases are handled by
 		// the join executor, even for a single FROM item.
 		joined, jrels, plan2, err := e.planJoin(ctx, sel)
@@ -1340,10 +1341,10 @@ func (e *executor) starColumns(meta *tableMeta, rels []relation, joined bool, qu
 		return meta.Columns, nil
 	}
 	var cols []columnMeta
-	for _, c := range meta.Columns {
-		if strings.HasPrefix(c.Name, match.prefix) {
-			cols = append(cols, c)
-		}
+	for _, c := range match.meta.Columns {
+		c.label = c.outputName()
+		c.Name = match.columnKey(c.Name)
+		cols = append(cols, c)
 	}
 	return cols, nil
 }

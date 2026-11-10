@@ -600,6 +600,12 @@ func sameOrdering(a, b *WindowSpec) bool {
 // exprEqual reports whether two bound expressions are the same (it may
 // report false for equal expressions it does not compare, e.g. subqueries).
 func exprEqual(a, b Expr) bool {
+	if c, ok := a.(*ColumnRef); ok && c.whole != nil {
+		a = c.whole
+	}
+	if c, ok := b.(*ColumnRef); ok && c.whole != nil {
+		b = c.whole
+	}
 	if a == b {
 		return true
 	}
@@ -624,7 +630,7 @@ func exprEqual(a, b Expr) bool {
 		return ok && x.Not == y.Not && x.field == y.field && exprEqual(x.X, y.X)
 	case *RowExpr:
 		y, ok := b.(*RowExpr)
-		if !ok || len(x.Items) != len(y.Items) {
+		if !ok || len(x.Items) != len(y.Items) || x.typ != y.typ || x.presence != y.presence || x.up != y.up {
 			return false
 		}
 		for i := range x.Items {

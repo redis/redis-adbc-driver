@@ -13,6 +13,9 @@ func snapshotSourceKeyColumn() columnMeta {
 }
 
 func (m *tableMeta) scanColumns() []columnMeta {
+	if m.group != nil && len(m.group.hidden) > 0 {
+		return append(append([]columnMeta(nil), m.Columns...), m.group.hidden...)
+	}
 	if !m.SnapshotSourceKey {
 		return m.Columns
 	}

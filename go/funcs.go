@@ -449,6 +449,7 @@ var funcDefs = []funcDef{
 	// SQL/JSON JSON_OBJECT(k VALUE v, …) is __JSON_OBJECT.
 	{name: "JSON_OBJECT", min: 1, max: 2, impl: implJSON},
 	{name: "JSONB_OBJECT", min: 1, max: 2, impl: implJSON},
+	{name: "ROW_TO_JSON", min: 1, max: 1, impl: implJSON, records: true},
 	{name: "TO_JSON", min: 1, max: 1, impl: implJSON, records: true},
 	{name: "TO_JSONB", min: 1, max: 1, impl: implJSON, records: true},
 	// The SQL/JSON query functions: the document, the path and the DEFAULT

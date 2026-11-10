@@ -110,7 +110,7 @@ func jsonFuncType(f *Func) (ColType, bool) {
 var jsonResultFuncs = map[string]bool{
 	"->": true, "#>": true, "JSON_EXTRACT_PATH": true, "JSONB_EXTRACT_PATH": true,
 	"JSON_BUILD_OBJECT": true, "JSONB_BUILD_OBJECT": true, "JSON_BUILD_ARRAY": true, "JSONB_BUILD_ARRAY": true,
-	"JSON_OBJECT": true, "JSONB_OBJECT": true, "TO_JSON": true, "TO_JSONB": true, "__JSON": true, "__JSONB": true,
+	"JSON_OBJECT": true, "JSONB_OBJECT": true, "ROW_TO_JSON": true, "TO_JSON": true, "TO_JSONB": true, "__JSON": true, "__JSONB": true,
 	"JSON_AGG": true, "JSONB_AGG": true, "JSON_OBJECT_AGG": true, "JSONB_OBJECT_AGG": true,
 }
 
@@ -232,7 +232,10 @@ func (env *evalEnv) evalJSONFunc(f *Func) (Value, error) {
 		}
 	}
 	switch f.Name {
-	case "TO_JSON", "TO_JSONB":
+	case "ROW_TO_JSON", "TO_JSON", "TO_JSONB":
+		if f.Name == "ROW_TO_JSON" && args[0].T.Kind != KindRecord {
+			return Value{}, noSuchFunction(f.Name, false, []ColType{args[0].T})
+		}
 		var b strings.Builder
 		writeJSONValue(&b, args[0], isJSONExpr(f.Args[0]), env.zone())
 		return jsonResult(f, b.String())

@@ -67,28 +67,37 @@ errors. The 655-case corpus includes DDL/DML and storage-model cases as well as
 queries; it is not yet the proposed query-only profile. This is not a new run of
 the merge commit or a release claim.
 
-The 77 failing cases are grouped below. Counts are stable test cases, not
+The [#361 join/whole-row follow-up](sdlc/changes/postgresql18-361/validation.md)
+measured **589/651 passes (90.48%)**, **62 failures**, two allowed extensions,
+two explicit exclusions and zero infrastructure errors on Redis Software with
+verified 4x QPF. Its source-content manifest accompanies the result; this is a
+working-tree measurement, not a release claim. It fixes fourteen #361 cases and
+one existing `row_to_json` case from #98. Five #361 cases remain open.
+
+The latest 62 failing cases are grouped below. Counts are stable test cases, not
 numbers of distinct features, issues or mandatory requirements.
 
 | Category | Failing cases | Owning issues |
 |---|---:|---|
-| Query semantics and metadata | 19 | [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| Query semantics and metadata | 5 | [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
 | Numeric/temporal representation | 24 | [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
-| JSON types, operators and functions | 9 | [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
+| JSON types, operators and functions | 8 | [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
 | Comparison rules and fixture scope | 7 | [#364](https://github.com/redis/redis-adbc-driver/issues/364) |
 | Transactions, locking and integrity | 12 | [#360](https://github.com/redis/redis-adbc-driver/issues/360), [#113](https://github.com/redis/redis-adbc-driver/issues/113), [#114](https://github.com/redis/redis-adbc-driver/issues/114), [#116](https://github.com/redis/redis-adbc-driver/issues/116) |
 | PUBLIC privileges | 2 | [#363](https://github.com/redis/redis-adbc-driver/issues/363) |
 | Enum types | 2 | [#107](https://github.com/redis/redis-adbc-driver/issues/107) |
 | Remaining functions/operators | 2 | [#110](https://github.com/redis/redis-adbc-driver/issues/110) |
-| **Total** | **77** | |
+| **Total** | **62** | |
 
 #359 retained 188 baseline failures: 122 now pass and 66 were explicitly
 deferred. #360's original eleven cases also still fail. The storage category
 above includes those eleven plus the retained unique-index case, counted once.
 Closing #359 completed triage, not all deferred feature implementations.
+After the #361 follow-up, 137/188 retained cases pass and 51 remain deferred;
+the original eleven #360 cases remain failures.
 
-The retained 66 also have a separate classification: five Core-related,
-fifteen optional-standard-related, fifteen PostgreSQL-specific, twenty-four
+The remaining retained 51 have a separate classification: five Core-related,
+four optional-standard-related, eleven PostgreSQL-specific, twenty-four
 ADBC representation/comparison limitations and seven fixture/oracle cases.
 That classification does not cover all original eleven storage cases or count
 mandatory features. “Core-related” identifies an association; exact standard

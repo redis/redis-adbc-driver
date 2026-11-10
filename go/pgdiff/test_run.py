@@ -34,6 +34,41 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(run.value("205000-07-10 14:32:01+00", "timestamptz"), "205000-07-10T14:32:01+00:00")
         self.assertNotEqual(run.value("205000-07-10 14:32:02+00", "timestamptz"), "205000-07-10T14:32:01+00:00")
 
+    def test_composite_types_and_values_are_independent(self):
+        import pyarrow as pa
+        from composites import Composite, CompositeLoader
+        import struct
+        # OIDs come from the PostgreSQL wire, not from Arrow.
+        binary = struct.pack("!iIiiIi", 2, 23, 4, 7, 25, -1)
+        pg = run.value(CompositeLoader(2249).load(binary), "record")
+        typ = pa.struct([("x", pa.int32()), ("x", pa.string())])
+        arr = pa.StructArray.from_arrays([pa.array([7], type=pa.int32()), pa.array([None], type=pa.string())], fields=list(typ))
+        rd = run.value(run.arrow_values(arr, typ)[0], "record")
+        self.assertEqual(pg, rd)
+        self.assertNotEqual(pg, run.value(Composite(None, ["int64", "string"], [7, None]), "record"))
+        self.assertNotEqual(pg, run.value(Composite(None, ["int32", "string"], [8, None]), "record"))
+        self.assertNotEqual(pg, run.value(Composite(None, ["int32"], [7]), "record"))
+
+    def test_composite_null_presence_nested_and_duplicates(self):
+        import pyarrow as pa
+        from composites import Composite
+        typ = pa.struct([("same", pa.int32()), ("same", pa.string())])
+        arr = pa.StructArray.from_arrays([pa.array([None, None], type=pa.int32()), pa.array([None, None], type=pa.string())], fields=list(typ), mask=pa.array([True, False]))
+        got = run.arrow_values(arr, typ)
+        self.assertIsNone(got[0])
+        self.assertEqual(run.value(got[1], "record"), {"types": ["int32", "string"], "fields": [None, None]})
+        nested = Composite([2249, 23], None, [Composite([25], None, ["quoted, text"]), 9])
+        self.assertEqual(run.value(nested, "record"), {"types": ["record", "int32"], "fields": [{"types": ["string"], "fields": ["quoted, text"]}, 9]})
+
+    def test_binary_temporal_decoders_preserve_range_and_fraction(self):
+        import struct
+        from composites import DateLoader, TimestampLoader, IntervalLoader, TimeTZLoader
+        self.assertEqual(DateLoader(1082).load(struct.pack("!i", 0)), "2000-01-01")
+        self.assertEqual(TimestampLoader(1114).load(struct.pack("!q", -1)), "1999-12-31 23:59:59.999999")
+        self.assertEqual(TimestampLoader(1184).load(struct.pack("!q", 1)), "2000-01-01 00:00:00.000001+00")
+        self.assertEqual(run.value(IntervalLoader(1186).load(struct.pack("!qii", -1234567, 2, 3)), "interval"), [3, 2, -1234567, 0])
+        self.assertEqual(TimeTZLoader(1266).load(struct.pack("!qi", 86400000000, -3661)), "24:00:00+01:01:01")
+
     def test_reference_version_and_collation(self):
         for collation in ("C", "POSIX"):
             run.validate_reference("PostgreSQL 18.6 on x86_64", collation)

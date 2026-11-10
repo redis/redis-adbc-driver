@@ -508,7 +508,8 @@ func substitute(e Expr, repl map[string]Expr) (Expr, bool) {
 		v, ok := substitute(x.X, repl)
 		return &IsNull{X: v, Not: x.Not, field: x.field}, ok
 	case *RowExpr:
-		r := &RowExpr{Items: make([]Expr, len(x.Items))}
+		r := *x
+		r.Items = make([]Expr, len(x.Items))
 		for i, it := range x.Items {
 			v, ok := substitute(it, repl)
 			if !ok {
@@ -516,7 +517,7 @@ func substitute(e Expr, repl map[string]Expr) (Expr, bool) {
 			}
 			r.Items[i] = v
 		}
-		return r, true
+		return &r, true
 	case *FieldSelect:
 		v, ok := substitute(x.X, repl)
 		return &FieldSelect{X: v, Name: x.Name, Index: x.Index}, ok

@@ -300,7 +300,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "issue-258.json",
@@ -1428,7 +1429,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1440,7 +1442,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1452,7 +1455,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1464,7 +1468,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1476,7 +1481,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1488,7 +1494,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1500,7 +1507,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1512,7 +1520,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1524,7 +1533,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1536,7 +1546,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/join.json",
@@ -1548,7 +1559,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Needs grouped FROM join trees, column aliases, USING-only alias visibility and qualifier hiding; flattening joins changes name resolution.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/numeric.json",
@@ -1752,7 +1764,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Requires bind-time whole-row expansion with logical field names/NULL semantics and independent composite Arrow comparison.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/select.json",
@@ -1764,7 +1777,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Requires bind-time whole-row expansion with logical field names/NULL semantics and independent composite Arrow comparison.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/select.json",
@@ -1776,7 +1790,8 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/361",
       "reason": "Requires bind-time whole-row expansion with logical field names/NULL semantics and independent composite Arrow comparison.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass",
+      "validation": "../../docs/sdlc/changes/postgresql18-361/validation.md"
     },
     {
       "file": "postgres/strings.json",

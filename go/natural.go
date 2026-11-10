@@ -68,14 +68,18 @@ type outputColumn struct {
 func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 	natural := false
 	for _, it := range jp.items {
-		natural = natural || it.natural || len(it.using) > 0
+		natural = natural || it.natural || len(it.using) > 0 || it.output != nil
 	}
 	if !natural {
 		return rels
 	}
 	columnsOf := func(it *joinItem) []outputColumn {
-		out := make([]outputColumn, len(it.base.Columns))
-		for i, c := range it.base.Columns {
+		cols := it.base.Columns
+		if it.output != nil {
+			cols = it.output
+		}
+		out := make([]outputColumn, len(cols))
+		for i, c := range cols {
 			out[i] = outputColumn{
 				name: c.outputName(),
 				col:  columnMeta{Name: it.prefix + c.Name, label: c.outputName(), Type: c.Type, Nullable: true},
@@ -183,6 +187,15 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 			usedLeft[li], usedRight[ri] = true, true
 		}
 		it.usingOn = andAll(conds)
+		if it.usingAlias != "" {
+			alias := relation{name: it.usingAlias, aliased: true, qualifiedOnly: true, owner: it.prefix,
+				meta: &tableMeta{Name: it.usingAlias, isMem: true}, keys: map[string]string{}}
+			for _, c := range merged {
+				alias.meta.Columns = append(alias.meta.Columns, columnMeta{Name: c.name, Type: c.col.Type, Nullable: true})
+				alias.keys[c.name] = c.col.Name
+			}
+			rels = append(rels, alias)
+		}
 		next := merged
 		for i, c := range out {
 			if !usedLeft[i] {
@@ -210,7 +223,7 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 	// Columns merged into another one are only reachable by qualified names.
 	for i := range rels {
 		for _, c := range rels[i].meta.Columns {
-			if visible[rels[i].prefix+c.Name] {
+			if visible[rels[i].columnKey(c.Name)] {
 				continue
 			}
 			if rels[i].hidden == nil {
