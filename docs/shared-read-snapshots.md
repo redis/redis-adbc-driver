@@ -4,11 +4,14 @@ Native ADBC can explicitly bind one managed catalog generation to a connection
 for sequential full-refresh reads. This is a read-only API, not a multi-statement
 write transaction. It extends [statement snapshots](snapshots.md).
 
-**Release status:** unreleased; v0.0.23 does not expose these options. Do not enable
-Airbyte `read_consistency=shared_snapshot` against v0.0.23. A release containing
-this implementation and its validation must be selected and pinned before that
-connector setting can be enabled. Source validation is recorded in the
-[change evidence](sdlc/changes/shared-read-snapshot/verification.md).
+**First version containing this API: v0.0.24.** v0.0.23 does not expose these
+options. Pin a completed native/Python release containing this API and its
+validation; a source tag or draft release alone is not an installable artifact.
+A driver upgrade alone does not enable the current Airbyte connector's
+`read_consistency=shared_snapshot` setting: implement and validate the
+[native connector steps](#airbyte-and-flight-sql) before enabling it.
+See the [release evidence](sdlc/changes/shared-snapshot-release/verification.md)
+and [original source validation](sdlc/changes/shared-read-snapshot/verification.md).
 
 ## Native connection API
 
