@@ -18,4 +18,7 @@ Status: complete. [Intent](intent.md), [specification](spec.md), [validation](va
    acceptance audit and updating its exact inventory count; reproduce the
    failure and run the acceptance-runner contracts before pushing.
 
+8. Repair PR #371 against current main: retain workflow grouping, place Sling in
+   ETL / ELT & integration, reconcile counts, and verify inventory/site contracts.
+
 No driver changes or upstream Sling patch was needed for the configured path.

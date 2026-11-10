@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-10",
+  "target": "Redis Terra",
+  "status": "blocked_missing_search",
+  "driver_commit": "73eb96420a20a4afc6b33a38764943be3b2ebf8c",
+  "driver_binary_sha256": "6fa79350be27af90592be76cb6df3e8c57b2889ee0549e9a50fe78cf307b9a73",
+  "client": {
+    "region": "us-east-1",
+    "instance_type": "c7i.xlarge",
+    "vcpus": 4,
+    "memory_gib": 8,
+    "interface": "native Go ADBC API",
+    "query_workers": 4,
+    "telemetry_enabled": false
+  },
+  "server": {
+    "product": "Redis Terra",
+    "reported_redis_version": "99.99.99",
+    "reported_mode": "cluster",
+    "resp3_verified": true,
+    "ping": "PONG",
+    "maxmemory_policy": "noeviction",
+    "search_available": false,
+    "search_error": "ERR unknown command 'FT._LIST'",
+    "search_config_error": "ERR unknown command 'FT.CONFIG', with args beginning with: 'GET' 'WORKERS' ",
+    "qpf_verified": false,
+    "console_configuration": {
+      "dataset_tib": 1.5,
+      "ram_gib": 153.6,
+      "shards": 16,
+      "vcpus": 19.2,
+      "replicas": 2,
+      "placement": "Single zone",
+      "tier": "Standard",
+      "estimated_existing_database_usd_per_hour": 22.79
+    }
+  },
+  "driver_open": {
+    "elapsed_ms": 43,
+    "error": "Not Implemented: [redis] the Redis server does not provide the search (RediSearch) module: ERR unknown command 'FT._LIST'",
+    "kind": "driver_open",
+    "ok": false
+  },
+  "benchmark": {
+    "planned_dataset_rows": [
+      10000,
+      100000
+    ],
+    "planned_trials_per_query": 5,
+    "completed_ingests": 0,
+    "completed_queries": 0,
+    "fixture_created": false,
+    "query_timings": null,
+    "clickbench_run": false,
+    "transactions_exercised": false
+  },
+  "temporary_resources": {
+    "owner": "albert.wong@redis.com",
+    "compute_usd_per_hour": 0.1785,
+    "cleanup": "complete",
+    "runner_terminated": true,
+    "temporary_artifact_deleted": true,
+    "temporary_instance_profile_deleted": true,
+    "temporary_iam_role_deleted": true,
+    "temporary_security_group_deleted": true,
+    "existing_vpc_retained": true,
+    "terra_peering_retained": true,
+    "estimated_compute_usd": 0.024,
+    "compute_elapsed_seconds": 484.03,
+    "compute_estimate_excludes": [
+      "EBS",
+      "public IPv4",
+      "S3",
+      "network fees"
+    ]
+  }
+}

@@ -37,14 +37,21 @@ func TestSnapshotIndexAggregatesMergeVisibleGroups(t *testing.T) {
 	guard := &snapshotCandidateReads{}
 	s.client.AddHook(guard)
 	res := snapshotExecuteTest(t, s, h.ctx, "SELECT g,COUNT(*),COUNT(v),SUM(v),AVG(v),MIN(v),MAX(v),BOOL_OR(p),BOOL_AND(p) FROM t GROUP BY g ORDER BY g NULLS LAST")
-	want := []string{"a|2|1|15|15|15|15|false|false", "b|2|2|130|65|30|100|true|false", "c|2|1|40|40|40|40|true|true", "NULL|1|0|NULL|NULL|NULL|NULL|NULL|NULL"}
+	// Integer AVG follows the exact NUMERIC contract, including its scale,
+	// across both the merged index result and the public Arrow boundary.
+	want := []string{"a|2|1|15|15.0000000000000000|15|15|false|false", "b|2|2|130|65.0000000000000000|30|100|true|false", "c|2|1|40|40.0000000000000000|40|40|true|true", "NULL|1|0|NULL|NULL|NULL|NULL|NULL|NULL"}
 	if got := snapshotResultStrings(res.rows); !slices.Equal(got, want) {
 		t.Fatalf("visible groups: %v", got)
+	}
+	for _, row := range res.rows {
+		if got := row[4].T; got.Kind != KindDecimal || got.Precision != 76 || got.Scale != 16 {
+			t.Fatalf("integer AVG type: %v", got)
+		}
 	}
 	if guard.rows.Load() != 0 {
 		t.Fatalf("index aggregates fetched %d HASH row images", guard.rows.Load())
 	}
-	h.expectRows("SELECT COUNT(*),COUNT(v),SUM(v),AVG(v),MIN(v),MAX(v) FROM t", "7|4|185|46.25|15|100")
+	h.expectRows("SELECT COUNT(*),COUNT(v),SUM(v),AVG(v),MIN(v),MAX(v) FROM t", "7|4|185|46.2500000000000000|15|100")
 	h.expectRows("SELECT g,COUNT(*),SUM(v) FROM t WHERE v<=30 GROUP BY g ORDER BY g", "a|1|15", "b|1|30")
 	h.expectRows("SELECT COUNT(*),COUNT(v),SUM(v),AVG(v),MIN(v),MAX(v) FROM t WHERE v>999", "0|0|NULL|NULL|NULL|NULL")
 }

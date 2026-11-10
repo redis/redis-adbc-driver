@@ -66,3 +66,26 @@ standalone Sling disposition to that audit and updated the exact count without
 removing the full table-equality assertion. The acceptance-runner suite then
 passed all 13 tests; the CI-matrix suite passed all 9 tests. Added local audit
 links and `git diff --check` passed. No live driver behavior changed.
+
+
+PR #371 merge repair, 2026-11-10: merged main at `2c50655c` into PR head
+`efb71b15`. Resolved the support-inventory conflict by preserving workflow groups
+and placing Sling (#51) under ETL / ELT & integration (nine tools). Area totals
+are now 28 data engineering and 23 data science & BI tools; historical evidence
+counts retain their original scope. Checked all 51 numbered entries occur once,
+with the original row contents preserved except the Sling display-name fix below.
+
+The installation-coverage contract reproduced a preexisting PR failure: the
+support table used a Markdown-linked Sling name while the installation table
+used plain text. Made the support-table name plain text, retaining the adjacent
+Sling ADBC, guide, validation and upstream-report links. The existing equality
+assertion remains intact.
+
+Checks after repair: registry 10 passed; acceptance runner 13 passed; CI matrix
+nine passed; installation coverage one passed; zero skips in these offline tests.
+Using the existing private docs virtual environment, `scripts/prepare_docs.py`,
+`python -m mkdocs build --strict`, and `scripts/check_docs.py` passed (42 pages).
+`git diff --check` passed. No live transfers or Go suites were rerun for this
+inventory/merge repair; earlier Software/QPF evidence is historical validation,
+not a new run. Reviewed resolution against REVIEW.md for row preservation,
+truthful evidence scope and documentation links; no human approval is inferred.

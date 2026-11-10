@@ -598,6 +598,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 }
 
 type snapshotPin struct {
+	shared       *sharedReadView
 	reader       bool
 	ctx          context.Context
 	store        *store
@@ -615,6 +616,22 @@ type snapshotPin struct {
 }
 
 func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.Context, *snapshotPin, error) {
+	if s != nil {
+		s.sharedMu.Lock()
+		if s.sharedView != nil {
+			defer s.sharedMu.Unlock()
+			if len(writing) > 0 && writing[0] {
+				return ctx, nil, sharedSnapshotUnsupported()
+			}
+			if snapshotOf(ctx) != nil {
+				return ctx, nil, nil
+			}
+			return s.sharedView.borrow(ctx)
+		}
+		s.sharedMu.Unlock()
+	}
+	// Admission can wait for compaction publication, which itself acquires a
+	// fresh catalog pin. Never hold the binding mutex through that wait.
 	return s.acquireSnapshotMode(ctx, true, writing...)
 }
 
@@ -724,6 +741,9 @@ func (p *snapshotPin) heartbeat() {
 }
 
 func (p *snapshotPin) valid(ctx context.Context) error {
+	if p != nil && p.shared != nil {
+		return p.shared.valid(ctx)
+	}
 	if p == nil {
 		return nil
 	}
@@ -751,6 +771,10 @@ func (p *snapshotPin) valid(ctx context.Context) error {
 }
 
 func (p *snapshotPin) release() {
+	if p != nil && p.shared != nil {
+		p.once.Do(p.shared.release)
+		return
+	}
 	if p == nil {
 		return
 	}

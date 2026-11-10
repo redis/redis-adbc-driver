@@ -229,6 +229,17 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 // execute runs one statement. With so set, a query's rows may be streamed
 // (see stream.go).
 func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, paramTypes []ColType, so *streamOpts) (res execResult, err error) {
+	if e.store != nil && e.store.hasSharedReadView() || sharedSnapshotScope(ctx) {
+		if _, ok := ps.Stmt.(*SelectStmt); !ok {
+			return execResult{}, sharedSnapshotUnsupported()
+		}
+		for _, cte := range statementWith(ps.Stmt) {
+			if cte.Statement != nil {
+				return execResult{}, sharedSnapshotUnsupported()
+			}
+		}
+	}
+
 	if e.store != nil && e.store.snapshots && snapshotOf(ctx) == nil {
 		return e.executeSnapshot(ctx, ps, params, paramTypes, so)
 	}

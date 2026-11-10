@@ -30,6 +30,7 @@ import (
 )
 
 type connectionImpl struct {
+	readSnapshotRetention       time.Duration
 	usage                       *usageTelemetry
 	rbac                        *rbacManager
 	retainedNamespace           string
@@ -78,6 +79,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return string(c.usage.snapshot()), nil
 	}
 	switch key {
+	case OptionStringReadSnapshotAction, OptionStringReadSnapshotStatus, OptionIntReadSnapshotRetention:
+		return c.readSnapshotOption(ctx, key)
 	case OptionStringStatementSnapshots:
 		return strconv.FormatBool(c.store != nil && c.store.snapshots), nil
 	case OptionStringPartitionResultNamespace:
@@ -118,7 +121,12 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		return snapshotUnsupported()
 	}
 	switch key {
+	case OptionStringReadSnapshotAction, OptionStringReadSnapshotStatus, OptionIntReadSnapshotRetention:
+		return c.setReadSnapshotOption(ctx, key, value)
 	case OptionStringForeignIndexesRefresh:
+		if c.store.hasSharedReadView() {
+			return sharedSnapshotUnsupported()
+		}
 		if value != "true" {
 			return errorf(adbc.StatusInvalidArgument, "foreign_indexes_refresh must be true")
 		}
@@ -130,6 +138,9 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		}
 		return c.store.refreshSnapshotForeign(ctx, true)
 	case OptionStringForeignIndexes:
+		if c.store.hasSharedReadView() {
+			return sharedSnapshotUnsupported()
+		}
 		if c.store.flexEnabled() && value == "true" {
 			return flexUnsupported("foreign indexes")
 		}
@@ -256,6 +267,7 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 		}
 	}
 	cancelCleanup()
+	c.store.releaseSharedReadView()
 	// Best effort: whatever can't be dropped now is swept by a later
 	// connection (see temp.go).
 	_ = c.store.dropTempSchema(ctx)
