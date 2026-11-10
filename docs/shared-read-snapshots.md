@@ -27,7 +27,9 @@ an independent view and must never be described as joining this one.
 
 While bound, GetObjects callbacks, GetTableSchema, schema selection, parameter
 schema discovery, ExecuteSchema and supported read-only SQL SELECTs use the same
-generation. Managed tables, imported managed copies and SQL view definitions are
+generation. GetObjects retains one view for its complete discovery call and
+validates it even for catalog-only depth or filters matching no catalog.
+Managed tables, imported managed copies and SQL view definitions are
 versioned together. Statement-local caches are rebuilt against that generation.
 DML, DDL, grants, retained operation actions, ingestion, sequence allocation
 (`nextval`/`setval`), temporary objects, Substrait, IPC and CUDA execution are
