@@ -459,8 +459,12 @@ func TestSQLEmptyKeepsChecks(t *testing.T) {
 	h.expectRows("SELECT * FROM it_empty_chk ORDER BY id", "1|1")
 }
 
-// emptyShapes are queries of many shapes whose empty forms must have their
-// exact schemas.
+// The unconstrained numeric temporal output has a value-resolved fetch shape.
+const emptyDateTimeShape = `SELECT DATE_TRUNC('month', ts) AS m, EXTRACT(YEAR FROM d) AS y, d + 1 AS next_day,
+		ts + INTERVAL '1 day' AS later, DATE_PART('dow', ts) AS dow, ts - TIMESTAMP '2024-01-01 00:00:00' AS since,
+		CURRENT_DATE AS today FROM it_empty_t`
+
+// emptyShapes are queries whose empty forms retain their exact declared schemas.
 var emptyShapes = []string{
 	"SELECT * FROM it_empty_t",
 	emptyModel,
@@ -486,9 +490,7 @@ var emptyShapes = []string{
 	`SELECT UPPER(g) AS u, LOWER(g) AS l, LENGTH(g) AS n, SUBSTRING(g FROM 1 FOR 1) AS s1,
 		g || '-' || CAST(id AS VARCHAR) AS label, TRIM(g) AS tr, REPLACE(g, 'a', 'b') AS rp, CONCAT(g, x) AS c,
 		g LIKE 'a%' AS starts FROM it_empty_t`,
-	`SELECT DATE_TRUNC('month', ts) AS m, EXTRACT(YEAR FROM d) AS y, d + 1 AS next_day,
-		ts + INTERVAL '1 day' AS later, DATE_PART('dow', ts) AS dow, ts - TIMESTAMP '2024-01-01 00:00:00' AS since,
-		CURRENT_DATE AS today FROM it_empty_t`,
+	emptyDateTimeShape,
 	"SELECT COALESCE(x, 0) AS cx, COALESCE(amount, x) AS ca, COALESCE(f, amount, 0) AS cf, COALESCE(g, 'none') AS cg, NULLIF(g, 'a') AS ng FROM it_empty_t",
 	`SELECT g, COUNT(*) AS n, COUNT(x) AS nx, SUM(x) AS sx, AVG(x) AS ax, MIN(amount) AS mn, MAX(ts) AS mx,
 		SUM(amount) AS sa, AVG(amount) AS aa, STRING_AGG(CAST(id AS VARCHAR), ',') AS ids, BOOL_OR(flag) AS any_flag,
@@ -520,7 +522,19 @@ func TestSQLEmptySchema(t *testing.T) {
 	for _, q := range emptyShapes {
 		full, fs := h.query(q)
 		want := schemaText(fs)
-		wrappedWant := want
+		declaredWant := want
+		if q == emptyDateTimeShape {
+			// Unconstrained numeric uses values to resolve fetch precision. With
+			// no values, schema-only/empty execution retains the canonical type.
+			// Check both exact contracts, rather than inferring a year from rows
+			// an empty query must never read.
+			const fetched = "m timestamp[us], y decimal(4, 0), next_day date32, later timestamp[us], dow float64, since month_day_nano_interval, today date32"
+			if want != fetched {
+				t.Fatalf("full temporal schema: %s, want %s", want, fetched)
+			}
+			declaredWant = "m timestamp[us], y decimal256(76, 16), next_day date32, later timestamp[us], dow float64, since month_day_nano_interval, today date32"
+		}
+		wrappedWant := declaredWant
 		if q == "SELECT NULL AS nothing, id, TRUE AS yes FROM it_empty_t" {
 			// PostgreSQL resolves a relation's unknown NULL output to text;
 			// this remains true when the outer query reads zero rows.
@@ -540,7 +554,7 @@ func TestSQLEmptySchema(t *testing.T) {
 			h.expectNoRows(form, wrappedWant)
 		}
 		for _, sql := range []string{q, dbtEmpty(q)} {
-			expected := want
+			expected := declaredWant
 			if sql != q {
 				expected = wrappedWant
 			}
@@ -562,8 +576,15 @@ func TestSQLEmptySchema(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got, want := schemaText(probe), schemaText(fullTable); got != want {
-			t.Errorf("CREATE TABLE AS (%s)\n columns: %s\n    want: %s", q, got, want)
+		fullWant := want
+		if q == "SELECT NULL AS nothing, id, TRUE AS yes FROM it_empty_t" {
+			fullWant = wrappedWant
+		}
+		if got := schemaText(fullTable); got != fullWant {
+			t.Errorf("full CTAS schema: %s, want %s", got, fullWant)
+		}
+		if got := schemaText(probe); got != wrappedWant {
+			t.Errorf("CREATE TABLE AS (%s)\n columns: %s\n    want: %s", q, got, wrappedWant)
 		}
 		h.expectRows("SELECT COUNT(*) FROM it_empty_probe", "0")
 		h.exec("DROP TABLE it_empty_full")

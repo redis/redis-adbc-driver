@@ -6,6 +6,9 @@ Source: base `b14aea157a5abaa753b8f58ad375787006c7c646` plus file contents
 identified by SHA-256 in [sanitized results](results.json).
 See [intent](intent.md), [spec](spec.md), [plan](plan.md).
 
+See the [CI follow-up](ci-fix.md) for the aggregation-admission correction and
+exact empty-schema/interval assertions after the original hosted run.
+
 ## Result and scope
 
 The unchanged, fully fetched curated corpus reports **602/651 scored passes

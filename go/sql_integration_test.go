@@ -1392,7 +1392,7 @@ func TestSQLIntervals(t *testing.T) {
 	h.expectRows(`SELECT EXTRACT(EPOCH FROM INTERVAL '1 day 2 hours'), EXTRACT(HOUR FROM INTERVAL '26 hours'),
 			EXTRACT(DAY FROM INTERVAL '1 month 3 days'), EXTRACT(YEAR FROM INTERVAL '14 months'),
 			EXTRACT(MONTH FROM INTERVAL '14 months'), EXTRACT(SECOND FROM INTERVAL '1 minute 30.5 seconds')`,
-		"93600|26|3|1|2|30.5")
+		"93600.000000|26|3|1|2|30.500000")
 
 	// On table data: filters push down, NULLs propagate, ORDER BY intervals.
 	h.expectRows(`SELECT id FROM it_iv WHERE ts >= TIMESTAMP '2024-03-01 12:00:00' - INTERVAL '1 day' ORDER BY id`, "2", "3")

@@ -469,7 +469,7 @@ func tupleInputExpr(x Expr, types map[string]ColType) bool {
 		inputs := compileAggregateInputs([]*Func{{Name: "SUM", Args: []Expr{x}}}, types)
 		return inputs.roots[0] >= 0
 	case *Func:
-		if x.Name != "LENGTH" && x.Name != "DATE_PART" && x.Name != "REGEXP_REPLACE" {
+		if x.Name != "LENGTH" && x.Name != "DATE_PART" && x.Name != "__EXTRACT" && x.Name != "REGEXP_REPLACE" {
 			return false
 		}
 		for _, a := range x.Args {
