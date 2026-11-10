@@ -114,7 +114,7 @@ class AcceptanceRunnerTests(unittest.TestCase):
                     for line in path.read_text().splitlines()
                     if len(parts := line.split("|")) > 2 and parts[1].strip().isdigit()}
         comparison = rows(ROOT / "docs/data-engineering-adbc-support.md")
-        self.assertEqual(len(comparison), 50)
+        self.assertEqual(len(comparison), 51)
         self.assertEqual(rows(ROOT / "docs/integrations/acceptance.md"), comparison)
 
     def test_timeout_still_runs_other_suites(self):

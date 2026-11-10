@@ -246,7 +246,7 @@ claim every server version or failover scenario has been validated.
 
 ## Data tools and integration status
 
-The [50-tool comparison](docs/data-engineering-adbc-support.md) lists connection
+The [51-tool comparison](docs/data-engineering-adbc-support.md) lists connection
 paths, validation evidence, and remaining gaps. The examples below summarize
 recorded local validation; each entry links to a usage guide with setup, examples
 and validation scope.
@@ -273,6 +273,7 @@ Integration setup guides:
 | Dask | Read lazy query partitions through worker-local ADBC connections and pandas Arrow dtypes. | [Guide](docs/integrations/dask.md) |
 | Ray Data | Stream partitioned Arrow batches from worker-local ADBC connections; install the native driver on each worker. | [Guide](docs/integrations/ray.md) |
 | dlt | Append pipeline data through the repository ADBC destination; replace/merge are unsupported and retries can duplicate rows. | [Guide](docs/integrations/dlt.md) |
+| [Sling](https://slingdata.io) | Move PostgreSQL data into Redis and back through ADBC; tested with template overrides and precreated Redis tables using direct truncate-and-load. | [Guide](docs/integrations/sling.md) |
 
 Additional locally validated workflows use custom application code, adapters, or
 Arrow conversion. These examples do not establish built-in Redis connectors,

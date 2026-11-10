@@ -1,6 +1,6 @@
-# Driver installation for all 50 integrations
+# Driver installation for all 51 integrations
 
-This maps every row of the [current 50-tool inventory](data-engineering-adbc-support.md)
+This maps every row of the [current 51-tool inventory](data-engineering-adbc-support.md)
 to an installation choice. Use the [shared setup](setup.md) and linked tool guides
 for configuration, dependencies and read/write limits. A driver installation
 supplies the SQL/Arrow client; custom task/model code and separate connectors keep
@@ -67,6 +67,7 @@ environment. Use Python 3.14 for current integrations; the package minimum is 3.
 | 48 | Apache Hop | Custom connection/transform plugin required | No packaged Hop ADBC connection supplied; native driver installation alone is insufficient. [Guide](data-engineering-adbc-support.md). |
 | 49 | RStudio | Managed native driver + R/DBI packages, or the Python wheel in its selected interpreter | Install in the actual R session/Python interpreter; preserve the documented R binding limits. [Guide](integrations/rstudio.md). |
 | 50 | Dataform | Custom target or external ingestion pipeline required | Standard Dataform workflows execute in BigQuery; no Redis target supplied. [Guide](data-engineering-adbc-support.md). |
+| 51 | Sling | Official Sling CLI + native Redis ADBC library | Use an explicit driver path, isolated metadata template overrides, and a precreated Redis table with direct truncate-and-load. No Python extra required. [Guide](integrations/sling.md). |
 
 ## Native clients, R and DuckDB
 
@@ -90,7 +91,7 @@ macOS arm64 12+. There are no Windows, macOS Intel or musl Linux driver wheels.
 Install manifests only for clients that discover libraries by driver name; Python
 package imports locate their bundled library automatically.
 
-DuckDB is documented separately from the 50-tool comparison because the inventory
+DuckDB is documented separately from the tool comparison because the inventory
 excludes storage products. For catalogs and writes, use the native driver with
 [adbc_scanner](duckdb.md). For streaming SELECT access, prefer the self-contained
 `redis_adbc` community extension where a matching registry build is available.

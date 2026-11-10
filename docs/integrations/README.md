@@ -5,7 +5,7 @@ The standard way to integrate your application with Redis is to use the
 for your programming language. Redis ADBC is another option for workflows that
 benefit from SQL and Apache Arrow, including the data-tool integrations described here.
 
-All 38 entries in the README examples table link to a guide here or the DuckDB guide.
+All 39 entries in the README examples table link to a guide here or the DuckDB guide.
 The [shared example setup](example-setup.md) supports the additional local workflows.
 The 36 guides with a bidirectional native or custom ADBC path now verify tool
 outputs written back to Redis as well as reads. See the
@@ -14,11 +14,19 @@ and [2026-11-01 results](../sdlc/changes/integration-read-write/validation.md).
 
 See the [per-guide test results](../sdlc/changes/integration-guides-262/validation.md).
 
-The [upstream acceptance audit and runner](acceptance.md) covers all 50 tools in
-the comparison and wires reusable SQLAlchemy, DBI, Fivetran and ADBC
+The [upstream acceptance audit](acceptance.md) covers all 51 tools in the
+comparison, with Sling's standalone workflow recorded separately. The runner
+wires reusable SQLAlchemy, DBI, Fivetran and ADBC
 contracts into the testing harness, with explicit adapter gaps and skip counts.
 
-See [installation routes for all 50 inventory entries](../integration-installation.md).
+Sling has a separate [PostgreSQL round-trip test](../../scripts/test_sling_postgres.py):
+two 10,003-row round trips passed with zero value or duplicate differences on
+verified Redis Software 4x QPF. It requires template overrides and direct loading
+into a precreated Redis table; default staging and empty-result handling have
+documented failures. These results are separate from the historical Python guide
+sweep and upstream acceptance counts.
+
+See [installation routes for all 51 inventory entries](../integration-installation.md).
 
 Start with [installation and diagnostics](../setup.md) to choose a package and
 verify the driver before configuring a tool.
@@ -38,6 +46,7 @@ upstream contribution's acceptance.
 | Dagster | [ADBCResource and RedisADBCIOManager](dagster.md) |
 | Prefect | [Task-local connections and flows](prefect.md) |
 | dlt | [Append-only custom destination](dlt.md) |
+| [Sling](https://slingdata.io) | [PostgreSQL ↔ Redis ADBC round trips and configuration limits](sling.md) |
 | Ray Data | [Worker-side Arrow reads and SQL APIs](ray.md) |
 | Dask | [Partitioned worker-local reads](dask.md) |
 | DuckDB | [Redis extension and adbc_scanner](../duckdb.md) |
@@ -104,6 +113,9 @@ when adding an integration; keep dependency pins in
 are distinct: for example, `huggingface-datasets` uses candidate `datasets`,
 `pyarrow` uses `arrow`, and the R / DBI and RStudio guides share candidate `r`.
 The guide and candidate execution orders are retained separately in the registry.
+`STANDALONE_GUIDES` records integrations with their own external-tool runners;
+Sling runs through `scripts/test_sling_postgres.py --sling /absolute/path/to/sling`
+and is not a Python candidate profile or a Python dependency extra.
 
 The runners keep explicit setup hooks for R/Quarto, Kestra and dbt. `ray-tls`
 remains a separate execution mode that owns its TLS fixture. Registry queries

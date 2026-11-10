@@ -1,4 +1,4 @@
-# ADBC support across 50 popular data engineering and data science tools
+# ADBC support across 51 data engineering and data science tools
 
 The standard way to integrate your application with Redis is to use the
 [official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
@@ -20,7 +20,7 @@ or present data. It excludes warehouses and products whose primary role is
 storing data. The original inventory numbers reflect broad adoption, informed by the
 [2025 Apache Airflow survey](https://airflow.apache.org/blog/airflow-survey-2025/)
 and the [2024 Python Developers Survey](https://lp.jetbrains.com/python-developers-survey-2024/), alongside ecosystem reach. These sources cover
-different communities and do not provide one comparable score for all 50 tools, so this is an editorial popularity-informed
+different communities and do not provide one comparable score for these tools, so this is an editorial popularity-informed
 ranking rather than a precise universal leaderboard. The comparison below groups
 tools by workflow while retaining those numbers.
 Dask documentation checked on **2026-10-20**. Ray worker reader checked on **2026-10-29**.
@@ -28,6 +28,9 @@ dbt adapter documentation and linked CI evidence checked on **2026-10-21**.
 dbt repository location verified on **2026-11-01**: [redis/redis-dbt-adapter](https://github.com/redis/redis-dbt-adapter).
 Airbyte source implementation and upstream draft status checked on **2026-11-01**;
 see [Airbyte Redis ADBC source](#airbyte-redis-adbc-source).
+Sling was added on **2026-11-10** after two exact PostgreSQL round trips with
+Redis ADBC; its separate evidence does not change the historical 50-tool sweep
+or Flight SQL validation counts. It retains entry 51 within its workflow group without re-ranking the original list.
 
 **ADBC (Arrow Database Connectivity)** is a database interface designed to
 exchange data in Apache Arrow's columnar format. Support has two distinct
@@ -60,7 +63,7 @@ materializes the full result in the caller and has separate validation.
 "Candidate" describes an inferred connection path from documented APIs, not
 confirmed compatibility. A passing test applies to its recorded versions,
 environment, and operations. General ADBC validation and the related Flight
-server's client coverage do not constitute tests of all 50 tools.
+server's client coverage do not constitute tests of every listed tool.
 
 The connector columns distinguish **Redis-built / maintained** projects from
 **third-party-built** projects. Redis Field Engineering and the former RedisLabs
@@ -150,8 +153,9 @@ Historical test counts below retain their original scope.
 
 ### Grouped inventory
 
-The 50 tools are grouped by workflow, following the reference presentation's
-**Data engineering (27)** and **Data science & BI (23)** categories. Each
+The 51 tools are grouped by workflow using the reference presentation's categories,
+with Sling added under ETL / ELT & integration: **Data engineering (28)** and
+**Data science & BI (23)**. Each
 tool appears once. The **#** column retains the original inventory number
 for cross-reference; it is not a rank within its category. Support status,
 test dates, limitations, and evidence remain specific to each tool.
@@ -162,14 +166,14 @@ test dates, limitations, and evidence remain specific to each tool.
 | Data engineering | [Processing & streaming (6)](#processing-streaming-6) | 6 |
 | Data engineering | [SQL & Arrow access (5)](#sql-arrow-access-5) | 5 |
 | Data engineering | [Orchestration (5)](#orchestration-5) | 5 |
-| Data engineering | [ETL / ELT & integration (8)](#etl-elt-integration-8) | 8 |
+| Data engineering | [ETL / ELT & integration (9)](#etl-elt-integration-9) | 9 |
 | Data science & BI | [ML, AI & scientific computing (7)](#ml-ai-scientific-computing-7) | 7 |
 | Data science & BI | [ML workflows & datasets (4)](#ml-workflows-datasets-4) | 4 |
 | Data science & BI | [Notebooks, IDEs & reporting (3)](#notebooks-ides-reporting-3) | 3 |
 | Data science & BI | [BI & visualization (7)](#bi-visualization-7) | 7 |
 | Data science & BI | [Data quality (2)](#data-quality-2) | 2 |
 
-### Data engineering (27)
+### Data engineering (28)
 
 <a id="dataframes-arrays-3"></a>
 
@@ -218,9 +222,9 @@ test dates, limitations, and evidence remain specific to each tool.
 | 36 | Mage | ✅ 🔌 | 📖 ✍️ [custom Arrow output](integrations/mage.md) | Data pipeline authoring | Custom Python loader blocks can invoke ADBC. [Mage integrations](https://docs.mage.ai/integrations). | Tested a real local loader/transformer pipeline: native bound queries, populated/empty dataframe handoff, values, dtypes, NULLs, and Unicode. Two cases passed; no packaged connector or hosted deployment implied. [Evidence](sdlc/changes/native-candidate-followup/validation.md). | Custom block/resource required; untested. | None verified. | No qualifying Redis connector verified. |
 | 37 | Kestra | ✅ 🔌 | 📖 ✍️ [custom Arrow output](integrations/kestra.md) | Workflow orchestration | ADBC driver loading works in a custom Python Script task; it is not a generic database plugin path. [Kestra plugins](https://kestra.io/plugins). | Tested Python Script tasks on local Kestra 2.0.7: native bound queries, populated/empty Arrow schema/rows, managed file handoff to a downstream checker, and retrieved task outputs. Two cases passed. [Evidence](sdlc/changes/native-candidate-followup/validation.md). | Custom Flight SQL task/plugin required; untested. | None verified. | [Kestra Redis plugin](https://kestra.io/plugins/plugin-redis) supports Redis data structures and pub/sub; it does not establish general SQL/Query Engine access. |
 
-<a id="etl-elt-integration-8"></a>
+<a id="etl-elt-integration-9"></a>
 
-#### ETL / ELT & integration (8)
+#### ETL / ELT & integration (9)
 
 | # | Tool | Redis connection solution | Redis read/write | Main purpose | General ADBC support | Redis ADBC support | Redis Arrow Flight SQL support | Redis-built / maintained connector | Third-party-built connector / alternative |
 |---|---|---|---|---|---|---|---|---|---|
@@ -232,6 +236,7 @@ test dates, limitations, and evidence remain specific to each tool.
 | 47 | Meltano | ❌ | ⚠️ **Unverified** — no Redis path verified | ELT and data integration | Meltano orchestrates extractor and loader plugins; no generic ADBC connector verified. [Meltano integration guide](https://docs.meltano.com/guide/integration). | Custom tap/target or plugin work required; no packaged Redis ADBC connector verified. | Custom connector required; no generic Flight SQL plugin verified. | None verified. | No qualifying Redis ADBC or full-command connector verified. |
 | 48 | Apache Hop | ❌ | ⚠️ **Unverified** — no Redis path verified | Visual data integration and orchestration | Hop builds and runs pipelines through its plugin ecosystem; no generic ADBC connector verified. [Apache Hop overview](https://hop.apache.org/manual/latest/getting-started/hop-what-is-hop.html). | Custom transform/connection plugin required; untested. | Custom Flight SQL integration required; untested. | None verified. | No qualifying Redis connector verified. |
 | 50 | Dataform | ❌ | ⚠️ **Unverified** — no Redis path verified | SQL transformation workflows | Dataform develops and schedules SQL workflows for BigQuery; no generic ADBC driver consumer verified. [Dataform overview](https://docs.cloud.google.com/dataform/docs/overview). | Redis adapter/target would be required; Dataform standard workflows execute in BigQuery. | No direct Flight SQL integration verified. | None verified. | No Redis Dataform adapter verified. |
+| 51 | Sling | ✅ 🔌 | 📖 ✍️ Both, with configuration limits | Database and file data movement | Generic ADBC connector with explicit driver library paths. [Sling ADBC](https://docs.slingdata.io/connections/database-connections/adbc). | Tested Sling 1.6.6: PostgreSQL → Redis → PostgreSQL, 10,003 rows × 7 columns, twice; zero EXCEPT ALL differences. Requires metadata template overrides and precreated Redis tables with direct truncate-and-load; default staging and empty batches fail. [Guide](integrations/sling.md), [evidence](sdlc/changes/sling-postgres/validation.md). | Not tested. | Redis ADBC driver; no dedicated Redis Sling connector supplied. | Sling generic ADBC connector; [upstream interoperability report](https://github.com/slingdata-io/sling-cli/issues/836). |
 
 ### Data science & BI (23)
 
@@ -352,7 +357,7 @@ package and native driver on every worker. See the
 [Dask partitioning contract](python-integrations.md#dask).
 
 The package also ships [SQLAlchemy and Superset integrations](python-integrations.md#sqlalchemy-and-superset),
-included in the current 50-tool selection. Their recorded checks cover reflection, bound SQL,
+included in the original 50-tool selection. Their recorded checks cover reflection, bound SQL,
 Superset discovery, dataset queries, and the SQL Lab cursor path; they do not
 establish browser-rendered chart coverage or transactional ORM support.
 
@@ -479,7 +484,7 @@ PostgreSQL compliance claim. Superset retains its separate application smoke
 evidence; SQLAlchemy acceptance does not certify dashboards or other SQL tools.
 
 - [#281](https://github.com/redis/redis-adbc-driver/pull/281) adds
-  [installation routes for all 50 entries](integration-installation.md),
+  [installation routes for the original 50 entries](integration-installation.md),
   pandas/Polars extras, release-gated DuckDB fallback binaries and the checksummed
   managed installer, plus automatic PyPI publication after a qualifying successful
   binary release. [Validation](sdlc/changes/integration-distribution/validation.md)
@@ -596,6 +601,7 @@ versions and a disposable Redis 8.6.2 with Search, not the later Software/QPF se
 | NumPy and scikit-learn | [Tests](../python/tests/test_ml_ingest.py): **2 passed** on Redis OSS 8.6.2 with Search; query an Arrow result through Redis ADBC, convert to NumPy, then fit/predict a small scikit-learn decision tree. | Demonstrates a custom local Python pipeline only; no native connector, Flight SQL path, model persistence, or production-sized training workload was tested. |
 | Additional local Python workflows | [Tests and record](sdlc/changes/candidate-test-runner/validation.md): **5 passed, zero skips** on Redis Software 8.6.2 with active verified 4x QPF: Jupyter notebook kernel execution, HF Dataset persistence/filtering (including empty results), Streamlit AppTest reruns, and SciPy sparse solve. | Custom local application paths. Datasets 5.1.0 requires `num_shards=1` for empty save/reload; browser interfaces, hosted runtimes, HF Hub/model downloads, and Flight SQL remain untested. |
 | dlt append destination | [Tests](../python/tests/test_dlt.py) and [record](sdlc/changes/dlt-integration/validation.md): 12 dlt cases passed on earlier sources; public-base run **5 passed, 7 live cases skipped**. | No live public-base result. Append only; replace/merge rejected. Failed writes/checkpoint replay can duplicate rows; no automatic schema migration or restored source state from Redis. Hosted CI and release-wheel compatibility remain unverified by that record. |
+| Sling PostgreSQL round trips | [Standalone test](../scripts/test_sling_postgres.py) and [record](sdlc/changes/sling-postgres/validation.md): two 10,003-row, seven-column round trips with zero duplicate-aware full-row differences on macOS ARM64, PostgreSQL 18.6 and Redis Software 8.8.0 with verified 4x QPF. | Requires template overrides, precreation and direct truncate-and-load. Default staging and empty-result handling fail; exact DDL preservation, CDC/upsert, other platforms and query performance were not validated. |
 | DB-API and Polars | [Polars and driver tests](sdlc/changes/polars-regression-rerun/validation.md): **8 passed**, including typed connection/URI reads, writes/appends, filtering, aggregation, NULLs, and empty-result schemas. An earlier clean-wheel smoke run recorded **4 passed**. | Latest rerun used a source build; wheels, other platforms, Cloud, cluster topologies, TLS handshakes, Flight SQL, and performance were not validated by that rerun. |
 | Ray worker-side reader | [Tests](../python/tests/test_ray_datasource.py) and [snapshot replay record](sdlc/changes/snapshot-parity/ray-validation.md): **17 passed** on verified Software 4x QPF, including typed worker reads, empty schemas, parameters, streaming, cleanup/cancellation, replay after UPDATE/TRUNCATE/DROP, retries across writes, and TLS certificate rejection. | Source build pinned to Ray 2.59.0 with a matching native library on each worker. Unordered reads retain the planned snapshot across workers and retries until descriptor expiry or release. Multi-node, abrupt process death, other versions/platforms, Flight SQL, and release wheels remain unverified. |
 | Prefect custom Python tasks | [Tests](../python/tests/test_prefect.py) and [record](sdlc/changes/prefect-integration/plan.md): **4 passed**, zero skips; local orchestration, Arrow values/types, dependencies, concurrency, retries, and SQL errors. | Custom tasks, not a packaged ADBC connector. Remote workers, Prefect Cloud, `prefect-redis`, Flight SQL, and other platforms remain untested. Writes autocommit; retries need idempotent writes to avoid duplicates. |

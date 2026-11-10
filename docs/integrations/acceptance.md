@@ -1,8 +1,9 @@
 # Upstream acceptance suites
 
-Audit date: **2026-11-01**. Scope: all 50 rows in the
-[tool comparison](../data-engineering-adbc-support.md), including all 38
-[integration guides](README.md). The checked sources are linked per row below.
+Audit baseline: **2026-11-01**, covering the original 50 tools. Sling was added
+on **2026-11-10** with its separate standalone workflow disposition. The table
+now covers all 51 rows in the [tool comparison](../data-engineering-adbc-support.md),
+including all 39 [integration guides](README.md). The checked sources are linked per row below.
 “Workflow” means project tests exist, but no reusable database acceptance entry
 point was identified for our particular Arrow/custom-code integration. It does
 not mean that the upstream project has no tests. “Needs adapter” means an
@@ -131,6 +132,7 @@ for native Redis clients, JDBC or Flight SQL do not validate this ADBC driver.
 | 48 | Apache Hop | [Integration tests](https://github.com/apache/hop/tree/main/integration-tests) | Needs adapter: no Redis ADBC transform/connection plugin here. |
 | 49 | RStudio | [IDE tests](https://github.com/rstudio/rstudio/tree/main/src/cpp/tests) | **DBI layer integrated: `r-dbi`**; IDE browser/desktop automation is separate. |
 | 50 | Dataform | [Project tests](https://github.com/dataform-co/dataform/tree/main/tests) | Needs adapter: Dataform's warehouse workflows do not consume this Redis ADBC driver. |
+| 51 | Sling | [ADBC connector implementation](https://github.com/slingdata-io/sling-cli/blob/9d5186194e76e3e146b7d6367a6e27a961242dce/core/dbio/database/database_adbc.go) | Standalone workflow: [PostgreSQL round-trip test](../../scripts/test_sling_postgres.py), separate from this upstream acceptance runner. Two configured 10,003-row round trips passed with zero EXCEPT ALL differences; stock full-refresh and empty Arrow results failed. No reusable upstream Redis backend acceptance contract was integrated. [Evidence](../sdlc/changes/sling-postgres/validation.md). |
 
 This audit assesses reuse of upstream test contracts for the implemented paths;
 it does not certify tools listed as unverified in the comparison. Broader native

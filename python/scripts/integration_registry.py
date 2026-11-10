@@ -60,6 +60,12 @@ CANDIDATES = {
     'kestra': ('test_kestra_candidate.py',),
 }
 
+# External CLI integrations own their setup and cannot run as Python guide
+# snippets or pytest candidate selectors. Paths are relative to the repo root.
+STANDALONE_GUIDES = {
+    'sling': 'scripts/test_sling_postgres.py',
+}
+
 PROFILES = {
     'core': Profile(
         '3.12', 'test,candidate-tests',
