@@ -14,5 +14,8 @@ Status: complete. [Intent](intent.md), [specification](spec.md), [validation](va
    add Sling to the README, guide index, installation/support inventories and
    standalone-runner registry. Verify inventory contracts and local links without
    rerunning unchanged live transfers.
+7. Fix PR helper CI by adding Sling's standalone workflow disposition to the
+   acceptance audit and updating its exact inventory count; reproduce the
+   failure and run the acceptance-runner contracts before pushing.
 
 No driver changes or upstream Sling patch was needed for the configured path.

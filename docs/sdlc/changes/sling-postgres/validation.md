@@ -58,3 +58,11 @@ both inventories' sequential 1–51 numbering, and `git diff --check` passed.
 Unchanged live transfers were not rerun for the listing edits. The upstream
 report is [Sling #836](https://github.com/slingdata-io/sling-cli/issues/836),
 created with the repository template's existing `enhancement` label.
+
+PR #371 CI correction, 2026-11-10: reproduced the helper failure in
+`test_audit_covers_every_comparison_row` (51 comparison entries versus the
+asserted 50, with Sling missing from the acceptance-audit table). Added the
+standalone Sling disposition to that audit and updated the exact count without
+removing the full table-equality assertion. The acceptance-runner suite then
+passed all 13 tests; the CI-matrix suite passed all 9 tests. Added local audit
+links and `git diff --check` passed. No live driver behavior changed.
