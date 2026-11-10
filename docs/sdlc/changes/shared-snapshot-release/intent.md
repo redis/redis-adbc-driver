@@ -1,7 +1,7 @@
 # Shared snapshot release readiness: intent
 
 Date: 2026-11-10. Requestor: Albert Wong. Source baseline: `018e0368`.
-Status: local candidate validated; no release published.
+Status: released and verified as v0.0.24.
 Issue: [#365](https://github.com/redis/redis-adbc-driver/issues/365).
 Related: [specification](spec.md), [plan](plan.md), [acceptance](acceptance.md),
 [verification](verification.md), [proposed release notes](release-notes.md).

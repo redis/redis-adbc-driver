@@ -1,6 +1,6 @@
 # Shared snapshot release readiness: specification
 
-Date: 2026-11-10. Source baseline: `018e0368`. Status: implemented and locally validated.
+Date: 2026-11-10. Source baseline: `018e0368`. Status: released and verified as v0.0.24.
 Issue: [#365](https://github.com/redis/redis-adbc-driver/issues/365).
 Related: [intent](intent.md), [plan](plan.md), [acceptance](acceptance.md),
 [verification](verification.md), [proposed release notes](release-notes.md).

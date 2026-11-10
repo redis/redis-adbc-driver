@@ -1,9 +1,10 @@
-# Proposed v0.0.24 release notes
+# v0.0.24 release notes
 
-Status: prepared for review; **not a published release**. Production driver
-source: `018e0368f2f08f5ffd6a51f4978f9d1eae9d8c9b`, including #369 and #373.
-Do not represent this version as available until binary and PyPI publication
-finish and released-artifact verification is recorded.
+Published 2026-11-10: [GitHub release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.24),
+[PyPI 0.0.24](https://pypi.org/project/adbc-driver-redis/0.0.24/).
+Released source: `b052eedad9f2fb2c6eeb7c79fe63f8bbc3ca6bdd`, including #369,
+#373, #374 and #377. Binary and PyPI workflows succeeded; published checksums
+and clean native/PyPI installations were verified in [the evidence](verification.md).
 
 ## Reusable native read snapshots
 
