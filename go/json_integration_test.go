@@ -244,7 +244,7 @@ func TestSQLJSONUnicode(t *testing.T) {
 	h.expectRows(`SELECT doc -> 'café', doc ->> 'A', JSON_VALUE(doc, '$."café"') FROM it_json_text WHERE id = 5`, "1|2|1")
 
 	// \u0000 and unpaired surrogates are valid json text but can't be decoded.
-	h.expectRows(`SELECT doc IS JSON, JSON_TYPEOF(doc), doc::json = doc FROM it_json_text WHERE id >= 3 AND id <= 4 ORDER BY id`,
+	h.expectRows(`SELECT doc IS JSON, JSON_TYPEOF(doc), doc::json::text = doc FROM it_json_text WHERE id >= 3 AND id <= 4 ORDER BY id`,
 		"true|object|true", "true|object|true")
 	h.expectError(`SELECT doc ->> 's' FROM it_json_text WHERE id = 3`, "unsupported Unicode escape sequence: \\u0000 cannot be converted to text")
 	h.expectError(`SELECT doc::jsonb FROM it_json_text WHERE id = 3`, "unsupported Unicode escape sequence")
@@ -424,9 +424,9 @@ func TestSQLJSONConstructors(t *testing.T) {
 	h.expectError(`SELECT JSON_BUILD_OBJECT('a')`, "JSON_BUILD_OBJECT: argument list must have even number of elements")
 	h.expectError(`SELECT JSON_OBJECT(NULL VALUE 1)`, "null value not allowed for object key")
 
-	// Results are VARCHAR: they can be stored, updated and read back.
+	// Results retain logical JSON identity through CTAS, updates and reads.
 	h.exec(`CREATE TABLE it_json_ctas AS SELECT id, JSON_BUILD_OBJECT('i', i, 'n', n) AS j FROM it_json_types`)
-	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_json_ctas' AND column_name = 'j'`, "VARCHAR")
+	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_json_ctas' AND column_name = 'j'`, "JSON")
 	h.expectRows(`SELECT id, j ->> 'i', j -> 'n' FROM it_json_ctas ORDER BY id`, "1|42|10.50", "2|NULL|null")
 	h.exec(`UPDATE it_json_ctas SET j = JSONB_BUILD_OBJECT('old', j::json, 'k', 'v') WHERE id = 1`)
 	h.exec(`INSERT INTO it_json_ctas VALUES (3, JSON_ARRAY(1, 2))`)
@@ -492,11 +492,11 @@ func TestSQLJSONAggregates(t *testing.T) {
 		}
 	}
 
-	// A JSON result read back from a subquery is text: it becomes a JSON
-	// string unless cast with ::json.
+	// A JSON result retains its logical type through a subquery and embeds
+	// as a JSON value without requiring a cast.
 	h.expectRows(`WITH g AS (SELECT region, JSON_AGG(item ORDER BY id) AS items FROM it_json_sales GROUP BY region)
 		SELECT JSON_AGG(items ORDER BY region), JSON_AGG(items::json ORDER BY region) FROM g`,
-		`["[\"apple\", \"pear\", \"fig\"]", "[null]", "[\"apple\", \"kiwi\"]"]|[["apple", "pear", "fig"], [null], ["apple", "kiwi"]]`)
+		`[["apple", "pear", "fig"], [null], ["apple", "kiwi"]]|[["apple", "pear", "fig"], [null], ["apple", "kiwi"]]`)
 
 	h.expectError(`SELECT JSON_AGG(id) OVER () FROM it_json_sales`, "JSON_AGG is not a window function")
 	h.expectError(`SELECT JSON_AGG(*) FROM it_json_sales`, "JSON_AGG does not accept *")

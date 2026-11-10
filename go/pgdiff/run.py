@@ -80,6 +80,8 @@ PG_TYPES = {
 
 
 def arrow_type(t):
+    if isinstance(t, pa.BaseExtensionType) and t.extension_name == "arrow.json":
+        return "string"
     if pa.types.is_struct(t):
         return "record"
     if pa.types.is_list(t) or pa.types.is_large_list(t):
@@ -271,6 +273,9 @@ def civil_date(days):
 
 
 def arrow_values(column, datatype):
+    if isinstance(datatype, pa.BaseExtensionType) and datatype.extension_name == "arrow.json":
+        column = column.combine_chunks() if isinstance(column, pa.ChunkedArray) else column
+        return arrow_values(column.storage, datatype.storage_type)
     if pa.types.is_struct(datatype):
         # Positional children retain duplicate names and distinguish a NULL
         # struct from a present struct whose children are all NULL.

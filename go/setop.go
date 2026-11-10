@@ -126,6 +126,9 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 				}
 			}
 		}
+		if (op.Op != "UNION" || !op.All) && containsPlainJSON(t) {
+			return nil, jsonEqualityError()
+		}
 		plan.items = append(plan.items, planItem{name: l.name, typ: t})
 	}
 	sp := &setOpPlan{op: op.Op, all: op.All, left: left, right: right}
@@ -151,6 +154,9 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 		}
 		if col < 0 {
 			return nil, errorf(adbc.StatusInvalidArgument, "ORDER BY on a %s result must use output column names or positions", op.Op)
+		}
+		if containsPlainJSON(plan.items[col].typ) {
+			return nil, jsonEqualityError()
 		}
 		sp.order = append(sp.order, setOrderKey{col: col, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 	}

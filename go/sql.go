@@ -882,6 +882,9 @@ func lex(src string) ([]token, error) {
 				}
 			}
 			toks = append(toks, token{kind: tokNumber, text: src[start:i], pos: start, end: i})
+		case c == '?' && i+1 < len(src) && (src[i+1] == '|' || src[i+1] == '&'):
+			toks = append(toks, token{kind: tokOp, text: src[i : i+2], pos: i, end: i + 2})
+			i += 2
 		case c == '?':
 			toks = append(toks, token{kind: tokParam, text: "", pos: i, end: i + 1})
 			i++
@@ -929,7 +932,7 @@ func lex(src string) ([]token, error) {
 			}
 			toks = append(toks, token{kind: tokOp, text: src[start:i], pos: start, end: i})
 		default:
-			ops := []string{"=>", ":=", "<<", ">>", "@>", "<@", "&&", "->>", "->", "#>>", "#>", "<>", "!=", "<=", ">=", "||", "::", "==", "(", ")", ",", ";", "*", "+", "-", "/", "%", "=", "<", ">", ".", ":", "^", "&", "|"}
+			ops := []string{"=>", ":=", "<<", ">>", "@>", "<@", "&&", "->>", "->", "#>>", "#>", "#-", "<>", "!=", "<=", ">=", "||", "::", "==", "(", ")", ",", ";", "*", "+", "-", "/", "%", "=", "<", ">", ".", ":", "^", "&", "|"}
 			matched := false
 			for _, op := range ops {
 				if strings.HasPrefix(src[i:], op) {
@@ -3826,11 +3829,14 @@ func (p *parser) parseOtherOp() (Expr, error) {
 	}
 	for {
 		t := p.peek()
+		if t.kind == tokParam && t.text == "" {
+			t.kind, t.text = tokOp, "?"
+		}
 		if t.kind != tokOp {
 			return l, nil
 		}
 		switch t.text {
-		case "&", "|", "<<", ">>", "||", "~", "~*", "!~", "!~*", "->", "->>", "#>", "#>>", "@>", "<@", "&&":
+		case "&", "|", "<<", ">>", "||", "~", "~*", "!~", "!~*", "->", "->>", "#>", "#>>", "@>", "<@", "&&", "?", "?|", "?&", "#-":
 		default:
 			return l, nil
 		}
@@ -3842,7 +3848,7 @@ func (p *parser) parseOtherOp() (Expr, error) {
 		switch t.text {
 		case "||":
 			l = &Binary{Op: "||", L: l, R: r}
-		case "&", "|", "<<", ">>", "->", "->>", "#>", "#>>", "@>", "<@", "&&":
+		case "&", "|", "<<", ">>", "->", "->>", "#>", "#>>", "@>", "<@", "&&", "?", "?|", "?&", "#-":
 			l = &Func{Name: t.text, Args: []Expr{l, r}}
 		default:
 			l = &Func{Name: strings.TrimPrefix(t.text, "!"), Args: []Expr{l, r}}

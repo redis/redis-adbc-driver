@@ -19,7 +19,7 @@ import "strings"
 // jsonConcat applies PostgreSQL's top-level jsonb concatenation rules.
 func jsonConcat(l, r Value) (Value, error) {
 	if l.Null || r.Null {
-		return nullValue(typeString), nil
+		return nullValue(typeJSONB), nil
 	}
 	a, err := parseJSON(l.Text(), true)
 	if err != nil {
@@ -46,5 +46,5 @@ func jsonConcat(l, r Value) (Value, error) {
 	if err := writeJSONB(&text, out); err != nil {
 		return Value{}, err
 	}
-	return stringValue(text.String()), nil
+	return Value{T: typeJSONB, S: text.String()}, nil
 }

@@ -319,6 +319,8 @@ func literalOperandType(op string, lit Expr, t ColType, left bool) (ColType, err
 		return sigTypeName(t) + " " + op + " unknown"
 	}
 	switch k := t.Kind; {
+	case k == KindJSONB && op == "-" && !left:
+		return typeString, nil
 	case k == KindNull:
 		return ColType{}, stateErr(stateAmbiguousFunction, "operator is not unique: unknown %s unknown", op)
 	case k == KindDecimal:

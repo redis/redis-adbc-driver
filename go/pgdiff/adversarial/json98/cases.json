@@ -1,0 +1,171 @@
+{
+  "area": "json-adversarial",
+  "tier": "issues",
+  "setup": [],
+  "cases": [
+    {
+      "id": "edge-000",
+      "sql": "SELECT '{\"a\":1}'::jsonb ? 'z', '[\"x\",1]'::jsonb ? 'x', '[1]'::jsonb ? '1', '\"x\"'::jsonb ? 'x'"
+    },
+    {
+      "id": "edge-001",
+      "sql": "SELECT '{}'::jsonb ?& '{}', '{}'::jsonb ?| '{}', '{\"a\":1}'::jsonb ?& '{NULL,a}'"
+    },
+    {
+      "id": "edge-002",
+      "sql": "SELECT '[1,2,3]'::jsonb - -1, '[\"x\",1,\"x\"]'::jsonb - 'x', '{}'::jsonb - 'missing'"
+    },
+    {
+      "id": "edge-003",
+      "sql": "SELECT '{\"a\":[1,2,3]}'::jsonb #- '{a,-1}', '{\"a\":1}'::jsonb #- '{}', '{}'::jsonb #- '{missing,x}'"
+    },
+    {
+      "id": "edge-004",
+      "sql": "SELECT jsonb_set('{\"a\":1}', '{a}', 'null'), jsonb_set('{}','{a}','2',false),jsonb_set('{}','{a}','2','true')"
+    },
+    {
+      "id": "edge-005",
+      "sql": "SELECT jsonb_set('{\"a\":1}','{a,b}','2'),jsonb_set('[1,2]','{-9}','3'),jsonb_set('[1,2]','{9}','3')"
+    },
+    {
+      "id": "edge-006",
+      "sql": "SELECT jsonb_set('1','{}','2')"
+    },
+    {
+      "id": "edge-007",
+      "sql": "SELECT '[1]'::jsonb #- '{x}'"
+    },
+    {
+      "id": "edge-008",
+      "sql": "SELECT jsonb_set('{}',ARRAY[NULL::text],'2')"
+    },
+    {
+      "id": "edge-009",
+      "sql": "SELECT NULL::jsonb ? 'a', jsonb_set('{}','{a}',NULL),NULL::jsonb - 'x'"
+    },
+    {
+      "id": "edge-010",
+      "sql": "SELECT * FROM json_each('{\"a\":1,\"a\":2,\"z\":null}') WITH ORDINALITY"
+    },
+    {
+      "id": "edge-011",
+      "sql": "SELECT * FROM json_each_text('{\"a\":[1,  2],\"b\":null}')"
+    },
+    {
+      "id": "edge-012",
+      "sql": "SELECT * FROM jsonb_each_text('{\"a\":[1,  2],\"b\":null}')"
+    },
+    {
+      "id": "edge-013",
+      "sql": "SELECT * FROM json_array_elements_text('[1,null,\"x\",{\"a\":2}]')"
+    },
+    {
+      "id": "edge-014",
+      "sql": "SELECT json_each('{\"a\":1,\"b\":2}'),json_object_keys('{\"z\":1}')"
+    },
+    {
+      "id": "edge-015",
+      "sql": "SELECT * FROM json_array_elements('1')"
+    },
+    {
+      "id": "edge-016",
+      "sql": "SELECT * FROM json_each('null')"
+    },
+    {
+      "id": "edge-017",
+      "sql": "SELECT * FROM json_each(NULL::json)"
+    },
+    {
+      "id": "edge-018",
+      "sql": "SELECT '{\"n\":9007199254740993}'::jsonb @> '{\"n\":9007199254740992}', '[1,[2]]'::jsonb @> '[2]', '[1,[2]]'::jsonb @> '[[2]]', '[2]'::jsonb @> '2'"
+    },
+    {
+      "id": "edge-019",
+      "sql": "SELECT '{\"n\":1.0}'::jsonb @> '{\"n\":1}', '{\"x\":\"\\u0061\"}'::jsonb @> '{\"x\":\"a\"}'"
+    },
+    {
+      "id": "edge-020",
+      "sql": "SELECT $1::jsonb ? $2",
+      "params": [
+        "{\"a\":1}",
+        "a"
+      ]
+    },
+    {
+      "id": "edge-021",
+      "sql": "SELECT $1::jsonb - $2",
+      "params": [
+        "{\"a\":1}",
+        "a"
+      ]
+    },
+    {
+      "id": "edge-022",
+      "sql": "SELECT '1.0'::jsonb='1e0'::jsonb, '{\"a\":1,\"b\":2}'::jsonb='{\"b\":2.0,\"a\":1.00}'::jsonb, '9007199254740993'::jsonb>'9007199254740992'::jsonb"
+    },
+    {
+      "id": "edge-023",
+      "sql": "WITH t(v) AS (VALUES('1'::jsonb),('1.0'::jsonb),('1e0'::jsonb)) SELECT v,COUNT(*) FROM t GROUP BY v"
+    },
+    {
+      "id": "edge-024",
+      "sql": "WITH a(v) AS(VALUES('{\"n\":1}'::jsonb)),b(v)AS(VALUES('{\"n\":1.0}'::jsonb),('{\"n\":2}'::jsonb)) SELECT COUNT(*) FROM a JOIN b ON a.v=b.v"
+    },
+    {
+      "id": "edge-025",
+      "sql": "SELECT '{\"n\":1}'::jsonb IN (SELECT '{\"n\":1.0}'::jsonb), '1'::jsonb IN ('1.0'::jsonb,'2'::jsonb)"
+    },
+    {
+      "id": "edge-026",
+      "sql": "SELECT '1'::jsonb UNION SELECT '1.0'::jsonb"
+    },
+    {
+      "id": "edge-027",
+      "sql": "WITH t(id,v) AS(VALUES(1,'[]'::jsonb),(2,'null'::jsonb),(3,'\"a\"'::jsonb),(4,'1'::jsonb),(5,'false'::jsonb),(6,'[1]'::jsonb),(7,'{}'::jsonb),(8,'1.0'::jsonb)) SELECT id FROM t ORDER BY v,id"
+    },
+    {
+      "id": "edge-028",
+      "sql": "SELECT '{\"aa\":1,\"c\":1}'::jsonb>'{\"b\":1,\"d\":1}'::jsonb, '[1,2]'::jsonb>'[9]'::jsonb, '[[]]'::jsonb>'[null]'::jsonb"
+    },
+    {
+      "id": "edge-029",
+      "sql": "SELECT '{}'::json='{}'::json"
+    },
+    {
+      "id": "edge-030",
+      "sql": "WITH t(v)AS(VALUES('{}'::json),('[]'::json)) SELECT v,COUNT(*) FROM t GROUP BY v"
+    },
+    {
+      "id": "edge-031",
+      "sql": "SELECT DISTINCT '{}'::json"
+    },
+    {
+      "id": "edge-032",
+      "sql": "WITH a(v)AS(VALUES('{}'::json)),b(v)AS(VALUES('{}'::json)) SELECT * FROM a JOIN b ON a.v=b.v"
+    },
+    {
+      "id": "edge-033",
+      "sql": "SELECT '{}'::json ? 'a'"
+    },
+    {
+      "id": "edge-034",
+      "sql": "SELECT * FROM jsonb_each('{}'::json)"
+    },
+    {
+      "id": "edge-035",
+      "sql": "SELECT jsonb_set('{}'::json,'{a}','1')"
+    },
+    {
+      "id": "edge-036",
+      "sql": "SELECT COUNT(DISTINCT '{}'::json)"
+    },
+    {
+      "id": "edge-037",
+      "sql": "SELECT json_agg(v ORDER BY v) FROM (VALUES('{}'::json)) t(v)"
+    },
+    {
+      "id": "edge-038",
+      "sql": "SELECT '{}'::json UNION ALL SELECT '[]'::json ORDER BY 1"
+    }
+  ]
+}

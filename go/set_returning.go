@@ -9,6 +9,9 @@ import (
 )
 
 func isSRF(name string) bool {
+	if _, ok := jsonSRFTypes(name); ok {
+		return true
+	}
 	switch name {
 	case "UNNEST", "GENERATE_SUBSCRIPTS", "GENERATE_SERIES", "STRING_TO_TABLE", "REGEXP_SPLIT_TO_TABLE", "REGEXP_MATCHES":
 		return true
@@ -66,6 +69,12 @@ func tableFunctionTypes(f *Func, types map[string]ColType, params []ColType) ([]
 		}
 	}
 	args := inferArgTypes(f.Args, types, params)
+	if err := jsonNativeCallError(f, args); err != nil {
+		return nil, err
+	}
+	if ts, ok := jsonSRFTypes(f.Name); ok {
+		return ts, nil
+	}
 	if f.Name == "GENERATE_SERIES" {
 		t, err := seriesType(args)
 		return []ColType{t}, err
@@ -113,6 +122,10 @@ func (e *executor) planGeneralTableFunc(ctx context.Context, f *Func, alias stri
 	var names []string
 	var namesFor func(*Func)
 	namesFor = func(fn *Func) {
+		if ts, ok := jsonSRFTypes(fn.Name); ok && len(ts) == 2 {
+			names = append(names, "key", "value")
+			return
+		}
 		switch fn.Name {
 		case "__ORDINALITY":
 			namesFor(fn.Args[0].(*Func))
@@ -184,6 +197,13 @@ func srfRows(env *evalEnv, f *Func) ([][]Value, []ColType, error) {
 	a, err := env.evalItems(f.Args)
 	if err != nil {
 		return nil, nil, err
+	}
+	if _, ok := jsonSRFTypes(f.Name); ok {
+		rows, types, err := env.jsonSRFRows(f, a)
+		if err != nil {
+			return nil, nil, invalidArg(err)
+		}
+		return rows, types, nil
 	}
 	ts := make([]ColType, len(a))
 	for i, v := range a {

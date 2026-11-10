@@ -527,6 +527,8 @@ func joinKey(v Value) (string, bool) {
 		return "", false
 	}
 	switch k := v.T.Kind; {
+	case k == KindJSONB:
+		return jsonbEqualityKey(v)
 	case k.isInteger() || k == KindBool:
 		return "n" + strconv.FormatInt(v.I, 10), true
 	case k == KindDecimal:

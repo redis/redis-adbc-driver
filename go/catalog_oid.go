@@ -168,6 +168,10 @@ func postgresTypeOID(t ColType) int64 {
 		return n
 	}
 	switch t.Kind {
+	case KindJSON:
+		return 114
+	case KindJSONB:
+		return 3802
 	case KindBool:
 		return 16
 	case KindBinary:

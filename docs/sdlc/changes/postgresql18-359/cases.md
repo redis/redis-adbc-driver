@@ -1,11 +1,11 @@
 # PostgreSQL 18 retained case dispositions
 
-Latest follow-up: 2026-11-10, [#361 join/whole-row changes](../postgresql18-361/validation.md).
-The original #359 measurement remains historical; the follow-up observes 137/188
-retained passes and 51 retained failures, including five still owned by #361.
+Latest follow-up: 2026-11-10, [#98 JSON changes](../postgresql18-json/validation.md).
+The original #359 measurement remains historical; the follow-up observes 145/188
+retained passes and 43 retained failures, including five still owned by #361.
 
 
-This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest live run: 122 observed passes and 66 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
+This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest follow-up: 145 observed passes and 43 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
 
 Core-related identifies a related mandatory feature family, not proof that the precise PostgreSQL syntax/error timing is mandatory. Optional and PostgreSQL-specific classifications describe the tested form. Exact subfeature mapping remains explicitly unverified where noted. The classifications use [PostgreSQL 18 Appendix D](https://www.postgresql.org/docs/18/features-sql-standard.html); this is not an ISO normative test audit.
 
@@ -71,14 +71,14 @@ Core-related identifies a related mandatory feature family, not proof that the p
 | `issue-249.json:row-7` | `date-input-forms` | pass |
 | `issue-249.json:row-8` | `date-input-forms` | pass |
 | `issue-249.json:row-9` | `temporal-infinity` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
-| `issue-254.json:row-1` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-3` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-4` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-5` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-6` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-7` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-8` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
-| `issue-254.json:row-9` | `json-dialect` | fail — deferred to [#98](https://github.com/redis/redis-adbc-driver/issues/98) |
+| `issue-254.json:row-1` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-3` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-4` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-5` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-6` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-7` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-8` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
+| `issue-254.json:row-9` | `json-dialect` | pass — observed in [JSON follow-up](../postgresql18-json/validation.md) |
 | `issue-254.json:row-10` | `json-dialect` | pass — observed in the [#361 follow-up](../postgresql18-361/validation.md) |
 | `issue-258.json:row-2` | `uuid-storage-comparison` | pass |
 | `issue-260.json:row-3` | `unique-index` | fail — deferred to [#360](https://github.com/redis/redis-adbc-driver/issues/360) |

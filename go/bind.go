@@ -284,6 +284,9 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 		return err == nil
 	}, false)
 	if err == nil {
+		err = e.checkJSONComparisons(expr)
+	}
+	if err == nil {
 		// Now that the types are known.
 		err = e.checkRecords(expr)
 	}

@@ -28,6 +28,13 @@ import (
 
 // valueAt extracts row i of an Arrow array as a Value.
 func valueAt(arr arrow.Array, i int) (Value, error) {
+	if ext, ok := arr.(array.ExtensionArray); ok && ext.ExtensionType().ExtensionName() == "arrow.json" {
+		v, err := valueAt(ext.Storage(), i)
+		if err != nil {
+			return Value{}, err
+		}
+		return coerceJSON(v, typeJSON)
+	}
 	if encoded, ok := arr.(*array.RunEndEncoded); ok {
 		return valueAt(encoded.Values(), encoded.GetPhysicalIndex(i))
 	}

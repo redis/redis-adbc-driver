@@ -14,29 +14,11 @@
 
 package redis
 
-// JSON stored as text. There is no JSON column type: documents live in
-// VARCHAR columns and are parsed by each function or operator that reads
-// them. Semantics follow Postgres:
-//
-//   - The operators ->, ->>, #> and #>> and the functions JSON_EXTRACT_PATH,
-//     JSON_EXTRACT_PATH_TEXT, JSON_TYPEOF and JSON_ARRAY_LENGTH read their
-//     argument as the json type: a value keeps the text it has in the
-//     document, so numbers are never rounded, and of duplicate keys the last
-//     one wins. Malformed JSON is an error ("invalid input syntax for type
-//     json").
-//   - The JSONB_ spellings, ::jsonb and RETURNING JSONB give jsonb's
-//     normalized text: object keys sorted (shorter first) without
-//     duplicates, numbers in NUMERIC form (1e2 is 100, 1.50 stays 1.50), and
-//     ", " and ": " between items.
-//   - JSON_VALUE, JSON_QUERY and JSON_EXISTS (jsonpath.go) read documents as
-//     jsonb, as in Postgres 17; their ON ERROR clause also covers malformed
-//     documents.
-//   - The constructors (JSON_BUILD_OBJECT, JSON_OBJECT, JSON_AGG, …) encode
-//     SQL values as Postgres's to_json does. Their results are VARCHAR. An
-//     argument is embedded as JSON if it is itself JSON: the result of a JSON
-//     function, of -> or #>, or of a ::json cast. Any other text becomes a
-//     JSON string, so JSON read back from a table, view or subquery needs
-//     ::json to be embedded.
+// JSON and JSONB are distinct logical types stored as text in authoritative
+// HASH values and carried in Arrow UTF8 with canonical arrow.json metadata.
+// JSON preserves whitespace and duplicate keys; JSONB normalizes keys and exact
+// numeric text. Constructors embed typed JSON values and quote SQL text values.
+// JSON_VALUE, JSON_QUERY and JSON_EXISTS use the SQL/JSON path implementation.
 
 import (
 	"encoding/hex"
@@ -96,9 +78,22 @@ var (
 func jsonFuncType(f *Func) (ColType, bool) {
 	switch {
 	case f.JSON != nil:
+		if f.JSON.returnJSON {
+			if f.JSON.jsonb {
+				return typeJSONB, true
+			}
+			return typeJSON, true
+		}
 		return f.JSON.returning, true
 	case f.Name == "JSON_ARRAY_LENGTH" || f.Name == "JSONB_ARRAY_LENGTH":
 		return typeInt64, true
+	case f.Name == "?" || f.Name == "?|" || f.Name == "?&":
+		return typeBool, true
+	case jsonResultFuncs[f.Name]:
+		if f.Name == "#-" || f.Name == "__JSONB" || strings.HasPrefix(f.Name, "JSONB_") || f.Name == "TO_JSONB" {
+			return typeJSONB, true
+		}
+		return typeJSON, true
 	case jsonFuncs[f.Name] || jsonAggregates[f.Name]:
 		return typeString, true
 	}
@@ -111,7 +106,7 @@ var jsonResultFuncs = map[string]bool{
 	"->": true, "#>": true, "JSON_EXTRACT_PATH": true, "JSONB_EXTRACT_PATH": true,
 	"JSON_BUILD_OBJECT": true, "JSONB_BUILD_OBJECT": true, "JSON_BUILD_ARRAY": true, "JSONB_BUILD_ARRAY": true,
 	"JSON_OBJECT": true, "JSONB_OBJECT": true, "ROW_TO_JSON": true, "TO_JSON": true, "TO_JSONB": true, "__JSON": true, "__JSONB": true,
-	"JSON_AGG": true, "JSONB_AGG": true, "JSON_OBJECT_AGG": true, "JSONB_OBJECT_AGG": true,
+	"JSONB_SET": true, "#-": true, "JSON_AGG": true, "JSONB_AGG": true, "JSON_OBJECT_AGG": true, "JSONB_OBJECT_AGG": true,
 }
 
 // isJSONExpr reports whether an expression gives JSON: a JSON function or
@@ -232,6 +227,8 @@ func (env *evalEnv) evalJSONFunc(f *Func) (Value, error) {
 		}
 	}
 	switch f.Name {
+	case "?", "?|", "?&", "#-", "JSONB_SET":
+		return env.evalJSONMutation(f, args)
 	case "ROW_TO_JSON", "TO_JSON", "TO_JSONB":
 		if f.Name == "ROW_TO_JSON" && args[0].T.Kind != KindRecord {
 			return Value{}, noSuchFunction(f.Name, false, []ColType{args[0].T})
@@ -253,13 +250,13 @@ func (env *evalEnv) evalJSONFunc(f *Func) (Value, error) {
 		if _, err := parseJSON(doc, false); err != nil {
 			return Value{}, err
 		}
-		return stringValue(doc), nil
+		return Value{T: typeJSON, S: doc}, nil
 	case "__JSONB":
 		s, err := normalizeJSONB(doc)
 		if err != nil {
 			return Value{}, err
 		}
-		return stringValue(s), nil
+		return Value{T: typeJSONB, S: s}, nil
 	case "JSON_TYPEOF", "JSONB_TYPEOF":
 		n, err := parseJSON(doc, f.Name == "JSONB_TYPEOF")
 		if err != nil {
@@ -288,14 +285,21 @@ func (env *evalEnv) evalJSONFunc(f *Func) (Value, error) {
 		return nullValue(typeString), nil
 	}
 	asText := f.Name == "->>" || f.Name == "#>>" || strings.HasSuffix(f.Name, "_TEXT")
-	return jsonExtract(doc, steps, asText, strings.HasPrefix(f.Name, "JSONB_"))
+	v, err := jsonExtract(doc, steps, asText, strings.HasPrefix(f.Name, "JSONB_") || args[0].T.Kind == KindJSONB)
+	if err == nil && !asText {
+		v.T = typeJSON
+		if args[0].T.Kind == KindJSONB || strings.HasPrefix(f.Name, "JSONB_") {
+			v.T = typeJSONB
+		}
+	}
+	return v, err
 }
 
 // jsonDocArg returns the JSON text in the first argument of a JSON function
 // or operator.
 func jsonDocArg(f *Func, args []Value) (string, error) {
 	v := args[0]
-	if v.T.Kind == KindString {
+	if v.T.Kind == KindString || v.T.Kind.isJSON() {
 		return v.S, nil
 	}
 	switch f.Name {
@@ -317,7 +321,8 @@ func jsonResult(f *Func, text string) (Value, error) {
 		}
 		text = s
 	}
-	return stringValue(text), nil
+	t, _ := jsonFuncType(f)
+	return Value{T: t, S: text}, nil
 }
 
 // ---- documents ----
@@ -995,7 +1000,7 @@ func writeJSONValue(b *strings.Builder, v Value, isJSON bool, z tzZone) {
 	switch {
 	case v.Null:
 		b.WriteString("null")
-	case isJSON, k == KindBool, k.isInteger(), k == KindDecimal:
+	case isJSON, k.isJSON(), k == KindBool, k.isInteger(), k == KindDecimal:
 		b.WriteString(v.Text())
 	case k.isFloat() && !math.IsNaN(v.F) && !math.IsInf(v.F, 0):
 		b.WriteString(v.Text())
@@ -1022,7 +1027,7 @@ func buildJSONObject(f *Func, args []Value, z tzZone) (Value, error) {
 		switch {
 		case k.Null:
 			return Value{}, errJSONNullKey
-		case isJSONExpr(f.Args[i]):
+		case isJSONExpr(f.Args[i]) || k.T.Kind.isJSON():
 			return Value{}, errJSONKey
 		case v.Null && c.absentOnNull:
 			continue
@@ -1448,6 +1453,9 @@ type jsonAggRow struct {
 // add takes the row's arguments followed by its ORDER BY keys (aggInput).
 func (a *jsonAgg) add(in []Value) error {
 	n := len(a.fn.Args)
+	if n == 2 && in[0].T.Kind.isJSON() {
+		return errJSONKey
+	}
 	if n == 2 && in[0].Null {
 		return errJSONNullKey
 	}
@@ -1505,7 +1513,7 @@ func (a *jsonAgg) result(env *evalEnv, _ ColType) (Value, error) {
 
 // jsonCast returns the cast of x to JSON or JSONB, which are not column
 // types: the cast checks the text (and for JSONB normalizes it) and gives
-// VARCHAR. ok is false for other types.
+// logical JSON types. ok is false for other types.
 func jsonCast(spec sqlTypeSpec, x Expr) (Expr, bool) {
 	switch spec.Name {
 	case "JSON":
