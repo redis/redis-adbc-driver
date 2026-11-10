@@ -1282,6 +1282,9 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 	if plan.outerAggs = sc.outerAggs; len(plan.outerAggs) > 0 {
 		plan.aggregate = true
 	}
+	if err := e.checkJSONPlanComparisons(plan, types); err != nil {
+		return nil, err
+	}
 	if sel.GroupingSets != nil || usesGrouping(sel) {
 		return e.planGroupingSets(plan, types)
 	}

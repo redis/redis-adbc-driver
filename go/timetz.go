@@ -418,6 +418,9 @@ func dateAtTimeTZ(d, x Value, t ColType) (Value, error) {
 // its type (TIME(6) WITH TIME ZONE).
 func arrowField(name string, t ColType, nullable bool) arrow.Field {
 	f := arrow.Field{Name: name, Type: t.ArrowType(), Nullable: nullable}
+	if t.Kind.isJSON() {
+		f.Metadata = arrow.NewMetadata([]string{"ARROW:extension:name", "ARROW:extension:metadata", typeNameKey}, []string{"arrow.json", "{}", t.SQLName()})
+	}
 	if t.Kind == KindTimeTZ || t.Alias == "uuid" {
 		f.Metadata = arrow.NewMetadata([]string{typeNameKey}, []string{t.SQLName()})
 	}
@@ -428,6 +431,9 @@ func arrowField(name string, t ColType, nullable bool) arrow.Field {
 // with time zone's text (a string field whose typeNameKey names one, as
 // arrowField makes it).
 func colTypeFromField(f arrow.Field) (ColType, error) {
+	if t, ok, err := nativeJSONField(f); ok {
+		return t, err
+	}
 	// C import can expose an extension as its storage type plus metadata.
 	// Do not silently interpret those bytes as a supported SQL value.
 	for _, key := range f.Metadata.Keys() {

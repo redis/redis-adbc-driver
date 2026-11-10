@@ -720,6 +720,8 @@ func (v Value) textIn(z tzZone) string {
 		return floatText(v.F, 64)
 	case KindDecimal:
 		return formatDecimal(v.D, v.T.Scale)
+	case KindJSON, KindJSONB:
+		return v.S
 	case KindString:
 		if v.T.Fixed {
 			return trimPadding(v.S) // CHAR to text drops the padding
@@ -850,6 +852,9 @@ func Coerce(v Value, t ColType) (Value, error) {
 // fractional digits (roundUnit), so a TIMESTAMP(2) holds milliseconds
 // rounded to 2 digits.
 func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
+	if t.Kind.isJSON() {
+		return coerceJSON(v, t)
+	}
 	if t.Kind == KindArray {
 		return coerceArrayIn(v, t, z)
 	}
@@ -1132,6 +1137,9 @@ func parseString(s string, t ColType) (Value, error) { return parseStringIn(s, t
 // more digits is read as Postgres reads it, in microseconds (pgMicros),
 // before it is rounded to t (so '….4999995' is 10:00:01 in TIMESTAMP(0)).
 func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
+	if t.Kind.isJSON() {
+		return coerceJSON(stringValue(s), t)
+	}
 	if t.Alias == "uuid" {
 		return parseUUID(s)
 	}
@@ -1240,6 +1248,8 @@ func decodeStored(s string, t ColType) (Value, error) {
 		return floatValue(t, math.NaN()), nil
 	}
 	switch t.Kind {
+	case KindJSON, KindJSONB:
+		return coerceJSON(stringValue(s), t)
 	case KindBool, KindInt16, KindInt32, KindInt64, KindDate, KindTime, KindTimestamp:
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
@@ -1362,6 +1372,8 @@ func compareIn(a, b Value, z tzZone) (int, bool) {
 		return compareArrays(a, b, z)
 	}
 	switch {
+	case ak == KindJSONB && bk == KindJSONB:
+		return compareJSONB(a, b)
 	case ak == KindRecord && bk == KindRecord:
 		return compareRecords(a, b, z)
 	case ak == KindArray && bk == KindArray:

@@ -50,6 +50,8 @@ const (
 	KindArray
 	KindMap
 	KindUnion
+	KindJSON
+	KindJSONB
 )
 
 var kindNames = map[Kind]string{
@@ -72,6 +74,8 @@ var kindNames = map[Kind]string{
 	KindArray:     "array",
 	KindMap:       "map",
 	KindUnion:     "union",
+	KindJSON:      "json",
+	KindJSONB:     "jsonb",
 }
 
 func (k Kind) String() string { return kindNames[k] }
@@ -202,6 +206,9 @@ func (t *ColType) UnmarshalJSON(data []byte) error {
 	t.Fixed = j.Fixed
 	t.Text = j.Text
 	t.Rec = nil
+	if t.Kind.isJSON() && (j.Unit != "" || j.TZ != "" || j.Precision != 0 || j.Scale != 0 || j.Length != 0 || j.Fixed || j.Text || j.Alias != "" || j.Collation != "" || j.Element != nil || j.Fields != nil || j.Codes != nil) {
+		return fmt.Errorf("invalid logical JSON type metadata")
+	}
 	if t.Kind == KindArray {
 		if j.Element == nil || j.Element.Kind == KindRecord && !j.Element.namedRecord() {
 			return fmt.Errorf("invalid array element type")
@@ -349,7 +356,7 @@ func (t ColType) ArrowType() arrow.DataType {
 			return &arrow.Decimal128Type{Precision: t.Precision, Scale: t.Scale}
 		}
 		return &arrow.Decimal256Type{Precision: t.Precision, Scale: t.Scale}
-	case KindString:
+	case KindString, KindJSON, KindJSONB:
 		return arrow.BinaryTypes.String
 	case KindBinary:
 		return arrow.BinaryTypes.Binary
@@ -373,7 +380,7 @@ func (t ColType) ArrowType() arrow.DataType {
 	case KindRecord:
 		return t.Rec.arrowType()
 	case KindArray:
-		return arrow.ListOf(t.element().ArrowType())
+		return arrow.ListOfField(arrowField("item", t.element(), true))
 	default:
 		return arrow.Null
 	}
@@ -385,6 +392,10 @@ func (t ColType) SQLName() string {
 		return "UUID"
 	}
 	switch t.Kind {
+	case KindJSON:
+		return "JSON"
+	case KindJSONB:
+		return "JSONB"
 	case KindBool:
 		return "BOOLEAN"
 	case KindInt16:
@@ -588,6 +599,14 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 		return ColType{Kind: KindString, Text: true}, nil
 	case "STRING", "CLOB":
 		return typeString, nil
+	case "JSON", "JSONB":
+		if len(spec.Params) > 0 || spec.WithTZ {
+			return ColType{}, stateErr(stateSyntax, "type modifiers are not allowed for %s", spec.Name)
+		}
+		if spec.Name == "JSONB" {
+			return typeJSONB, nil
+		}
+		return typeJSON, nil
 	case "UUID":
 		return typeUUID, nil
 	case "REGCLASS", "REGTYPE", "REGPROC", "REGNAMESPACE":

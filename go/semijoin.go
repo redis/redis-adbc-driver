@@ -65,11 +65,14 @@ const (
 	clsTimestamp                  // compared after converting units
 	clsTimestampTZ                // compared after converting units; apart from TIMESTAMP (the session time zone)
 	clsTimeTZ                     // compared by time and offset; apart from TIME (the session time zone)
+	clsJSONB
 	numClasses
 )
 
 func classOf(t ColType) eqClass {
 	switch k := t.Kind; {
+	case k == KindJSONB:
+		return clsJSONB
 	case k.isInteger() || k == KindDecimal:
 		return clsNum
 	case k == KindBool:

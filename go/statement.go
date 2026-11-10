@@ -587,6 +587,9 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 			row := make([]Value, rec.NumCols())
 			for c := 0; c < int(rec.NumCols()); c++ {
 				v, err := valueAt(rec.Column(c), r)
+				if err == nil && types[c].Kind.isJSON() {
+					v, err = coerceJSON(v, types[c])
+				}
 				if err != nil {
 					return nil, nil, wrapErr(adbc.StatusInvalidArgument, err, "parameter "+strconv.Itoa(c+1))
 				}

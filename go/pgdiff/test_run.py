@@ -24,6 +24,15 @@ import run
 
 
 class CompareTests(unittest.TestCase):
+    def test_canonical_json_extension_preserves_values(self):
+        import pyarrow as pa
+        typ = pa.json_()
+        raw = [' {"a":1,"a":2} ', None, '9007199254740993']
+        arr = pa.array(raw, type=typ)
+        self.assertEqual(run.arrow_type(typ), "string")
+        self.assertEqual(run.arrow_values(arr, typ), raw)
+        self.assertEqual(run.arrow_values(pa.chunked_array([arr, arr]), typ), raw + raw)
+
     def test_extended_arrow_temporal_values(self):
         import pyarrow as pa
         self.assertEqual(run.arrow_values(pa.array([-719528, 0], type=pa.date32()), pa.date32()),

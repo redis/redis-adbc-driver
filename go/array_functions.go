@@ -344,6 +344,10 @@ func (env *evalEnv) evalExtraArray(f *Func) (Value, bool, error) {
 		}
 		return ret(stringValue(strings.Join(parts, a[1].S)))
 	case "@>", "<@", "&&":
+		if a[0].T.Kind.isJSON() || a[1].T.Kind.isJSON() {
+			v, err := jsonbContainment(env.ctx, f.Name, a[0], a[1])
+			return v, true, err
+		}
 		if a[0].Null || a[1].Null {
 			return ret(nullValue(t))
 		}

@@ -204,7 +204,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",
@@ -216,7 +216,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",
@@ -228,7 +228,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",
@@ -240,7 +240,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",
@@ -252,7 +252,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",
@@ -264,7 +264,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",
@@ -276,7 +276,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",
@@ -288,7 +288,7 @@
       "owner": "https://github.com/redis/redis-adbc-driver/issues/98",
       "reason": "Needs logical JSON column identity, JSON modification/existence functions and set-returning/whole-row support; plain varchar cannot stand in for JSON semantics.",
       "evidence": "https://www.postgresql.org/docs/18/functions-json.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-254.json",

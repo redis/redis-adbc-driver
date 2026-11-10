@@ -382,6 +382,12 @@ func (env *evalEnv) evalUnbudgeted(e Expr) (Value, error) {
 		if x.Op == "||" && (isJSONExpr(x.L) || isJSONExpr(x.R)) {
 			return jsonConcat(l, r)
 		}
+		if x.Op == "-" && l.T.Kind == KindJSONB {
+			return jsonbDelete(env.ctx, l, r)
+		}
+		if x.Op == "||" && (l.T.Kind == KindJSONB || r.T.Kind == KindJSONB) {
+			return jsonConcat(l, r)
+		}
 		return binaryOp(x.Op, l, r, env.zone())
 	case *RowExpr:
 		if x.presence != "" {
@@ -1021,6 +1027,12 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 
 // arithmeticType returns the result type of an arithmetic operator.
 func arithmeticType(op string, a, b ColType) (ColType, error) {
+	if op == "-" && a.Kind == KindJSONB {
+		if b.Kind == KindNull || b.Kind == KindString || b.Kind.isInteger() {
+			return typeJSONB, nil
+		}
+		return ColType{}, stateErr(stateUndefinedFunction, "operator does not exist: jsonb - %s", sigTypeName(b))
+	}
 	if rt, ok, err := temporalType(op, a, b); ok {
 		return rt, err
 	}
@@ -1103,6 +1115,12 @@ func inferFuncType(f *Func, args []ColType) ColType {
 }
 
 func funcType(f *Func, args []ColType) ColType {
+	if ts, ok := jsonSRFTypes(f.Name); ok {
+		if len(ts) == 1 {
+			return ts[0]
+		}
+		return queryRecordOf([]structField{{Name: "key", Type: ts[0], Nullable: true}, {Name: "value", Type: ts[1], Nullable: true}})
+	}
 	if pgRegrName(f.Name) {
 		if f.Name == "REGR_COUNT" {
 			return typeInt64
@@ -1151,6 +1169,9 @@ func funcType(f *Func, args []ColType) ColType {
 		return t
 	}
 	if t, ok := jsonFuncType(f); ok {
+		if (f.Name == "->" || f.Name == "#>") && len(args) > 0 && args[0].Kind == KindJSONB {
+			return typeJSONB
+		}
 		return t
 	}
 	switch f.Name {
@@ -1328,6 +1349,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 				return ColType{}, err
 			}
 			args[i] = t
+		}
+		if err := jsonNativeCallError(x, args); err != nil {
+			return ColType{}, err
 		}
 		if (x.Name == "OCTET_LENGTH" || x.Name == "BIT_LENGTH") && !argBytes.accepts(args[0]) {
 			return ColType{}, noSuchFunction(x.Name, false, args)

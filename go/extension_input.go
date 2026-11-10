@@ -14,8 +14,9 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
-// Registry revision 2: explicit normalization only, not SQL UUID/JSON types or
-// arbitrary plugin registration. Unknown semantics reject; nested STRUCT UUID/JSON fields normalize explicitly.
+// Registry revision 2 handles explicit storage normalization, not arbitrary
+// plugin registration. Native SQL JSON fields retain their owned logical marker;
+// generic UUID/JSON extensions still require the explicit storage policy.
 const OptionStringExtensionPolicy = "adbc.redis.extension_policy"
 const maxExtensionMetadata = 16 << 10
 
@@ -29,7 +30,18 @@ type extensionInputReader struct {
 }
 
 func (s *statementImpl) prepareExtensionInput() error {
-	if s.extensionPolicy != "storage" || s.params == nil {
+	if s.params == nil {
+		return nil
+	}
+	if s.extensionPolicy != "storage" {
+		if _, ok := s.params.(*extensionInputReader); ok {
+			return nil
+		}
+		r, err := nativeJSONInputReader(s.params)
+		if err != nil {
+			return invalidArg(err)
+		}
+		s.params = r
 		return nil
 	}
 	if _, ok := s.params.(*extensionInputReader); ok {
@@ -122,7 +134,11 @@ func extensionStorageReaderDepth(source array.RecordReader, depth int) (array.Re
 			return nil, invalidArg(fmt.Errorf("extension name/metadata exceeds bounds or is invalid UTF-8"))
 		}
 		if f.Metadata.FindKey(typeNameKey) >= 0 {
-			return nil, invalidArg(fmt.Errorf("extension storage fallback conflicts with SQL type metadata"))
+			if _, owned, err := nativeJSONField(f); !owned || err != nil {
+				return nil, invalidArg(fmt.Errorf("extension storage fallback conflicts with SQL type metadata"))
+			}
+			keys = append(keys, "ARROW:extension:name", "ARROW:extension:metadata")
+			values = append(values, "arrow.json", serialized)
 		}
 		switch name {
 		case "arrow.uuid":
