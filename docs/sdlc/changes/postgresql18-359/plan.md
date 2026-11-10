@@ -1,6 +1,6 @@
 # PostgreSQL 18 mismatch fixes: plan
 
-Date: 2026-11-09. Author: Codex. Requestor: Albert Wong. Source: `08d75d50888374b805a5c89f5bb94a46cf6fe8a9` plus PostgreSQL 18 target changes. Status: in progress. Issue: [#359](https://github.com/redis/redis-adbc-driver/issues/359).
+Date: 2026-11-09. Author: Codex. Requestor: Albert Wong. Source: `08d75d50888374b805a5c89f5bb94a46cf6fe8a9` plus PostgreSQL 18 target changes. Status: implemented and triaged; pending PR review. Issue: [#359](https://github.com/redis/redis-adbc-driver/issues/359).
 
 1. Preserve baseline IDs and add a closure check against actual report outcomes.
 2. Reproduce grouped root causes with focused cases before implementing fixes.

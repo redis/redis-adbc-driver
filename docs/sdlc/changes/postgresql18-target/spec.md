@@ -19,3 +19,5 @@ explicit PostgreSQL 18 acceptance criteria. SQL:2023 Core conformance and the
 three standards-extension issues remain distinct from this compatibility target.
 
 See [intent](intent.md), [plan](plan.md), and [validation](validation.md).
+
+Delivered with the mismatch fixes in [PR #366](https://github.com/redis/redis-adbc-driver/pull/366), pending review/merge. The original baseline remains historical evidence; see [subsequent validation](../postgresql18-359/validation.md).

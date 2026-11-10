@@ -15,3 +15,5 @@ Author: Codex. Requestor: Albert Wong. Issue: [#118](https://github.com/redis/re
    inventory, and gap implementation in #118's new acceptance checklist.
 
 See [intent](intent.md), [specification](spec.md), and [validation](validation.md).
+
+Delivered with the mismatch fixes in [PR #366](https://github.com/redis/redis-adbc-driver/pull/366), pending review/merge. The original baseline remains historical evidence; see [subsequent validation](../postgresql18-359/validation.md).

@@ -1,6 +1,6 @@
 # PostgreSQL 18 mismatch inventory: validation
 
-Date: 2026-11-09/10. Author: Codex. Requestor: Albert Wong. Status: validation in progress.
+Date: 2026-11-09/10. Author: Codex. Requestor: Albert Wong. Status: implemented and triaged; pending PR review.
 Source: `08d75d50888374b805a5c89f5bb94a46cf6fe8a9` plus the PostgreSQL 18 target and this change.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md), and [case dispositions](cases.md).
 
@@ -67,6 +67,7 @@ The reference is PostgreSQL 18.6 with C collation, using the pinned linux/amd64
 image in [run.py](../../../../go/pgdiff/run.py).
 
 - Unit-only: `cd go && env -u REDIS_URI go test -count=1 -p 1 ./...`.
+- Corrected fixtures: from `go/`, `bash software-setup.sh --exec go test -count=1 -v -p 1 -timeout=30m -run '^(TestSQLPushdownSumNulls|TestSQLWindowAggregates)$' ./...`.
 - Software: `make -C go test-software`.
 - Harness: `uv run --project go/pgdiff --python 3.14 --frozen python -m unittest discover -s go/pgdiff -p 'test_*.py'`.
 - Comparison: from `go/`, `bash software-setup.sh --exec make pgdiff`.
@@ -121,9 +122,19 @@ counts. Exact standard subfeature classification remains unverified where noted.
 - Strict #359 pass gate correctly exits 1 with 66 unresolved failures. The
   separate triage gate exits 0 with 188/188 accounted for, preserving failures.
 - Local Markdown file links and `git diff --check` passed.
-- Clean final full Software rerun at `b35a4739`: pending. The first sweep exposed
-  old numeric/arity assertions and the corrected integer SUM index guard; it is
-  not reported as a passing validation run.
+- Full Software sweep at frozen production revision `b35a4739`: **1,038
+  top-level tests passed, 284 skipped, two failed** on old grouped/window numeric
+  AVG expected strings. These final expectation corrections are in `3877e1e4`
+  and `bdf453ee`; neither changes production code. A verified-4x-QPF rerun of
+  `TestSQLPushdownSumNulls` and `TestSQLWindowAggregates` on the corrected fixtures
+  passed both top-level tests (including all four pushdown modes), zero failures.
+  This is a complete sweep plus a focused correction/rerun, not a claim that the
+  original full command returned success. No unresolved local test failures
+  remain after the rerun. The 284 skips remain skips, including fixtures that
+  require separate environment/capability setup; they are not coverage passes.
+- Hosted helper, coverage and Superset checks passed on `bdf453ee`; the hosted
+  Software-cluster check was still running when this record was published.
+  Consult PR #366 for its current status.
 
 [PR #366](https://github.com/redis/redis-adbc-driver/pull/366) delivers this change.
 Closing #359 completes its documented fix-or-classify triage, not #118 or the

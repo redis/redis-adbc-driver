@@ -9,3 +9,5 @@ Update the tracker and differential reference without relabeling historical
 PostgreSQL 16 tests. No full compatibility or standards-conformance claim is made.
 
 See [specification](spec.md), [plan](plan.md), and [validation](validation.md).
+
+Delivered with the mismatch fixes in [PR #366](https://github.com/redis/redis-adbc-driver/pull/366), pending review/merge. The original baseline remains historical evidence; see [subsequent validation](../postgresql18-359/validation.md).
