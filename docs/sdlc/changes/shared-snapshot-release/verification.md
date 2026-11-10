@@ -61,11 +61,27 @@ the new multiple-schema regression.
 
 ## Hosted checks and remaining gates
 
-PR #373 merged as `018e0368`. Documentation, helpers, coverage and Superset jobs
-passed. At this record's update, the amd64/arm64 Software jobs were still running;
-no hosted completion or release-platform success is claimed from that snapshot.
-Binary and PyPI release workflows, published asset checksums and a clean install
-from published artifacts remain required before a release is claimed.
+PR #374's corrected head `a19cb3f71c7113e6bfd3d2f9708723a0f9469cca` passed
+all current-head checks before the user-authorized merge on 2026-11-10.
+Merged source: `4d016f150af9d23c4a0f734ab659693a221e9ad6`.
+
+- [Test run 42887182220](https://github.com/redis/redis-adbc-driver/actions/runs/42887182220):
+  success, including full Software Go, atomic snapshot, RBAC and native checks.
+- [PR packaging run 42887182219](https://github.com/redis/redis-adbc-driver/actions/runs/42887182219):
+  success across both Linux architectures, all ten distribution combinations,
+  macOS native validation and minimum-client installed-wheel gates.
+- [Documentation run 42887182437](https://github.com/redis/redis-adbc-driver/actions/runs/42887182437):
+  success.
+- Downloaded JUnit reports confirmed both shared-snapshot tests passed without
+  skips in each Linux installed wheel and the macOS installed wheel. Each full
+  native report recorded zero failures/errors and the same eight capability
+  skips. The macOS minimum-client partition report recorded 16 tests, zero
+  failures/errors/skips. macOS uses the existing native Redis compatibility
+  fixture; it is separate from Software 4x-QPF evidence.
+
+Release-version documentation is prepared for v0.0.24. Binary and PyPI release
+workflow completion, published checksums and a clean published-artifact install
+are still required; PR success is not a release-publication claim.
 
 The external Airbyte connector was inspected at
 `46b4c3c6d8286f017293518630028c48ed256eb8`. Its native backend already scopes one
