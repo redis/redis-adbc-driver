@@ -108,8 +108,6 @@ func TestDateTimeText(t *testing.T) {
 		// Postgres: date out of range (22008); the driver reads 4 to 7
 		// digits of a year.
 		"CAST('12345678-01-01' AS DATE)": `invalid input syntax for type date: "12345678-01-01"`,
-		// Postgres reads 2024-01-10 10:00:00.
-		"CAST('2024-1-10 10:00' AS TIMESTAMP)": `invalid input syntax for type timestamp: "2024-1-10 10:00"`,
 	})
 }
 

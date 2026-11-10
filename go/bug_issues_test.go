@@ -46,7 +46,7 @@ func TestBugIssueScalarRegressions(t *testing.T) {
 		{"null::boolean is unknown", "true", "BOOLEAN"},
 		{"null isnull", "true", "BOOLEAN"},
 		{"1 notnull", "true", "BOOLEAN"},
-		{`length(E'a\nb')`, "3", "BIGINT"},
+		{`length(E'a\nb')`, "3", "INTEGER"},
 		{`E'it\'s'`, "it's", "VARCHAR"},
 		{`E'\x41\102'`, "AB", "VARCHAR"},
 		{`U&'d\0061t\+000061'`, "data", "VARCHAR"},

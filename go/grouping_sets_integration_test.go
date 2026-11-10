@@ -246,7 +246,7 @@ func TestSQLGroupingSets(t *testing.T) {
 		"east|8.00|apple|2024|2|b", "west|4.00|apple|2024|1|b", "NULL|5.00|pear|2024|1|a", "NULL|17.00|apple|2024|2|b")
 	h.expectRows(`SELECT region, AVG(qty), MIN(qty), MAX(qty), COUNT(qty) FROM it_gs_sales GROUP BY ROLLUP (region)
 		ORDER BY GROUPING(region), region`,
-		"east|3.3333333333333335|2|5|3", "west|2.5|1|4|2", "NULL|6.5|6|7|2", "NULL|4|1|7|7")
+		"east|3.3333333333333333|2|5|3", "west|2.5000000000000000|1|4|2", "NULL|6.5000000000000000|6|7|2", "NULL|4.0000000000000000|1|7|7")
 	h.expectRows(`SELECT region, note, COUNT(*) FROM it_gs_sales GROUP BY ROLLUP (region, note)
 		ORDER BY GROUPING(region, note), region, note`,
 		"east|a|2", "east|b|1", "west|b|1", "west|NULL|1", "NULL|a|1", "NULL|NULL|1",

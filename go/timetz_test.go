@@ -81,7 +81,7 @@ func TestTimeTZText(t *testing.T) {
 		{"CAST(TIMETZ '10:00:00.5+02' AS TEXT)", "10:00:00.5+02", "VARCHAR"},
 		{"CAST(TIMETZ '10:00+02' AS VARCHAR(5))", "10:00", "VARCHAR(5)"},
 		{"TIMETZ '10:00+02' || 'x'", "10:00:00+02x", "VARCHAR"},
-		{"LENGTH(CAST(TIMETZ '10:00+02' AS TEXT))", "11", "BIGINT"},
+		{"LENGTH(CAST(TIMETZ '10:00+02' AS TEXT))", "11", "INTEGER"},
 		{"TO_JSON(TIMETZ '10:00:00.5-05:30')", `"10:00:00.5-05:30"`, ""},
 		{"JSON_BUILD_ARRAY(TIMETZ '10:00+00')", `["10:00:00+00"]`, ""},
 		// Errors.

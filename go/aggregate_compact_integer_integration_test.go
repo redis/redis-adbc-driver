@@ -129,15 +129,15 @@ func TestSQLCompactIntegerTuples(t *testing.T) {
 			}
 		})
 	}
-	// Overflow is checked on the final exact weighted sum, after all tuples.
+	// SUM(bigint) returns an exact NUMERIC, including beyond the int64 range.
 	e, plan, wp := distinctTestPlan(t, h, "SELECT SUM(u),COUNT(DISTINCT u) FROM "+table)
 	p, ok := tupleAggregateShape(plan, plan.aggregateCalls())
 	if !ok || !compactIntegerTupleShape(plan.meta, p, wp) {
 		t.Fatal("overflow shape unavailable")
 	}
-	_, wantErr := e.serialDriverAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
-	if wantErr == nil {
-		t.Fatal("overflow reference unexpectedly succeeded")
+	wantWide, err := e.serialDriverAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 	for _, compact := range []bool{false, true} {
 		p.compactRows = compact
@@ -145,8 +145,12 @@ func TestSQLCompactIntegerTuples(t *testing.T) {
 		if err := e.aggregateTuplePartition(h.ctx, plan, p, wp, nil, 1, 10000, false, func(row spillTuple) error { return spill.add(h.ctx, row) }); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := e.reduceTupleRuns(h.ctx, plan, p, plan.aggregateCalls(), nil, &spill); err == nil || err.Error() != wantErr.Error() {
-			t.Fatalf("overflow compact=%v got %v want %v", compact, err, wantErr)
+		got, err := e.reduceTupleRuns(h.ctx, plan, p, plan.aggregateCalls(), nil, &spill)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a, b := aggregateGroupsText(got, plan), aggregateGroupsText(wantWide, plan); !reflect.DeepEqual(a, b) {
+			t.Fatalf("wide sum compact=%v got %v want %v", compact, a, b)
 		}
 	}
 	// An empty source still produces SQL's scalar COUNT=0 and SUM=NULL.

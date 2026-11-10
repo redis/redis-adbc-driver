@@ -208,7 +208,7 @@ func (env *evalEnv) evalCatalogFunc(f *Func) (Value, bool, error) {
 		return a[0], true, nil
 	}
 	if f.Name == "QUOTE_IDENT" {
-		return str(quoteSQLName(a[0].S)), true, nil
+		return str(pgQuoteIdent(a[0].S)), true, nil
 	}
 	if strings.HasPrefix(f.Name, "HAS_") {
 		for _, v := range a {

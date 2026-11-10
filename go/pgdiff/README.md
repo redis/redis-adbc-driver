@@ -1,14 +1,26 @@
-# Postgres differential corpus
+# PostgreSQL 18 SQL dialect comparison through ADBC
 
-From `go/`, against an already running test Redis:
+The target is PostgreSQL 18 SQL dialect compatibility through ADBC, tracked in
+[#118](https://github.com/redis/redis-adbc-driver/issues/118). This curated
+comparison does not establish complete PostgreSQL compatibility or SQL:2023
+Core conformance. Passing the full upstream regression suite would also need
+its configuration and exclusions stated; it is not a standards certification.
+
+Use the disposable Software fixture and re-enter its effective QPF/policy gate
+for the comparison:
 
 ```sh
-REDIS_URI=redis://localhost:6379/0 make pgdiff
+make -C go redis-up
+cd go
+bash software-setup.sh --exec make pgdiff
 make pgdiff-test
 ```
 
+The default test target is Redis Software with active, verified 4x QPF. The
+setup checks the exact database before exporting its connection settings.
+
 Requires Docker and uv. The target builds the current driver, starts ephemeral
-Postgres **16.15**, pinned by its linux/amd64 manifest digest, and removes it on
+PostgreSQL **18.6**, pinned by its linux/amd64 manifest digest, and removes it on
 exit. The reference uses UTF-8, `--locale=C`, UTC, ISO MDY dates and Postgres
 interval display. Redis returns Arrow intervals directly. Every corpus file gets
 a fresh `pgdiff_<uuid>` schema and fresh connections; transactions on every named
@@ -16,7 +28,43 @@ connection are rolled back before schema cleanup. Closing those connections also
 cleans up temporary tables. No database-wide flush is used. Use a test database:
 driver connections can recover abandoned driver operations.
 
-## Measured baseline
+## PostgreSQL 18 baseline (2026-11-09)
+
+Against PostgreSQL 18.6 (C collation), Redis Software / Redis 8.8.0, three shards,
+verified active 4x QPF, and driver base `08d75d50888374b805a5c89f5bb94a46cf6fe8a9`
+plus the working-tree reference upgrade: **452/651 scored cases passed (69.4%)**,
+**199 mismatches**, two allowed extensions, two explicit scope exclusions, and
+zero infrastructure errors (655 total cases). SQL implementation was unchanged.
+This is a measured baseline of the curated corpus, not a passing compatibility
+suite or the full PostgreSQL 18 regression suite. See
+[validation and aggregate evidence](../../docs/sdlc/changes/postgresql18-target/validation.md).
+
+## PostgreSQL 18 mismatch triage (2026-11-10)
+
+At implementation revision `b35a4739`, on the same Software/4x QPF configuration,
+**574/651 scored cases pass (88.2%)**, with **77 failures**, two allowed
+extensions, two explicit scope exclusions and zero infrastructure errors.
+Of the 188 baseline failures in #359, 122 now pass and 66 remain explicitly
+deferred; the original eleven cases in #360 account for the other failures.
+No previously passing case regressed. See the [case audit and validation](../../docs/sdlc/changes/postgresql18-359/validation.md).
+
+```sh
+# Nonzero while any retained case has not passed:
+python3 go/pgdiff/check_issue359.py go/build/pgdiff-report.json
+# Triage coverage only; deferred failures still fail the comparison:
+python3 go/pgdiff/check_issue359.py go/build/pgdiff-report.json --triage
+```
+
+Run these commands from the repository root. `--triage` is an accounting check;
+it does not establish compatibility or modify the runner's result/allowlist.
+
+## Historical PostgreSQL 16 baseline
+
+The results below are historical PostgreSQL 16 comparisons. The retained
+regression inputs and SQLSTATE oracle remain sourced from REL_16_15; their
+provenance is deliberately unchanged. The runner compares those inputs against
+the live PostgreSQL 18 reference. A PostgreSQL 18 source-corpus import and broader
+coverage remain separate work; this is not the PostgreSQL 18 regression suite.
 
 Measured October 9, 2026 against Redis OSS 8.6.2 and the driver from main
 `f0cf7e9`, with the pinned Postgres reference:

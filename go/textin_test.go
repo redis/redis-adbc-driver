@@ -287,7 +287,7 @@ func TestTextConversionErrors(t *testing.T) {
 		{"CAST(CAST('2024-01-05 10:00:00+530' AS TIMESTAMPTZ) AS VARCHAR)", "2024-01-05 04:30:00+00", "VARCHAR"},
 		{"CAST(CAST('2024-01-05 10:00:00+05:30:15' AS TIMESTAMPTZ) AS VARCHAR)", "2024-01-05 04:29:45+00", "VARCHAR"},
 		{"CAST(CAST('2024-01-05 10:00:00+15:59:59' AS TIMESTAMPTZ) AS VARCHAR)", "2024-01-04 18:00:01+00", "VARCHAR"},
-		{"CAST('5881580-07-11' AS DATE)", "5881580-07-11", "DATE"},
+		{"CAST('5874897-12-31' AS DATE)", "5874897-12-31", "DATE"},
 	})
 	for _, c := range []struct{ expr, state, msg string }{
 		{"CAST('abc' AS NUMERIC)", stateInvalidText, `invalid input syntax for type numeric: "abc"`},

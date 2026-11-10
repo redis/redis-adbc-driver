@@ -245,7 +245,7 @@ func TestSQLExactSums(t *testing.T) {
 	h.expectRows(`SELECT sum(CASE WHEN x = 1 THEN 9223372036854775807 WHEN x = 2 THEN 1 ELSE -1 END),
 			sum(CASE WHEN x > 1 THEN 1 ELSE 2.5 END), avg(CASE WHEN x > 1 THEN 1 ELSE 0.5e0 END)
 		FROM generate_series(1, 3) AS g(x)`, "9223372036854775807|4.5|0.8333333333333334")
-	h.expectError("SELECT sum(9223372036854775807) FROM generate_series(1, 2) AS g(x)", "integer overflow in SUM")
+	h.expectRows("SELECT sum(9223372036854775807) FROM generate_series(1, 2) AS g(x)", "18446744073709551614")
 
 	// `all`: RediSearch sums the doubles itself, in its order, and returns
 	// the sum with 12 significant digits. That is the exact sum when it has
@@ -383,11 +383,11 @@ func TestSQLPushdownSumNulls(t *testing.T) {
 	var want, wantAvg []string
 	for g := range 20 {
 		v := 1 + g%2
-		want = append(want, fmt.Sprintf("%d|%d|%d|2|%d|%d", g, 2*v, v, 2*v, v))
-		wantAvg = append(wantAvg, fmt.Sprintf("%d|%d", g, v))
+		want = append(want, fmt.Sprintf("%d|%d|%d|2|%d|%d.0000000000000000", g, 2*v, v, 2*v, v))
+		wantAvg = append(wantAvg, fmt.Sprintf("%d|%d.0000000000000000", g, v))
 	}
-	want = append(want, "20|NULL|NULL|0|NULL|NULL", "21|NaN|NaN|2|3|1.5")
-	wantAvg = append(wantAvg, "20|NULL", "21|1.5")
+	want = append(want, "20|NULL|NULL|0|NULL|NULL", "21|NaN|NaN|2|3|1.5000000000000000")
+	wantAvg = append(wantAvg, "20|NULL", "21|1.5000000000000000")
 	byGroup := "SELECT g, sum(x), avg(x), count(x), sum(i), avg(i) FROM it_xs_nulls GROUP BY g ORDER BY g"
 	avgInt := "SELECT g, avg(i) FROM it_xs_nulls GROUP BY g ORDER BY g"
 	if _, _, indexAgg := h.planOf(avgInt); !indexAgg {
@@ -398,7 +398,7 @@ func TestSQLPushdownSumNulls(t *testing.T) {
 			mh.expectRows(byGroup, want...)
 			mh.expectRows(avgInt, wantAvg...)
 		}
-		mh.expectRows("SELECT sum(x), avg(x), count(x), sum(i), avg(i) FROM it_xs_nulls WHERE g < 20", "60|1.5|40|60|1.5")
+		mh.expectRows("SELECT sum(x), avg(x), count(x), sum(i), avg(i) FROM it_xs_nulls WHERE g < 20", "60|1.5|40|60|1.5000000000000000")
 		mh.expectRows("SELECT sum(x), avg(x), count(x), avg(i) FROM it_xs_nulls WHERE g = 20", "NULL|NULL|0|NULL")
 		mh.expectRows("SELECT g, sum(x), avg(x), min(x), max(i) FROM it_xs_nulls WHERE g >= 19 GROUP BY g ORDER BY g",
 			"19|4|2|2|2", "20|NULL|NULL|NULL|NULL", "21|NaN|NaN|-Inf|2")

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-"""Postgres 16 differential runner. Run via `make pgdiff` from go/."""
+"""PostgreSQL 18 SQL dialect comparison through ADBC. Run via `make pgdiff`."""
 
 import argparse
 import json
@@ -40,7 +40,8 @@ from psycopg.types.string import TextLoader
 from sqlscan import split_sql
 
 ROOT = Path(__file__).resolve().parent
-IMAGE = "postgres:16@sha256:75adc2a65806c96bc0e59030230bfe3f1c1b0d6d8f8181a8913e2b8b53bdc166"
+# Official postgres:18 linux/amd64 manifest, resolved 2026-11-09 (18.6).
+IMAGE = "postgres:18@sha256:e923a22ac074261dd73970c57edf659475bf0497cb9456f17d98ed7cdd3ca913"
 # Physical Arrow equivalents. Arrow strings cannot distinguish text/varchar/json;
 # unconstrained Postgres numeric has no fixed precision/scale to compare.
 PG_TYPES = {
@@ -67,6 +68,7 @@ PG_TYPES = {
     1266: "string",
     1700: "decimal",
     3802: "string",
+    2950: "string",  # UUID has UTF-8 storage in this ADBC driver.
     1000: "list<bool>", 1001: "list<binary>", 1005: "list<int16>",
     1007: "list<int32>", 1016: "list<int64>", 1009: "list<string>",
     1015: "list<string>", 1021: "list<float32>", 1022: "list<float64>",
@@ -137,7 +139,13 @@ def value(v, kind):
         try:
             v = datetime.fromisoformat(v)
         except ValueError:
-            return v  # infinity/BC/out-of-Python-range timestamps stay visible
+            # Normalize only ISO text formatting; preserve the era and every digit.
+            m = re.fullmatch(r"(\d{4,}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?(\+00(?::00)?)?( BC)?", v)
+            if m:
+                d, clock, frac, zone, era = m.groups()
+                frac = (frac or "").rstrip("0").rstrip(".")
+                return d + "T" + clock + frac + ("+00:00" if zone else "") + (era or "")
+            return v
     if isinstance(v, uuid.UUID):
         return str(v)
     if isinstance(v, float):
@@ -238,24 +246,54 @@ def type_details(cur, postgres, table=None):
     return details
 
 
+def civil_date(days):
+    # Proleptic Gregorian civil date from epoch days, without datetime's 1..9999 limit.
+    z = days + 719468
+    era, doe = divmod(z, 146097)
+    yoe = (doe - doe // 1460 + doe // 36524 - doe // 146096) // 365
+    year = yoe + era * 400
+    doy = doe - (365 * yoe + yoe // 4 - yoe // 100)
+    mp = (5 * doy + 2) // 153
+    day = doy - (153 * mp + 2) // 5 + 1
+    month = mp + (3 if mp < 10 else -9)
+    year += month <= 2
+    bc = year <= 0
+    return f"{1-year if bc else year:04d}-{month:02d}-{day:02d}", bc
+
+
 def arrow_values(column, datatype):
-    if not pa.types.is_timestamp(datatype) or datatype.unit != "ns":
+    if pa.types.is_date32(datatype):
+        out = []
+        for raw in column.cast(pa.int32()).to_pylist():
+            if raw is None:
+                out.append(None)
+            else:
+                text, bc = civil_date(raw)
+                out.append(text + (" BC" if bc else ""))
+        return out
+    if not pa.types.is_timestamp(datatype):
         return column.to_pylist()
-    # No pandas dependency: Arrow's as_py refuses non-microsecond ns values.
-    values = []
+    out = []
+    per_second = {"s": 1, "ms": 1000, "us": 1000000, "ns": 1000000000}[datatype.unit]
+    precision = {"s": 0, "ms": 3, "us": 6, "ns": 9}[datatype.unit]
     for raw in column.cast(pa.int64()).to_pylist():
         if raw is None:
-            values.append(None)
+            out.append(None)
             continue
-        seconds, nanoseconds = divmod(raw, 1000000000)
-        dt = datetime(1970, 1, 1) + timedelta(seconds=seconds)
-        text = dt.isoformat()
-        if nanoseconds:
-            text += f".{nanoseconds:09d}"
+        seconds, fraction = divmod(raw, per_second)
+        days, clock = divmod(seconds, 86400)
+        text, bc = civil_date(days)
+        hour, clock = divmod(clock, 3600)
+        minute, second = divmod(clock, 60)
+        text += f"T{hour:02d}:{minute:02d}:{second:02d}"
+        if fraction:
+            text += "." + f"{fraction:0{precision}d}".rstrip("0")
         if datatype.tz:
             text += "+00:00"
-        values.append(text)
-    return values
+        if bc:
+            text += " BC"
+        out.append(text)
+    return out
 
 
 def execute(conn, sql, postgres=False, params=None):
@@ -498,6 +536,13 @@ def write_report(args, metadata, results, errors):
     return int(any(r["status"] == "fail" for r in results))
 
 
+def validate_reference(version, collation):
+    if not version.startswith("PostgreSQL 18.") or collation not in ("C", "POSIX"):
+        raise ValueError(
+            f"reference must be PostgreSQL 18 with C collation: {version}, {collation}"
+        )
+
+
 def run(args, uri):
     rules = json.loads(args.allowlist.read_text())
     for key, rule in rules.items():
@@ -533,10 +578,7 @@ def run(args, uri):
                 "SELECT version(), datcollate FROM pg_database WHERE datname = current_database()"
             )
             version, collation = cur.fetchone()
-        if not version.startswith("PostgreSQL 16.") or collation not in ("C", "POSIX"):
-            raise ValueError(
-                f"reference must be Postgres 16 with C collation: {version}, {collation}"
-            )
+        validate_reference(version, collation)
         metadata.update(
             postgres=version, collation=collation, corpus=str(args.corpus.resolve())
         )

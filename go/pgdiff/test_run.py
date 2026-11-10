@@ -24,6 +24,29 @@ import run
 
 
 class CompareTests(unittest.TestCase):
+    def test_extended_arrow_temporal_values(self):
+        import pyarrow as pa
+        self.assertEqual(run.arrow_values(pa.array([-719528, 0], type=pa.date32()), pa.date32()),
+                         ["0001-01-01 BC", "1970-01-01"])
+        typ = pa.timestamp("us", tz="UTC")
+        values = run.arrow_values(pa.array([-210866803200000000, 0, 9223372036854775807], type=typ), typ)
+        self.assertEqual(values, ["4714-11-24T00:00:00+00:00 BC", "1970-01-01T00:00:00+00:00", "294247-01-10T04:00:54.775807+00:00"])
+        self.assertEqual(run.value("205000-07-10 14:32:01+00", "timestamptz"), "205000-07-10T14:32:01+00:00")
+        self.assertNotEqual(run.value("205000-07-10 14:32:02+00", "timestamptz"), "205000-07-10T14:32:01+00:00")
+
+    def test_reference_version_and_collation(self):
+        for collation in ("C", "POSIX"):
+            run.validate_reference("PostgreSQL 18.6 on x86_64", collation)
+        for version, collation in (
+            ("PostgreSQL 16.15 on x86_64", "C"),
+            ("PostgreSQL 17.6 on x86_64", "C"),
+            ("PostgreSQL 19.0 on x86_64", "C"),
+            ("PostgreSQL 18.6 on x86_64", "en_US.UTF-8"),
+        ):
+            with self.subTest(version=version, collation=collation):
+                with self.assertRaisesRegex(ValueError, "PostgreSQL 18 with C collation"):
+                    run.validate_reference(version, collation)
+
     def test_order_scope(self):
         for sql in (
             "SELECT 'ORDER BY'",

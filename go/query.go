@@ -2175,14 +2175,18 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 			s := r[fmt.Sprintf("__a%d", i)]
 			switch f.Name {
 			case "SUM":
-				if t.Kind == KindInt64 {
+				if argCol[i].Type.Kind.isInteger() || argCol[i].Type.Kind == KindBool {
 					n, err := strconv.ParseInt(s, 10, 64)
 					lo, hi := r[fmt.Sprintf("__a%d_lo", i)], r[fmt.Sprintf("__a%d_hi", i)]
 					if err != nil || !exactIntSum(argCol[i].Type.Kind, nn, lo, hi) {
 						// Rounded by RediSearch: compute exactly in the driver.
 						return nil, false, nil
 					}
-					g.results[f] = intValue(typeInt64, n)
+					v, err := Coerce(intValue(typeInt64, n), t)
+					if err != nil {
+						return nil, false, err
+					}
+					g.results[f] = v
 				} else {
 					v, err := decodeStored(s, t)
 					if err != nil {
@@ -2191,6 +2195,9 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 					g.results[f] = v
 				}
 			case "AVG":
+				if t.Kind == KindDecimal {
+					return nil, false, nil
+				}
 				sum, err := parseFloat(s, 64)
 				if err != nil {
 					return nil, false, nil

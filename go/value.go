@@ -276,6 +276,9 @@ func parseClock(s string) (sec int64, nanos int64, digits int, err error) {
 		return 0, 0, 0, dateTimeTextError(stateDatetimeFormat, "time", s)
 	}
 	clock, frac, _ := strings.Cut(s, ".")
+	if len(clock) == 6 && !strings.Contains(clock, ":") {
+		clock = clock[:2] + ":" + clock[2:4] + ":" + clock[4:]
+	}
 	parts := strings.Split(clock, ":")
 	if len(parts) < 2 || len(parts) > 3 {
 		return bad()
@@ -331,7 +334,7 @@ func parseDatePrefix(s string, bc bool) (days int64, rest, bad string) {
 	}
 	if n < 4 || n > 7 || len(s) < n+6 || s[n] != '-' || !isDigit(n+1) || !isDigit(n+2) || s[n+3] != '-' ||
 		!isDigit(n+4) || !isDigit(n+5) {
-		return 0, "", stateDatetimeFormat
+		return parsePGDatePrefix(s, bc)
 	}
 	y, _ := strconv.Atoi(s[:n])
 	m, _ := strconv.Atoi(s[n+1 : n+3])
@@ -369,7 +372,7 @@ func dateTimeErr(err error, typ, in string) error {
 // (parseTZDisplacement), and a zone name as by AT TIME ZONE (timezone.go),
 // with its offset at that local time.
 func parseTimestamp(s string) (local, nanos int64, digits int, offset int64, hasTZ bool, err error) {
-	s = strings.TrimSpace(s)
+	s = normalizeMeridiem(strings.TrimSpace(s))
 	t, bc := splitEra(s)
 	days, rest, bad := parseDatePrefix(t, bc)
 	if bad != "" {
@@ -466,6 +469,13 @@ func timestampLiteral(s string, withTZ bool) (Value, error) {
 // '2024-01-05 10:00:00-05' is 10:00. The unit has the fraction's digits
 // (microseconds, or nanoseconds for more than 6).
 func timestampLiteralIn(s string, withTZ bool, z tzZone) (Value, error) {
+	t := typeTimestamp
+	if withTZ {
+		t = typeTimestampTZ
+	}
+	if strings.EqualFold(strings.TrimSpace(s), "epoch") {
+		return intValue(t, 0), nil
+	}
 	typ := "timestamp"
 	if withTZ {
 		typ = "timestamp with time zone"
@@ -479,6 +489,9 @@ func timestampLiteralIn(s string, withTZ bool, z tzZone) (Value, error) {
 		sec -= offset
 	case withTZ:
 		sec = z.localToUTC(sec)
+	}
+	if sec < -2440588*86400 {
+		return Value{}, stateErr(stateDatetimeRange, `timestamp out of range: "%s"`, s)
 	}
 	unit := unitForDigits(digits)
 	v, err := secondsNanosToUnit(sec, nanos, unit)
@@ -504,6 +517,7 @@ func timestampLiteralIn(s string, withTZ bool, z tzZone) (Value, error) {
 // checked as for a time with time zone (parseTimeTZ) and otherwise ignored
 // ('2024-01-05 10:00:00+05' is 10:00:00).
 func timeLiteral(s string) (Value, error) {
+	s = normalizeMeridiem(s)
 	_, _, clock, zone := timeTZParts(s)
 	if zone != "" {
 		if _, err := parseTimeTZ(s, utcZone); err != nil {
@@ -527,6 +541,9 @@ func timeLiteral(s string) (Value, error) {
 // checked as a timestamp's and otherwise ignored ('2024-01-05 23:00-05' and
 // '2024-01-05 24:00' are 2024-01-05).
 func dateLiteral(s string) (Value, error) {
+	if strings.EqualFold(strings.TrimSpace(s), "epoch") {
+		return intValue(typeDate, 0), nil
+	}
 	t, bc := splitEra(s)
 	days, rest, bad := parseDatePrefix(t, bc)
 	if bad != "" {
@@ -537,8 +554,8 @@ func dateLiteral(s string) (Value, error) {
 			return Value{}, dateTimeErr(err, "date", s)
 		}
 	}
-	if days < math.MinInt32 || days > math.MaxInt32 {
-		// Past an Arrow date32's range (see dateValue).
+	if days < -2440588 || days >= mathMaxJulian-2440588 {
+		// Outside PostgreSQL's finite DATE range (see dateValue).
 		return Value{}, stateErr(stateDatetimeRange, `date out of range: "%s"`, s)
 	}
 	return intValue(typeDate, days), nil

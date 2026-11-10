@@ -1,5 +1,20 @@
 ## Compatibility and validation
 
+The SQL dialect target is **PostgreSQL 18 compatibility through ADBC**
+([#118](https://github.com/redis/redis-adbc-driver/issues/118)). The
+[differential harness](../go/pgdiff/README.md) now selects a pinned PostgreSQL 18
+reference; its existing curated upstream inputs retain PostgreSQL 16 provenance.
+The PostgreSQL 16 measurements below are historical, not PostgreSQL 18 evidence
+or a SQL:2023 Core conformance score.
+See the [initial SQL surface audit and evidence requirements](postgresql18-compatibility.md).
+The [2026-11-10 curated comparison](sdlc/changes/postgresql18-359/validation.md)
+at implementation revision `b35a4739` passed **574/651 scored cases (88.2%)**,
+with **77 failures**, two allowed extensions, two explicit exclusions and zero
+infrastructure errors. Of #359's 188 retained baseline failures, 122 now pass
+and 66 have explicit deferred dispositions; the other eleven failures are the
+original #360 storage-model cases. Deferred cases remain failing in the runner.
+
+
 On **2026-10-08**, the validation suite against the default local **Redis
 Software** database (Redis 8.6.2, Search 8.6.11) had **360 passed, 8 skipped,
 3 subtests passed, and 0 failed**. The full Go suite also passed, with explicit

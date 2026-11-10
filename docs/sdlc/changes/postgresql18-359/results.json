@@ -1,0 +1,450 @@
+{
+  "driver_revision": "b35a47395375311f4969d2c1a7bdb8825d486b20",
+  "reference": {
+    "image": "postgres:18@sha256:e923a22ac074261dd73970c57edf659475bf0497cb9456f17d98ed7cdd3ca913",
+    "postgres": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "collation": "C"
+  },
+  "server": {
+    "product": "Redis Software",
+    "redis": "8.8.0",
+    "shards": 3,
+    "qpf": "active verified 4x",
+    "search_workers": 6,
+    "routing": "mnp",
+    "internal_connections": 32
+  },
+  "summary": {
+    "counts": {
+      "pass": 574,
+      "fail": 77,
+      "allowed": 2,
+      "unsupported": 2
+    },
+    "scored": 651,
+    "pass_rate": 0.8817204301075269
+  },
+  "infrastructure_errors": 0,
+  "groups": {
+    "tier": {
+      "dbt": {
+        "counts": {
+          "pass": 22,
+          "fail": 1
+        },
+        "scored": 23,
+        "pass_rate": 0.9565217391304348
+      },
+      "extensions": {
+        "counts": {
+          "allowed": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "issues": {
+        "counts": {
+          "pass": 205,
+          "fail": 34
+        },
+        "scored": 239,
+        "pass_rate": 0.8577405857740585
+      },
+      "postgres": {
+        "counts": {
+          "pass": 329,
+          "fail": 42
+        },
+        "scored": 371,
+        "pass_rate": 0.8867924528301887
+      },
+      "scope": {
+        "counts": {
+          "unsupported": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "smoke": {
+        "counts": {
+          "pass": 13
+        },
+        "scored": 13,
+        "pass_rate": 1.0
+      },
+      "types": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      }
+    },
+    "area": {
+      "aggregates": {
+        "counts": {
+          "pass": 29
+        },
+        "scored": 29,
+        "pass_rate": 1.0
+      },
+      "arrays": {
+        "counts": {
+          "pass": 30
+        },
+        "scored": 30,
+        "pass_rate": 1.0
+      },
+      "boolean": {
+        "counts": {
+          "pass": 6
+        },
+        "scored": 6,
+        "pass_rate": 1.0
+      },
+      "case": {
+        "counts": {
+          "pass": 16,
+          "fail": 1
+        },
+        "scored": 17,
+        "pass_rate": 0.9411764705882353
+      },
+      "catalog": {
+        "counts": {
+          "pass": 6
+        },
+        "scored": 6,
+        "pass_rate": 1.0
+      },
+      "collation": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "constraints": {
+        "counts": {
+          "fail": 5
+        },
+        "scored": 5,
+        "pass_rate": 0.0
+      },
+      "date": {
+        "counts": {
+          "pass": 24
+        },
+        "scored": 24,
+        "pass_rate": 1.0
+      },
+      "datetime": {
+        "counts": {
+          "pass": 13,
+          "fail": 3
+        },
+        "scored": 16,
+        "pass_rate": 0.8125
+      },
+      "ddl": {
+        "counts": {
+          "pass": 10
+        },
+        "scored": 10,
+        "pass_rate": 1.0
+      },
+      "enum": {
+        "counts": {
+          "fail": 2
+        },
+        "scored": 2,
+        "pass_rate": 0.0
+      },
+      "extensions": {
+        "counts": {
+          "allowed": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "float": {
+        "counts": {
+          "pass": 11
+        },
+        "scored": 11,
+        "pass_rate": 1.0
+      },
+      "float8": {
+        "counts": {
+          "pass": 30,
+          "fail": 2
+        },
+        "scored": 32,
+        "pass_rate": 0.9375
+      },
+      "functions": {
+        "counts": {
+          "pass": 25,
+          "fail": 1
+        },
+        "scored": 26,
+        "pass_rate": 0.9615384615384616
+      },
+      "identifiers": {
+        "counts": {
+          "pass": 8
+        },
+        "scored": 8,
+        "pass_rate": 1.0
+      },
+      "incremental": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "indexes": {
+        "counts": {
+          "pass": 2,
+          "fail": 1
+        },
+        "scored": 3,
+        "pass_rate": 0.6666666666666666
+      },
+      "int4": {
+        "counts": {
+          "pass": 25
+        },
+        "scored": 25,
+        "pass_rate": 1.0
+      },
+      "int8": {
+        "counts": {
+          "pass": 28
+        },
+        "scored": 28,
+        "pass_rate": 1.0
+      },
+      "interval": {
+        "counts": {
+          "pass": 20
+        },
+        "scored": 20,
+        "pass_rate": 1.0
+      },
+      "join": {
+        "counts": {
+          "pass": 23,
+          "fail": 11
+        },
+        "scored": 34,
+        "pass_rate": 0.6764705882352942
+      },
+      "json": {
+        "counts": {
+          "fail": 9,
+          "pass": 43
+        },
+        "scored": 52,
+        "pass_rate": 0.8269230769230769
+      },
+      "limit": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "locking": {
+        "counts": {
+          "fail": 3
+        },
+        "scored": 3,
+        "pass_rate": 0.0
+      },
+      "metadata": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "models": {
+        "counts": {
+          "pass": 8
+        },
+        "scored": 8,
+        "pass_rate": 1.0
+      },
+      "numeric": {
+        "counts": {
+          "pass": 15,
+          "fail": 15
+        },
+        "scored": 30,
+        "pass_rate": 0.5
+      },
+      "ordering": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "privileges": {
+        "counts": {
+          "fail": 2
+        },
+        "scored": 2,
+        "pass_rate": 0.0
+      },
+      "regex": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "select": {
+        "counts": {
+          "fail": 3
+        },
+        "scored": 3,
+        "pass_rate": 0.0
+      },
+      "sequences": {
+        "counts": {
+          "pass": 4
+        },
+        "scored": 4,
+        "pass_rate": 1.0
+      },
+      "session": {
+        "counts": {
+          "fail": 5,
+          "pass": 8
+        },
+        "scored": 13,
+        "pass_rate": 0.6153846153846154
+      },
+      "smoke": {
+        "counts": {
+          "pass": 13
+        },
+        "scored": 13,
+        "pass_rate": 1.0
+      },
+      "srf": {
+        "counts": {
+          "pass": 23
+        },
+        "scored": 23,
+        "pass_rate": 1.0
+      },
+      "strings": {
+        "counts": {
+          "pass": 32
+        },
+        "scored": 32,
+        "pass_rate": 1.0
+      },
+      "timestamp": {
+        "counts": {
+          "fail": 4,
+          "pass": 16
+        },
+        "scored": 20,
+        "pass_rate": 0.8
+      },
+      "timestamptz": {
+        "counts": {
+          "fail": 2,
+          "pass": 18
+        },
+        "scored": 20,
+        "pass_rate": 0.9
+      },
+      "transactions": {
+        "counts": {
+          "fail": 3
+        },
+        "scored": 3,
+        "pass_rate": 0.0
+      },
+      "types": {
+        "counts": {
+          "pass": 5
+        },
+        "scored": 5,
+        "pass_rate": 1.0
+      },
+      "union": {
+        "counts": {
+          "pass": 24
+        },
+        "scored": 24,
+        "pass_rate": 1.0
+      },
+      "unsupported": {
+        "counts": {
+          "unsupported": 2
+        },
+        "scored": 0,
+        "pass_rate": null
+      },
+      "utils": {
+        "counts": {
+          "pass": 8,
+          "fail": 1
+        },
+        "scored": 9,
+        "pass_rate": 0.8888888888888888
+      },
+      "uuid": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "values": {
+        "counts": {
+          "pass": 3
+        },
+        "scored": 3,
+        "pass_rate": 1.0
+      },
+      "views": {
+        "counts": {
+          "pass": 2
+        },
+        "scored": 2,
+        "pass_rate": 1.0
+      },
+      "window": {
+        "counts": {
+          "pass": 8,
+          "fail": 2
+        },
+        "scored": 10,
+        "pass_rate": 0.8
+      },
+      "with": {
+        "counts": {
+          "pass": 8,
+          "fail": 2
+        },
+        "scored": 10,
+        "pass_rate": 0.8
+      }
+    }
+  },
+  "retained_359": {
+    "total": 188,
+    "observed_pass": 122,
+    "deferred_fail": 66
+  },
+  "previously_passing_regressions": 0,
+  "provenance": "Curated REL_16_15 PostgreSQL source inputs compared live with PostgreSQL 18.6; not the full PostgreSQL 18 regression suite"
+}
