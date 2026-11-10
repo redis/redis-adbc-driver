@@ -923,6 +923,37 @@ func (ws *windowSet) compute(env *evalEnv, c windowCall, args [][]Value, keep []
 	case "FIRST_VALUE", "LAST_VALUE", "NTH_VALUE":
 		return ws.valueAt(c, args, lo, hi, excl, vals)
 	}
+	// Paired regression and bit aggregates have no reversible accumulator.
+	// Rebuild their state for each frame, including FILTER and EXCLUDE.
+	if pgRegrName(f.Name) || f.Name == "BIT_AND" || f.Name == "BIT_OR" || f.Name == "BIT_XOR" {
+		in := make([]Value, len(args))
+		for i, row := range ws.perm {
+			if err := cancelled(env.ctx); err != nil {
+				return err
+			}
+			a := newAggState(f)
+			for _, part := range ws.frameParts(i, lo[i], hi[i], excl) {
+				for p := part[0]; p < part[1]; p++ {
+					r := ws.perm[p]
+					if keep != nil && !keep[r] {
+						continue
+					}
+					for j := range args {
+						in[j] = args[j][r]
+					}
+					if err := a.add(in); err != nil {
+						return err
+					}
+				}
+			}
+			v, err := a.result(env, c.typ)
+			if err != nil {
+				return err
+			}
+			vals[row] = v
+		}
+		return nil
+	}
 
 	var in []Value
 	star := f.Star

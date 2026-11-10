@@ -222,7 +222,7 @@ func TestCopyCommand(t *testing.T) {
 		t.Fatalf("copy: %v, %q", err, out)
 	}
 	// i = 2, 4, 6, 8: ages 22 + 24 + 26 + 28.
-	if s := sqlInt(t, uri, "SELECT SUM(age) FROM it_cli_cp WHERE active AND since < DATE '2024-02-10'"); s != 100 {
+	if s := sqlInt(t, uri, "SELECT CAST(SUM(age) AS BIGINT) FROM it_cli_cp WHERE active AND since < DATE '2024-02-10'"); s != 100 {
 		t.Errorf("SUM(age) = %d", s)
 	}
 	if _, _, err := runCmd(t, "copy", "-uri", uri, "-prefix", "it:cli:cp:", "-table", "it_cli_cp"); err == nil ||

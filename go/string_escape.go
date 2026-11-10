@@ -68,11 +68,11 @@ func lexEscapeString(s string) (string, int, error) {
 				n = 8
 			}
 			if i+n > len(s) {
-				return "", 0, syntaxErr("invalid Unicode escape")
+				return "", 0, stateErr(stateEscape, "invalid Unicode escape")
 			}
 			v, err := strconv.ParseUint(s[i:i+n], 16, 32)
 			if err != nil {
-				return "", 0, syntaxErr("invalid Unicode escape")
+				return "", 0, stateErr(stateEscape, "invalid Unicode escape")
 			}
 			i += n
 			cp := rune(v)
@@ -87,7 +87,10 @@ func lexEscapeString(s string) (string, int, error) {
 				cp = utf16.DecodeRune(cp, rune(lo))
 				i += 6
 			}
-			if !utf8.ValidRune(cp) || cp == 0 {
+			if !utf8.ValidRune(cp) {
+				return "", 0, syntaxErr("invalid Unicode escape value")
+			}
+			if cp == 0 {
 				return "", 0, invalidUTF8()
 			}
 			b.WriteRune(cp)
@@ -197,7 +200,10 @@ func lexUnicodeString(s string, quote byte) (string, int, error) {
 			high = c
 			continue
 		}
-		if !utf8.ValidRune(c) || c == 0 {
+		if !utf8.ValidRune(c) {
+			return "", 0, syntaxErr("invalid Unicode escape value")
+		}
+		if c == 0 {
 			return "", 0, invalidUTF8()
 		}
 		b.WriteRune(c)

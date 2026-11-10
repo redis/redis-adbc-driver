@@ -278,6 +278,12 @@ type aggState interface {
 }
 
 func newAggState(f *Func) aggState {
+	if pgRegrName(f.Name) {
+		return &pgRegrAgg{name: f.Name}
+	}
+	if f.Name == "BIT_AND" || f.Name == "BIT_OR" || f.Name == "BIT_XOR" {
+		return &pgBitAgg{name: f.Name}
+	}
 	switch {
 	case f.Name == "ARRAY_AGG":
 		return &arrayAgg{jsonAgg: jsonAgg{fn: f}}

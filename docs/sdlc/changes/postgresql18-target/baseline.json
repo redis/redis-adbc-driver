@@ -1,0 +1,86 @@
+{
+  "date": "2026-11-09",
+  "driver_base_revision": "08d75d50888374b805a5c89f5bb94a46cf6fe8a9",
+  "driver_changes": "uncommitted PostgreSQL 18 reference upgrade; SQL implementation unchanged",
+  "reference": {
+    "postgres": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "collation": "C",
+    "image": "postgres:18@sha256:e923a22ac074261dd73970c57edf659475bf0497cb9456f17d98ed7cdd3ca913"
+  },
+  "redis": {
+    "distribution": "Redis Software",
+    "redis_version": "8.8.0",
+    "shards": 3,
+    "qpf_active": true,
+    "qpf_scaling_factor": 4,
+    "search_workers": 6,
+    "sched_policy": "mnp",
+    "conns": 32
+  },
+  "summary": {
+    "counts": {
+      "pass": 452,
+      "fail": 199,
+      "allowed": 2,
+      "unsupported": 2
+    },
+    "scored": 651,
+    "pass_rate": 0.6943164362519201
+  },
+  "tiers": {
+    "dbt": {
+      "counts": {
+        "pass": 22,
+        "fail": 1
+      },
+      "scored": 23,
+      "pass_rate": 0.9565217391304348
+    },
+    "extensions": {
+      "counts": {
+        "allowed": 2
+      },
+      "scored": 0,
+      "pass_rate": null
+    },
+    "issues": {
+      "counts": {
+        "pass": 171,
+        "fail": 68
+      },
+      "scored": 239,
+      "pass_rate": 0.7154811715481172
+    },
+    "postgres": {
+      "counts": {
+        "fail": 130,
+        "pass": 241
+      },
+      "scored": 371,
+      "pass_rate": 0.6495956873315364
+    },
+    "scope": {
+      "counts": {
+        "unsupported": 2
+      },
+      "scored": 0,
+      "pass_rate": null
+    },
+    "smoke": {
+      "counts": {
+        "pass": 13
+      },
+      "scored": 13,
+      "pass_rate": 1.0
+    },
+    "types": {
+      "counts": {
+        "pass": 5
+      },
+      "scored": 5,
+      "pass_rate": 1.0
+    }
+  },
+  "infrastructure_error_count": 0,
+  "scope": "Curated ADBC corpus; retained PostgreSQL regression inputs sourced from REL_16_15; not the full PostgreSQL 18 regression suite or SQL:2023 Core conformance."
+}

@@ -245,7 +245,7 @@ func TestSQLExactSums(t *testing.T) {
 	h.expectRows(`SELECT sum(CASE WHEN x = 1 THEN 9223372036854775807 WHEN x = 2 THEN 1 ELSE -1 END),
 			sum(CASE WHEN x > 1 THEN 1 ELSE 2.5 END), avg(CASE WHEN x > 1 THEN 1 ELSE 0.5e0 END)
 		FROM generate_series(1, 3) AS g(x)`, "9223372036854775807|4.5|0.8333333333333334")
-	h.expectError("SELECT sum(9223372036854775807) FROM generate_series(1, 2) AS g(x)", "integer overflow in SUM")
+	h.expectRows("SELECT sum(9223372036854775807) FROM generate_series(1, 2) AS g(x)", "18446744073709551614")
 
 	// `all`: RediSearch sums the doubles itself, in its order, and returns
 	// the sum with 12 significant digits. That is the exact sum when it has
@@ -398,7 +398,7 @@ func TestSQLPushdownSumNulls(t *testing.T) {
 			mh.expectRows(byGroup, want...)
 			mh.expectRows(avgInt, wantAvg...)
 		}
-		mh.expectRows("SELECT sum(x), avg(x), count(x), sum(i), avg(i) FROM it_xs_nulls WHERE g < 20", "60|1.5|40|60|1.5")
+		mh.expectRows("SELECT sum(x), avg(x), count(x), sum(i), avg(i) FROM it_xs_nulls WHERE g < 20", "60|1.5|40|60|1.5000000000000000")
 		mh.expectRows("SELECT sum(x), avg(x), count(x), avg(i) FROM it_xs_nulls WHERE g = 20", "NULL|NULL|0|NULL")
 		mh.expectRows("SELECT g, sum(x), avg(x), min(x), max(i) FROM it_xs_nulls WHERE g >= 19 GROUP BY g ORDER BY g",
 			"19|4|2|2|2", "20|NULL|NULL|NULL|NULL", "21|NaN|NaN|-Inf|2")

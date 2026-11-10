@@ -69,8 +69,8 @@ func toTime(v Value) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("expected a date, time or timestamp, got %s", v.T.Kind)
 }
 
-// dateValue is the DATE days after the epoch. A DATE is an Arrow date32, so
-// beyond the int32 range of days it is "date out of range", as in Postgres.
+// dateValue checks the driver's Arrow date32 arithmetic/storage range. SQL
+// text input separately checks PostgreSQL's narrower finite DATE range.
 func dateValue(days int64) (Value, error) {
 	if days < math.MinInt32 || days > math.MaxInt32 {
 		return Value{}, stateErr(stateDatetimeRange, "date out of range")
@@ -538,7 +538,7 @@ func dateTimeFuncType(f *Func, args []ColType) (ColType, bool) {
 	switch f.Name {
 	case "CURRENT_DATE", "MAKE_DATE", "TO_DATE", "LAST_DAY":
 		return typeDate, true
-	case "CURRENT_TIMESTAMP", "NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP":
+	case "CURRENT_TIMESTAMP", "NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP", "CLOCK_TIMESTAMP":
 		return currentTimeType(f, typeTimestampTZ), true
 	case "LOCALTIMESTAMP":
 		return currentTimeType(f, typeTimestamp), true
@@ -586,7 +586,7 @@ func dateTimeFuncType(f *Func, args []ColType) (ColType, bool) {
 		}
 		return typeFloat64, true
 	case "DATE_TRUNC":
-		if len(args) == 2 {
+		if len(args) >= 2 {
 			return dateTruncType(args[1]), true
 		}
 		return typeTimestamp, true
@@ -622,6 +622,8 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 	// local is the wall-clock time whose fields a function reads.
 	local := func(v Value) (time.Time, error) { return localFields(v, z) }
 	switch f.Name {
+	case "CLOCK_TIMESTAMP":
+		return done(currentTime(time.Now().UTC(), t))
 	case "CURRENT_TIMESTAMP", "NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP":
 		return done(currentTime(env.now(), t))
 	case "CURRENT_DATE", "LOCALTIMESTAMP", "LOCALTIME":
@@ -714,6 +716,16 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		}
 		return done(floatValue(typeFloat64, epochSeconds(args[0], tm)), nil)
 	case "DATE_TRUNC":
+		if len(args) == 3 {
+			if !isTimestampTZ(args[1].T) {
+				return done(Value{}, stateErr(stateUndefinedFunction, "three-argument date_trunc requires timestamp with time zone"))
+			}
+			var err error
+			z, err = resolveZone(args[2].Text())
+			if err != nil {
+				return done(Value{}, err)
+			}
+		}
 		tm, err := toTime(args[1])
 		if err != nil {
 			return done(Value{}, err)
@@ -869,6 +881,9 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		}
 		return done(toTimestamp(args[0].Text(), args[1].Text(), z, t))
 	case "TO_CHAR":
+		if args[0].T.Kind.isNumeric() {
+			return done(numericToChar(args[0], args[1].Text()))
+		}
 		if args[0].T.Kind == KindTimeTZ {
 			// Postgres has no TO_CHAR of a time with time zone (nor a cast
 			// to an interval, which a TIME has).
@@ -931,6 +946,9 @@ func dateBin(args []Value, t ColType, z tzZone) (Value, error) {
 	}
 	step := new(big.Int).Mul(big.NewInt(int64(stride.Days)), big.NewInt(nsPerDay))
 	step.Add(step, big.NewInt(stride.I))
+	if !new(big.Int).Quo(new(big.Int).Set(step), big.NewInt(1000)).IsInt64() {
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
+	}
 	if step.Sign() <= 0 {
 		return Value{}, stateErr(stateDatetimeRange, "stride must be greater than zero")
 	}
@@ -960,7 +978,8 @@ func dateBin(args []Value, t ColType, z tzZone) (Value, error) {
 	// source - ((source - origin) mod stride), the mod rounding down.
 	_, m := new(big.Int).DivMod(new(big.Int).Sub(src, origin), step, new(big.Int))
 	units, _ := new(big.Int).DivMod(m.Sub(src, m), big.NewInt(nsPerSecond/unitsPerSecond[t.Unit]), new(big.Int))
-	if !units.IsInt64() {
+	lower := new(big.Int).Mul(big.NewInt(-2440588*86400), big.NewInt(unitsPerSecond[t.Unit]))
+	if !units.IsInt64() || units.Cmp(lower) < 0 {
 		return Value{}, errTimestampRange
 	}
 	return intValue(t, units.Int64()), nil

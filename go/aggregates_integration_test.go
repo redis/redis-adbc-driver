@@ -338,8 +338,8 @@ func TestSQLAggFilter(t *testing.T) {
 	schema := h.expectRows(`SELECT COUNT(*) FILTER (WHERE v > 2), COUNT(*) FILTER (WHERE b), SUM(v) FILTER (WHERE g = 'a'),
 			SUM(v) FILTER (WHERE NOT b), AVG(n) FILTER (WHERE v < 5), MAX(k) FILTER (WHERE id < 5), COUNT(*)
 		FROM it_agg`,
-		"3|2|7|22|1.875|y|7")
-	expectTypeIDs(t, schema, arrow.INT64, arrow.INT64, arrow.INT64, arrow.INT64, arrow.FLOAT64, arrow.STRING, arrow.INT64)
+		"3|2|7|22|1.8750000000000000|y|7")
+	expectTypeIDs(t, schema, arrow.INT64, arrow.INT64, arrow.INT64, arrow.INT64, arrow.DECIMAL256, arrow.STRING, arrow.INT64)
 	h.expectRows(`SELECT COUNT(*) FILTER (WHERE false), SUM(v) FILTER (WHERE false), STRING_AGG(k, ',') FILTER (WHERE false)
 		FROM it_agg`, "0|NULL|NULL")
 

@@ -57,7 +57,7 @@ func TestSQLCheckedParallelInputs(t *testing.T) {
 			t.Fatal("parallel expression results differ")
 		}
 	}
-	h.expectRows(sql, "10|4.666666666666667|3|-9007199254740992|9007199254740994|10")
+	h.expectRows(sql, "10|4.6666666666666667|3|-9007199254740992|9007199254740994|10")
 	// Overflow before final cancellation and NULL on the other operand must
 	// both survive compiled evaluation; division remains in the serial path.
 	h.exec("DELETE FROM it_checked_parallel")
@@ -168,7 +168,7 @@ func TestSQLPartialGroupsMultipleSpillPasses(t *testing.T) {
 	if m.spillBytes.Load() == 0 || m.spillReadBytes.Load() == 0 || m.spillRead.seconds() <= 0 || m.spillWrite.seconds() <= 0 {
 		t.Fatalf("missing I/O metrics: %s", m.json())
 	}
-	h.expectRows("SELECT g,COUNT(*),SUM(v),AVG(w) FROM it_partial_states GROUP BY g ORDER BY g", "9007199254740992|33|NULL|NULL", "9007199254740993|99|33|9")
+	h.expectRows("SELECT g,COUNT(*),SUM(v),AVG(w) FROM it_partial_states GROUP BY g ORDER BY g", "9007199254740992|33|NULL|NULL", "9007199254740993|99|33|9.0000000000000000")
 }
 
 func TestExecutionDiagnosticsLive(t *testing.T) {

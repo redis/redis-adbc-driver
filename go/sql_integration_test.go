@@ -267,7 +267,7 @@ func TestSQLHaving(t *testing.T) {
 	// HAVING combined with WHERE and a NULL-producing aggregate.
 	h.expectRows(`SELECT status, AVG(amount) AS avg_amount FROM it_orders WHERE qty < 10
 		GROUP BY status HAVING AVG(amount) IS NULL OR AVG(amount) < 30 ORDER BY status`,
-		"returned|NULL", "shipped|19.166666666666668")
+		"returned|NULL", "shipped|19.1666666666666667")
 	// HAVING without GROUP BY: the whole table is one group.
 	h.expectRows(`SELECT COUNT(*) FROM it_orders HAVING COUNT(*) > 5`, "6")
 	h.expectRows(`SELECT COUNT(*) FROM it_orders HAVING COUNT(*) > 100`)
@@ -2114,14 +2114,14 @@ func TestSQLScalarFunctions(t *testing.T) {
 		}
 		h.expectRows(c.sql, c.rows...)
 	}
-	// Functions applied to aggregates or GROUP BY columns keep the
-	// aggregation in the index; grouping by a function runs in the driver.
+	// Integer AVG stays exact NUMERIC in the driver. Other scalar functions
+	// of index-safe aggregates/group keys can retain index aggregation.
 	for _, c := range []struct {
 		sql      string
 		indexAgg bool
 		rows     []string
 	}{
-		{`SELECT ROUND(AVG(id), 1), MAX(id) * 2, SIGN(MIN(id) - 2), GREATEST(COUNT(*), 10) FROM it_fn`, true, []string{"2.5|8|-1|10"}},
+		{`SELECT ROUND(AVG(id), 1), MAX(id) * 2, SIGN(MIN(id) - 2), GREATEST(COUNT(*), 10) FROM it_fn`, false, []string{"2.5|8|-1|10"}},
 		{`SELECT LPAD(CAST(id AS VARCHAR), 3, '0'), COUNT(*) FROM it_fn GROUP BY id ORDER BY id`, true, []string{"001|1", "002|1", "003|1", "004|1"}},
 		{`SELECT SPLIT_PART(code, '-', 1) AS prefix, COUNT(*) FROM it_fn GROUP BY prefix ORDER BY prefix`, false, []string{"ab|1", "cd|1", "ef|1", "NULL|1"}},
 		{`SELECT SUM(ROUND(amt)), MAX(LENGTH(s)) FROM it_fn`, false, []string{"10|15"}},
@@ -2822,25 +2822,25 @@ func TestSQLWindowAggregates(t *testing.T) {
 		"1|11|5|8|1", "2|12|4|10|8", "3|12|4|10|8", "4|17|2|10|5",
 		"5|15|1|15|10", "6|11|5|8|1", "7|13|3|5|10", "8|8|5|1|NULL")
 
-	// Result types follow the aggregates': decimal SUM stays decimal, AVG and
-	// floating-point SUM are doubles, MIN / MAX keep the argument's type.
+	// Result types follow the aggregates': decimal SUM stays decimal,
+	// integer/decimal AVG are numeric, floating SUM keeps its argument type.
 	schema := h.expectRows(`SELECT id, SUM(amt) OVER (ORDER BY id),
 			AVG(amt) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW),
 			SUM(f) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING), MIN(d) OVER (), MAX(g) OVER (),
 			SUM(v) OVER (), COUNT(*) OVER ()
 		FROM it_win ORDER BY id`,
-		"1|1.50|1.5|1.75|2024-01-01|c|28|8",
-		"2|3.75|1.875|3.75|2024-01-01|c|28|8",
-		"3|3.75|2.25|3.25|2024-01-01|c|28|8",
-		"4|13.75|10|6|2024-01-01|c|28|8",
-		"5|16.75|6.5|4.25|2024-01-01|c|28|8",
-		"6|17.50|1.875|12.25|2024-01-01|c|28|8",
-		"7|22.50|2.875|9.25|2024-01-01|c|28|8",
-		"8|23.50|3|9|2024-01-01|c|28|8")
+		"1|1.50|1.5000000000000000|1.75|2024-01-01|c|28|8",
+		"2|3.75|1.8750000000000000|3.75|2024-01-01|c|28|8",
+		"3|3.75|2.2500000000000000|3.25|2024-01-01|c|28|8",
+		"4|13.75|10.0000000000000000|6|2024-01-01|c|28|8",
+		"5|16.75|6.5000000000000000|4.25|2024-01-01|c|28|8",
+		"6|17.50|1.8750000000000000|12.25|2024-01-01|c|28|8",
+		"7|22.50|2.8750000000000000|9.25|2024-01-01|c|28|8",
+		"8|23.50|3.0000000000000000|9|2024-01-01|c|28|8")
 	if got, want := fieldNames(schema), "id|sum|avg|sum|min|max|sum|count"; got != want {
 		t.Errorf("window aggregate names = %s, want %s", got, want)
 	}
-	for i, want := range []string{"int32", "decimal(38, 2)", "float64", "float64", "date32", "utf8", "int64", "int64"} {
+	for i, want := range []string{"int32", "decimal(38, 2)", "decimal256(76, 16)", "float64", "date32", "utf8", "int64", "int64"} {
 		if got := schema.Field(i).Type.String(); got != want {
 			t.Errorf("window aggregate %d type = %s, want %s", i, got, want)
 		}
@@ -2860,7 +2860,7 @@ func TestSQLWindowAggregates(t *testing.T) {
 		"5|3.67|8|25.0|3|old|4",
 		"6|3.67|7|7.1|1|old|9",
 		"7|3.67|2|7.1|2|latest|9",
-		"8|1|2|3.6|1|latest|0")
+		"8|1.00|2|3.6|1|latest|0")
 
 	// Empty input, all-NULL partitions, and empty frames.
 	h.expectRows(`SELECT id, ROW_NUMBER() OVER (), SUM(v) OVER () FROM it_win WHERE id > 100`)
@@ -3045,7 +3045,7 @@ func TestSQLWindowQueries(t *testing.T) {
 		FROM it_win`)
 	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_win_ctas'
 		ORDER BY ordinal_position`,
-		"id|INTEGER", "rn|BIGINT", "pr|DOUBLE PRECISION", "gsum|NUMERIC(38,2)", "prev_v|INTEGER", "av|DOUBLE PRECISION")
+		"id|INTEGER", "rn|BIGINT", "pr|DOUBLE PRECISION", "gsum|NUMERIC(38,2)", "prev_v|INTEGER", "av|NUMERIC(76,16)")
 	h.expectRows(`SELECT id, gsum, prev_v FROM it_win_ctas WHERE rn = 1 ORDER BY id`, "1|13.75|NULL", "5|8.75|8", "8|1.00|2")
 	h.exec(`CREATE TABLE it_win_ins (id INTEGER, rnk BIGINT)`)
 	if n := h.exec(`INSERT INTO it_win_ins SELECT id, RANK() OVER (ORDER BY k DESC) FROM it_win WHERE g = 'a'`); n != 4 {

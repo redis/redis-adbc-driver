@@ -836,7 +836,12 @@ func lex(src string) ([]token, error) {
 			if err != nil {
 				return nil, err
 			}
-			toks = append(toks, token{kind: tokString, text: s, pos: i, end: i + n})
+			if nprev := len(toks); nprev > 0 && toks[nprev-1].kind == tokString && strings.ContainsAny(src[toks[nprev-1].end:i], "\r\n") {
+				toks[nprev-1].text += s
+				toks[nprev-1].end = i + n
+			} else {
+				toks = append(toks, token{kind: tokString, text: s, pos: i, end: i + n})
+			}
 			i += n
 		case c == '"' || c == '`':
 			s, n, err := lexQuoted(src[i:], c)
@@ -913,7 +918,7 @@ func lex(src string) ([]token, error) {
 			}
 			toks = append(toks, token{kind: tokOp, text: src[start:i], pos: start, end: i})
 		default:
-			ops := []string{"@>", "<@", "&&", "->>", "->", "#>>", "#>", "<>", "!=", "<=", ">=", "||", "::", "==", "(", ")", ",", ";", "*", "+", "-", "/", "%", "=", "<", ">", ".", ":"}
+			ops := []string{"=>", ":=", "<<", ">>", "@>", "<@", "&&", "->>", "->", "#>>", "#>", "<>", "!=", "<=", ">=", "||", "::", "==", "(", ")", ",", ";", "*", "+", "-", "/", "%", "=", "<", ">", ".", ":", "^", "&", "|"}
 			matched := false
 			for _, op := range ops {
 				if strings.HasPrefix(src[i:], op) {
@@ -3664,6 +3669,10 @@ func (p *parser) parseComparison() (Expr, error) {
 		if p.isKeyword("BETWEEN") || (p.isKeyword("NOT") && p.isKeywordAt(1, "BETWEEN")) {
 			not := p.acceptKeyword("NOT")
 			p.acceptKeyword("BETWEEN")
+			symmetric := p.acceptKeyword("SYMMETRIC")
+			if !symmetric {
+				p.acceptKeyword("ASYMMETRIC")
+			}
 			lo, err := p.parseOtherOp()
 			if err != nil {
 				return nil, err
@@ -3676,6 +3685,9 @@ func (p *parser) parseComparison() (Expr, error) {
 				return nil, err
 			}
 			var e Expr = &Binary{Op: "AND", L: compareExpr(">=", l, lo), R: compareExpr("<=", l, hi)}
+			if symmetric {
+				e = &Binary{Op: "OR", L: e, R: &Binary{Op: "AND", L: compareExpr(">=", l, hi), R: compareExpr("<=", l, lo)}}
+			}
 			if not {
 				e = &Unary{Op: "NOT", X: e}
 			}
@@ -3744,7 +3756,7 @@ func (p *parser) parseOtherOp() (Expr, error) {
 			return l, nil
 		}
 		switch t.text {
-		case "||", "~", "~*", "!~", "!~*", "->", "->>", "#>", "#>>", "@>", "<@", "&&":
+		case "&", "|", "<<", ">>", "||", "~", "~*", "!~", "!~*", "->", "->>", "#>", "#>>", "@>", "<@", "&&":
 		default:
 			return l, nil
 		}
@@ -3756,7 +3768,7 @@ func (p *parser) parseOtherOp() (Expr, error) {
 		switch t.text {
 		case "||":
 			l = &Binary{Op: "||", L: l, R: r}
-		case "->", "->>", "#>", "#>>", "@>", "<@", "&&":
+		case "&", "|", "<<", ">>", "->", "->>", "#>", "#>>", "@>", "<@", "&&":
 			l = &Func{Name: t.text, Args: []Expr{l, r}}
 		default:
 			l = &Func{Name: strings.TrimPrefix(t.text, "!"), Args: []Expr{l, r}}
@@ -3823,7 +3835,7 @@ func (p *parser) parseAdditive() (Expr, error) {
 }
 
 func (p *parser) parseMultiplicative() (Expr, error) {
-	l, err := p.parseAtTimeZone()
+	l, err := p.parsePower()
 	if err != nil {
 		return nil, err
 	}
@@ -3831,7 +3843,7 @@ func (p *parser) parseMultiplicative() (Expr, error) {
 		switch {
 		case p.isOp("*"), p.isOp("/"), p.isOp("%"):
 			op := p.next().text
-			r, err := p.parseAtTimeZone()
+			r, err := p.parsePower()
 			if err != nil {
 				return nil, err
 			}
@@ -3846,6 +3858,21 @@ func (p *parser) parseMultiplicative() (Expr, error) {
 			return l, nil
 		}
 	}
+}
+
+func (p *parser) parsePower() (Expr, error) {
+	l, err := p.parseAtTimeZone()
+	if err != nil {
+		return nil, err
+	}
+	for p.acceptOp("^") {
+		r, err := p.parseAtTimeZone()
+		if err != nil {
+			return nil, err
+		}
+		l = &Func{Name: "^", Args: []Expr{l, r}}
+	}
+	return l, nil
 }
 
 // parseAtTimeZone parses `x AT TIME ZONE z`, which is TIMEZONE(z, x), and
@@ -4233,6 +4260,19 @@ func (p *parser) parsePrimary() (Expr, error) {
 				p.pos += 2
 				return p.parseSQLJSONFunc(upper)
 			}
+		case "INT2", "INT4", "INT8", "SMALLINT", "INTEGER", "BIGINT", "REAL", "FLOAT4", "FLOAT8", "NUMERIC", "DECIMAL", "BOOLEAN", "BOOL", "TEXT", "BYTEA":
+			if s := p.peekAt(1); s.kind == tokString {
+				typ, err := colTypeFromSQL(sqlTypeSpec{Name: upper})
+				if err != nil {
+					return nil, parseErr(err)
+				}
+				v, err := Coerce(stringValue(s.text), typ)
+				if err != nil {
+					return nil, parseErr(err)
+				}
+				p.pos += 2
+				return &Literal{V: v}, nil
+			}
 		case "UUID":
 			if p.peekAt(1).kind == tokString {
 				input := p.peekAt(1).text
@@ -4307,6 +4347,13 @@ func (p *parser) parsePrimary() (Expr, error) {
 			}
 			if s := p.peek(); s.kind == tokString && params == nil {
 				p.pos++
+				if strings.EqualFold(s.text, "today") || strings.EqualFold(s.text, "tomorrow") || strings.EqualFold(s.text, "yesterday") || strings.EqualFold(s.text, "now") {
+					t, err := colTypeFromSQL(sqlTypeSpec{Name: upper, WithTZ: withTZ})
+					if err != nil {
+						return nil, parseErr(err)
+					}
+					return p.noteCast(&Cast{X: p.noteLiteral(s), T: t}), nil
+				}
 				var v Value
 				var err error
 				switch upper {
@@ -4675,6 +4722,9 @@ func (p *parser) parseColumnRef(first string) (Expr, error) {
 }
 
 func (p *parser) parseFunctionCall(name string, quotedCase bool) (Expr, error) {
+	if name == "MAKE_INTERVAL" && !quotedCase {
+		return p.parseMakeInterval()
+	}
 	if name == "DATE_ADD" && !quotedCase {
 		return p.parseDateArith(name)
 	}

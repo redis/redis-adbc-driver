@@ -1,4 +1,10 @@
-# Postgres differential corpus
+# PostgreSQL 18 SQL dialect comparison through ADBC
+
+The target is PostgreSQL 18 SQL dialect compatibility through ADBC, tracked in
+[#118](https://github.com/redis/redis-adbc-driver/issues/118). This curated
+comparison does not establish complete PostgreSQL compatibility or SQL:2023
+Core conformance. Passing the full upstream regression suite would also need
+its configuration and exclusions stated; it is not a standards certification.
 
 From `go/`, against an already running test Redis:
 
@@ -8,7 +14,7 @@ make pgdiff-test
 ```
 
 Requires Docker and uv. The target builds the current driver, starts ephemeral
-Postgres **16.15**, pinned by its linux/amd64 manifest digest, and removes it on
+PostgreSQL **18.6**, pinned by its linux/amd64 manifest digest, and removes it on
 exit. The reference uses UTF-8, `--locale=C`, UTC, ISO MDY dates and Postgres
 interval display. Redis returns Arrow intervals directly. Every corpus file gets
 a fresh `pgdiff_<uuid>` schema and fresh connections; transactions on every named
@@ -16,7 +22,24 @@ connection are rolled back before schema cleanup. Closing those connections also
 cleans up temporary tables. No database-wide flush is used. Use a test database:
 driver connections can recover abandoned driver operations.
 
-## Measured baseline
+## PostgreSQL 18 baseline (2026-11-09)
+
+Against PostgreSQL 18.6 (C collation), Redis Software / Redis 8.8.0, three shards,
+verified active 4x QPF, and driver base `08d75d50888374b805a5c89f5bb94a46cf6fe8a9`
+plus the working-tree reference upgrade: **452/651 scored cases passed (69.4%)**,
+**199 mismatches**, two allowed extensions, two explicit scope exclusions, and
+zero infrastructure errors (655 total cases). SQL implementation was unchanged.
+This is a measured baseline of the curated corpus, not a passing compatibility
+suite or the full PostgreSQL 18 regression suite. See
+[validation and aggregate evidence](../../docs/sdlc/changes/postgresql18-target/validation.md).
+
+## Historical PostgreSQL 16 baseline
+
+The results below are historical PostgreSQL 16 comparisons. The retained
+regression inputs and SQLSTATE oracle remain sourced from REL_16_15; their
+provenance is deliberately unchanged. The runner compares those inputs against
+the live PostgreSQL 18 reference. A PostgreSQL 18 source-corpus import and broader
+coverage remain separate work; this is not the PostgreSQL 18 regression suite.
 
 Measured October 9, 2026 against Redis OSS 8.6.2 and the driver from main
 `f0cf7e9`, with the pinned Postgres reference:

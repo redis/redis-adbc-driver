@@ -201,6 +201,35 @@ func (env *evalEnv) evalUnbudgeted(e Expr) (Value, error) {
 		if v.T.Alias != "" && v.T.Alias != "uuid" && x.T.Kind.isInteger() {
 			return intValue(x.T, v.I), nil
 		}
+
+		if !v.Null && v.T.Kind == KindString && (x.T.Kind == KindDate || x.T.Kind == KindTimestamp) {
+			word := strings.ToLower(strings.TrimSpace(v.S))
+			if word == "today" || word == "tomorrow" || word == "yesterday" {
+				d, err := currentTime(env.zone().localTime(env.now()), typeDate)
+				if err != nil {
+					return Value{}, err
+				}
+				if word == "tomorrow" {
+					d.I++
+				} else if word == "yesterday" {
+					d.I--
+				}
+				v = d
+			} else if word == "now" {
+				t := typeTimestamp
+				if x.T.TZ != "" {
+					t = typeTimestampTZ
+				}
+				tm := env.now()
+				if t.TZ == "" {
+					tm = env.zone().localTime(tm)
+				}
+				v, err = currentTime(tm, t)
+				if err != nil {
+					return Value{}, err
+				}
+			}
+		}
 		c, err := castValue(v, x.T, env.zone())
 		if err != nil && x.OnError != nil && castable(v.T, x.T) {
 			// TRY_CAST and DEFAULT … ON CONVERSION ERROR: a value that
@@ -574,6 +603,9 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		}
 		args[i] = v
 	}
+	if d.impl == implPostgres {
+		return pg18Scalar(f, args, env.zone())
+	}
 	if o, ok := operatorLiteral(f); ok {
 		// MOD (%) reads a quoted literal as an operator does.
 		var err error
@@ -905,6 +937,9 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 		case "*":
 			return floatValue(rt, a*b), nil
 		case "/":
+			if math.IsNaN(a) || math.IsNaN(b) {
+				return floatValue(rt, math.NaN()), nil
+			}
 			if b == 0 {
 				return Value{}, stateErr(stateDivisionByZero, "division by zero")
 			}
@@ -1014,6 +1049,18 @@ func inferFuncType(f *Func, args []ColType) ColType {
 }
 
 func funcType(f *Func, args []ColType) ColType {
+	if pgRegrName(f.Name) {
+		if f.Name == "REGR_COUNT" {
+			return typeInt64
+		}
+		return typeFloat64
+	}
+	if (f.Name == "BIT_AND" || f.Name == "BIT_OR" || f.Name == "BIT_XOR") && len(args) > 0 {
+		return args[0]
+	}
+	if t, ok := pg18ScalarType(f.Name, args); ok {
+		return t
+	}
 	if sequenceFunction(f.Name) {
 		return typeInt64
 	}
@@ -1053,8 +1100,10 @@ func funcType(f *Func, args []ColType) ColType {
 		return t
 	}
 	switch f.Name {
-	case "COUNT", "OCTET_LENGTH", "BIT_LENGTH", "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
+	case "COUNT":
 		return typeInt64
+	case "OCTET_LENGTH", "BIT_LENGTH", "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
+		return typeInt32
 	case "LIKE", "ILIKE":
 		return typeBool
 	case "FROM_HEX", "UNHEX", "DECODE_HEX":
@@ -1066,13 +1115,22 @@ func funcType(f *Func, args []ColType) ColType {
 	case "MERGE_ACTION":
 		return typeString
 	case "AVG":
-		if len(args) == 1 && args[0].Kind == KindInterval {
-			return typeInterval
+		if len(args) == 1 {
+			if args[0].Kind == KindInterval {
+				return typeInterval
+			}
+			if args[0].Kind.isInteger() || args[0].Kind == KindDecimal {
+				return decimalType(76, max(16, args[0].Scale))
+			}
 		}
 		return typeFloat64
 	case "SUM":
 		if len(args) == 1 {
 			switch {
+			case args[0].Kind == KindInt64:
+				return decimalType(76, 0)
+			case args[0].Kind == KindFloat32:
+				return typeFloat32
 			case args[0].Kind.isInteger() || args[0].Kind == KindBool:
 				return typeInt64
 			case args[0].Kind == KindDecimal:

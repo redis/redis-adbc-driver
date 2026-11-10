@@ -110,6 +110,7 @@ const (
 	implIIF                         // evalIIF: only the chosen branch is evaluated
 	implMergeAction                 // mergeAction (returning.go)
 	implGrouping                    // replaced by the grouping planner (grouping.go)
+	implPostgres                    // PostgreSQL scalar compatibility (pg18_scalar.go)
 )
 
 // overUse says whether a function can be called with OVER.
@@ -182,6 +183,21 @@ type funcDef struct {
 
 // funcDefs are the driver's functions (see the top of this file).
 var funcDefs = []funcDef{
+	{name: "CORR", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "COVAR_POP", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "COVAR_SAMP", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_COUNT", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_SXX", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_SYY", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_SXY", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_AVGX", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_AVGY", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_SLOPE", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_INTERCEPT", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "REGR_R2", kind: aggregateKind, min: 2, max: 2, over: overOK, args: []argType{argNumber, argNumber}},
+	{name: "BIT_AND", kind: aggregateKind, min: 1, max: 1, over: overOK, args: []argType{argInt}},
+	{name: "BIT_OR", kind: aggregateKind, min: 1, max: 1, over: overOK, args: []argType{argInt}},
+	{name: "BIT_XOR", kind: aggregateKind, min: 1, max: 1, over: overOK, args: []argType{argInt}},
 	{name: "__ORDINALITY", min: 1, max: 1, internal: true},
 	{name: "__ROWS_FROM", min: 1, max: many, internal: true},
 	{name: "__ARRAY_SUBSCRIPT", min: 4, max: 4, internal: true},
@@ -213,6 +229,36 @@ var funcDefs = []funcDef{
 	{name: "CARDINALITY", min: 1, max: 1},
 	{name: "ARRAY_AGG", kind: aggregateKind, min: 1, max: 1},
 	// ---- Postgres session and catalog compatibility ----
+	{name: "^", min: 2, max: 2, impl: implPostgres, internal: true},
+	{name: "&", min: 2, max: 2, impl: implPostgres, internal: true, args: []argType{argInt, argInt}},
+	{name: "|", min: 2, max: 2, impl: implPostgres, internal: true, args: []argType{argInt, argInt}},
+	{name: "<<", min: 2, max: 2, impl: implPostgres, internal: true, args: []argType{argInt, argInt}},
+	{name: ">>", min: 2, max: 2, impl: implPostgres, internal: true, args: []argType{argInt, argInt}},
+	{name: "TO_NUMBER", min: 2, max: 2, impl: implPostgres},
+	{name: "FORMAT", min: 1, max: many, impl: implPostgres, records: true},
+	{name: "DIV", min: 2, max: 2, impl: implPostgres},
+	{name: "GCD", min: 2, max: 2, impl: implPostgres},
+	{name: "LCM", min: 2, max: 2, impl: implPostgres},
+	{name: "SCALE", min: 1, max: 1, impl: implPostgres},
+	{name: "TRIM_SCALE", min: 1, max: 1, impl: implPostgres},
+	{name: "MAKE_INTERVAL", min: 7, max: 7, impl: implPostgres},
+	{name: "PG_INPUT_IS_VALID", min: 2, max: 2, impl: implPostgres},
+	{name: "FLOAT8SEND", min: 1, max: 1, impl: implPostgres, args: []argType{argNumber}},
+	{name: "TRANSLATE", min: 3, max: 3, impl: implPostgres},
+	{name: "ENCODE", min: 2, max: 2, impl: implPostgres, args: []argType{argBytes}},
+	{name: "SHA256", min: 1, max: 1, impl: implPostgres, args: []argType{argBytes}},
+	{name: "QUOTE_LITERAL", min: 1, max: 1, impl: implPostgres},
+	{name: "QUOTE_NULLABLE", min: 1, max: 1, impl: implPostgres},
+	{name: "CHR", min: 1, max: 1, impl: implPostgres, args: []argType{argInt}},
+	{name: "ASCII", min: 1, max: 1, impl: implPostgres},
+	{name: "NUM_NONNULLS", min: 1, max: many, impl: implPostgres, records: true},
+	{name: "NUM_NULLS", min: 1, max: many, impl: implPostgres, records: true},
+	{name: "SINH", min: 1, max: 1, impl: implPostgres, args: []argType{argNumber}},
+	{name: "COSH", min: 1, max: 1, impl: implPostgres, args: []argType{argNumber}},
+	{name: "TANH", min: 1, max: 1, impl: implPostgres, args: []argType{argNumber}},
+	{name: "WIDTH_BUCKET", min: 4, max: 4, impl: implPostgres},
+	{name: "ISFINITE", min: 1, max: 1, impl: implPostgres},
+	{name: "JUSTIFY_HOURS", min: 1, max: 1, impl: implPostgres},
 	{name: "VERSION", min: 0, max: 0},
 	{name: "CURRENT_DATABASE", min: 0, max: 0},
 	{name: "CURRENT_SCHEMA", min: 0, max: 0},
@@ -341,12 +387,13 @@ var funcDefs = []funcDef{
 	// from 0 to 9 (checkPrecisionArg), and are rounded to it. CURRENT_DATE
 	// accepts one too and ignores it.
 	{name: "CURRENT_DATE", min: 0, max: 1, impl: implDateTime},
+	{name: "CLOCK_TIMESTAMP", min: 0, max: 0, impl: implDateTime, volatile: true},
 	{name: "CURRENT_TIMESTAMP", aliases: []string{"NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP"}, min: 0, max: 1, impl: implDateTime},
 	{name: "LOCALTIMESTAMP", min: 0, max: 1, impl: implDateTime},
 	{name: "CURRENT_TIME", min: 0, max: 1, impl: implDateTime},
 	{name: "LOCALTIME", min: 0, max: 1, impl: implDateTime},
 	{name: "DATE_PART", min: 2, max: 2, impl: implDateTime}, // also EXTRACT(field FROM x)
-	{name: "DATE_TRUNC", min: 2, max: 2, impl: implDateTime},
+	{name: "DATE_TRUNC", min: 2, max: 3, impl: implDateTime},
 	{name: "DATE_BIN", min: 3, max: 3, impl: implDateTime},
 	{name: "YEAR", min: 1, max: 1, impl: implDateTime},
 	{name: "QUARTER", min: 1, max: 1, impl: implDateTime},

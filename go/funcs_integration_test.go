@@ -158,12 +158,13 @@ func wantArgCount(name string, min, max, n int) string {
 // argCountSyntax are the calls whose argument counts the parser checks,
 // with its errors; a missing count is valid syntax for another form.
 var argCountSyntax = map[string]map[int]string{
-	"DATE_ADD":    {1: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)", 4: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)"},
-	"DATE_SUB":    {2: "syntax error: DATE_SUB expects (x, INTERVAL n part)", 4: "syntax error: DATE_SUB expects (x, INTERVAL n part)"},
-	"JSON_VALUE":  {1: `syntax error: expected "," near ")"`, 5: `syntax error: expected ON EMPTY or ON ERROR near ","`},
-	"JSON_QUERY":  {1: `syntax error: expected "," near ")"`, 5: `syntax error: expected ON EMPTY or ON ERROR near ","`},
-	"JSON_EXISTS": {1: `syntax error: expected "," near ")"`, 3: `syntax error: expected ON EMPTY or ON ERROR near ","`},
-	"JSON_OBJECT": {3: "JSON_OBJECT expects 1 or 2 arguments"}, // JSON_OBJECT() is the SQL/JSON constructor
+	"MAKE_INTERVAL": {8: "too many arguments for make_interval"},
+	"DATE_ADD":      {1: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)", 4: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)"},
+	"DATE_SUB":      {2: "syntax error: DATE_SUB expects (x, INTERVAL n part)", 4: "syntax error: DATE_SUB expects (x, INTERVAL n part)"},
+	"JSON_VALUE":    {1: `syntax error: expected "," near ")"`, 5: `syntax error: expected ON EMPTY or ON ERROR near ","`},
+	"JSON_QUERY":    {1: `syntax error: expected "," near ")"`, 5: `syntax error: expected ON EMPTY or ON ERROR near ","`},
+	"JSON_EXISTS":   {1: `syntax error: expected "," near ")"`, 3: `syntax error: expected ON EMPTY or ON ERROR near ","`},
+	"JSON_OBJECT":   {3: "JSON_OBJECT expects 1 or 2 arguments"}, // JSON_OBJECT() is the SQL/JSON constructor
 }
 
 // Every function of the registry, by each of its names, rejects one
@@ -471,6 +472,7 @@ func TestSQLFunctionsNamesAndForms(t *testing.T) {
 	h.expectErrorText("SELECT COUNT(id, s) FROM it_fx_e", "COUNT of more than one argument requires DISTINCT")
 	h.expectErrorText("SELECT upper(s) OVER () FROM it_fx_e", "UPPER is not a window function or an aggregate (supported with OVER: "+
 		"ROW_NUMBER, RANK, DENSE_RANK, PERCENT_RANK, CUME_DIST, NTILE, LAG, LEAD, FIRST_VALUE, LAST_VALUE, NTH_VALUE, "+
+		"CORR, COVAR_POP, COVAR_SAMP, REGR_COUNT, REGR_SXX, REGR_SYY, REGR_SXY, REGR_AVGX, REGR_AVGY, REGR_SLOPE, REGR_INTERCEPT, REGR_R2, BIT_AND, BIT_OR, BIT_XOR, "+
 		"COUNT, SUM, AVG, MIN, MAX, STRING_AGG, LISTAGG, BOOL_OR, BOOL_AND, EVERY, ANY_VALUE, "+
 		"STDDEV_SAMP, STDDEV, STDDEV_POP, VAR_SAMP, VARIANCE, VAR_POP)")
 	h.expectErrorText("SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY id) OVER () FROM it_fx_e",

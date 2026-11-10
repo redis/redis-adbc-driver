@@ -86,7 +86,7 @@ func TestSQLAggregateExpressionInputs(t *testing.T) {
 	sql := "SELECT SUM(x+1) AS same, SUM((x+1)*2) AS same, AVG(x+1), COUNT(x+1), MIN(x+1), MAX(x+1) FROM it_agg_inputs"
 	h.expectRows(sql, "NULL|NULL|NULL|0|NULL|NULL")
 	h.exec("INSERT INTO it_agg_inputs VALUES (1,1.001,1.25),(2,2.002,2.5),(NULL,NULL,NULL)")
-	h.expectRows(sql, "5|10|2.5|2|2|3")
+	h.expectRows(sql, "5|10|2.5000000000000000|2|2|3")
 	h.expectRows("SELECT SUM(d+0.001), SUM(f+0.5), SUM(x+1) FROM it_agg_inputs", "3.005|4.75|5")
 	h.expectRows("SELECT x, SUM(x+1), SUM((x+1)*2) FROM it_agg_inputs GROUP BY x ORDER BY x", "1|2|4", "2|3|6", "NULL|NULL|NULL")
 	h.expectRows("SELECT SUM(x+1) FILTER (WHERE x=1), SUM(x/0) FILTER (WHERE FALSE) FROM it_agg_inputs", "2|NULL")

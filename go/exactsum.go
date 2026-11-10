@@ -305,6 +305,26 @@ func (s *exactSum) sumValue(t ColType) (Value, error) {
 // meanValue returns AVG of the values, of type t: an interval, or a double
 // (mean).
 func (s *exactSum) meanValue(t ColType) (Value, error) {
+	if t.Kind == KindDecimal {
+		scale := max(t.Scale, s.scale)
+		num := new(big.Int).Mul(&s.sum, pow5(scale))
+		den := new(big.Int).Mul(pow5(s.scale), big.NewInt(s.n))
+		shift := s.exp + int(scale)
+		if shift >= 0 {
+			num.Lsh(num, uint(shift))
+		} else {
+			den.Lsh(den, uint(-shift))
+		}
+		q, rem := new(big.Int).QuoRem(num, den, new(big.Int))
+		if new(big.Int).Lsh(new(big.Int).Abs(rem), 1).Cmp(new(big.Int).Abs(den)) >= 0 {
+			if num.Sign() < 0 {
+				q.Sub(q, big.NewInt(1))
+			} else {
+				q.Add(q, big.NewInt(1))
+			}
+		}
+		return decimalValue(q, t.Precision, scale), nil
+	}
 	if t.Kind != KindInterval {
 		return floatValue(typeFloat64, s.mean()), nil
 	}
