@@ -11,14 +11,40 @@ import os
 import adbc_driver_manager.dbapi
 
 
-def validate(driver):
+def get_objects_records(table):
+    """Canonicalize unordered discovery collections, preserving all metadata.
+
+    Driverbase collects schema callbacks concurrently. GetObjects does not
+    promise catalog/schema/table order; column ordinal/order and every field
+    value still participate in the exact comparison, as do duplicate entries.
+    """
+    records = table.to_pylist()
+    key = lambda record: json.dumps(record, sort_keys=True)
+    for catalog in records:
+        schemas = catalog.get("catalog_db_schemas")
+        if schemas is None:
+            continue
+        for schema in schemas:
+            tables = schema.get("db_schema_tables")
+            if tables is not None:
+                tables.sort(key=key)
+        schemas.sort(key=key)
+    records.sort(key=key)
+    return records
+
+
+def validate(driver, db_kwargs=None):
+    # The standard validation suite supplies the exact native/wheel endpoint
+    # options (including explicit TLS trust) through its existing fixture.
+    database_options = (
+        dict(db_kwargs) if db_kwargs is not None else {"uri": os.environ["REDIS_URI"]}
+    )
+    database_options["adbc.redis.telemetry.enabled"] = "false"
+
     def connect():
         return adbc_driver_manager.dbapi.connect(
             driver=driver,
-            db_kwargs={
-                "uri": os.environ["REDIS_URI"],
-                "adbc.redis.telemetry.enabled": "false",
-            },
+            db_kwargs=database_options,
             autocommit=True,
         )
 
@@ -52,7 +78,9 @@ def validate(driver):
                 assert cur.fetchall() == [(1, 99), (1, 99)]
             assert reader.adbc_get_table_schema("issue365_items").equals(schema)
             with reader.adbc_get_objects() as meta:
-                assert meta.read_all().equals(before_objects)
+                after_objects = meta.read_all()
+                assert after_objects.schema.equals(before_objects.schema, check_metadata=True)
+                assert get_objects_records(after_objects) == get_objects_records(before_objects)
             with reader.cursor() as cur:
                 cur.execute("SELECT id,v FROM issue365_items ORDER BY id")
                 assert cur.fetchall() == [(1, 10), (1, 10), (2, 20)]
