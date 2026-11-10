@@ -1,7 +1,7 @@
 # Specification: public documentation website
 
 Date: 2026-11-10. Source: `73eb9642`. Status: implementation.
-Requestor: repository user. Issue/PR: pending.
+Requestor: repository user. PR: [#368](https://github.com/redis/redis-adbc-driver/pull/368).
 
 Use MkDocs 1.6.1 and GitHub Pages. Explicit `nav` entries in `mkdocs.yml` select
 the public Markdown pages; stage only those files. Preserve relative links

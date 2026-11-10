@@ -1,7 +1,7 @@
 # Plan: public documentation website
 
 Date: 2026-11-10. Source: `73eb9642`. Status: implementation.
-Requestor: repository user. Issue/PR: pending.
+Requestor: repository user. PR: [#368](https://github.com/redis/redis-adbc-driver/pull/368).
 
 1. Add pinned MkDocs dependency, explicit navigation and staged Markdown input.
 2. Rewrite repository links without publishing their targets; add crawler files.
