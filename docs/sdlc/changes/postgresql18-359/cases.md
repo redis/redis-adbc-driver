@@ -1,11 +1,11 @@
 # PostgreSQL 18 retained case dispositions
 
-Latest follow-up: 2026-11-10, [#98 JSON changes](../postgresql18-json/validation.md).
-The original #359 measurement remains historical; the follow-up observes 145/188
-retained passes and 43 retained failures, including five still owned by #361.
+Latest follow-up: 2026-11-10, [recursive LIMIT changes](../postgresql18-recursive-limit/validation.md).
+The original #359 measurement remains historical; the follow-up observes 147/188
+retained passes and 41 retained failures, including three still owned by #361.
 
 
-This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest follow-up: 145 observed passes and 43 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
+This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest follow-up: 147 observed passes and 41 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
 
 Core-related identifies a related mandatory feature family, not proof that the precise PostgreSQL syntax/error timing is mandatory. Optional and PostgreSQL-specific classifications describe the tested form. Exact subfeature mapping remains explicitly unverified where noted. The classifications use [PostgreSQL 18 Appendix D](https://www.postgresql.org/docs/18/features-sql-standard.html); this is not an ISO normative test audit.
 
@@ -241,7 +241,7 @@ Core-related identifies a related mandatory feature family, not proof that the p
 | `postgres/window.json:statement-0006` | `ordered-window-peers` | fail — deferred to [#364](https://github.com/redis/redis-adbc-driver/issues/364) |
 | `postgres/window.json:statement-0036` | `nested-bigint-sum` | pass |
 | `postgres/window.json:statement-0041` | `extract-result-type` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/with.json:statement-0010` | `recursive-consumer-limit` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
-| `postgres/with.json:statement-0011` | `recursive-consumer-limit` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| `postgres/with.json:statement-0010` | `recursive-consumer-limit` | pass — observed in [recursive LIMIT batch](../postgresql18-recursive-limit/validation.md) |
+| `postgres/with.json:statement-0011` | `recursive-consumer-limit` | pass — observed in [recursive LIMIT batch](../postgresql18-recursive-limit/validation.md) |
 
 See [validation](validation.md) and [machine-readable inventory](../../../../go/pgdiff/issue359-cases.json). The strict completion check requires observed passes; `--triage` checks documented coverage and explicitly preserves failures.

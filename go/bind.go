@@ -1187,6 +1187,10 @@ func (e *executor) cteRelation(ctx context.Context, def *CTE, list int) (*tableM
 	// (semijoin.go): a CTE that reads them fails to plan there.
 	level := min(e.cteLevel[list], len(e.scopes))
 	m, ok := e.cache.ctes[def]
+	bounded := demandedRecursiveRows(ctx, def) > 0
+	if bounded {
+		ok = false
+	}
 	if ok && m.lazy != nil && !slices.Equal(m.lazy.scopes, e.scopes[:level]) {
 		ok = false
 	}
@@ -1195,7 +1199,7 @@ func (e *executor) cteRelation(ctx context.Context, def *CTE, list int) (*tableM
 		if m, err = e.planCTE(ctx, def, list, level); err != nil {
 			return nil, err
 		}
-		if !e.planOnly {
+		if !e.planOnly && !bounded {
 			e.cache.ctes[def] = m
 		}
 	}

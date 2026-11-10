@@ -87,6 +87,17 @@ preserved. The eight remaining JSON corpus cases pass; the broader #98 wishlist
 remains open. A separate 39-case adversarial comparison is outside the scored
 corpus and does not change its denominator. Corpus SQL and allowlists are unchanged.
 
+## PostgreSQL 18 recursive LIMIT follow-up (2026-11-10)
+
+The [#361 recursive LIMIT batch](../../docs/sdlc/changes/postgresql18-recursive-limit/validation.md)
+measured **599/651 scored passes (92.01%)**, **52 failures**, two allowed
+extensions, two explicit exclusions and zero infrastructure errors on Redis
+Software / Redis 8.8.0 with verified active 4x QPF. Both targeted cases pass;
+all 597 previous passes remain passing. A separate 20-case comparison checks
+boundaries without changing the scored denominator. Single-row progressions
+with a sole direct LIMIT consumer can stop early; other consumers retain full
+evaluation. Corpus SQL and allowlists are unchanged. Three #361 cases remain.
+
 ## Historical PostgreSQL 16 baseline
 
 The results below are historical PostgreSQL 16 comparisons. The retained

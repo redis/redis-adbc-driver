@@ -1042,7 +1042,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		plan.meta, rels, jp = joined, jrels, plan2
 		types = joined.types()
 	} else {
-		rel, err := e.fromRelation(ctx, sel)
+		rel, err := e.fromRelation(e.recursiveConsumerContext(ctx, sel), sel)
 		if err != nil {
 			return nil, err
 		}
