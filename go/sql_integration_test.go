@@ -2742,14 +2742,14 @@ func TestSQLWindowAggregates(t *testing.T) {
 	h.expectRows(`SELECT id, COUNT(*) OVER w, COUNT(v) OVER w, SUM(v) OVER w, AVG(v) OVER w, MIN(v) OVER w,
 			MAX(v) OVER w, SUM(v) OVER (PARTITION BY g)
 		FROM it_win WINDOW w AS (PARTITION BY g ORDER BY k) ORDER BY id`,
-		"1|1|1|5|5|5|5|16",
-		"2|3|2|8|4|3|5|16",
-		"3|3|2|8|4|3|5|16",
-		"4|4|3|16|5.333333333333333|3|8|16",
-		"5|3|3|11|3.6666666666666665|2|7|11",
-		"6|1|1|2|2|2|2|11",
-		"7|2|2|4|2|2|2|11",
-		"8|1|1|1|1|1|1|1")
+		"1|1|1|5|5.0000000000000000|5|5|16",
+		"2|3|2|8|4.0000000000000000|3|5|16",
+		"3|3|2|8|4.0000000000000000|3|5|16",
+		"4|4|3|16|5.3333333333333333|3|8|16",
+		"5|3|3|11|3.6666666666666667|2|7|11",
+		"6|1|1|2|2.0000000000000000|2|2|11",
+		"7|2|2|4|2.0000000000000000|2|2|11",
+		"8|1|1|1|1.0000000000000000|1|1|1")
 
 	// ROWS frames with every kind of bound (v by id: 5 3 NULL 8 7 2 2 1).
 	h.expectRows(`SELECT id,
@@ -2776,14 +2776,14 @@ func TestSQLWindowAggregates(t *testing.T) {
 			AVG(v) OVER (ORDER BY id ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING),
 			COUNT(v) OVER (ORDER BY id ROWS UNBOUNDED PRECEDING)
 		FROM it_win ORDER BY id`,
-		"1|0|5|3|5|4|1",
-		"2|1|8|3|5|3|2",
-		"3|2|8|3|5|8|2",
-		"4|2|11|7|8|7.5|3",
-		"5|2|15|2|8|4.5|4",
-		"6|2|17|2|8|2|5",
-		"7|2|11|1|7|1.5|6",
-		"8|2|5|1|2|1|7")
+		"1|0|5|3|5|4.0000000000000000|1",
+		"2|1|8|3|5|3.0000000000000000|2",
+		"3|2|8|3|5|8.0000000000000000|2",
+		"4|2|11|7|8|7.5000000000000000|3",
+		"5|2|15|2|8|4.5000000000000000|4",
+		"6|2|17|2|8|2.0000000000000000|5",
+		"7|2|11|1|7|1.5000000000000000|6",
+		"8|2|5|1|2|1.0000000000000000|7")
 
 	// RANGE frames with numeric offsets, ascending and descending. A NULL key
 	// is its own frame for offset bounds, and other rows' frames don't reach
