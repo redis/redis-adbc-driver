@@ -11,14 +11,18 @@ import os
 import adbc_driver_manager.dbapi
 
 
-def validate(driver):
+def validate(driver, db_kwargs=None):
+    # The standard validation suite supplies the exact native/wheel endpoint
+    # options (including explicit TLS trust) through its existing fixture.
+    database_options = (
+        dict(db_kwargs) if db_kwargs is not None else {"uri": os.environ["REDIS_URI"]}
+    )
+    database_options["adbc.redis.telemetry.enabled"] = "false"
+
     def connect():
         return adbc_driver_manager.dbapi.connect(
             driver=driver,
-            db_kwargs={
-                "uri": os.environ["REDIS_URI"],
-                "adbc.redis.telemetry.enabled": "false",
-            },
+            db_kwargs=database_options,
             autocommit=True,
         )
 

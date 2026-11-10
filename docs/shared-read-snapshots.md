@@ -144,6 +144,44 @@ all Arrow readers and release in success, failure and cancellation paths. Treat
 acquire/metadata/read failures as a failed full-refresh attempt, never as
 permission to downgrade to per-statement consistency.
 
+The current connector at
+[`46b4c3c6`](https://github.com/Redislabs-Solution-Architects/redis-airbyte-connector/tree/46b4c3c6d8286f017293518630028c48ed256eb8)
+still rejects this setting for both transports. A driver release alone does not
+remove that rejection. For its native integration:
+
+1. In `SourceRedisAdbc._backend`, replace the blanket shared-snapshot rejection
+   with a native-only capability path; continue rejecting Flight SQL. Keep
+   configuration and sanitized error handling in place.
+2. In `AdbcBackend.connection`, acquire immediately after opening the native
+   connection and before yielding it to `check`, `discover` or `read`. Set the
+   lifetime and action through `connection.adbc_connection.set_options`; these
+   are connection options and must not be passed as `database_options`.
+3. Keep the existing `read` rediscovery and validation of **all** selected
+   schemas before its first record. A catalog returned by a previous Airbyte
+   discover request is not the read attempt's shared view. Run all table queries
+   and consume their complete batches inside that connection's binding.
+4. Release in the connection context manager's finally block after readers close,
+   including generator close/cancellation. Keep partial-emission failure visible
+   and require a new full-refresh attempt after expiry/loss. Never retry on a
+   fresh connection within the same attempt.
+5. Update the connector's bundled native library or explicit `REDIS_ADBC_LIBRARY`
+   deployment to the selected released artifact. Its `driver_path` resolves its
+   own bundled library/override; merely installing a newer `adbc-driver-redis`
+   package does not change that path. Verify the loaded version and feature-probe
+   acquisition before claiming support.
+6. Add connector tests for two selected tables and pinned metadata while a second
+   client publishes DML/DDL, exact schema/value/multiplicity comparisons, and
+   failed acquire/read/expiry/cancellation without fallback. Verify Flight SQL
+   rejection independently. Gate enabling `read_consistency=shared_snapshot` on
+   these tests and the pinned released driver version.
+
+The inspected integration points are
+[`source.py`](https://github.com/Redislabs-Solution-Architects/redis-airbyte-connector/blob/46b4c3c6d8286f017293518630028c48ed256eb8/source_redis_adbc/source.py)
+and
+[`backend.py`](https://github.com/Redislabs-Solution-Architects/redis-airbyte-connector/blob/46b4c3c6d8286f017293518630028c48ed256eb8/source_redis_adbc/backend.py).
+These are required integration steps, not evidence that the external connector
+has implemented or released them.
+
 Flight SQL shared snapshots are unsupported. No gateway metadata-session binding,
 connection option propagation or gateway ownership/lease protocol is implemented
 or validated here. A Flight SQL connector must explicitly reject
