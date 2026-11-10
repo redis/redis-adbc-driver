@@ -81,11 +81,30 @@ used plain text. Made the support-table name plain text, retaining the adjacent
 Sling ADBC, guide, validation and upstream-report links. The existing equality
 assertion remains intact.
 
-Checks after repair: registry 10 passed; acceptance runner 13 passed; CI matrix
-nine passed; installation coverage one passed; zero skips in these offline tests.
+Checks during repair: registry 10 passed; acceptance runner 13 passed before
+the final support-table display-name change; CI matrix nine passed; installation
+coverage one passed after that change. The acceptance result did not validate
+the final committed tree; see the correction below.
 Using the existing private docs virtual environment, `scripts/prepare_docs.py`,
 `python -m mkdocs build --strict`, and `scripts/check_docs.py` passed (42 pages).
 `git diff --check` passed. No live transfers or Go suites were rerun for this
 inventory/merge repair; earlier Software/QPF evidence is historical validation,
 not a new run. Reviewed resolution against REVIEW.md for row preservation,
 truthful evidence scope and documentation links; no human approval is inferred.
+
+
+PR #371 acceptance correction, 2026-11-10: GitHub helper job 130058376586
+failed at "Check upstream acceptance runner" on `6649acb7`. Reproduced
+`test_audit_covers_every_comparison_row`: the acceptance audit still linked the
+Sling name after the support table was changed to plain text. Updated the audit
+name to match both support and installation inventories, preserving the existing
+full-inventory equality assertions and adjacent source/evidence links.
+The previous report of all checks passing on the final tree was incorrect:
+acceptance was run before the last display-name edit and was not rerun afterward.
+
+After this correction, ran the installation coverage, acceptance runner,
+integration registry and CI matrix suites together on the final content:
+`PYTHONPATH=scripts python3 -m unittest scripts.test_distribution.InstallationCoverageTests scripts.test_acceptance_runner scripts.test_integration_registry scripts.test_ci_test_matrix -v`:
+33 passed, zero skips. Strict MkDocs build and site verification passed for
+42 pages; `git diff --check` passed. No live Redis tests were required for this
+single inventory-cell correction. Remote CI results remain separate evidence.
