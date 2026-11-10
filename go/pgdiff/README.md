@@ -98,6 +98,18 @@ boundaries without changing the scored denominator. Single-row progressions
 with a sole direct LIMIT consumer can stop early; other consumers retain full
 evaluation. Corpus SQL and allowlists are unchanged. Three #361 cases remain.
 
+## PostgreSQL 18 final query-gap follow-up (2026-11-10)
+
+The [final #361 corpus batch](../../docs/sdlc/changes/postgresql18-final-query-gaps/validation.md)
+measured **602/651 scored passes (92.47%)**, **49 failures**, two allowed
+extensions, two explicit exclusions and zero infrastructure errors on Redis
+Software / Redis 8.8.0 with verified active 4x QPF. The three targeted CASE,
+EXTRACT/window and dbt text-metadata cases pass, preserving all 599 prior passes.
+All nineteen #361 corpus cases now pass; the implementation remains scoped and
+is not the complete PostgreSQL optimizer or general recursive streaming.
+Thirty-four separate edge cases pass outside the scored denominator. Corpus SQL
+and allowlists are unchanged.
+
 ## Historical PostgreSQL 16 baseline
 
 The results below are historical PostgreSQL 16 comparisons. The retained

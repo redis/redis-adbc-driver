@@ -1,11 +1,11 @@
 # PostgreSQL 18 retained case dispositions
 
-Latest follow-up: 2026-11-10, [recursive LIMIT changes](../postgresql18-recursive-limit/validation.md).
-The original #359 measurement remains historical; the follow-up observes 147/188
-retained passes and 41 retained failures, including three still owned by #361.
+Latest follow-up: 2026-11-10, [final query-gap changes](../postgresql18-final-query-gaps/validation.md).
+The original #359 measurement remains historical; the follow-up observes 150/188
+retained passes and 38 retained failures; all nineteen #361 corpus cases pass.
 
 
-This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest follow-up: 147 observed passes and 41 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
+This inventory accounts for the 188 baseline failures in [#359](https://github.com/redis/redis-adbc-driver/issues/359). Latest follow-up: 150 observed passes and 38 deferred failures. All 188 cases are triaged; the full corpus still reports every deferred failure. A case classification is not a feature conformance result. Exclusions are from this implementation change only; the full corpus and #118 retain failures.
 
 Core-related identifies a related mandatory feature family, not proof that the precise PostgreSQL syntax/error timing is mandatory. Optional and PostgreSQL-specific classifications describe the tested form. Exact subfeature mapping remains explicitly unverified where noted. The classifications use [PostgreSQL 18 Appendix D](https://www.postgresql.org/docs/18/features-sql-standard.html); this is not an ISO normative test audit.
 
@@ -55,7 +55,7 @@ Core-related identifies a related mandatory feature family, not proof that the p
 
 | File and case ID | Root cause | Latest observed result |
 |---|---|---|
-| `dbt/utils.json:event-0207-0` | `logical-text-metadata` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| `dbt/utils.json:event-0207-0` | `logical-text-metadata` | pass — observed in [final query-gap batch](../postgresql18-final-query-gaps/validation.md) |
 | `issue-240.json:repro-1` | `length-result-type` | pass |
 | `issue-246.json:row-1` | `endpoint-identity` | fail — deferred to [#364](https://github.com/redis/redis-adbc-driver/issues/364) |
 | `issue-246.json:row-2` | `endpoint-identity` | fail — deferred to [#364](https://github.com/redis/redis-adbc-driver/issues/364) |
@@ -115,7 +115,7 @@ Core-related identifies a related mandatory feature family, not proof that the p
 | `issue-268.json:repro-4` | `interval-extension` | fail — deferred to [#364](https://github.com/redis/redis-adbc-driver/issues/364) |
 | `postgres/aggregates.json:statement-0005` | `aggregate-types` | pass |
 | `postgres/aggregates.json:statement-0014` | `aggregate-types` | pass |
-| `postgres/case.json:statement-0020` | `case-planner-folding` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| `postgres/case.json:statement-0020` | `case-planner-folding` | pass — observed in [final query-gap batch](../postgresql18-final-query-gaps/validation.md) |
 | `postgres/date.json:statement-0023` | `date-input-forms` | pass |
 | `postgres/date.json:statement-0026` | `date-input-forms` | pass |
 | `postgres/date.json:statement-0027` | `date-input-forms` | pass |
@@ -240,7 +240,7 @@ Core-related identifies a related mandatory feature family, not proof that the p
 | `postgres/timestamptz.json:statement-0120` | `temporal-upper-range` | fail — deferred to [#362](https://github.com/redis/redis-adbc-driver/issues/362) |
 | `postgres/window.json:statement-0006` | `ordered-window-peers` | fail — deferred to [#364](https://github.com/redis/redis-adbc-driver/issues/364) |
 | `postgres/window.json:statement-0036` | `nested-bigint-sum` | pass |
-| `postgres/window.json:statement-0041` | `extract-result-type` | fail — deferred to [#361](https://github.com/redis/redis-adbc-driver/issues/361) |
+| `postgres/window.json:statement-0041` | `extract-result-type` | pass — observed in [final query-gap batch](../postgresql18-final-query-gaps/validation.md) |
 | `postgres/with.json:statement-0010` | `recursive-consumer-limit` | pass — observed in [recursive LIMIT batch](../postgresql18-recursive-limit/validation.md) |
 | `postgres/with.json:statement-0011` | `recursive-consumer-limit` | pass — observed in [recursive LIMIT batch](../postgresql18-recursive-limit/validation.md) |
 

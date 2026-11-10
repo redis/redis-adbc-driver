@@ -62,8 +62,8 @@ func TestFractionalPrecisionIssue113(t *testing.T) {
 	// The Arrow values are the rounded ones, in the unit with the next
 	// number of digits.
 	schema := h.expectRows(`SELECT id, ts2, tz1, ts4, ts1, EXTRACT(epoch FROM t5) FROM it_prec WHERE id <= 2 ORDER BY id`,
-		"1|2024-01-10T10:00:00.12|2024-01-10T10:00:00.2Z|2024-01-10T10:00:00.1235|2024-01-10T10:00:00.1|36000.12346",
-		"2|2024-01-10T10:00:00.13|2025-01-01T05:00:00Z|2024-01-10T10:00:00.1234|2024-01-10T10:00:00.2|86400")
+		"1|2024-01-10T10:00:00.12|2024-01-10T10:00:00.2Z|2024-01-10T10:00:00.1235|2024-01-10T10:00:00.1|36000.123460",
+		"2|2024-01-10T10:00:00.13|2025-01-01T05:00:00Z|2024-01-10T10:00:00.1234|2024-01-10T10:00:00.2|86400.000000")
 	var units []string
 	for _, f := range schema.Fields()[1:5] {
 		units = append(units, f.Type.String())

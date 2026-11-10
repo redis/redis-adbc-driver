@@ -123,6 +123,7 @@ type execCache struct {
 	memo          map[*Subquery]map[string][][]Value
 	semi          map[*Subquery]*semiResult
 	ctes          map[*CTE]*tableMeta
+	inlineFacts   map[*CTE]bool
 	derived       map[*SelectStmt]*tableMeta
 	materializing map[any]bool
 	// working is the working table of each recursive CTE being evaluated.
@@ -298,6 +299,9 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 		if e.localLits != nil {
 			e.noteLocalTimes(expr)
 		}
+	}
+	if err == nil {
+		err = e.checkCaseConstants(ctx, expr)
 	}
 	return err
 }
@@ -1119,13 +1123,21 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 		return meta, err
 	}
 	if e.planOnly {
-		return e.retainedMemTable(ctx, name, cols, nil, rename)
+		meta, err := e.retainedMemTable(ctx, name, cols, nil, rename)
+		if err == nil && e.cteAllowsFacts(key) {
+			e.projectedConstants(ctx, plan, meta)
+		}
+		return meta, err
 	}
 	rows, err := e.runSelect(ctx, plan, e.params)
 	if err != nil {
 		return nil, err
 	}
-	return e.retainedMemTable(ctx, name, cols, rows, rename)
+	meta, err := e.retainedMemTable(ctx, name, cols, rows, rename)
+	if err == nil && e.cteAllowsFacts(key) {
+		e.projectedConstants(ctx, plan, meta)
+	}
+	return meta, err
 }
 
 // fromQuery prepares the planning of the query of a derived table or WITH

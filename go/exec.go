@@ -1009,6 +1009,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 	resolved.GroupBy = slices.Clone(sel.GroupBy)
 	sel = &resolved
 	plan := &selectPlan{sel: sel}
+	e.noteInlineFacts(sel)
 	pop, err := e.pushCTEs(sel.With)
 	if err != nil {
 		return nil, err

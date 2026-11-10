@@ -646,6 +646,29 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		return Value{}, err
 	}
 	switch d.impl {
+	case implCoalesce:
+		t, ok := env.resultType(f)
+		if !ok {
+			params := make([]ColType, len(env.params))
+			for i, v := range env.params {
+				params[i] = v.T
+			}
+			var err error
+			t, err = inferType(f, env.types, params)
+			if err != nil {
+				return Value{}, err
+			}
+		}
+		for _, expr := range f.Args {
+			v, err := env.eval(expr)
+			if err != nil {
+				return Value{}, err
+			}
+			if !v.Null {
+				return coerceIn(v, t, env.zone())
+			}
+		}
+		return nullValue(t), nil
 	case implMergeAction:
 		return env.mergeAction()
 	case implIIF:
@@ -673,7 +696,7 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 			return Value{}, err
 		}
 	}
-	if d.impl != implCoalesce && d.impl != implConditional && !seesPadding[f.Name] {
+	if d.impl != implConditional && !seesPadding[f.Name] {
 		// Functions take CHAR values as text, without their padding.
 		for i, a := range args {
 			if a.T.isChar() {
@@ -682,19 +705,6 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		}
 	}
 	switch d.impl {
-	case implCoalesce:
-		// The result has the arguments' common type (quoted literals are
-		// values of it), as typed: a NULL argument has no type.
-		t, ok := env.resultType(f)
-		if !ok {
-			t = unifiedType(f, argTypes(args))
-		}
-		for _, a := range args {
-			if !a.Null {
-				return coerceIn(a, t, env.zone())
-			}
-		}
-		return nullValue(t), nil
 	case implConditional:
 		t, ok := env.resultType(f)
 		if !ok {
@@ -1209,6 +1219,9 @@ func funcType(f *Func, args []ColType) ColType {
 			case args[0].Kind.isInteger() || args[0].Kind == KindBool:
 				return typeInt64
 			case args[0].Kind == KindDecimal:
+				if args[0].Precision == 0 {
+					return decimalType(0, 0)
+				}
 				// An int64 row count can add at most 19 coefficient digits.
 				return decimalType(min(int32(76), max(int32(38), args[0].Precision+19)), args[0].Scale)
 			case args[0].Kind == KindInterval:

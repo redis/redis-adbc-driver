@@ -36,7 +36,7 @@ package redis
 //     CURRENT_TIMESTAMP. A call keeps the name it was written with, which
 //     its errors use.
 //   - Special forms are calls of the functions they mean: EXTRACT(f FROM x)
-//     is DATE_PART('f', x), SUBSTRING(s FROM a FOR b) is SUBSTRING(s, a, b),
+//     has its own numeric implementation, SUBSTRING(s FROM a FOR b) is SUBSTRING(s, a, b),
 //     TRIM([BOTH | LEADING | TRAILING] [c] FROM s) and TRIM(s [, c]) are
 //     BTRIM / LTRIM / RTRIM(s [, c]), POSITION(a IN b) is POSITION(a, b),
 //     DATE_ADD(x, INTERVAL n part) is DATE_ADD('part', n, x), x % y is
@@ -73,7 +73,8 @@ package redis
 //     (argType): BOOL_OR of an integer is `function bool_or(integer) does
 //     not exist`. Other type errors, and errors that depend on values
 //     (division by zero, a cast or a logarithm that fails on a value), are
-//     raised when a row is evaluated, as in Postgres.
+//     normally raised when a row is evaluated. Reachable immutable CASE
+//     constants also receive the planning check in case_planning.go.
 //   - Order: a statement's FROM items are resolved before its expressions,
 //     and these left to right. A call is visited before its arguments, but
 //     when it is wrong its arguments are bound first, so an unknown column
@@ -392,7 +393,8 @@ var funcDefs = []funcDef{
 	{name: "LOCALTIMESTAMP", min: 0, max: 1, impl: implDateTime},
 	{name: "CURRENT_TIME", min: 0, max: 1, impl: implDateTime},
 	{name: "LOCALTIME", min: 0, max: 1, impl: implDateTime},
-	{name: "DATE_PART", min: 2, max: 2, impl: implDateTime}, // also EXTRACT(field FROM x)
+	{name: "DATE_PART", min: 2, max: 2, impl: implDateTime},
+	{name: "__EXTRACT", min: 2, max: 2, impl: implDateTime, internal: true},
 	{name: "DATE_TRUNC", min: 2, max: 3, impl: implDateTime},
 	{name: "DATE_BIN", min: 3, max: 3, impl: implDateTime},
 	{name: "YEAR", min: 1, max: 1, impl: implDateTime},

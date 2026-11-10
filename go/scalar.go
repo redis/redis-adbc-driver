@@ -110,8 +110,10 @@ func scalarFuncType(f *Func, args []ColType) (ColType, bool) {
 		}
 		return typeString, true
 	case "LEFT", "RIGHT", "REPLACE", "BTRIM", "LTRIM", "RTRIM", "SPLIT_PART", "LPAD", "RPAD",
-		"REVERSE", "REPEAT", "INITCAP", "MD5", "REGEXP_REPLACE":
+		"REVERSE", "REPEAT", "INITCAP", "REGEXP_REPLACE":
 		return typeString, true
+	case "MD5":
+		return ColType{Kind: KindString, Text: true}, true
 	case "POSITION", "STRPOS":
 		return typeInt64, true
 	case "STARTS_WITH":
@@ -519,7 +521,7 @@ func scalarFunc(f *Func, args []Value, z tzZone) (Value, error) {
 	case "MD5":
 		// Of the UTF-8 text, or of the bytes of a binary value.
 		sum := md5.Sum([]byte(text(0)))
-		return stringValue(hex.EncodeToString(sum[:])), nil
+		return Value{T: ColType{Kind: KindString, Text: true}, S: hex.EncodeToString(sum[:])}, nil
 	case "REGEXP_REPLACE":
 		return regexpReplaceFunc(zonedText(args, z))
 	case "STARTS_WITH":

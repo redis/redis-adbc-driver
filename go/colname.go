@@ -109,7 +109,7 @@ func funcColname(f *Func) (string, int) {
 	case "LIKE", "ILIKE", "SIMILAR TO", "~", "~*", "->", "->>", "#>", "#>>", "MOD", "__IS_JSON":
 		// Operators: x LIKE p, x ~ p, j -> k, a % b, x IS JSON.
 		return "", 0
-	case "DATE_PART":
+	case "__EXTRACT":
 		return "extract", 2 // EXTRACT(field FROM x)
 	case "__PG_DATE_ADD":
 		return "date_add", 2

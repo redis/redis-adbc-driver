@@ -1290,10 +1290,7 @@ func decodeStored(s string, t ColType) (Value, error) {
 		}
 		return Coerce(v, t)
 	case KindString:
-		if t.Fixed {
-			return Value{T: t, S: s}, nil
-		}
-		return stringValue(s), nil
+		return Value{T: t, S: s}, nil
 	default:
 		return stringValue(s), nil
 	}

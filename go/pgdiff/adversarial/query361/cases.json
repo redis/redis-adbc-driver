@@ -1,0 +1,147 @@
+{
+  "area": "query-gap-adversarial",
+  "tier": "issues",
+  "setup": [
+    "CREATE TABLE gap_t(i INTEGER)",
+    "INSERT INTO gap_t VALUES(1),(2)",
+    "CREATE TABLE gap_text AS SELECT MD5('abc') AS sk"
+  ],
+  "cases": [
+    {
+      "id": "edge-000",
+      "sql": "SELECT CASE WHEN i>100 THEN 1/0 ELSE 0 END FROM gap_t"
+    },
+    {
+      "id": "edge-001",
+      "sql": "SELECT CASE WHEN false THEN 1/0 ELSE 1 END FROM gap_t"
+    },
+    {
+      "id": "edge-002",
+      "sql": "SELECT CASE WHEN true THEN 1 ELSE 1/0 END FROM gap_t"
+    },
+    {
+      "id": "edge-003",
+      "sql": "SELECT CASE WHEN i>100 THEN COALESCE(1,1/0) ELSE 0 END FROM gap_t"
+    },
+    {
+      "id": "edge-004",
+      "sql": "SELECT CASE WHEN i>100 THEN CASE WHEN false THEN 1/0 ELSE 1 END ELSE 0 END FROM gap_t"
+    },
+    {
+      "id": "edge-005",
+      "sql": "SELECT CASE WHEN i>100 AND false THEN 1/0 ELSE 0 END FROM gap_t"
+    },
+    {
+      "id": "edge-006",
+      "sql": "SELECT CASE WHEN false AND i>100 THEN 1/0 ELSE 0 END FROM gap_t"
+    },
+    {
+      "id": "edge-007",
+      "sql": "SELECT CASE WHEN i>100 THEN 1/i ELSE 0 END FROM gap_t"
+    },
+    {
+      "id": "edge-008",
+      "sql": "SELECT CASE WHEN i>100 THEN FLOOR(RANDOM()*10)::int ELSE 0 END FROM gap_t"
+    },
+    {
+      "id": "edge-009",
+      "sql": "WITH t(i)AS(VALUES(1)) SELECT CASE WHEN i>100 THEN 1/0 ELSE 0 END FROM t"
+    },
+    {
+      "id": "edge-010",
+      "sql": "WITH t(i)AS(VALUES(1),(2)) SELECT CASE WHEN i>100 THEN 1/0 ELSE 0 END FROM t"
+    },
+    {
+      "id": "edge-011",
+      "sql": "WITH t(i)AS(VALUES(1)) SELECT CASE WHEN i>100 THEN 1/0 ELSE 0 END,(SELECT COUNT(*) FROM t) FROM t"
+    },
+    {
+      "id": "edge-012",
+      "sql": "SELECT CASE WHEN i>100 THEN 1/0 ELSE 0 END FROM (VALUES(1)) t(i)"
+    },
+    {
+      "id": "edge-013",
+      "sql": "SELECT CASE WHEN i>100 THEN 1/0 ELSE 0 END FROM (SELECT i FROM gap_t LIMIT 1)t"
+    },
+    {
+      "id": "edge-014",
+      "sql": "SELECT CASE i WHEN 1 THEN 10 WHEN 2 THEN 20 ELSE 1/0 END FROM gap_t"
+    },
+    {
+      "id": "edge-015",
+      "sql": "SELECT CASE 1 WHEN 1 THEN 10 ELSE 1/0 END"
+    },
+    {
+      "id": "edge-016",
+      "sql": "SELECT pg_typeof(EXTRACT(year FROM DATE '2024-01-01')),pg_typeof(DATE_PART('year',DATE '2024-01-01'))"
+    },
+    {
+      "id": "edge-017",
+      "sql": "SELECT EXTRACT(epoch FROM TIMESTAMP '250000-01-01 01:02:03.123456')"
+    },
+    {
+      "id": "edge-018",
+      "sql": "SELECT EXTRACT(epoch FROM TIMESTAMP '1969-12-31 23:59:59.123456')"
+    },
+    {
+      "id": "edge-019",
+      "sql": "SELECT EXTRACT(second FROM TIME '10:20:30.123456'),EXTRACT(milliseconds FROM TIME '10:20:30.123456'),EXTRACT(microseconds FROM TIME '10:20:30.123456')"
+    },
+    {
+      "id": "edge-020",
+      "sql": "SELECT EXTRACT(second FROM INTERVAL '-00:01:02.123456'),EXTRACT(epoch FROM INTERVAL '1 year 2 months 3 days 00:00:00.123456')"
+    },
+    {
+      "id": "edge-021",
+      "sql": "SELECT EXTRACT(epoch FROM TIMETZ '10:00:00.123456+02'),EXTRACT(timezone FROM TIMETZ '10:00+02')"
+    },
+    {
+      "id": "edge-022",
+      "sql": "SELECT EXTRACT(year FROM DATE '0001-01-01 BC'),EXTRACT(epoch FROM DATE '2000-01-01')"
+    },
+    {
+      "id": "edge-023",
+      "sql": "SELECT EXTRACT(epoch FROM TIME '24:00:00'),EXTRACT(hour FROM TIME '24:00:00')"
+    },
+    {
+      "id": "edge-024",
+      "sql": "SELECT EXTRACT(year FROM NULL::date),pg_typeof(EXTRACT(year FROM NULL::date))"
+    },
+    {
+      "id": "edge-025",
+      "sql": "SELECT EXTRACT(foo FROM DATE '2024-01-01')"
+    },
+    {
+      "id": "edge-026",
+      "sql": "SELECT EXTRACT(day FROM TIME '10:00')"
+    },
+    {
+      "id": "edge-027",
+      "sql": "SELECT EXTRACT(year FROM TIMETZ '10:00+02')"
+    },
+    {
+      "id": "edge-028",
+      "sql": "SELECT CASE WHEN i=1 THEN EXTRACT(year FROM DATE '2020-01-01') END*500 FROM gap_t"
+    },
+    {
+      "id": "edge-029",
+      "sql": "SELECT MIN(EXTRACT(year FROM DATE '2020-01-01')) OVER(),SUM(EXTRACT(second FROM TIME '00:00:01.123456')) OVER() FROM gap_t"
+    },
+    {
+      "id": "edge-030",
+      "sql": "SELECT pg_typeof(MD5('abc')),MD5(NULL),MD5('abc')"
+    },
+    {
+      "id": "edge-031",
+      "sql": "SELECT data_type FROM information_schema.columns WHERE table_name='gap_text' AND column_name='sk'"
+    },
+    {
+      "id": "edge-032",
+      "sql": "SELECT pg_typeof(sk),sk FROM gap_text"
+    },
+    {
+      "id": "edge-033",
+      "sql": "SELECT pg_typeof(DATE_PART('month',DATE '2024-01-01')),DATE_PART('month',DATE '2024-01-01')"
+    }
+  ]
+}
