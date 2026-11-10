@@ -1,0 +1,69 @@
+site_name: Redis ADBC Driver
+site_description: Query Redis with SQL and Apache Arrow. Installation, integration guides, SQL reference, and compatibility for the Redis ADBC driver.
+site_url: https://redis.github.io/redis-adbc-driver/
+repo_url: https://github.com/redis/redis-adbc-driver
+edit_uri: blob/main/
+docs_dir: build/docs-source
+site_dir: build/docs-site
+theme:
+  name: mkdocs
+  color_mode: auto
+  navigation_depth: 3
+plugins:
+  - search
+hooks:
+  - scripts/docs_hooks.py
+markdown_extensions:
+  - tables
+  - fenced_code
+  - toc:
+      permalink: true
+validation:
+  links:
+    anchors: warn
+nav:
+  - Home: README.md
+  - Get started:
+      - Choose your tool: docs/setup.md
+      - Native installation: docs/native-installation.md
+      - Build from source: docs/building.md
+      - Compatibility: docs/compatibility.md
+      - Installation reference: docs/integration-installation.md
+  - Reference:
+      - Driver reference: docs/driver-reference.md
+      - SQL example: docs/sql-redis-example.md
+      - SQL coverage: docs/sql-101-105.md
+      - PostgreSQL compatibility: docs/postgresql18-compatibility.md
+      - Statement snapshots: docs/snapshots.md
+      - Arrow interoperability: docs/arrow-interoperability.md
+      - Arrow and ADBC limits: docs/arrow-adbc-limits.md
+      - Arrow IPC: docs/arrow-ipc.md
+      - Statistics: docs/adbc-statistics.md
+      - Substrait: docs/substrait.md
+      - Diagnostics: docs/execution-diagnostics.md
+  - Integrations:
+      - Overview: docs/integrations/README.md
+      - Ecosystem comparison: docs/data-engineering-adbc-support.md
+      - Python examples: docs/python-integrations.md
+      - DuckDB: docs/duckdb.md
+      - dbc: docs/dbc.md
+      - Airflow: docs/integrations/airflow.md
+      - Dagster: docs/integrations/dagster.md
+      - Dask: docs/integrations/dask.md
+      - dlt: docs/integrations/dlt.md
+      - Ibis: docs/integrations/ibis.md
+      - Jupyter: docs/integrations/jupyter.md
+      - pandas: docs/integrations/pandas.md
+      - Polars: docs/integrations/polars.md
+      - Prefect: docs/integrations/prefect.md
+      - PyArrow: docs/integrations/pyarrow.md
+      - Ray: docs/integrations/ray.md
+      - SQLAlchemy: docs/integrations/sqlalchemy.md
+      - Superset: docs/integrations/superset.md
+  - Performance and partitioning:
+      - Prefetch: docs/prefetch.md
+      - Worker autotuning: docs/worker-autotuning.md
+      - Partitioned reads: docs/partitioned-reads.md
+      - Partitioned aggregates: docs/partitioned-exact-aggregates.md
+      - Retained results: docs/retained-partition-results.md
+  - About this site: site-docs/publishing.md
