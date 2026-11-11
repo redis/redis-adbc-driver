@@ -53,6 +53,14 @@ The [architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-
 explains table storage. The [SQL INSERT and SELECT example](docs/sql-redis-example.md)
 shows managed row storage and snapshot-aware reads.
 
+For managed tables, **write through the driver using SQL or supported Arrow
+ingestion**. Read through SQL/ADBC or use the experimental
+[native client wrapper](docs/native-client.md) for supported HASH-style reads
+without SQL translation. The wrapper currently requires a source build and
+addresses rows by internal `__rowid`; application-key lookup and `FT.SEARCH`
+are not implemented. Ordinary Redis client reads of physical HASHes or indexes
+do not automatically resolve managed-table snapshots, row versions or tombstones.
+
 Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
 connection diagnostics, and application examples. For native tools such as
 DuckDB, the [managed installer](docs/native-installation.md) handles downloads,

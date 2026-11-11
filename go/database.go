@@ -269,6 +269,19 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
+	conn, err := d.openConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return driverbase.NewConnectionBuilder(conn).
+		WithCurrentNamespacer(conn).
+		WithDriverInfoPreparer(conn).
+		WithTableTypeLister(conn).
+		Connection(), nil
+}
+
+// Shared connection initialization for ADBC and native managed-table readers.
+func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, error) {
 	if d.snapshots && d.flex && !d.readerOnly {
 		return nil, errorf(adbc.StatusNotImplemented, "managed-table statement snapshots require sortable indexes and aggregate cursors; Redis Flex snapshot execution is not supported")
 	}
@@ -387,11 +400,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		st.startSnapshotCompactor(cfg, t)
 	}
 	ok = true
-	return driverbase.NewConnectionBuilder(conn).
-		WithCurrentNamespacer(conn).
-		WithDriverInfoPreparer(conn).
-		WithTableTypeLister(conn).
-		Connection(), nil
+	return conn, nil
 }
 
 // flexProbeIndex is an index name the driver never creates.

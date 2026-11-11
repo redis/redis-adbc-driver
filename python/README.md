@@ -241,3 +241,14 @@ boolean and UTF-8/binary arrays through host memory and uses ordinary public
 ADBC manager binding. See the [device adapter contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/gpu-execution.md#python-and-driver-manager-adapter-v1)
 for explicit device IDs, ownership, cancellation, supported versions and CUDA
 availability. Importing CPU clients does not require CUDA Python packages.
+
+## Native HASH reads (experimental source implementation)
+
+`adbc_driver_redis.native.NativeClient` exposes HASH-style methods over managed
+tables through a shared native snapshot reader, without SQL translation. Bind
+an exact table with `client.table("customers")`, then call `hgetall(1)`,
+`hmget(1, ["name", "country"])`, `hget`, `hexists`, `hlen`, or `exists`.
+The row argument is the internal `__rowid`, not an application primary key.
+Use `with client.snapshot() as view:` for a dedicated shared read view.
+Build the current native library; see the [contract and examples](../docs/native-client.md)
+for installation, raw-byte/NULL semantics, ownership, and current limitations.

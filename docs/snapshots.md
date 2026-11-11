@@ -2,6 +2,17 @@
 
 Statement snapshots are **always enabled for managed tables**, including temporary
 managed tables and imported copies of application data. No option is required.
+
+**Write managed tables through the driver using SQL or supported Arrow
+ingestion. Read through SQL/ADBC or the experimental
+[native client wrapper](native-client.md).** The wrapper provides supported
+HASH-style methods through the shared native snapshot reader, without SQL
+translation. It currently requires a source build and uses internal `__rowid`
+values; application-key lookup and `FT.SEARCH` are not implemented. Ordinary
+Redis client reads of physical HASHes or indexes do not automatically resolve
+managed-table snapshots, row versions or tombstones. Direct writes to managed
+physical data bypass the storage protocol and are unsupported.
+
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
