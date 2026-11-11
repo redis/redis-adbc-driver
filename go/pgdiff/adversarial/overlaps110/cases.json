@@ -1,0 +1,518 @@
+{
+  "area": "overlaps-input-errors",
+  "tier": "issues",
+  "setup": [
+    "create table ov(i integer,v timestamp)",
+    "insert into ov values (0,null),(1,'2024-01-01'),(2,'2024-01-02'),(3,'2024-01-03')"
+  ],
+  "cases": [
+    {
+      "id": "edge-000",
+      "sql": "select a.i,b.i,c.i,d.i,(a.v,b.v) overlaps (c.v,d.v) from ov a cross join ov b cross join ov c cross join ov d order by a.i,b.i,c.i,d.i"
+    },
+    {
+      "id": "edge-001",
+      "sql": "select (date '2024-01-01',interval '1 day') overlaps (date '2024-01-01',date '2024-01-02')"
+    },
+    {
+      "id": "edge-002",
+      "sql": "select (date '2024-01-01',interval '-1 day') overlaps (date '2024-01-01',date '2024-01-02')"
+    },
+    {
+      "id": "edge-003",
+      "sql": "select (date '2024-01-01',interval '2 hours') overlaps (date '2024-01-01',date '2024-01-02')"
+    },
+    {
+      "id": "edge-004",
+      "sql": "select (date '2024-01-01',interval '-2 hours') overlaps (date '2024-01-01',date '2024-01-02')"
+    },
+    {
+      "id": "edge-005",
+      "sql": "select (timestamp '2024-01-01 00:00',interval '1 day') overlaps (timestamp '2024-01-01 00:00',timestamp '2024-01-02 00:00')"
+    },
+    {
+      "id": "edge-006",
+      "sql": "select (timestamp '2024-01-01 00:00',interval '-1 day') overlaps (timestamp '2024-01-01 00:00',timestamp '2024-01-02 00:00')"
+    },
+    {
+      "id": "edge-007",
+      "sql": "select (timestamp '2024-01-01 00:00',interval '2 hours') overlaps (timestamp '2024-01-01 00:00',timestamp '2024-01-02 00:00')"
+    },
+    {
+      "id": "edge-008",
+      "sql": "select (timestamp '2024-01-01 00:00',interval '-2 hours') overlaps (timestamp '2024-01-01 00:00',timestamp '2024-01-02 00:00')"
+    },
+    {
+      "id": "edge-009",
+      "sql": "select (timestamptz '2024-01-01 00:00+00',interval '1 day') overlaps (timestamptz '2024-01-01 00:00+00',timestamptz '2024-01-02 00:00+00')"
+    },
+    {
+      "id": "edge-010",
+      "sql": "select (timestamptz '2024-01-01 00:00+00',interval '-1 day') overlaps (timestamptz '2024-01-01 00:00+00',timestamptz '2024-01-02 00:00+00')"
+    },
+    {
+      "id": "edge-011",
+      "sql": "select (timestamptz '2024-01-01 00:00+00',interval '2 hours') overlaps (timestamptz '2024-01-01 00:00+00',timestamptz '2024-01-02 00:00+00')"
+    },
+    {
+      "id": "edge-012",
+      "sql": "select (timestamptz '2024-01-01 00:00+00',interval '-2 hours') overlaps (timestamptz '2024-01-01 00:00+00',timestamptz '2024-01-02 00:00+00')"
+    },
+    {
+      "id": "edge-013",
+      "sql": "select (time '23:00',interval '1 day') overlaps (time '23:00',time '00:30')"
+    },
+    {
+      "id": "edge-014",
+      "sql": "select (time '23:00',interval '-1 day') overlaps (time '23:00',time '00:30')"
+    },
+    {
+      "id": "edge-015",
+      "sql": "select (time '23:00',interval '2 hours') overlaps (time '23:00',time '00:30')"
+    },
+    {
+      "id": "edge-016",
+      "sql": "select (time '23:00',interval '-2 hours') overlaps (time '23:00',time '00:30')"
+    },
+    {
+      "id": "edge-017",
+      "sql": "select (null,null) overlaps (null,null)"
+    },
+    {
+      "id": "edge-018",
+      "sql": "select (date '2024-01-01',interval '1 day') overlaps ('2024-01-01','2024-01-02')"
+    },
+    {
+      "id": "edge-019",
+      "sql": "select (1,2) overlaps (3,4)"
+    },
+    {
+      "id": "edge-020",
+      "sql": "select (v,v) overlaps (v,v) from (values ('2024-01-01'::text)) t(v)"
+    },
+    {
+      "id": "edge-021",
+      "sql": "select (date '2024-01-01',date '2024-01-02') overlaps ('2024-01-01','2024-01-02')"
+    },
+    {
+      "id": "edge-022",
+      "sql": "select not (date '2024-01-01',date '2024-01-02') overlaps (date '2024-01-03',date '2024-01-04')"
+    },
+    {
+      "id": "edge-023",
+      "sql": "select (1,2,3) overlaps (4,5)"
+    },
+    {
+      "id": "edge-024",
+      "sql": "select (time '01:00',time '02:00') overlaps (timetz '01:30+00',timetz '03:00+00')"
+    },
+    {
+      "id": "edge-025",
+      "sql": "select (timestamp '2024-01-01',timestamp '2024-01-03') overlaps (timestamptz '2024-01-01+00',timestamptz '2024-01-02+00')"
+    },
+    {
+      "id": "edge-026",
+      "sql": "select * from pg_input_error_info('1e4000','float8')"
+    },
+    {
+      "id": "edge-027",
+      "sql": "select * from pg_input_error_info('1e-4000','float8')"
+    },
+    {
+      "id": "edge-028",
+      "sql": "select * from pg_input_error_info('xyz','int4')"
+    },
+    {
+      "id": "edge-029",
+      "sql": "select * from pg_input_error_info('2147483648','int4')"
+    },
+    {
+      "id": "edge-030",
+      "sql": "select * from pg_input_error_info('bad','boolean')"
+    },
+    {
+      "id": "edge-031",
+      "sql": "select * from pg_input_error_info('abc','varchar(1)')"
+    },
+    {
+      "id": "edge-032",
+      "sql": "select * from pg_input_error_info('1e100','numeric(2,0)')"
+    },
+    {
+      "id": "edge-033",
+      "sql": "select * from pg_input_error_info('1.234','numeric(3,1)')"
+    },
+    {
+      "id": "edge-034",
+      "sql": "select * from pg_input_error_info('1','pg_catalog.int4')"
+    },
+    {
+      "id": "edge-035",
+      "sql": "select * from pg_input_error_info('1','nosuch')"
+    },
+    {
+      "id": "edge-036",
+      "sql": "select * from pg_input_error_info('bad','float4')"
+    },
+    {
+      "id": "edge-037",
+      "sql": "select * from pg_input_error_info('1','integer[]')"
+    },
+    {
+      "id": "edge-038",
+      "sql": "select * from pg_input_error_info('1','int4')"
+    },
+    {
+      "id": "edge-039",
+      "sql": "select (pg_input_error_info('1','int4')).message, pg_typeof(pg_input_error_info('1','int4'))"
+    },
+    {
+      "id": "edge-040",
+      "sql": "select * from pg_input_error_info(null,'int4')"
+    },
+    {
+      "id": "edge-041",
+      "sql": "select (pg_input_error_info(null,'int4')).message, pg_typeof(pg_input_error_info(null,'int4'))"
+    },
+    {
+      "id": "edge-042",
+      "sql": "select * from pg_input_error_info('1',null)"
+    },
+    {
+      "id": "edge-043",
+      "sql": "select (pg_input_error_info('1',null)).message, pg_typeof(pg_input_error_info('1',null))"
+    },
+    {
+      "id": "edge-044",
+      "sql": "select * from pg_input_error_info(null,null)"
+    },
+    {
+      "id": "edge-045",
+      "sql": "select (pg_input_error_info(null,null)).message, pg_typeof(pg_input_error_info(null,null))"
+    },
+    {
+      "id": "edge-046",
+      "sql": "select * from pg_input_error_info('bad','int4') with ordinality as t(m,d,h,s,n)"
+    },
+    {
+      "id": "edge-047",
+      "sql": "select i, e.* from (values ('1'),('bad')) t(i) cross join lateral pg_input_error_info(i,'int4') e order by i"
+    },
+    {
+      "id": "edge-048",
+      "sql": "select pg_input_error_info(1,2) where false"
+    },
+    {
+      "id": "edge-049",
+      "sql": "select * from pg_input_error_info(1,2)"
+    },
+    {
+      "id": "edge-050",
+      "sql": "select (v,v) overlaps (v,v) from (values (1)) t(v) where false"
+    },
+    {
+      "id": "edge-051",
+      "sql": "select to_json(pg_input_error_info(null,'int4')), to_json(pg_input_error_info('1','int4'))"
+    },
+    {
+      "id": "edge-052",
+      "sql": "select (pg_input_error_info('bad','int4')).message"
+    },
+    {
+      "id": "edge-053",
+      "sql": "select (date '2024-01-01',date '2024-02-01') overlaps (date '2024-01-15',date '2024-03-01') is true"
+    },
+    {
+      "id": "edge-054",
+      "sql": "select (date '2024-01-01',date '2024-01-02') overlaps (date '2024-01-02',date '2024-01-03') = false"
+    },
+    {
+      "id": "edge-055",
+      "sql": "select * from rows from (pg_input_error_info('bad','int4'),generate_series(1,2)) with ordinality"
+    },
+    {
+      "id": "edge-056",
+      "sql": "select * from pg_input_error_info('bad','int4') where false"
+    },
+    {
+      "id": "edge-057",
+      "sql": "select true = (date '2024-01-01',date '2024-01-03') overlaps (date '2024-01-02',date '2024-01-04')"
+    },
+    {
+      "id": "edge-058",
+      "sql": "select (null,time '01:00') overlaps (null,'2024-01-02')"
+    },
+    {
+      "id": "edge-059",
+      "sql": "select (timetz '02:00+00',timestamp '2024-01-02') overlaps (null,interval '1 day')"
+    },
+    {
+      "id": "edge-060",
+      "sql": "select (date '2024-01-01',timestamp '2024-01-02') overlaps (timestamp '2024-01-02',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-061",
+      "sql": "select ('2024-01-02',date '2024-01-01') overlaps (null,time '01:00')"
+    },
+    {
+      "id": "edge-062",
+      "sql": "select (timetz '02:00+00',timetz '02:00+00') overlaps (interval '1 day',interval '1 day')"
+    },
+    {
+      "id": "edge-063",
+      "sql": "select (timestamp '2024-01-02',null) overlaps ('2024-01-02',timetz '02:00+00')"
+    },
+    {
+      "id": "edge-064",
+      "sql": "select (timestamptz '2024-01-03+00',time '01:00') overlaps (timetz '02:00+00',null)"
+    },
+    {
+      "id": "edge-065",
+      "sql": "select ('2024-01-02',time '01:00') overlaps (timestamptz '2024-01-03+00','2024-01-02')"
+    },
+    {
+      "id": "edge-066",
+      "sql": "select (time '01:00',timestamp '2024-01-02') overlaps ('2024-01-02',interval '1 day')"
+    },
+    {
+      "id": "edge-067",
+      "sql": "select (interval '1 day',time '01:00') overlaps (timestamptz '2024-01-03+00',timetz '02:00+00')"
+    },
+    {
+      "id": "edge-068",
+      "sql": "select (timestamptz '2024-01-03+00',time '01:00') overlaps (timetz '02:00+00',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-069",
+      "sql": "select (date '2024-01-01',timetz '02:00+00') overlaps (timestamptz '2024-01-03+00',date '2024-01-01')"
+    },
+    {
+      "id": "edge-070",
+      "sql": "select ('2024-01-02',null) overlaps (time '01:00',time '01:00')"
+    },
+    {
+      "id": "edge-071",
+      "sql": "select ('2024-01-02','2024-01-02') overlaps (interval '1 day',interval '1 day')"
+    },
+    {
+      "id": "edge-072",
+      "sql": "select (date '2024-01-01',timetz '02:00+00') overlaps (null,null)"
+    },
+    {
+      "id": "edge-073",
+      "sql": "select (date '2024-01-01',interval '1 day') overlaps (null,timestamp '2024-01-02')"
+    },
+    {
+      "id": "edge-074",
+      "sql": "select (timestamp '2024-01-02',timestamp '2024-01-02') overlaps ('2024-01-02',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-075",
+      "sql": "select (timestamptz '2024-01-03+00',timestamp '2024-01-02') overlaps (date '2024-01-01',date '2024-01-01')"
+    },
+    {
+      "id": "edge-076",
+      "sql": "select (timestamptz '2024-01-03+00',timestamptz '2024-01-03+00') overlaps (timestamptz '2024-01-03+00',timestamp '2024-01-02')"
+    },
+    {
+      "id": "edge-077",
+      "sql": "select (timetz '02:00+00',date '2024-01-01') overlaps (timestamp '2024-01-02',time '01:00')"
+    },
+    {
+      "id": "edge-078",
+      "sql": "select (timestamp '2024-01-02',date '2024-01-01') overlaps (date '2024-01-01',time '01:00')"
+    },
+    {
+      "id": "edge-079",
+      "sql": "select (date '2024-01-01',date '2024-01-01') overlaps (interval '1 day',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-080",
+      "sql": "select (timestamp '2024-01-02',timestamp '2024-01-02') overlaps (interval '1 day',date '2024-01-01')"
+    },
+    {
+      "id": "edge-081",
+      "sql": "select (timestamp '2024-01-02',date '2024-01-01') overlaps ('2024-01-02',timestamp '2024-01-02')"
+    },
+    {
+      "id": "edge-082",
+      "sql": "select (interval '1 day',time '01:00') overlaps ('2024-01-02','2024-01-02')"
+    },
+    {
+      "id": "edge-083",
+      "sql": "select (null,timetz '02:00+00') overlaps ('2024-01-02',time '01:00')"
+    },
+    {
+      "id": "edge-084",
+      "sql": "select (timetz '02:00+00',timestamptz '2024-01-03+00') overlaps (time '01:00','2024-01-02')"
+    },
+    {
+      "id": "edge-085",
+      "sql": "select ('2024-01-02',timetz '02:00+00') overlaps (time '01:00',time '01:00')"
+    },
+    {
+      "id": "edge-086",
+      "sql": "select (null,time '01:00') overlaps ('2024-01-02',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-087",
+      "sql": "select (timestamp '2024-01-02',date '2024-01-01') overlaps (timestamptz '2024-01-03+00',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-088",
+      "sql": "select (date '2024-01-01',null) overlaps (timestamptz '2024-01-03+00',null)"
+    },
+    {
+      "id": "edge-089",
+      "sql": "select (date '2024-01-01',timetz '02:00+00') overlaps (timetz '02:00+00',time '01:00')"
+    },
+    {
+      "id": "edge-090",
+      "sql": "select (timestamptz '2024-01-03+00',null) overlaps ('2024-01-02',time '01:00')"
+    },
+    {
+      "id": "edge-091",
+      "sql": "select (time '01:00',null) overlaps (timestamptz '2024-01-03+00',date '2024-01-01')"
+    },
+    {
+      "id": "edge-092",
+      "sql": "select (timestamp '2024-01-02',timestamptz '2024-01-03+00') overlaps (timestamp '2024-01-02',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-093",
+      "sql": "select (null,timestamp '2024-01-02') overlaps (timestamp '2024-01-02',timestamp '2024-01-02')"
+    },
+    {
+      "id": "edge-094",
+      "sql": "select (interval '1 day',time '01:00') overlaps (null,time '01:00')"
+    },
+    {
+      "id": "edge-095",
+      "sql": "select (time '01:00',null) overlaps (time '01:00',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-096",
+      "sql": "select (null,interval '1 day') overlaps (null,timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-097",
+      "sql": "select (timestamptz '2024-01-03+00',timestamptz '2024-01-03+00') overlaps (interval '1 day',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-098",
+      "sql": "select (timetz '02:00+00',time '01:00') overlaps (null,timetz '02:00+00')"
+    },
+    {
+      "id": "edge-099",
+      "sql": "select (timetz '02:00+00',date '2024-01-01') overlaps ('2024-01-02',interval '1 day')"
+    },
+    {
+      "id": "edge-100",
+      "sql": "select (interval '1 day',timetz '02:00+00') overlaps (timetz '02:00+00',interval '1 day')"
+    },
+    {
+      "id": "edge-101",
+      "sql": "select (null,date '2024-01-01') overlaps ('2024-01-02',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-102",
+      "sql": "select (time '01:00',null) overlaps (timetz '02:00+00',timetz '02:00+00')"
+    },
+    {
+      "id": "edge-103",
+      "sql": "select ('2024-01-02',date '2024-01-01') overlaps (null,date '2024-01-01')"
+    },
+    {
+      "id": "edge-104",
+      "sql": "select (timestamp '2024-01-02',interval '1 day') overlaps (null,timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-105",
+      "sql": "select (time '01:00',date '2024-01-01') overlaps (interval '1 day',timestamp '2024-01-02')"
+    },
+    {
+      "id": "edge-106",
+      "sql": "select ('2024-01-02',null) overlaps (date '2024-01-01',date '2024-01-01')"
+    },
+    {
+      "id": "edge-107",
+      "sql": "select (timestamptz '2024-01-03+00',null) overlaps (timestamptz '2024-01-03+00','2024-01-02')"
+    },
+    {
+      "id": "edge-108",
+      "sql": "select (time '01:00',timestamp '2024-01-02') overlaps ('2024-01-02','2024-01-02')"
+    },
+    {
+      "id": "edge-109",
+      "sql": "select (time '01:00',timestamp '2024-01-02') overlaps (timestamptz '2024-01-03+00',timestamptz '2024-01-03+00')"
+    },
+    {
+      "id": "edge-110",
+      "sql": "select (null,interval '1 day') overlaps ('2024-01-02','2024-01-02')"
+    },
+    {
+      "id": "edge-111",
+      "sql": "select (interval '1 day',timestamp '2024-01-02') overlaps (timetz '02:00+00',date '2024-01-01')"
+    },
+    {
+      "id": "edge-112",
+      "sql": "select ('2024-01-02','2024-01-02') overlaps (timestamp '2024-01-02',timestamp '2024-01-02')"
+    },
+    {
+      "id": "edge-113",
+      "sql": "select (date '2024-01-01',interval '1 day') overlaps (date '2024-01-01',date '2024-01-01')"
+    },
+    {
+      "id": "edge-114",
+      "sql": "select (timetz '02:00+00',date '2024-01-01') overlaps (date '2024-01-01',time '01:00')"
+    },
+    {
+      "id": "edge-115",
+      "sql": "select (interval '1 day',timestamp '2024-01-02') overlaps (null,time '01:00')"
+    },
+    {
+      "id": "edge-116",
+      "sql": "select (timetz '02:00+00',null) overlaps (timetz '02:00+00',interval '1 day')"
+    },
+    {
+      "id": "edge-117",
+      "sql": "select (null,'2024-01-02') overlaps (null,interval '1 day')"
+    },
+    {
+      "id": "edge-118",
+      "sql": "select (time '01:00',timestamptz '2024-01-03+00') overlaps (timestamp '2024-01-02',time '01:00')"
+    },
+    {
+      "id": "edge-119",
+      "sql": "select (date '2024-01-01',date '2024-01-01') overlaps (timestamptz '2024-01-03+00',null)"
+    },
+    {
+      "id": "edge-120",
+      "sql": "select ('2024-01-02',date '2024-01-01') overlaps (time '01:00',timestamp '2024-01-02')"
+    },
+    {
+      "id": "edge-121",
+      "sql": "select (timestamptz '2024-01-03+00',date '2024-01-01') overlaps (time '01:00','2024-01-02')"
+    },
+    {
+      "id": "edge-122",
+      "sql": "select pg_typeof((pg_input_error_info('bad','int4')).message)"
+    },
+    {
+      "id": "edge-123",
+      "sql": "select pg_typeof(message),pg_typeof(sql_error_code) from pg_input_error_info('bad','int4')"
+    },
+    {
+      "id": "edge-124",
+      "sql": "create table diag_copy as select * from pg_input_error_info('bad','int4')"
+    },
+    {
+      "id": "edge-125",
+      "sql": "select data_type from information_schema.columns where table_name='diag_copy' order by ordinal_position"
+    },
+    {
+      "id": "edge-126",
+      "sql": "select (timestamp '2024-01-01',timestamp '2024-01-02') overlaps ('bad','2024-01-03') where false"
+    }
+  ]
+}

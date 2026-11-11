@@ -1363,6 +1363,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 			}
 			args[i] = t
 		}
+		if err := temporalInputCallError(x, args); err != nil {
+			return ColType{}, err
+		}
 		if err := jsonNativeCallError(x, args); err != nil {
 			return ColType{}, err
 		}

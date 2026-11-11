@@ -3620,7 +3620,7 @@ func (p *parser) parseNot() (Expr, error) {
 }
 
 func (p *parser) parseComparison() (Expr, error) {
-	l, err := p.parseOtherOp()
+	l, err := p.parseOverlaps()
 	if err != nil {
 		return nil, err
 	}
@@ -3643,7 +3643,7 @@ func (p *parser) parseComparison() (Expr, error) {
 					l = q
 					continue
 				}
-				r, err := p.parseOtherOp()
+				r, err := p.parseOverlaps()
 				if err != nil {
 					return nil, err
 				}
@@ -3676,7 +3676,7 @@ func (p *parser) parseComparison() (Expr, error) {
 				if err := p.expectKeyword("FROM"); err != nil {
 					return nil, err
 				}
-				r, err := p.parseOtherOp()
+				r, err := p.parseOverlaps()
 				if err != nil {
 					return nil, err
 				}
@@ -3702,13 +3702,13 @@ func (p *parser) parseComparison() (Expr, error) {
 			} else {
 				p.acceptKeyword("LIKE")
 			}
-			pat, err := p.parseOtherOp()
+			pat, err := p.parseOverlaps()
 			if err != nil {
 				return nil, err
 			}
 			f := &Func{Name: name, Args: []Expr{l, pat}}
 			if p.acceptKeyword("ESCAPE") {
-				esc, err := p.parseOtherOp()
+				esc, err := p.parseOverlaps()
 				if err != nil {
 					return nil, err
 				}
@@ -3725,13 +3725,13 @@ func (p *parser) parseComparison() (Expr, error) {
 			// [NOT] SIMILAR TO pattern [ESCAPE e]
 			not := p.acceptKeyword("NOT")
 			p.pos += 2
-			pat, err := p.parseOtherOp()
+			pat, err := p.parseOverlaps()
 			if err != nil {
 				return nil, err
 			}
 			f := &Func{Name: "SIMILAR TO", Args: []Expr{l, pat}}
 			if p.acceptKeyword("ESCAPE") {
-				esc, err := p.parseOtherOp()
+				esc, err := p.parseOverlaps()
 				if err != nil {
 					return nil, err
 				}
@@ -3750,14 +3750,14 @@ func (p *parser) parseComparison() (Expr, error) {
 			if !symmetric {
 				p.acceptKeyword("ASYMMETRIC")
 			}
-			lo, err := p.parseOtherOp()
+			lo, err := p.parseOverlaps()
 			if err != nil {
 				return nil, err
 			}
 			if err := p.expectKeyword("AND"); err != nil {
 				return nil, err
 			}
-			hi, err := p.parseOtherOp()
+			hi, err := p.parseOverlaps()
 			if err != nil {
 				return nil, err
 			}
@@ -3812,6 +3812,27 @@ func (p *parser) parseComparison() (Expr, error) {
 		}
 		return l, nil
 	}
+}
+
+// OVERLAPS binds more tightly than comparison operators and BETWEEN.
+func (p *parser) parseOverlaps() (Expr, error) {
+	l, err := p.parseOtherOp()
+	if err != nil {
+		return nil, err
+	}
+	for p.acceptKeyword("OVERLAPS") {
+		r, err := p.parseOtherOp()
+		if err != nil {
+			return nil, err
+		}
+		left, lok := l.(*RowExpr)
+		right, rok := r.(*RowExpr)
+		if !lok || !rok || len(left.Items) != 2 || len(right.Items) != 2 {
+			return nil, syntaxErr("OVERLAPS requires two pairs of expressions")
+		}
+		l = &Func{Name: "__OVERLAPS", Args: append(append([]Expr{}, left.Items...), right.Items...)}
+	}
+	return l, nil
 }
 
 // parseOtherOp parses the operators Postgres puts at its "any other
