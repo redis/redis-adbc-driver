@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/duckdb-extension.yml
       - .github/actions/duckdb-build-cache/**
+      - scripts/test_ci_apt_retries.py
       - CMakeLists.txt
       - Makefile
       - vcpkg.json
@@ -111,7 +112,8 @@ jobs:
         run: make -C go redis-down
       - name: Compiler cache statistics
         if: always()
-        run: ccache --show-stats
+        run: |
+          if command -v ccache >/dev/null; then ccache --show-stats; fi
       - name: Package versioned standalone extension
         env:
           RELEASE_VERSION: ${{ inputs.version || 'dev' }}
