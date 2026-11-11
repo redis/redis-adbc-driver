@@ -1,0 +1,25 @@
+{
+  "area": "overlaps-dst",
+  "tier": "issues",
+  "setup": [
+    "set time zone 'America/New_York'"
+  ],
+  "cases": [
+    {
+      "id": "dst-0",
+      "sql": "select (timestamptz '2024-03-09 12:00', interval '1 day') overlaps (timestamptz '2024-03-10 12:00',timestamptz '2024-03-11 12:00')"
+    },
+    {
+      "id": "dst-1",
+      "sql": "select (timestamptz '2024-03-09 12:00', interval '24 hours') overlaps (timestamptz '2024-03-10 12:00',timestamptz '2024-03-11 12:00')"
+    },
+    {
+      "id": "dst-2",
+      "sql": "select (timestamptz '2024-11-02 12:00', interval '1 day') overlaps (timestamptz '2024-11-03 11:30',timestamptz '2024-11-04 12:00')"
+    },
+    {
+      "id": "dst-3",
+      "sql": "select (timestamptz '2024-11-02 12:00', interval '24 hours') overlaps (timestamptz '2024-11-03 11:30',timestamptz '2024-11-04 12:00')"
+    }
+  ]
+}

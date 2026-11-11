@@ -243,6 +243,8 @@ var funcDefs = []funcDef{
 	{name: "SCALE", min: 1, max: 1, impl: implPostgres},
 	{name: "TRIM_SCALE", min: 1, max: 1, impl: implPostgres},
 	{name: "MAKE_INTERVAL", min: 7, max: 7, impl: implPostgres},
+	{name: "__OVERLAPS", min: 4, max: 4, impl: implPostgres, internal: true},
+	{name: "PG_INPUT_ERROR_INFO", min: 2, max: 2, impl: implPostgres},
 	{name: "PG_INPUT_IS_VALID", min: 2, max: 2, impl: implPostgres},
 	{name: "FLOAT8SEND", min: 1, max: 1, impl: implPostgres, args: []argType{argNumber}},
 	{name: "TRANSLATE", min: 3, max: 3, impl: implPostgres},

@@ -599,9 +599,9 @@
       "classification": "optional standard",
       "classification_note": "F053 OVERLAPS is optional in the PostgreSQL 18 feature inventory.",
       "owner": "https://github.com/redis/redis-adbc-driver/issues/110",
-      "reason": "Requires row-pair temporal interval normalization, equal-endpoint and NULL semantics; generic scalar row comparison is insufficient.",
+      "reason": "Observed passing on Redis Software with verified 4x QPF; see docs/sdlc/changes/postgresql18-overlaps-input-errors/validation.md. Broader #110 scope remains open.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "issue-266.json",
@@ -1017,11 +1017,11 @@
       "area": "float8",
       "root_cause": "input-error-record",
       "classification": "PostgreSQL-specific",
-      "classification_note": "pg_input_error_info is a PostgreSQL set-returning diagnostic function.",
+      "classification_note": "pg_input_error_info is a PostgreSQL scalar record diagnostic function with four OUT fields, also usable in FROM.",
       "owner": "https://github.com/redis/redis-adbc-driver/issues/110",
-      "reason": "Requires a typed four-column diagnostic record preserving message/detail/hint/SQLSTATE and type-resolution failures.",
+      "reason": "Observed passing on Redis Software with verified 4x QPF; see docs/sdlc/changes/postgresql18-overlaps-input-errors/validation.md. Broader #110 scope remains open.",
       "evidence": "https://www.postgresql.org/docs/18/features-sql-standard.html",
-      "disposition": "deferred"
+      "disposition": "observed-pass"
     },
     {
       "file": "postgres/float8.json",

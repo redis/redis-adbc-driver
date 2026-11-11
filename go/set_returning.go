@@ -40,7 +40,7 @@ func tableFunctionTypes(f *Func, types map[string]ColType, params []ColType) ([]
 		}
 		return ts, nil
 	}
-	if !isSRF(f.Name) || f.quotedCase {
+	if (!isSRF(f.Name) && f.Name != "PG_INPUT_ERROR_INFO") || f.quotedCase {
 		return nil, noSuchFunction(f.Name, f.Star, inferArgTypes(f.Args, types, params))
 	}
 	if f.Star || f.Distinct {
@@ -69,6 +69,12 @@ func tableFunctionTypes(f *Func, types map[string]ColType, params []ColType) ([]
 		}
 	}
 	args := inferArgTypes(f.Args, types, params)
+	if err := temporalInputCallError(f, args); err != nil {
+		return nil, err
+	}
+	if f.Name == "PG_INPUT_ERROR_INFO" {
+		return inputErrorTypes(), nil
+	}
 	if err := jsonNativeCallError(f, args); err != nil {
 		return nil, err
 	}
@@ -124,6 +130,10 @@ func (e *executor) planGeneralTableFunc(ctx context.Context, f *Func, alias stri
 	namesFor = func(fn *Func) {
 		if ts, ok := jsonSRFTypes(fn.Name); ok && len(ts) == 2 {
 			names = append(names, "key", "value")
+			return
+		}
+		if fn.Name == "PG_INPUT_ERROR_INFO" {
+			names = append(names, inputErrorNames...)
 			return
 		}
 		switch fn.Name {
@@ -197,6 +207,16 @@ func srfRows(env *evalEnv, f *Func) ([][]Value, []ColType, error) {
 	a, err := env.evalItems(f.Args)
 	if err != nil {
 		return nil, nil, err
+	}
+	if f.Name == "PG_INPUT_ERROR_INFO" {
+		v, err := pgInputErrorInfo(a, env.zone())
+		if err != nil {
+			return nil, nil, invalidArg(err)
+		}
+		if v.Null {
+			return [][]Value{{nullValue(inputErrorTextType), nullValue(inputErrorTextType), nullValue(inputErrorTextType), nullValue(inputErrorTextType)}}, inputErrorTypes(), nil
+		}
+		return [][]Value{*v.rec}, inputErrorTypes(), nil
 	}
 	if _, ok := jsonSRFTypes(f.Name); ok {
 		rows, types, err := env.jsonSRFRows(f, a)

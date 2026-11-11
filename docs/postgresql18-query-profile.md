@@ -96,7 +96,14 @@ numeric identity and MD5 text through CTAS resolve the three retained cases;
 all nineteen #361 corpus cases now pass. Broader planner/recursive behavior
 remains scoped by the individual implementation records.
 
-The latest 49 failing cases are grouped below. Counts are stable test cases, not
+The [OVERLAPS and input diagnostics batch](sdlc/changes/postgresql18-overlaps-input-errors/validation.md)
+measured **604/651 passes (92.78%)**, **47 failures**, two allowed extensions,
+two explicit exclusions and zero infrastructure errors on Redis Software with
+verified 4x QPF. Both retained #110 cases pass and all 602 prior passes remain
+passing. Broader function coverage and diagnostic target types remain scoped
+by the implementation record; #110 remains open.
+
+The latest 47 failing cases are grouped below. Counts are stable test cases, not
 numbers of distinct features, issues or mandatory requirements.
 
 | Category | Failing cases | Owning issues |
@@ -108,8 +115,8 @@ numbers of distinct features, issues or mandatory requirements.
 | Transactions, locking and integrity | 12 | [#360](https://github.com/redis/redis-adbc-driver/issues/360), [#113](https://github.com/redis/redis-adbc-driver/issues/113), [#114](https://github.com/redis/redis-adbc-driver/issues/114), [#116](https://github.com/redis/redis-adbc-driver/issues/116) |
 | PUBLIC privileges | 2 | [#363](https://github.com/redis/redis-adbc-driver/issues/363) |
 | Enum types | 2 | [#107](https://github.com/redis/redis-adbc-driver/issues/107) |
-| Remaining functions/operators | 2 | [#110](https://github.com/redis/redis-adbc-driver/issues/110) |
-| **Total** | **49** | |
+| Remaining functions/operators | 0 | [#110](https://github.com/redis/redis-adbc-driver/issues/110) |
+| **Total** | **47** | |
 
 #359 retained 188 baseline failures: 122 now pass and 66 were explicitly
 deferred. #360's original eleven cases also still fail. The storage category
@@ -121,8 +128,9 @@ retained cases pass and 43 remain deferred.
 
 After the recursive LIMIT batch, 147/188 retained cases pass and 41 remain deferred.
 After the final query batch, 150/188 retained cases pass and 38 remain deferred.
-The remaining retained 38 have a separate classification: three Core-related,
-one optional-standard-related, three PostgreSQL-specific, twenty-four
+After the OVERLAPS/input diagnostics batch, 152/188 retained cases pass and 36
+remain deferred. The remaining retained 36 have a separate classification:
+three Core-related, zero optional-standard-related, two PostgreSQL-specific, twenty-four
 ADBC representation/comparison limitations and seven fixture/oracle cases.
 That classification does not cover all original eleven storage cases or count
 mandatory features. “Core-related” identifies an association; exact standard
