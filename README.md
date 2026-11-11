@@ -274,7 +274,7 @@ Integration setup guides:
 | Dask | Read lazy query partitions through worker-local ADBC connections and pandas Arrow dtypes. | [Guide](docs/integrations/dask.md) |
 | Ray Data | Stream partitioned Arrow batches from worker-local ADBC connections; install the native driver on each worker. | [Guide](docs/integrations/ray.md) |
 | dlt | Append pipeline data through the repository ADBC destination; replace/merge are unsupported and retries can duplicate rows. | [Guide](docs/integrations/dlt.md) |
-| [Sling](https://slingdata.io) | Move PostgreSQL data into Redis and back through ADBC; tested with template overrides and precreated Redis tables using direct truncate-and-load. | [Guide](docs/integrations/sling.md) |
+| [Sling](https://slingdata.io) | Migrate SQL data into managed Redis HASH tables and export Redis data through Sling’s database, warehouse and file adapters. PostgreSQL round trips are tested with template overrides and direct loading; the guide includes setup, MySQL migration guidance and other adapter examples. | [Guide](docs/integrations/sling.md) |
 
 Additional locally validated workflows use custom application code, adapters, or
 Arrow conversion. These examples do not establish built-in Redis connectors,
