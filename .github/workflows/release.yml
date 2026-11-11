@@ -70,6 +70,7 @@ on:
       - scripts/verify_release_wheels.py
       - scripts/check_wheel_libraries.py
       - scripts/test_distribution.py
+      - scripts/test_ci_apt_retries.py
       - .github/workflows/publish-pypi.yml
       - .github/workflows/duckdb-extension.yml
       - .github/actions/duckdb-build-cache/**
@@ -441,8 +442,16 @@ jobs:
               ldd --version | head -1
               echo "=== Installing system prerequisites ==="
               if command -v apt-get >/dev/null; then
-                apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update
-                DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y git ca-certificates gcc libc6-dev
+                # A partial package index must not count as a successful update.
+                # Retry the transaction for transient Ubuntu DNS/mirror failures.
+                for attempt in 1 2 3; do
+                  if apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update &&
+                     DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y git ca-certificates gcc libc6-dev; then
+                    break
+                  fi
+                  if [ "$attempt" = 3 ]; then exit 1; fi
+                  sleep 10
+                done
               else
                 # AlmaLinux mirrors can trickle metadata for the entire step
                 # budget. Reject slow transfers so DNF tries another mirror.

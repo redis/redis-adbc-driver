@@ -14,8 +14,16 @@ runs:
           if [ "$RUNNER_OS" = macOS ]; then
             brew install ccache
           else
-            sudo apt-get update -qq
-            sudo apt-get install -y ccache
+            # Retry the complete transaction: apt update otherwise accepts
+            # partial indexes after DNS/mirror failures on hosted runners.
+            for attempt in 1 2 3; do
+              if sudo apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -qq &&
+                 sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y ccache; then
+                break
+              fi
+              if [ "$attempt" = 3 ]; then exit 1; fi
+              sleep 10
+            done
           fi
         fi
     - uses: actions/cache@v4
