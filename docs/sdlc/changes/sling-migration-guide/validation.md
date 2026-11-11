@@ -17,3 +17,5 @@ Expanded `docs/integrations/sling.md`; no implementation changed.
 No live transfers, Software startup, benchmark or Go suite was run for this documentation-only change. Existing PostgreSQL round trips and the 602/651 SQL comparison are cited historical evidence, not fresh validation. MySQL, CSV, Snowflake, HASH-to-Sling chaining, the small seed walkthrough and YAML invocations were not executed.
 
 See [intent](intent.md), [spec](spec.md) and [plan](plan.md).
+
+README follow-up, 2026-11-10: expanded the existing Sling entry in the tools list to describe SQL-to-HASH migration and exports through its adapter ecosystem, retaining the guide link and the distinction between tested PostgreSQL transfers and additional examples. Confirmed one Sling row and an existing guide target. The integration registry suite passed all 10 tests; `git diff --check` passed. No live transfers were rerun.
