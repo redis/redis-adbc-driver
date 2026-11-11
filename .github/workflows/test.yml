@@ -29,6 +29,8 @@ on:
       - scripts/ci_test_matrix.py
       - scripts/test_ci_test_matrix.py
       - scripts/test_ci_apt_retries.py
+      - scripts/pin_adbc_scanner_source.py
+      - scripts/test_pin_adbc_scanner_source.py
       - scripts/test_device_staging.c
       - scripts/test_acceptance_runner.py
       - scripts/test_integration_registry.py
@@ -98,6 +100,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Check Ubuntu package retries
         run: python3 -m unittest discover -s scripts -p test_ci_apt_retries.py -v
+      - name: Check scanner source pin
+        run: python3 -m unittest discover -s scripts -p test_pin_adbc_scanner_source.py -v
       - name: Check CI coverage selection
         run: python3 -m unittest discover -s scripts -p test_ci_test_matrix.py -v
       - name: Check integration registry and TLS runner lifecycle

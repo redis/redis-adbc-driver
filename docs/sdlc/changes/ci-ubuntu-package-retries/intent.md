@@ -9,6 +9,9 @@ failed installing ccache after Ubuntu DNS failures. Four Ubuntu distribution
 jobs in the [release run](https://github.com/redis/redis-adbc-driver/actions/runs/43061068996)
 failed before validation because apt accepted incomplete indexes, then could not
 find prerequisites. Preserve every validation gate and improve setup resilience.
-No driver behavior, Redis configuration, permissions or release publication changes.
+The PR cold scanner build also exposed an upstream Arrow ADBC 24 tag archive
+checksum mismatch. Pin the same release source by immutable commit and checksum;
+retain source verification. No driver behavior, Redis configuration, permissions
+or release publication changes.
 
 See [spec](spec.md) and [plan](plan.md).

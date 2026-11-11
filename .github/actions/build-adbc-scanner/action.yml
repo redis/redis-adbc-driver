@@ -28,7 +28,7 @@ runs:
       with:
         path: ${{ steps.prepare.outputs.extension }}
         # Only exact matches can be loaded into the installed DuckDB engine.
-        key: adbc-scanner-binary-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.duckdb-version }}-${{ steps.prepare.outputs.toolchain }}-${{ hashFiles('.github/actions/build-adbc-scanner/action.yml', '.github/actions/duckdb-build-cache/action.yml') }}
+        key: adbc-scanner-binary-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.duckdb-version }}-${{ steps.prepare.outputs.toolchain }}-${{ hashFiles('.github/actions/build-adbc-scanner/action.yml', '.github/actions/duckdb-build-cache/action.yml', 'scripts/pin_adbc_scanner_source.py') }}
     - uses: actions/checkout@v7
       if: steps.binary-cache.outputs.cache-hit != 'true'
       with:
@@ -69,6 +69,9 @@ runs:
         [[ "$SCANNER_DUCKDB_VERSION" =~ ^2\.0\.[0-9]+$ ]]
         scanner="$GITHUB_WORKSPACE/build/adbc-scanner"
         vcpkg="$GITHUB_WORKSPACE/build/adbc-scanner-vcpkg"
+        # Upstream's tag archive checksum no longer matches GitHub's archive.
+        # Use the official release commit and a verified, fixed SHA512 instead.
+        python3 scripts/pin_adbc_scanner_source.py "$scanner/vcpkg-overlay/arrow-adbc/portfile.cmake"
         # The wheel and C++ extension must use the exact same engine release.
         git -C "$scanner/duckdb" fetch --depth 1 origin "refs/tags/v$SCANNER_DUCKDB_VERSION"
         git -C "$scanner/duckdb" checkout --detach FETCH_HEAD
