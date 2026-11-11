@@ -10,19 +10,41 @@ not a claim that every Sling load mode works.
 
 [Sling](https://slingdata.io/) is a CLI for extracting and loading tabular data.
 Its broad adapter catalog lets you reuse connection definitions and transfer
-commands across databases, warehouses and storage systems. For example:
+commands across databases, warehouses, file systems and APIs.
 
-| Connection family | Examples in Sling's catalog |
-| --- | --- |
-| SQL databases | PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite, DuckDB |
-| Analytics and warehouses | Snowflake, BigQuery, Redshift, Databricks, ClickHouse, Trino |
-| Object storage | Amazon S3, Google Cloud Storage, Azure Storage, Cloudflare R2, MinIO |
-| Files and transfer services | Local files, SFTP, FTP, Google Drive |
+### Supported connector inventory
 
-These are examples from [Sling's connection catalog](https://docs.slingdata.io/connections),
-checked on 2026-11-10. Each adapter has its own supported directions, types,
-authentication and load modes. A catalog entry does not establish that every
-Redis-to-connector combination has been tested.
+The following names reproduce the connectors displayed on
+[Sling's connector page](https://slingdata.io/connectors/), checked on 2026-11-10.
+The page advertises 36 databases, 11 file systems and approximately 128 API specs;
+the lists below preserve its displayed entries rather than infer unlisted specs
+or reconcile its headline counts. ADBC and ODBC are connectivity interfaces
+included in the site's database category.
+
+**Database systems:** ADBC, Athena, Azure Table, Big Query, Bigtable, Clickhouse,
+Cloudflare D1, Databricks, DB2, dBase, DuckDB, Ducklake, DynamoDB, Elasticsearch,
+Exasol, Fabric, Firebolt, Iceberg, LanceDB, MariaDB, MongoDB, MotherDuck, MySQL,
+ODBC, OpenSearch, Oracle, PostgreSQL, Prometheus, Proton, Redshift, SAP HANA,
+ScyllaDB, S3 Tables, Snowflake, SQL Server, SQLite, StarRocks and Trino.
+
+**File systems:** AWS S3, Azure Blob Storage, Backblaze B2, Cloudflare R2,
+DigitalOcean Spaces, FTP, Google Drive, Google Storage, Min IO, SFTP and Wasabi.
+Local file transfers are also documented in
+[Sling's local storage guide](https://docs.slingdata.io/connections/file-connections/local)
+and illustrated below.
+
+**API connectors:** Custom API Spec, Airtable, Amplitude, Asana, Attio, Brevo,
+Calendly, ClickUp, Cloudflare Analytics, Contentful, ConvertKit, Dropbox,
+Eventbrite, Expensify, Figma, GitHub, GitLab, Gmail, Harvest, HubSpot, Jira,
+Klaviyo, Linear, Mailchimp, MailerLite, Miro, Mixpanel, Notion, Pipedrive, PostHog,
+Salesforce, Sentry, ServiceNow, Slack, Stripe, Todoist, Toggl Track, Trello,
+Typeform, Zendesk and Zoom. Custom API specs let users define additional API
+sources; the displayed list is not an enumeration of all advertised API specs.
+
+Each adapter has its own supported directions, types, authentication and load
+modes. Inclusion here does not mean every connector supports writes or that every
+Redis-to-connector combination has been tested. Check the individual connector's
+documentation when choosing a migration source or destination.
 
 The Redis ADBC driver supplies the Redis side of the pipeline:
 

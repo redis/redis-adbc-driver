@@ -19,3 +19,5 @@ No live transfers, Software startup, benchmark or Go suite was run for this docu
 See [intent](intent.md), [spec](spec.md) and [plan](plan.md).
 
 README follow-up, 2026-11-10: expanded the existing Sling entry in the tools list to describe SQL-to-HASH migration and exports through its adapter ecosystem, retaining the guide link and the distinction between tested PostgreSQL transfers and additional examples. Confirmed one Sling row and an existing guide target. The integration registry suite passed all 10 tests; `git diff --check` passed. No live transfers were rerun.
+
+Connector inventory follow-up, 2026-11-10: replaced the illustrative adapter table with all database, file-system and API connector names displayed at `https://slingdata.io/connectors/`. Preserved the site’s names, distinguished its headline counts from displayed entries, and retained direction-specific and Redis interoperability limits. Local link targets and `git diff --check` passed; no live transfers were rerun.
