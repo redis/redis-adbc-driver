@@ -5,6 +5,15 @@ reference. Start with the [README](../README.md) for an overview, the Apache Arr
 feature matrix and a quick start. Historical test and benchmark results retain
 their original server distributions, dates and settings.
 
+## Choose a table approach
+
+Managed tables are the default for SQL/Arrow workflows. Application-owned data
+can better fit direct Redis access, existing keys and TTL-driven lifecycles.
+See the [use-case comparison](managed-vs-unmanaged-tables.md#choose-by-use-case)
+for benefits and costs of both, including combining application data with
+managed imports. Current imports create private copies; they do not provide live
+SQL access to source keys. The snapshot contract below defines current behavior.
+
 ## Managed-table snapshot format
 
 Managed tables now have [always-on statement snapshots](snapshots.md). The linked

@@ -11,7 +11,9 @@ Cloud and supported Redis Open Source deployments also work. Flex, Valkey and
 Redis 7.2 derivatives are unsupported. See [server requirements](driver-reference.md#server-requirements)
 for versions and ACL permissions. Set QPF to 4× where supported, with sufficient
 server CPU capacity, for concurrent query performance. Connections use autocommit; transactions are
-unsupported. Existing application HASHes need [copy or adoption](driver-reference.md#existing-hash-collections-redis-adbc)
+unsupported. Managed tables are the default for SQL/Arrow workflows. Compare
+[managed tables and application-owned data](managed-vs-unmanaged-tables.md#choose-by-use-case)
+by ownership, freshness and storage cost. Existing application HASHes need [copy or adoption](driver-reference.md#existing-hash-collections-redis-adbc)
 before they appear as SQL tables. These operations now create private managed
 copies; refresh explicitly to observe later application changes. See the
 [current snapshot storage contract](snapshots.md) before opening an existing
