@@ -10,6 +10,7 @@ SENSITIVE_PATHS = (
     ".github/workflows/test.yml",
     "scripts/ci_test_matrix.py",
     "scripts/test_ci_test_matrix.py",
+    "scripts/test_ci_parallel_suites.py",
     "go/database*",
     "go/connection*",
     "go/driver*",
