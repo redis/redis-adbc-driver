@@ -1,15 +1,25 @@
 # Managed tables and unmanaged Redis data
 
-Managed tables give the Redis ADBC driver control over schema, storage and
+**Managed tables are the default for SQL and Arrow workflows.** They give the
+Redis ADBC driver control over schema, storage and
 publication of changes. Unmanaged data remains under an application's control,
 usually as Redis HASHes and application Search indexes. The choice is primarily
-about ownership, consistency and freshness.
+about ownership, consistency and freshness. Both approaches have benefits and
+costs; choose the one that fits the workload, or use both.
 
 In this guide, **unmanaged table** means an application-owned collection of Redis
 data. It is not a second SQL table mode with the same guarantees. In the current
 driver, HASH adoption and foreign-index access import **managed copies**; they do
 not expose a continuously updated SQL view over the original keys. Historical
 in-place adoption documentation does not describe the current snapshot format.
+
+## Choose by use case
+
+| Approach | Good fit | Benefits | Tradeoffs |
+|---|---|---|---|
+| **Managed tables (default)** | SQL/Arrow pipelines, typed datasets and consistent analytical reads where the driver can own storage | Typed schema, statement snapshots, atomic supported writes and automatic version maintenance | Private storage/index costs, retained versions, driver ownership rules and fixed limits; no multi-statement write transactions |
+| **Application-owned data** | Operational workloads centered on direct Redis access, existing keys, TTLs and immediate source updates | Application controls encodings, indexes and lifecycle; no mandatory driver copy | Application owns schema and coordination; live source reads have no driver snapshot; current SQL access requires an import |
+| **Both, connected by managed imports** | Reporting over application data with an explicit freshness budget | Source ownership stays with the application; the private SQL copy has managed read guarantees | Capture time, duplicate storage and refresh work; source capture is not atomic with application writers; refresh replaces private changes |
 
 ## At a glance
 
@@ -117,7 +127,7 @@ continues using its earlier version until released or its snapshot becomes inval
 
 ## Choosing an approach
 
-Use **managed tables** when SQL/Arrow consumers need typed data, atomic publication
+Start with **managed tables**, the default, when SQL/Arrow consumers need typed data, atomic publication
 and consistent analytical reads, and the driver can own the storage lifecycle.
 
 Keep **application data unmanaged** when direct Redis access, application-defined

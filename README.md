@@ -38,6 +38,13 @@ a query performance factor (QPF) of **4×** is recommended where supported,
 with sufficient server CPU capacity. See the [server requirements](docs/driver-reference.md#server-requirements)
 for supported deployments and configuration.
 
+**Managed tables are the default for SQL and Arrow workflows.** Application-owned
+Redis data is a valid choice when existing keys, direct Redis access, TTLs and
+source freshness drive the workload. Both have benefits and costs; see the
+[use-case and tradeoff comparison](docs/managed-vs-unmanaged-tables.md#choose-by-use-case).
+Current SQL access to application data uses private managed imports with explicit
+refreshes, as described below.
+
 Managed tables now use [always-on statement snapshots](docs/snapshots.md).
 Each statement reads one committed generation, including streamed results;
 supported writes publish atomically. Storage protocol version 15 rejects legacy catalogs
