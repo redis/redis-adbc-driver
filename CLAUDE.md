@@ -226,7 +226,12 @@ Verify product distribution and effective QPF before timing. Historical results
 from another distribution are not Redis Software performance evidence.
 
 For explicitly requested Redis Cloud deployments, use Redis Cloud Pro.
-Redis Software with 4x QPF remains the development and ClickBench default.
+Redis Software with 4x QPF remains the development default. The 2026-11-12
+user request makes Redis Software Flex stopgap (`adbc.redis.flex=true`) with verified 4x QPF the default for
+100-million-row ClickBench reruns. Verify the selected driver's Flex support and
+full-scale backup compatibility before provisioning or timing. The v0.0.25
+managed-table snapshot driver rejects Flex; record that blocker instead of
+substituting RAM or Community or claiming a completed Flex benchmark.
 Use a dedicated non-production database, record deployment cost and ownership,
 and clean up temporary resources after validation. Keep the existing OSS and
 Redis Software compatibility checks.

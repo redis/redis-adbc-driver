@@ -20,6 +20,7 @@ from urllib.parse import urlsplit
 import uuid
 
 import adbc_driver_manager.dbapi as dbapi
+from storage import driver_options, storage_mode
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
@@ -157,6 +158,8 @@ def main():
                     help="Self-hosted requires a loopback or verified private seed; uses REDIS_URI")
     ap.add_argument("--rows", type=int, default=100_000,
                     help="Pilot row limit; use 99997497 for the full benchmark")
+    ap.add_argument("--storage", choices=("ram", "flex-stopgap"),
+                    help="Default: flex-stopgap for full scale, ram for smaller fixtures")
     ap.add_argument("--batch-size", type=int, default=10_000)
     ap.add_argument("--load-workers", type=int, default=1,
                     help="Independent ADBC append connections (default 1); parallel workers prefetch batches")
@@ -185,6 +188,7 @@ def main():
     ap.add_argument("--aws-preflight-stdin", action="store_true",
                     help="Read short-lived SDK credentials for cluster preflight from stdin; never persist them")
     args = ap.parse_args()
+    storage = storage_mode(args.rows, args.storage)
     if args.query_timeout <= 0 or not math.isfinite(args.query_timeout):
         ap.error("Query timeout must be finite and positive")
     try:
@@ -216,6 +220,8 @@ def main():
         driver_sha256 = hashlib.file_digest(driver_file, "sha256").hexdigest()
     previous = json.loads(args.resume_result.read_text()) if args.resume_result else None
     if previous:
+        if previous["metadata"].get("storage", "ram") != storage:
+            raise ValueError("Resume storage differs; select the original --storage explicitly")
         if args.load_workers != 1 or previous["metadata"].get("load_workers", 1) != 1:
             ap.error("Parallel loads cannot resume: row IDs do not preserve source order")
         if previous["trials"] or previous["metadata"]["requested_rows"] != args.rows:
@@ -245,6 +251,7 @@ def main():
                      "namespace": namespace, "columns": 105,
                      "placement": placement,
                      "deployment": args.deployment,
+                     "storage": storage,
                      "query_timeout_seconds": args.query_timeout,
                      "trial_memory_limit_mib": trial_memory_mib,
                      "trial_isolation": "systemd-cgroup-v2",
@@ -293,7 +300,7 @@ def main():
     result["metadata"]["modules"] = str(client.execute_command("MODULE", "LIST"))
     save(args.output, result)
     with dbapi.connect(driver=str(args.driver.resolve()), autocommit=True,
-                       db_kwargs={"uri": uri, "adbc.redis.aggregate_pushdown": "exact"}) as conn:
+                       db_kwargs={"uri": uri, **driver_options(storage), "adbc.redis.aggregate_pushdown": "exact"}) as conn:
         with conn.cursor() as cur:
             # Unique schema; no existing tables, indexes, or Cloud settings are replaced.
             if not previous:
@@ -353,7 +360,7 @@ def main():
                         yield lambda batch: cur.adbc_ingest("hits", ingest_batch(batch), mode="append", db_schema_name=namespace)
                         return
                     with dbapi.connect(driver=str(args.driver.resolve()), autocommit=True,
-                                       db_kwargs={"uri": uri, "adbc.redis.aggregate_pushdown": "exact"}) as worker_conn:
+                                       db_kwargs={"uri": uri, **driver_options(storage), "adbc.redis.aggregate_pushdown": "exact"}) as worker_conn:
                         with worker_conn.cursor() as worker_cur:
                             def append(batch):
                                 if time.time() >= args.deadline:
@@ -410,7 +417,8 @@ def main():
                             save(args.output, result)
                             continue
                         job_path.write_text(json.dumps({"driver": str(args.driver.resolve()),
-                            "namespace": namespace, "sql": sql, "query_workers": args.query_workers, "output": str(output_path.resolve())}))
+                            "namespace": namespace, "sql": sql, "storage": storage,
+                            "query_workers": args.query_workers, "output": str(output_path.resolve())}))
                         output_path.unlink(missing_ok=True)
                         progress_path(output_path).unlink(missing_ok=True)
                         execution_path(output_path).unlink(missing_ok=True)

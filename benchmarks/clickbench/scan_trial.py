@@ -12,6 +12,7 @@ import adbc_driver_manager.dbapi as dbapi
 import pyarrow as pa
 
 from diagnostics import error_details
+from storage import driver_options
 
 
 def consume(reader, path):
@@ -27,9 +28,9 @@ def consume(reader, path):
 
 
 def partition_worker(args):
-    driver, uri, descriptor, path, planned_schema = args
+    driver, uri, descriptor, path, planned_schema, storage = args
     with dbapi.connect(driver=driver, autocommit=True,
-                      db_kwargs={'uri': uri, 'adbc.redis.query_workers': '1',
+                      db_kwargs={'uri': uri, **driver_options(storage), 'adbc.redis.query_workers': '1',
                                  'adbc.redis.read_timeout': '20m',
                                  'adbc.redis.write_timeout': '20m'}) as conn:
         with conn.cursor() as cur:
@@ -44,7 +45,7 @@ def execute(job, uri):
     base.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()
     with dbapi.connect(driver=job['driver'], autocommit=True,
-                      db_kwargs={'uri': uri, 'adbc.redis.query_workers': '16',
+                      db_kwargs={'uri': uri, **driver_options(job.get('storage', 'ram')), 'adbc.redis.query_workers': '16',
                                  'adbc.redis.read_timeout': '20m',
                                  'adbc.redis.write_timeout': '20m'}) as conn:
         with conn.cursor() as cur:
@@ -63,7 +64,8 @@ def execute(job, uri):
                 partitions = len(descriptors)
                 schema_hex = schema.serialize().to_pybytes().hex()
                 if descriptors:
-                    jobs = [(job['driver'], uri, d, str(base / f'part-{i:03d}.arrow'), schema_hex)
+                    jobs = [(job['driver'], uri, d, str(base / f'part-{i:03d}.arrow'), schema_hex,
+                             job.get('storage', 'ram'))
                             for i, d in enumerate(descriptors)]
                     with concurrent.futures.ProcessPoolExecutor(
                             max_workers=16, mp_context=multiprocessing.get_context('spawn')) as pool:

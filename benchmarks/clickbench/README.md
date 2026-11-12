@@ -11,6 +11,16 @@ live benchmark artifacts are kept outside the reusable harness.
 
 ## Deployment and placement
 
+The default target for **100-million-row repeat query runs is Redis Software
+Flex stopgap (`adbc.redis.flex=true`) with verified 4× QPF**, per the November 12, 2026 user request. This is a
+deployment preference, not a declaration of driver compatibility. The v0.0.25
+managed-table snapshot driver rejects Flex execution. A rerun therefore requires
+a driver that supports the actual Flex target and a verified compatible
+full-scale backup; otherwise record the run as blocked. Do not silently switch
+to RAM or Redis Community, disable snapshots, or freshly ingest the full dataset.
+The ordinary development and small-fixture performance environment remains
+Redis Software RAM with verified 4× QPF.
+
 ClickBench requires **Redis Software with active 4× QPF**. Verify the Software
 distribution through its management API and read back scaling factor 4, six
 Search workers, `mnp` routing and 32 connections before timing any query. Redis
@@ -58,7 +68,11 @@ runner rejects missing/mismatched placement fields. The file records external
 verification; the script itself cannot independently attest infrastructure
 placement. Include instance shape, RAM, shards, QPF, replication, TLS, and
 network path in `--machine` and save the control-plane configuration with the
-results. Use a dedicated benchmark database with Search and RAM storage.
+results. Use a dedicated benchmark database with Search and the selected storage
+mode. The CLI selects `flex-stopgap` at 99,997,497 rows and `ram` for smaller
+fixtures; `--storage` overrides that intent explicitly. The same selection is
+passed to isolated statement and partition readers and recorded in results.
+It selects driver options; it does not provision or verify a Flex database.
 
 ## Run on the deployed host
 
