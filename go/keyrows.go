@@ -84,7 +84,7 @@ func (s *store) fetchKeyRows(ctx context.Context, keys []string, _ []string) ([]
 		for _, k := range keys[start:end] {
 			cmds = append(cmds, pipe.HGetAll(ctx, k))
 		}
-		_, _ = pipe.Exec(ctx) // each command's error is checked below
+		_, execErr := pipe.Exec(ctx) // individual WRONGTYPE replies are skipped below
 		for i, cmd := range cmds {
 			vals, err := cmd.Result()
 			if isWrongType(err) || len(vals) == 0 && err == nil {
@@ -96,6 +96,15 @@ func (s *store) fetchKeyRows(ctx context.Context, keys []string, _ []string) ([]
 			row := aggRow(vals)
 			row["__key"] = keys[start+i]
 			out[start+i] = row
+		}
+		if execErr != nil {
+			var native interface {
+				error
+				RedisError()
+			}
+			if !errors.As(execErr, &native) || !isWrongType(execErr) {
+				return nil, wrapRedis(execErr, "failed to read rows")
+			}
 		}
 	}
 	return out, nil

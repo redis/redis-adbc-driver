@@ -86,6 +86,9 @@ func (s *store) foreignTable(ctx context.Context, name string) (*tableMeta, erro
 	if err != nil {
 		return nil, wrapRedis(err, "failed to sample foreign index keys")
 	}
+	if snapshotReplyWarning(sample) {
+		return nil, errorf(adbc.StatusIO, "foreign index sample returned a partial-result warning")
+	}
 	keys, err := parseSearchKeys(sample)
 	if err != nil {
 		return nil, err

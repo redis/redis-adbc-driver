@@ -29,12 +29,27 @@ use registered reference-owned data, rather than legacy prefix deletion.
 Managed physical prefixes remain immutable driver-owned namespaces; direct
 application writes inside them are unsupported.
 
-Existing stopgap exclusions remain: adoption, application/foreign indexes,
-materialized views, CREATE INDEX and general ALTER are unsupported. Explicit
+Managed-copy HASH adoption and foreign imports, materialized views, CREATE
+INDEX and general ALTER remain unsupported. Unmanaged registrations have the
+separate live-source contract below. Explicit
 rename/rekey, TRUNCATE, Arrow ingestion and live snapshot partitions retain
 snapshot semantics. Reader-only retained-result replay keeps its independent
 contract. Cloud compatibility and current restart/failover coverage are not
 established by the focused snapshot validation.
+
+## Unmanaged application tables
+
+The explicit Flex mode also supports [unmanaged HASH tables](unmanaged-tables.md#experimental-software-flex-stopgap)
+through existing application indexes, including unmanaged foreign discovery.
+SCAN enumerates candidate keys; singleton FT.SEARCH INKEYS counts establish
+application index membership, including FILTERs and multiple prefixes, before
+HASH retrieval. Direct key lookups also check membership. No source index is
+created or rebuilt, and no managed row-ID directory is required.
+
+These rows remain live, without source snapshots or atomic multi-row writes.
+Native source ACLs and the unmanaged operation exclusions still apply. Readers
+need SCAN, FT.SEARCH and FT.INFO; their key deduplication memory grows with source
+cardinality. See [current unmanaged validation](sdlc/changes/flex-unmanaged/validation.md).
 
 ## Historical upstream stopgap
 

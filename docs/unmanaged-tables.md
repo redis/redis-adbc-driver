@@ -108,3 +108,44 @@ always-on managed snapshot option applies to managed tables only.
 Choose a [managed copy](snapshots.md) when typed immutable generations,
 statement snapshots or atomic SQL/Arrow publication are needed. See the
 [ownership comparison](managed-vs-unmanaged-tables.md) for tradeoffs.
+
+## Experimental Software Flex stopgap
+
+Unmanaged registrations work with `adbc.redis.flex=true` on compatible Redis
+Software Flex deployments. Both entry paths are supported: unmanaged HASH
+adoption and foreign indexes with `adbc.redis.foreign_indexes_mode=unmanaged`.
+For example:
+
+```sh
+redis-adbc adopt -prefix app:user: -table users -index idx_users \
+  -mode unmanaged -option adbc.redis.flex=true -apply
+```
+
+Use the normal URI/TLS connection flags. For foreign discovery, set the Flex,
+foreign-index and unmanaged-mode database options before Open, or set unmanaged
+mode on the connection before enabling foreign indexes. Managed-copy foreign
+imports remain unsupported on Flex; an enabled Flex connection cannot switch
+foreign discovery to managed mode.
+
+The application must supply a ready, compatible HASH Search index. The driver
+never creates, repairs, reindexes or takes ownership of that index. Registration
+verifies singleton `FT.SEARCH ... INKEYS` support. Reads enumerate source HASHes
+using `SCAN`, check each candidate's index membership, and fetch authoritative
+HASH values. Even direct `__key` lookups check membership. This preserves index
+FILTERs, multiple/overlapping prefixes and adopted collections' nested-key
+exclusions; HASHes omitted by the application index remain invisible. Source
+indexing lag, application changes and expiry retain ordinary live semantics.
+
+Enumeration requires SCAN permission; reads also require FT.INFO, FT.SEARCH and
+HASH read permissions. The stopgap's normal temporary capability-probe
+permissions also apply. Membership checks use pipelines of at most 128 singleton
+queries, with a 1 MiB request target and a 64 MiB single-key ceiling. Each query
+returns a count, so data enumeration does not depend on Search result caps,
+aggregate cursors, sortable fields or numeric driver row IDs. Deduplication
+retains one entry per observed key: memory grows with source key count. Sorting
+and SQL evaluation run in the client; no performance parity or constant-memory
+claim is made. Source ACLs, native encodings, TTLs, non-replayable writes and
+DROP/GC ownership rules above remain in force, as do the unmanaged operation
+exclusions.
+
+See [implementation and live validation](sdlc/changes/flex-unmanaged/validation.md).

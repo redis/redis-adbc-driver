@@ -164,7 +164,10 @@ func RefreshForeignIndexes(ctx context.Context, options map[string]string) error
 const OptionStringForeignIndexesRefresh = "adbc.redis.foreign_indexes_refresh"
 
 func (s *store) refreshSnapshotForeign(ctx context.Context, replace bool) error {
-	source := &store{client: s.client, foreignIndexes: true}
+	if s.flexEnabled() && s.foreignIndexesMode != "unmanaged" {
+		return flexUnsupported("managed foreign indexes")
+	}
+	source := &store{client: s.client, foreignIndexes: true, flex: s.flex}
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	// Discovery needs the managed index registry, so pin it even though source
 	// index/HASH reads themselves remain outside the managed snapshot contract.

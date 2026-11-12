@@ -60,7 +60,7 @@ func validateUnmanagedDescriptor(meta *tableMeta) error {
 
 // Check the registered source definition each time. There is deliberately no
 // immutable index proof cache for application-owned indexes or row values.
-func (s *store) loadUnmanagedIndex(ctx context.Context, meta *tableMeta) error {
+func (s *store) checkUnmanagedIndex(ctx context.Context, meta *tableMeta) error {
 	if err := validateUnmanagedDescriptor(meta); err != nil {
 		return err
 	}
@@ -74,6 +74,13 @@ func (s *store) loadUnmanagedIndex(ctx context.Context, meta *tableMeta) error {
 	}
 	if info.indexing || info.percent < 1 || info.failures != 0 {
 		return errorf(adbc.StatusInvalidState, "unmanaged source index is not ready or has indexing failures")
+	}
+	return nil
+}
+
+func (s *store) loadUnmanagedIndex(ctx context.Context, meta *tableMeta) error {
+	if err := s.checkUnmanagedIndex(ctx, meta); err != nil {
+		return err
 	}
 	// The index supplies membership; SQL evaluates predicates and aggregates on
 	// authoritative HASH values. Mutable source attributes have no immutable
@@ -138,6 +145,13 @@ func (s *store) registerUnmanaged(ctx context.Context, meta *tableMeta) error {
 	if err := s.loadUnmanagedIndex(wctx, meta); err != nil {
 		return err
 	}
+	if s.flexEnabled() {
+		// Verify the exact singleton membership command before advertising a
+		// registration. This reads index membership without changing the source.
+		if _, err := s.flexUnmanagedMembers(wctx, meta, []string{meta.prefix()}); err != nil {
+			return err
+		}
+	}
 	if err := s.assignCatalogOIDs(wctx, meta); err != nil {
 		return err
 	}
@@ -165,6 +179,12 @@ func (a *adopter) unmanagedAdopt(ctx context.Context) (*HashAdoption, error) {
 	if !unmanagedSourceKey(a.o.Prefix) || prefixesOverlap(a.o.Prefix, metaPrefix) {
 		return nil, errorf(adbc.StatusInvalidArgument, "unmanaged source overlaps driver storage")
 	}
+	if a.c.st.flexEnabled() {
+		probe := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
+		if err := a.c.st.configureSearch(probe, true); err != nil {
+			return nil, err
+		}
+	}
 	a.c.server(ctx, &a.res.Report.Server)
 	a.schema, a.table = a.o.Schema, a.o.Table
 	if a.schema == "" {
@@ -182,7 +202,11 @@ func (a *adopter) unmanagedAdopt(ctx context.Context) (*HashAdoption, error) {
 	}
 	choice := chooseAppIndex(indexes, a.cols, a.o.Prefix, a.stats.keys, a.o.Index, false)
 	cl := Checklist{Name: ChecklistSQLInPlace, Title: "SQL, unmanaged live HASHes"}
-	a.c.checkServer(&cl, a.res.Report)
+	if a.c.st.flexEnabled() {
+		cl.add(CheckOK, "plain-index Flex probe passed; source reads also require SCAN and FT.SEARCH INKEYS", "")
+	} else {
+		a.c.checkServer(&cl, a.res.Report)
+	}
 	if a.c.st.snapshots {
 		if exists, err := a.c.st.tableExists(ctx, a.schema, a.table); err != nil {
 			return nil, err

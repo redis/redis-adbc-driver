@@ -192,7 +192,7 @@ func (*snapshotFlexCommandGuard) check(cmd goredis.Cmder) error {
 		cmd = fenced.Cmder
 	}
 	a := cmd.Args()
-	if len(a) == 0 {
+	if len(a) < 2 {
 		return nil
 	}
 	name := strings.ToLower(fmt.Sprint(a[0]))

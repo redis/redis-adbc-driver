@@ -131,6 +131,9 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		if err != nil {
 			return err
 		}
+		if c.store.flexEnabled() && c.store.foreignIndexes && mode != "unmanaged" {
+			return flexUnsupported("managed foreign indexes")
+		}
 		c.store.foreignIndexesMode = mode
 		return nil
 	case OptionStringReadSnapshotAction, OptionStringReadSnapshotStatus, OptionIntReadSnapshotRetention:
@@ -153,7 +156,7 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		if c.store.hasSharedReadView() {
 			return sharedSnapshotUnsupported()
 		}
-		if c.store.flexEnabled() && value == "true" {
+		if c.store.flexEnabled() && value == "true" && c.store.foreignIndexesMode != "unmanaged" {
 			return flexUnsupported("foreign indexes")
 		}
 		v, err := parseForeignIndexes(value)
