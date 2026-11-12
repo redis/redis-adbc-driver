@@ -11,6 +11,7 @@ import adbc_driver_manager.dbapi as dbapi
 
 from progress import TrialProgress, execution_path, retained_execution
 from diagnostics import error_details
+from storage import driver_options
 
 
 def main():
@@ -25,6 +26,7 @@ def main():
     try:
         with dbapi.connect(driver=job["driver"], autocommit=True, db_kwargs={
             "uri": os.environ["REDIS_CLOUD_URI"],
+            **driver_options(job.get("storage", "ram")),
             "adbc.redis.aggregate_pushdown": "exact",
             "adbc.redis.query_workers": str(job.get("query_workers") or "auto"),
             "adbc.redis.read_timeout": "20m", "adbc.redis.write_timeout": "20m",

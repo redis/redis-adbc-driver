@@ -16,6 +16,7 @@ from isolation import check_isolation, run_isolated
 from run import deployment_uri, save
 from diagnostics import error_details
 from scan_resume import check_resume, identity, replace_measurement, reusable
+from storage import driver_options, storage_mode
 
 HERE = Path(__file__).resolve().parent
 
@@ -58,6 +59,8 @@ def main():
     ap.add_argument('--output', type=Path, required=True)
     ap.add_argument('--data-directory', type=Path, required=True)
     ap.add_argument('--deadline', type=float, required=True)
+    ap.add_argument('--storage', choices=['ram', 'flex-stopgap'],
+                    help='Default: flex-stopgap for 99,997,497 rows, ram for smaller fixtures')
     ap.add_argument('--skip-capability-probes', action='store_true',
                     help='Retest scan measurements only; do not repeat full-SQL capability probes')
     ap.add_argument('--resume', action='store_true', help='Preserve completed measurements and retry failures')
@@ -68,6 +71,7 @@ def main():
         ap.error('Trial timeout must be finite and positive')
     prior = json.loads(args.prior_run.read_text())
     rows = prior['metadata']['loaded_rows']
+    storage = storage_mode(rows, args.storage)
     assert rows == prior['metadata']['requested_rows']
     with args.driver.open('rb') as stream:
         assert hashlib.file_digest(stream, 'sha256').hexdigest() == prior['metadata']['driver_binary_sha256']
@@ -81,6 +85,7 @@ def main():
     report = {'scope': 'Supplemental supported scan workload; not the 43-query ClickBench result',
               'started_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'loaded_rows': rows, 'namespace': prior['metadata']['namespace'],
+              'storage': storage,
               'driver_binary_sha256': prior['metadata']['driver_binary_sha256'],
               'placement': prior['metadata']['placement'], 'worker_budget': 16,
               'trial_memory_limit_mib': 16384, 'trials': [], 'comparisons': [],
@@ -90,6 +95,8 @@ def main():
     resume_tag = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     if args.resume:
         report = json.loads(args.output.read_text())
+        if report.get('storage', 'ram') != storage:
+            ap.error('Resume storage differs; select the original --storage explicitly')
         check_resume(report, prior, scan_cases(rows))
         save(args.output.with_name(args.output.stem + '-before-resume-' + resume_tag + '.json'), report)
         report.setdefault('resumes', []).append({'at': resume_tag, 'trial_timeout_seconds': args.trial_timeout})
@@ -104,7 +111,8 @@ def main():
         report['capability_probes'] = 'not_repeated_in_targeted_failure_retest'
     else:
         # Actual public API calls, without fallback, document unsupported full SQL.
-        with dbapi.connect(driver=str(args.driver), autocommit=True, db_kwargs={'uri': uri}) as conn:
+        with dbapi.connect(driver=str(args.driver), autocommit=True,
+                           db_kwargs={'uri': uri, **driver_options(storage)}) as conn:
             with conn.cursor() as cur:
                 cur.execute('SET search_path TO ' + report['namespace'])
                 for number, sql in enumerate(prior['queries'], 1):
@@ -138,6 +146,7 @@ def main():
                     name += '-resume-' + resume_tag
                 output = jobs / (name + '-result.json')
                 job = {'api': api, 'driver': str(args.driver), 'namespace': report['namespace'],
+                       'storage': storage,
                        'sql': case['sql'], 'output': str(output),
                        'data_directory': str(args.data_directory / name)}
                 path = jobs / (name + '-job.json')
