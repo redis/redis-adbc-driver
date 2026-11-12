@@ -283,7 +283,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 
 // Shared connection initialization for ADBC and native managed-table readers.
 func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, error) {
-	if d.flex && d.foreignIndexes {
+	if d.flex && d.foreignIndexes && d.foreignIndexesMode != "unmanaged" {
 		return nil, flexUnsupported("foreign_indexes")
 	}
 	u, err := d.usage.start()

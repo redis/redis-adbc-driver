@@ -1198,7 +1198,7 @@ func (s *store) hydrateTableMetadata(ctx context.Context, meta *tableMeta, readA
 	if _, pending := snapshotDeferredIndex(ctx, meta); pending {
 		meta.SnapshotOverlay = true
 	}
-	if (s.flex || meta.PlainIndex) && (meta.Adopted || meta.KeyRows || meta.AppIndex || meta.Foreign) {
+	if (s.flex || meta.PlainIndex) && !meta.Unmanaged && (meta.Adopted || meta.KeyRows || meta.AppIndex || meta.Foreign) {
 		return flexUnsupported("adopted and application indexes")
 	}
 	if s.flex && meta.MaterializedSQL != "" {

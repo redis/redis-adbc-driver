@@ -161,7 +161,7 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		return wherePlan{query: "*", residual: where}, nil
 	}
 	wp := wherePlan{query: "*"}
-	if meta.SnapshotOverlay || e.store.flexSnapshotTable(meta) {
+	if meta.SnapshotOverlay || e.store.flexSnapshotTable(meta) || e.store.flexEnabled() && meta.Unmanaged {
 		wp.original = where
 	}
 	if where == nil {
@@ -540,7 +540,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 	if req.hashScan || len(req.meta.PendingCleanup) > 0 && req.where.keys == nil {
 		return e.scanBeyondCap(ctx, req, params)
 	}
-	if req.where.keys != nil && !req.meta.SnapshotOverlay {
+	if req.where.keys != nil && !req.meta.SnapshotOverlay && !(e.store.flexEnabled() && req.meta.Unmanaged) {
 		it, fields, _ := e.newScanIter(ctx, req, params)
 		fetch := e.store.fetchRows
 		if req.meta.KeyRows {
@@ -580,6 +580,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	flexUnmanaged *flexUnmanagedScan
 	ordered       *snapshotOrderedScan
 	candidates    *snapshotCandidateScan
 	delta         *snapshotDeltaScan
@@ -650,6 +651,12 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 // openScan starts a scan through the index (req.where.keys nil) and reads
 // its first page.
 func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value) (*scanIter, error) {
+	if e.store.flexEnabled() && req.meta.Unmanaged {
+		req.where.residual = req.where.original
+		it, _, _ := e.newScanIter(ctx, req, params)
+		it.flexUnmanaged = &flexUnmanagedScan{store: e.store, meta: req.meta, direct: req.where.keys != nil, pending: req.where.keys, seen: map[string]bool{}}
+		return it, nil
+	}
 	// Flex's plain-index contract excludes sorted candidates and aggregate
 	// cursors. Resolve even single-segment snapshots through exact directories.
 	if req.meta.SnapshotOverlay || e.store.flexSnapshotTable(req.meta) {
@@ -859,6 +866,13 @@ func (it *scanIter) checkReadiness(ctx context.Context) error {
 
 // nextPage is next in the index's order.
 func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
+	if it.flexUnmanaged != nil {
+		keys, rows, err := it.flexUnmanaged.next(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, rows)
+	}
 	if it.ordered != nil {
 		keys, rows, err := it.ordered.next(ctx)
 		if err != nil {
@@ -1033,6 +1047,9 @@ func (it *scanIter) exists(r aggRow) bool {
 
 // close deletes the scan's cursor, if it is still open.
 func (it *scanIter) close(ctx context.Context) {
+	if it.flexUnmanaged != nil {
+		it.flexUnmanaged.close()
+	}
 	if it.ordered != nil {
 		it.ordered.close(ctx)
 		it.ordered = nil

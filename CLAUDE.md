@@ -41,7 +41,8 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   supersedes the earlier consistency-feature scope restriction. Multi-statement
   transactions remain outside this change.
 - Autocommit only; Search is required. Flex requires the explicit experimental
-  stopgap with exact-directory snapshot reads; see [Flex scope](docs/redis-flex-stopgap.md). Do not imply full
+  stopgap with exact-directory managed reads or SCAN/INKEYS unmanaged reads;
+  see [Flex scope](docs/redis-flex-stopgap.md). Do not imply full
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 - Managed-table statement snapshots are always enabled, using immutable
   generations in one hash slot; see [snapshots](docs/snapshots.md). Storage
