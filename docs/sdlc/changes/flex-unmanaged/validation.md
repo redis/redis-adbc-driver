@@ -137,3 +137,5 @@ Removed the task-owned Flex and RAM containers and the task RAM network.
 Verified no task-owned containers or task RAM network remained, and removed
 their generated endpoint environment files. Pre-existing services were left
 in place. Build outputs and raw logs remain private/ignored.
+
+Pull request: [#397](https://github.com/redis/redis-adbc-driver/pull/397).

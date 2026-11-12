@@ -5,3 +5,5 @@ Capture failing live adoption/foreign regression; implement guarded registration
 Related: [intent](intent.md), [spec](spec.md), [plan](plan.md).
 
 Implementation complete; validation and self-review are recorded in [validation](validation.md).
+
+Pull request: [#397](https://github.com/redis/redis-adbc-driver/pull/397).
