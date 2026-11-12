@@ -465,6 +465,9 @@ func andAll(exprs []Expr) Expr {
 
 // decodeRow converts a fetched HASH into values keyed by column name.
 func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Value, error) {
+	if meta.Unmanaged && !unmanagedSourceKey(row[keyField]) {
+		return nil, errorf(adbc.StatusInvalidArgument, "unmanaged index contains a key overlapping driver storage")
+	}
 	out := make(map[string]Value, len(only)+1)
 	if meta.KeyRows {
 		out[keyField] = stringValue(row["__key"])

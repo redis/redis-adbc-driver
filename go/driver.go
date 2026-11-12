@@ -119,7 +119,8 @@ const (
 	// owns any temporary tables or views. It is read-only and answered from
 	// connection-local state, without contacting Redis.
 	OptionStringTemporaryObjects = "adbc.redis.temporary_objects"
-	// OptionStringForeignIndexes enables read-only tables in redis_foreign.
+	// OptionStringForeignIndexes enables imports/registrations in redis_foreign.
+	// Managed copies are read-only; explicit unmanaged mode writes source HASHes.
 	OptionStringForeignIndexes = "adbc.redis.foreign_indexes"
 
 	// OptionStringStreamResults (database or statement) controls whether a

@@ -37,6 +37,7 @@ nav:
       - SQL coverage: docs/sql-101-105.md
       - PostgreSQL compatibility: docs/postgresql18-compatibility.md
       - Statement snapshots: docs/snapshots.md
+      - Unmanaged tables: docs/unmanaged-tables.md
       - Shared read snapshots: docs/shared-read-snapshots.md
       - Arrow interoperability: docs/arrow-interoperability.md
       - Arrow and ADBC limits: docs/arrow-adbc-limits.md

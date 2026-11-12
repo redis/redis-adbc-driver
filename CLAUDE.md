@@ -70,8 +70,14 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   published indexes or depend on legacy mutable-ALTER hooks. Temporary descriptors
   participate in manifest references;
   liveness is global and Close/sweep publish descriptor removal. Application
-  HASH adoption and foreign indexes are managed copies with explicit refreshes;
-  never modify their external sources. Capture imports into reference-owned
+  HASH adoption and foreign indexes default to managed copies with explicit refreshes;
+  never modify sources during managed imports. Explicit unmanaged registrations
+  own metadata only and use existing application indexes; their SQL DML writes
+  source HASHes directly without managed row publication or replay. Keep those
+  writes out of metadata-slot mutation fences and reject unmanaged staging,
+  shared snapshots, native row-ID reads, ALTER, TRUNCATE and Arrow ingestion.
+  DROP and GC must preserve external HASHes/indexes. See docs/unmanaged-tables.md.
+  Capture managed imports into reference-owned
   private metadata before emitting destination HASHes, so overlapping application
   indexes cannot capture newly produced rows. Preserve first-observed source-key
   deduplication, binary keys and exact native values. Commit output images,

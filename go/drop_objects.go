@@ -24,7 +24,7 @@ func (e *executor) runDropObjects(ctx context.Context, names []TableName, ifExis
 			continue
 		}
 		seen[resolved] = true
-		if schema == foreignSchema || isPgCatalog(schema) || isInfoSchema(schema) {
+		if isPgCatalog(schema) || isInfoSchema(schema) || schema == foreignSchema && view {
 			return virtualReadOnly(schema)
 		}
 		if view {
@@ -39,8 +39,14 @@ func (e *executor) runDropObjects(ctx context.Context, names []TableName, ifExis
 				return viewNotFound(schema, name)
 			}
 		} else {
-			meta, getErr := e.store.getTable(ctx, schema, name)
+			meta, getErr := e.store.getTableMetadata(ctx, schema, name)
 			err = getErr
+			if err == nil && schema == foreignSchema && !meta.Unmanaged {
+				return virtualReadOnly(schema)
+			}
+			if err == nil && !meta.Unmanaged {
+				err = e.store.validateSnapshotTable(ctx, meta)
+			}
 			if err == nil && meta.MaterializedSQL != "" {
 				return stateErrorf(stateWrongObjectType, "%q is a materialized view; use DROP MATERIALIZED VIEW", name)
 			}

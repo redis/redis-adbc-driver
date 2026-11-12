@@ -107,7 +107,7 @@ func (s *store) fetchKeyRows(ctx context.Context, keys []string, _ []string) ([]
 // since the scan isn't made again: 0. A change that would delete the HASH's
 // last field is refused, and changes nothing: -1 (Redis deletes an empty
 // HASH, and with it the row). Otherwise it applies the change: 1.
-var keyRowUpdateScript = goredis.NewScript(`
+const keyRowUpdateLua = `
 if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
 local n = tonumber(ARGV[1])
 local del = {}
@@ -120,7 +120,9 @@ end
 if n > 0 then redis.call('HSET', KEYS[1], unpack(ARGV, 2, 1 + 2 * n)) end
 if #del > 0 then redis.call('HDEL', KEYS[1], unpack(del)) end
 return 1
-`)
+`
+
+var keyRowUpdateScript = goredis.NewScript(keyRowUpdateLua)
 
 // keyRowArgs is keyRowUpdateScript's ARGV for a change.
 func keyRowArgs(ch rowChange) []any {

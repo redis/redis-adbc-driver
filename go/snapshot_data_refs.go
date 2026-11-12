@@ -37,6 +37,11 @@ const snapshotDescriptorRefs = `
 local function descriptor_refs(value,graph)
  local m=cjson.decode(value)
  local refs,seen={},{}
+	if m.unmanaged then
+	 if not m.adopted or not m.key_rows or not m.app_index or m.snapshot_rows or m.snapshot_segments or m.snapshot_overlay or m.snapshot_import_source then error('invalid unmanaged descriptor') end
+	 if type(m.key_prefix)~='string' or m.key_prefix=='' or type(m.index_name)~='string' or m.index_name=='' or snapshot_row_key(m.key_prefix) or string.sub(m.key_prefix,1,12)=='adbc:{meta}:' or string.sub(m.index_name,1,16)=='adbc_snapshot17_' then error('invalid unmanaged source identity') end
+	 return refs
+	end
  local function add(prefix,index)
   local parsed,id,access=snapshot_row_key(prefix)
   if not parsed or parsed~=prefix or access~=m.snapshot_access_id or type(index)~='string' or string.sub(index,1,#('adbc_snapshot17_{meta}_'..id..'_'))~='adbc_snapshot17_{meta}_'..id..'_' then error('invalid snapshot segment identity') end

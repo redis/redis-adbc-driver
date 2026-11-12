@@ -39,6 +39,7 @@ type databaseImpl struct {
 	retainedLimits              retainedLimits
 	readerOnly                  bool
 	foreignIndexes              bool
+	foreignIndexesMode          string
 	driverbase.DatabaseImplBase
 
 	tlsCAFile    string
@@ -368,6 +369,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 		_ = st.collectMatviews(ctx)
 	}
 	st.foreignIndexes = d.foreignIndexes
+	st.foreignIndexesMode = d.foreignIndexesMode
 	if st.snapshots && d.foreignIndexes && !st.restrictedReader {
 		if err := st.refreshSnapshotForeign(ctx, false); err != nil {
 			_ = client.Close()
@@ -505,6 +507,9 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 	if key == OptionStringForeignIndexes {
 		return strconv.FormatBool(d.foreignIndexes), nil
 	}
+	if key == OptionStringForeignIndexesMode {
+		return parseTableMode(d.foreignIndexesMode)
+	}
 	switch key {
 	case adbc.OptionKeyURI:
 		return d.uri, nil
@@ -610,6 +615,12 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return err
 		}
 		d.foreignIndexes = v
+	case OptionStringForeignIndexesMode:
+		mode, err := parseTableMode(value)
+		if err != nil {
+			return err
+		}
+		d.foreignIndexesMode = mode
 	case adbc.OptionKeyURI:
 		d.uri = value
 	case adbc.OptionKeyUsername:
