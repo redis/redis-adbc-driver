@@ -85,9 +85,27 @@ RecordBatchReader to request that type. Input `columns` metadata selects columns
 Reader outputs ingest in batches; reader inputs currently materialize the result
 before returning an in-memory reader.
 
-Names are lowercase; the final asset-key component is the table, preceding
-components joined by underscores form the schema (`public` without a prefix).
-`schema_name` overrides it. Configure `db_kwargs` for native options and
+Asset names preserve component boundaries and case. With no `schema_name`, the
+prefix path determines the schema (`public` without a prefix), and the final
+component determines the table. With `schema_name`, the entire asset path
+determines the table inside that schema (the schema setting is lowercased).
+A single lowercase ASCII identifier matching `[a-z_][a-z0-9_]*` stays readable,
+unless it begins with the reserved `dagster__` marker. Other paths are encoded
+as `dagster__` followed by each component's UTF-8 hex, separated by underscores.
+An explicit `public` prefix is also encoded to distinguish it from no prefix.
+For example, `["a_b", "c", "orders"]` maps to
+`dagster__615f62_63.orders`, while `["a", "b_c", "orders"]` maps to
+`dagster__61_625f63.orders`. Simple `orders` and `sales.orders` stay unchanged.
+
+**Migration:** this replaces the earlier underscore join and lowercasing of
+asset keys. Multi-component prefixes, case-sensitive or encoded names, explicit
+`public` prefixes, and prefixed assets using `schema_name` may move to new
+targets. Inspect the manager's output table metadata, then deliberately migrate
+or rematerialize affected assets before downstream reads. The manager does not
+read, drop, or migrate ambiguous legacy tables automatically. Previously
+overwritten asset data must be recovered from its source or a backup.
+
+Configure `db_kwargs` for native options and
 `index_columns` for ingestion indexing (`*` by default). Output metadata includes
 row count, table name and Arrow column schema.
 

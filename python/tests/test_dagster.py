@@ -1,9 +1,11 @@
+from uuid import uuid4
+
 import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pytest
 from adbc_driver_redis import dbapi
-from adbc_driver_redis.dagster import RedisADBCIOManager
+from adbc_driver_redis.dagster import RedisADBCIOManager, _quote
 from dagster import (
     AssetIn,
     AssetKey,
@@ -28,6 +30,72 @@ def io(uri):
 
 def output(name, **kwargs):
     return build_output_context(asset_key=AssetKey([name]), **kwargs)
+
+
+@pytest.mark.parametrize("schema_name", [None, "fixed"])
+@pytest.mark.parametrize(
+    "left,right",
+    [
+        (["a_b", "c", "orders"], ["a", "b_c", "orders"]),
+        (["a_b", "orders"], ["a", "b", "orders"]),
+        (["a", "orders"], ["b", "orders"]),
+        (["orders"], ["public", "orders"]),
+        (["Orders"], ["orders"]),
+        (["Sales", "orders"], ["sales", "orders"]),
+        (["雪", "orders"], ["雨", "orders"]),
+        (["a", "orders"], ["dagster__61", "orders"]),
+        (["Orders"], ["dagster__4f7264657273"]),
+    ],
+)
+def test_distinct_asset_names(schema_name, left, right):
+    manager = RedisADBCIOManager(uri="redis://unused", schema_name=schema_name)
+    with (
+        build_output_context(asset_key=AssetKey(left)) as first,
+        build_output_context(asset_key=AssetKey(right)) as second,
+    ):
+        assert manager._table(first) != manager._table(second)
+
+
+@pytest.mark.parametrize(
+    "path,schema_name,expected",
+    [
+        (["orders"], None, ("public", "orders")),
+        (["sales", "orders"], None, ("sales", "orders")),
+        (["orders"], "fixed", ("fixed", "orders")),
+        (["a_b", "c", "orders"], None, ("dagster__615f62_63", "orders")),
+        (["a", "b_c", "orders"], None, ("dagster__61_625f63", "orders")),
+        (["public", "orders"], None, ("dagster__7075626c6963", "orders")),
+        (["sales", "orders"], "FIXED", ("fixed", "dagster__73616c6573_6f7264657273")),
+    ],
+)
+def test_asset_name_mapping(path, schema_name, expected):
+    manager = RedisADBCIOManager(uri="redis://unused", schema_name=schema_name)
+    with build_output_context(asset_key=AssetKey(path)) as context:
+        assert manager._table(context) == expected
+
+
+@pytest.mark.parametrize("fixed_schema", [False, True])
+def test_colliding_asset_roundtrips(uri, fixed_schema):
+    prefix = "it_dagster_" + uuid4().hex
+    manager = RedisADBCIOManager(
+        uri=uri, schema_name=prefix if fixed_schema else None
+    )
+    paths = [[prefix + "_a", "b", "orders"], [prefix, "a_b", "orders"]]
+    schemas = set()
+    try:
+        for path, value in zip(paths, [1, 2]):
+            with build_output_context(asset_key=AssetKey(path)) as context:
+                schemas.add(manager._table(context)[0])
+                manager.handle_output(context, pa.table({"id": [value]}))
+        for path, value in zip(paths, [1, 2]):
+            with build_input_context(
+                asset_key=AssetKey(path), dagster_type=resolve_dagster_type(pa.Table)
+            ) as context:
+                assert manager.load_input(context).to_pylist() == [{"id": value}]
+    finally:
+        with dbapi.connect(uri) as conn, conn.cursor() as cur:
+            for schema in schemas:
+                cur.execute(f"DROP SCHEMA IF EXISTS {_quote(schema)} CASCADE")
 
 
 @pytest.mark.parametrize("kind", ["arrow", "reader", "pandas", "polars"])
