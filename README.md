@@ -18,373 +18,83 @@
 
 # Arrow Database Connectivity (ADBC) driver for Redis
 
-[Documentation website](https://redis.github.io/redis-adbc-driver/)
+Query Redis with SQL, stream typed Apache Arrow results, and bulk-load Arrow data
+through a native [ADBC](https://arrow.apache.org/adbc/current/format/specification.html)
+driver. Redis HASHes store the rows; Redis Search (Query Engine) accelerates
+supported filters, sorting and aggregations.
 
-An Arrow-native Redis database driver built on ADBC—the successor to ODBC and JDBC—supporting both transactional and analytical workloads.
+Use Redis ADBC when SQL and Arrow fit your application, analytics or data pipeline.
+For native Redis commands and data structures, start with the
+[official Redis clients](https://redis.io/docs/latest/develop/clients/).
 
-Redis ADBC connects Redis to data tools through SQL and Apache Arrow. It queries
-Redis HASHes using the Query Engine, returns typed Arrow record batches, and
-bulk-loads Arrow data into Redis. It supports single-record SQL reads, inserts,
-updates, and deletes for OLTP workloads, alongside analytical SQL queries and
-Arrow bulk ingestion.
-
-For application development, start with the
-[official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
-for your programming language. Redis ADBC is another integration option when
-SQL and Arrow fit your transactional, analytical, data processing, or pipeline workflows.
-
-The driver requires **Redis Search (Query Engine)**. For concurrent queries,
-a query performance factor (QPF) of **4×** is recommended where supported,
-with sufficient server CPU capacity. See the [server requirements](docs/driver-reference.md#server-requirements)
-for supported deployments and configuration.
-
-**Managed tables are the default for SQL and Arrow workflows.** Application-owned
-Redis data is a valid choice when existing keys, direct Redis access, TTLs and
-source freshness drive the workload. Both have benefits and costs; see the
-[use-case and tradeoff comparison](docs/managed-vs-unmanaged-tables.md#choose-by-use-case).
-Current SQL access to application data uses private managed imports with explicit
-refreshes, as described below.
-
-Managed tables now use [always-on statement snapshots](docs/snapshots.md).
-Each statement reads one committed generation, including streamed results;
-supported writes publish atomically. Storage protocol version 15 rejects legacy catalogs
-and earlier draft formats without modification; there is no upgrade path. ALTER
-and connection-owned temporary objects are supported. HASH adoption and foreign
-indexes use private managed copies with explicit refreshes, preserving application
-ownership. Live partition sets share one producer generation; retained production
-captures one managed generation and publishes replayable Arrow results. Writes
-append row-version segments with bounded background compaction. See the snapshot
-contract for import initialization, deployment constraints and fixed limits.
-Historical in-place adoption/layout descriptions below concern the previous format.
-The [architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
-explains table storage. The [SQL INSERT and SELECT example](docs/sql-redis-example.md)
-shows managed row storage and snapshot-aware reads.
-
-For managed tables, **write through the driver using SQL or supported Arrow
-ingestion**. Read through SQL/ADBC or use the experimental
-[native client wrapper](docs/native-client.md) for supported HASH-style reads
-without SQL translation. The wrapper currently requires a source build and
-addresses rows by internal `__rowid`; application-key lookup and `FT.SEARCH`
-are not implemented. Ordinary Redis client reads of physical HASHes or indexes
-do not automatically resolve managed-table snapshots, row versions or tombstones.
-
-Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
-connection diagnostics, and application examples. For native tools such as
-DuckDB, the [managed installer](docs/native-installation.md) handles downloads,
-driver registration, upgrades, and uninstall. See [Redis in dbc](docs/dbc.md)
-for package creation and the pending registry submission.
-
-The implementation builds on [driverbase-go](https://github.com/adbc-drivers/driverbase-go)
-and is validated with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
-Binary Substrait 0.108.0 plans support a bounded read/filter/project subset; see
-[the supported subset and limits](docs/substrait.md). Contributor
-context and development records are in the [SDLC guide](docs/sdlc/README.md).
-
-Experimental [CUDA predicates and Arrow C Device staging](docs/gpu-execution.md)
-are opt-in and under validation. CPU execution remains the default. The earlier
-[GPU feasibility experiment](benchmarks/gpu-query/README.md) records its measured
-workload and performance limits.
-
-[Product usage analytics and feedback](analytics/README.md) collects high-level
-metrics—such as statement types, execution counts, timings and row counts—to
-understand how the driver is used and help improve it. **Your SQL statements,
-query parameters, query results and database contents are not collected.**
-Reporting is on by default and uses `https://adbc-telemetry.sa.redislabs.com/v1/usage`;
-opt out with `adbc.redis.telemetry.enabled=false`. The analytics documentation
-explains the source and deployment metadata included with these metrics.
-
+[Documentation website](https://redis.github.io/redis-adbc-driver/) ·
+[Choose your tool](docs/setup.md) · [Driver reference](docs/driver-reference.md)
 
 ## Contents
 
 - [Why a Redis ADBC driver?](#why-a-redis-adbc-driver)
+- [Quick start](#quick-start)
+- [How tables and snapshots work](#how-tables-and-snapshots-work)
+- [Data tools and integration status](#data-tools-and-integration-status)
 - [Compatibility and validation](#compatibility-and-validation)
 - [Apache Arrow feature matrix](#apache-arrow-feature-matrix)
 - [Redis Software feature matrix](#redis-software-feature-matrix)
-- [Data tools and integration status](#data-tools-and-integration-status)
-- [Quick start](#quick-start)
-- [dlt integration](docs/python-integrations.md#dlt)
-- [Driver reference](docs/driver-reference.md): server requirements, existing HASH collections, architecture, SQL, options, performance, building and testing
+- [Usage analytics](#usage-analytics)
+- [Development](#development)
 
 ## Why a Redis ADBC driver?
 
-Driver users can query Redis with familiar SQL and move data through Apache Arrow,
-making it easier to connect operational data to the tools their teams already use.
-
-**What this means for driver users:**
-
-- **Use popular data engineering tools:** Bring Redis data into workflows with
-  Dagster, Airflow, Python, pandas, Polars, and other tools that can consume ADBC
-  drivers. Some tools require custom tasks or integration code; see the
-  [integration status guide](docs/data-engineering-adbc-support.md) for details.
-- **Analyze data where it lives:** Query data directly in Redis using products
-  like [Apache Superset](docs/python-integrations.md#sqlalchemy-and-superset)
-  and [DuckDB](docs/duckdb.md), reducing the need to export it elsewhere before
-  analysis.
-- **Less custom integration code:** Use standard SQL and Arrow interfaces to
-  reduce application-specific reads and data conversions.
-- **More value from existing data:** Bring eligible Redis HASH collections into
-  SQL workflows [in place](docs/driver-reference.md#adopt-hashes-in-place),
-  without copying their rows.
-- **Efficient data movement:** Stream typed Arrow results and bulk-load Arrow
-  batches, with supported filters and aggregations pushed down to Redis's
-  Query Engine. Eligible wide managed-table scans use bounded
-  [prefetch](docs/prefetch.md) by default to overlap fetching and Arrow conversion.
-
-- **Enable Flight SQL and JDBC integration.** The
-  [Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight)
-  uses this driver as its Redis SQL/Arrow backend. JDBC tools such as DBeaver can
-  access that separately deployed server through the
-  [Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html).
-  See its [client examples](https://github.com/redis/redis-apache-arrow-flight#client-examples)
-  and [client compatibility matrix](https://github.com/redis/redis-apache-arrow-flight/blob/main/docs/client-compatibility.md)
-  for setup and tested compatibility.
-
-A simpler path from application data to exploration, dashboards, and data
-pipelines—with less glue code to build and maintain.
-
-## Compatibility and validation
-
-Tested Redis editions:
-
-- Redis Software: the default pulls `redislabs/redis:latest` and creates Redis 8.8 databases.
-  Historical validation used 8.2.0-78.18 (Redis 8.6.2); the 2026-11-04 retest used
-  8.2.6-25 (Redis 8.8.0, Search 8.8.8).
-- Redis Open Source 8.6.2 (standalone and cluster)
-- Redis Cloud, including Redis Cloud Pro (Redis 8.6.2)
-
-See [compatibility and validation details](docs/compatibility.md) for tested
-versions, configurations, results, and limitations.
-
-## Apache Arrow feature matrix
-
-🟢 Supported · 🟡 Partial, restricted or experimental · 🔴 Unsupported · ⚪ N/A (outside driver scope)
-
-This matrix describes the current source tree, not every published wheel. It
-covers the [Apache Arrow format and interfaces](https://arrow.apache.org/docs/format/Columnar.html)
-and the [ADBC API](https://arrow.apache.org/adbc/current/format/specification.html);
-these are separate capabilities. Redis stores rows as HASHes; Arrow is the
-client interchange format. N/A identifies responsibilities of another service or
-execution engine; it does not describe a missing driver capability. Tracking links
-for those rows cover scope or companion integration decisions.
-
-Supported means the documented SQL/Arrow contract is implemented, including
-normalization and explicit result-layout options where described. It does not
-mean the original input encoding or metadata persists unchanged. Closed tracking
-issues record completed contracts. See [extensions and remaining limits](docs/arrow-adbc-limits.md)
-for their implemented scope and boundaries. Restrictions stay in the behavior column.
-
-| Feature | Support | Driver behavior and limits | Tracking |
-|---|---|---|---|
-| Columnar record batches, schemas and NULL values | 🟢 Supported | Queries return typed Arrow batches with validity information. | — |
-| Arrow C Data and C Stream interfaces | 🟢 Supported | The native ADBC boundary exchanges Arrow schemas, arrays and `ArrowArrayStream` results/bindings. | — |
-| Arrow bulk ingestion | 🟢 Supported | Bind a batch or stream; create, append, replace and create-or-append modes are available. Writes autocommit. | — |
-| Arrow IPC stream and file formats | 🟢 Supported | Native import/export through statement options and local files; [IPC contract and examples](docs/arrow-ipc.md). | — |
-| Incremental scans, key lookups and UNION ALL | 🟢 Supported | Eligible indexed single-table queries, unordered key lookups and eligible `UNION ALL` trees fetch pages/chunks as batches are consumed. Blocking plans can materialize results; this is finite streaming. See [streamed results](docs/driver-reference.md#streamed-results). | [#198](https://github.com/redis/redis-adbc-driver/issues/198) |
-| In-process buffer interchange and ownership | 🟢 Supported | C export shares Arrow buffers under release callbacks; binding/ingest retain or copy as required for lifetime safety. [Ownership contract](docs/arrow-interoperability.md#ownership-and-extension-policy). | [#199](https://github.com/redis/redis-adbc-driver/issues/199) |
-| Redis wire zero-copy transport | 🔴 Unsupported | Redis replies require decoding/conversion; no end-to-end zero-copy storage/network path. | [#199](https://github.com/redis/redis-adbc-driver/issues/199) |
-| Boolean, signed integers, floating point, UTF-8 and binary | 🟢 Supported | Standard SQL/Arrow mappings; int8 and float16 inputs widen to int16 and float32. | — |
-| Unsigned integers | 🟢 Supported | uint8/16/32 widen to signed integers; full-range uint64 normalizes exactly to NUMERIC(20,0). Unsigned physical identity is not preserved. | [#200](https://github.com/redis/redis-adbc-driver/issues/200) |
-| Decimal32/64/128/256 | 🟢 Supported | Inputs normalize to SQL NUMERIC up to 76 digits; explicit result layouts select Decimal32/64/128/256 when precision fits. | [#201](https://github.com/redis/redis-adbc-driver/issues/201) |
-| Date, time and timestamp | 🟢 Supported | Date64 and zoned timestamps normalize to SQL DATE/UTC instants; explicit output selects Date64 or a timestamp zone. | [#202](https://github.com/redis/redis-adbc-driver/issues/202) |
-| Intervals and durations | 🟢 Supported | Inputs normalize to SQL INTERVAL; explicit duration/month/day-time output rejects lossy conversions. | [#203](https://github.com/redis/redis-adbc-driver/issues/203) |
-| Large/view strings and binary; fixed-size binary | 🟢 Supported | Accepted on input; explicit result layouts select large/view or fixed-width output with byte-width checks. | [#204](https://github.com/redis/redis-adbc-driver/issues/204) |
-| Dictionary input and string/binary output | 🟢 Supported | Input dictionaries decode; opt-in string/binary output uses bounded per-batch int32 dictionaries. IPC file and partition restrictions apply. | [#205](https://github.com/redis/redis-adbc-driver/issues/205) |
-| List and LargeList input normalization | 🟢 Supported | Recursive ragged Arrow lists and named-record elements normalize to List; physical offset widths are not retained. | [#206](https://github.com/redis/redis-adbc-driver/issues/206) |
-| Named Struct ingestion and output | 🟢 Supported | Named struct ingestion/storage preserves names and nullability with normalized child types; anonymous SQL ROW expressions retain their existing restrictions. | [#207](https://github.com/redis/redis-adbc-driver/issues/207) |
-| FixedSizeList, ListView/LargeListView and run-end input normalization | 🟢 Supported | Input normalizes to canonical lists/values with decoded-expansion limits; physical layout identity is not retained. See the [layout assessment](docs/arrow-interoperability.md#layout-assessment-and-decoded-input-limits). | [#208](https://github.com/redis/redis-adbc-driver/issues/208) |
-| Map | 🟢 Supported | Ordered Map storage preserves duplicate/non-null scalar keys and NULL/empty containers; native Map output, IPC and live partitions. Retained partitions reject. | [#267](https://github.com/redis/redis-adbc-driver/issues/267) |
-| Dense/sparse Union | 🟢 Supported | Tagged storage preserves codes and selected-child NULLs; both inputs normalize to dense Union output. Exact-schema append, IPC and live partitions; retained partitions reject. | [#268](https://github.com/redis/redis-adbc-driver/issues/268) |
-| UUID/JSON extension storage normalization | 🟢 Supported | Reject by default; explicit `extension_policy=storage` normalizes allowlisted top-level UUID/JSON extensions to canonical SQL storage. Unknown extensions reject; generic storage normalization does not persist extension identity. Native SQL JSON fields retain their owned type marker. [Policy](docs/arrow-interoperability.md#explicit-extension-storage-normalization). | [#209](https://github.com/redis/redis-adbc-driver/issues/209) |
-| SQL execution, prepared statements and Arrow parameter binding | 🟢 Supported | Supports `Prepare`, `Bind`, `BindStream`, parameter schemas and result-schema discovery for supported SQL. | — |
-| ADBC metadata and row/NULL statistics | 🟢 Supported | Driver info, objects, table schemas/types and approximate managed-table row counts are available. Discovery and visible row/NULL counts share a pinned generation; results retain the approximate API classification. UNIQUE/FOREIGN KEY metadata depends on [#114](https://github.com/redis/redis-adbc-driver/issues/114). See [statistics](docs/adbc-statistics.md). | [#210](https://github.com/redis/redis-adbc-driver/issues/210) |
-| ADBC partitioned reads | 🟢 Supported | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. Managed live partition sets retain one producer generation; retained capture uses a pinned source. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
-| Statement cancellation | 🟢 Supported | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
-| Transactions and rollback through ADBC | 🔴 Unsupported | Autocommit only; disabling autocommit is rejected. | [#113](https://github.com/redis/redis-adbc-driver/issues/113) |
-| Substrait plans | 🟡 Bounded subset | Binary Substrait 0.108.0 read/filter/project support; [subset and limits](docs/substrait.md). | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
-| Arrow Flight / Flight SQL endpoint | ⚪ N/A | A Flight endpoint belongs to a separately deployed service, such as the [Redis Flight server](https://github.com/redis/redis-apache-arrow-flight). This native ADBC driver supplies an in-process client interface. | [#214](https://github.com/redis/redis-adbc-driver/issues/214) |
-| Continuous subscriptions / CDC | ⚪ N/A | Durable change feeds and snapshot-to-live handoff need a separately designed source/service contract. Finite SQL query results are the driver's current interface; [#196](https://github.com/redis/redis-adbc-driver/issues/196) evaluates where CDC should live. | [#196](https://github.com/redis/redis-adbc-driver/issues/196) |
-| Arrow C Device interface | 🟡 Experimental | Native extensions stage flat numeric/boolean CPU/CUDA arrays, bind device input and export device result streams. Explicit synchronization/ownership contract; Validated on NVIDIA A10G with real producer/consumer tests. [API and limits](docs/gpu-execution.md). | [#293](https://github.com/redis/redis-adbc-driver/issues/293), [#294](https://github.com/redis/redis-adbc-driver/issues/294), [#295](https://github.com/redis/redis-adbc-driver/issues/295) |
-| GPU query execution | 🟡 Experimental | Opt-in Linux CUDA integer predicates; fetching, grouping and exact reducers remain on CPU. Restricted SQL subset, no automatic fallback or speedup claim. [Scope](docs/gpu-execution.md). | [#291](https://github.com/redis/redis-adbc-driver/issues/291), [#292](https://github.com/redis/redis-adbc-driver/issues/292) |
-
-See [Arrow normalization, result-layout options and ownership](docs/arrow-interoperability.md) for the precise contracts and remaining acceptance limits.
-
-Type mappings are implemented in [types.go](go/types.go) and
-[arrowconv.go](go/arrowconv.go); ADBC methods in
-[statement.go](go/statement.go) and [connection.go](go/connection.go).
-Supported interchange does not imply support for every Arrow layout or every
-SQL operator. See the [SQL reference](docs/driver-reference.md#supported-sql)
-for type and execution details. [Generated identifiers, UUIDs, modifying CTEs, named indexes and materialized views](docs/sql-101-105.md) describe the additional SQL contracts and limits.
-
-## Redis Software feature matrix
-
-🟢 Supported through the driver · 🟡 Partial or restricted ·
-🔴 Unsupported driver capability/compatibility · ⚪ N/A (outside driver scope)
-
-These statuses describe **this driver's SQL/Arrow interface**, not whether Redis
-Software offers a feature. They reflect current source and existing validation
-records as of **2026-10-22**; no new deployment tests were run for this table.
-N/A identifies work owned by server administration or companion services. It is
-not a compatibility failure. Red identifies a missing driver capability or an
-unsupported deployment; yellow identifies limits in an applicable driver path.
-
-| Redis Software feature | Support | Driver behavior and limits |
-|---|---|---|
-| Query Performance Factor (QPF) | 🟢 Supported | Search queries use the server's configured QPF. Development and tests require verified **4× QPF**; `make -C go redis-up` verifies active scaling factor 4, six Search workers, `mnp` routing and 32 connections. QPF is separate from driver query-worker settings and does not promise a 4× query speedup. [Configuration](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/), [driver performance](docs/driver-reference.md#query-performance-factor-qpf). |
-| RESP3 | 🟢 Required | Required for single-endpoint and Cluster API clients, including every node connection; explicit `protocol=3` is accepted. |
-| RESP2 compatibility | 🔴 Unsupported | `?protocol=2` is rejected; RESP3 is required. See [URI parameters](docs/driver-reference.md#uri-parameters). |
-| Redis Query Engine / Search | 🟢 Supported | Required at connection time. The driver creates HASH indexes and uses Search for supported SQL filters, ordering and aggregation, with driver-side execution where needed. Vector and full-text SQL operations are assessed separately below. [Execution](docs/driver-reference.md#query-execution). |
-| Redis HASH tables | 🟢 Supported | Driver-managed HASH rows support SQL reads/writes, DDL and Arrow bulk ingestion. Indexes accelerate queries; HASH values remain authoritative. [Layout](docs/driver-reference.md#rows-and-indexes). |
-| Existing application HASHes and indexes | 🟡 Partial | `redis-adbc` can inspect, copy or adopt supported HASH collections; configured foreign indexes enable discovery. Layout, ownership and mutation restrictions apply. [Existing HASH collections](docs/driver-reference.md#existing-hash-collections-redis-adbc). |
-| Single endpoint / Redis Software proxy | 🟢 Supported | Connect to a supported Search-enabled RAM database through its Redis endpoint; the proxy routes database operations. |
-| Sharding / OSS Cluster API | 🟢 Supported | Auto-detects the Cluster API or accepts `adbc.redis.cluster=true`; metadata shares one hash slot and table searches are coordinated across shards. This is client connectivity, not a shard-management API. [Cluster behavior](docs/driver-reference.md#prerequisites). |
-| TLS and private certificate authorities | 🟢 Supported | `rediss://` verifies server certificates; `adbc.redis.tls_ca_file` supplies explicit trust roots, including cluster nodes and independent partition workers. [TLS evidence](docs/partitioned-reads.md#tls-and-independent-worker-validation). |
-| Mutual TLS with client certificates | 🔴 Unsupported | No public driver options configure a client certificate/private key; server-certificate verification alone does not provide mutual TLS. |
-| Password / ACL-user authentication | 🟢 Supported | URI credentials or username/password options authenticate Redis connections. [ACL requirements](docs/driver-reference.md#acl-users). |
-| Role-based access control (RBAC) | 🟡 Partial | Administrator-provisioned Redis authentication remains available. Restricted snapshot readers and SQL `GRANT SELECT` / `REVOKE SELECT` remain gated on isolated reader leases; no management ACL changes are enabled by SQL on snapshot catalogs. [Design and limits](docs/sql-rbac.md). |
-| Replication | ⚪ N/A | Redis Software manages primary/replica synchronization and replica configuration. The driver connects to the database endpoint; replica read routing is assessed separately below. [Server replication](https://redis.io/docs/latest/operate/rs/databases/durability-ha/). |
-| Automatic failover (client recovery) | 🟢 Supported | Uses go-redis connection recovery and Cluster routing for supported Redis Software proxy / Cluster API connections. Applications must handle interrupted operations, as with standard Redis clients. An [owned three-node Software run](docs/sdlc/changes/snapshot-cluster/validation.md) verifies planned primary promotion and AOF restart recovery; this does not promise transparent recovery of interrupted operations. [Retry and timeout limits](docs/driver-reference.md#timeouts), [official client guidance](https://redis.io/docs/latest/develop/clients/go/error-handling/). |
-| Read scaling through replicas | 🔴 Unsupported | `read_only=true`, `route_by_latency=true` and `route_randomly=true` are rejected because replicas can lag the driver's writes. |
-| Persistence configuration (AOF / snapshots) | ⚪ N/A | Persistence policy is configured in Redis Software, outside the ADBC interface. Stored driver data follows that server policy; [retained partition control state](docs/retained-partition-storage.md) has additional durability requirements. [Server settings](https://redis.io/docs/latest/operate/rs/databases/configure/database-persistence/). |
-| Backup, restore and disaster recovery | ⚪ N/A | These are server/operator responsibilities. Restore must keep table metadata, HASHes and Search definitions consistent. [Server administration](https://redis.io/docs/latest/operate/rs/databases/configure/). |
-| Active-Active geo-distribution | 🔴 Unsupported / unvalidated | No supported multi-region contract for concurrent DDL, metadata/row-ID allocation, writes or partition consistency. Redis Software supports Search on Active-Active, but indexes must be created per instance; driver compatibility cannot be inferred from command availability. The driver does not guarantee automatic rejection of an Active-Active endpoint. [Redis Active-Active Search](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/search-active-active/). |
-| Redis Flex / Auto Tiering | 🟡 Experimental, opt-in | Tested Redis Software Flex builds support plain indexes and bounded reads with `adbc.redis.flex=true`. SQL restrictions remain; Cloud SQL is unvalidated. [Scope and evidence](docs/redis-flex-stopgap.md). |
-| SQL JSON / JSONB | 🟡 Partial | Native HASH columns and canonical Arrow JSON metadata; extraction, constructors, existence/deletion/path mutation, containment and JSON SRFs. [Scope and validation](docs/sdlc/changes/postgresql18-json/validation.md). Broader function coverage remains open. [#98](https://github.com/redis/redis-adbc-driver/issues/98). |
-| JSON document collections / ON JSON indexes | 🔴 Unsupported | Table storage and collection adoption target HASHes; RedisJSON document collections are outside that path. This is separate from SQL JSON functions. [#65](https://github.com/redis/redis-adbc-driver/issues/65). |
-| Vector and full-text SQL operations | 🔴 Unsupported | No supported SQL operations for Redis vector KNN/range search or full-text relevance scoring. Ordinary SQL string predicates do not provide those query semantics. |
-| Streams, Pub/Sub and keyspace notifications | ⚪ N/A | Native messaging and event-subscription APIs belong to Redis clients or a companion service, outside this SQL/Arrow interface. Finite Arrow result streaming is separate; [CDC placement is tracked in #196](https://github.com/redis/redis-adbc-driver/issues/196). |
-| SQL tables over other Redis data types | 🔴 Unsupported | No SQL/Arrow table mapping for application lists, sets, sorted sets, time-series or probabilistic structures. Internal use of a Redis data type does not expose it as an application table. |
-| Cluster and database administration | ⚪ N/A | Provisioning, resharding, upgrades, license management and monitoring configuration belong to the [Redis Software management tools](https://redis.io/docs/latest/operate/rs/databases/configure/). |
-
-Implementation references: [connection and protocol configuration](go/database.go),
-[TLS trust configuration](go/tls.go), [QPF verification](go/software-qpf.sh), and
-[the detailed driver reference](docs/driver-reference.md). Green entries do not
-claim every server version or failover scenario has been validated.
-
-## Data tools and integration status
-
-The [51-tool comparison](docs/data-engineering-adbc-support.md) lists connection
-paths, validation evidence, and remaining gaps. The examples below summarize
-recorded local validation; each entry links to a usage guide with setup, examples
-and validation scope.
-
-The [read/write guide harness](docs/integrations/example-setup.md#require-both-directions-in-the-harness)
-now verifies both directions for 36 native or custom ADBC workflows, including
-writing model predictions, transformed rows, chart data and task summaries back
-to Redis. [Dated results](docs/sdlc/changes/integration-read-write/validation.md)
-record scope and limits. Custom Arrow output examples materialize their results;
-they do not imply native distributed sinks or Redis model/artifact stores.
-
-Integration setup guides:
-
-| Tool | Example workflow | Usage guide |
-|---|---|---|
-| pandas | Read SQL results into DataFrames and write or append DataFrames to Redis tables. | [Guide](docs/integrations/pandas.md) |
-| Polars | Read through ADBC and validate typed write/append round trips. | [Guide](docs/integrations/polars.md) |
-| DuckDB | Attach Redis tables to query, join, and ingest data; stream SELECT results with the standalone extension. | [Guide](docs/duckdb.md) |
-| SQLAlchemy | Run engine queries, reflect metadata, and bind query values through the repository dialect. | [Guide](docs/integrations/sqlalchemy.md) |
-| Apache Superset | Run SQL Lab queries and chart SQL through the repository dialect; browser dashboards and hosting remain untested. | [Guide](docs/integrations/superset.md) |
-| Dagster | Load and store Arrow/DataFrame asset outputs with the Redis IO manager, or query through dagster-adbc. | [Guide](docs/integrations/dagster.md) |
-| Apache Airflow | Registered Redis ADBC provider for SQL operators and TaskFlow; supports bound queries and Arrow ingestion. | [Guide](docs/integrations/airflow.md) |
-| Prefect | Run local flows with Arrow ingestion, dependent tasks, concurrent queries, and retries. | [Guide](docs/integrations/prefect.md) |
-| Dask | Read lazy query partitions through worker-local ADBC connections and pandas Arrow dtypes. | [Guide](docs/integrations/dask.md) |
-| Ray Data | Stream partitioned Arrow batches from worker-local ADBC connections; install the native driver on each worker. | [Guide](docs/integrations/ray.md) |
-| dlt | Append pipeline data through the repository ADBC destination; replace/merge are unsupported and retries can duplicate rows. | [Guide](docs/integrations/dlt.md) |
-| [Sling](https://slingdata.io) | Migrate SQL data into managed Redis HASH tables and export Redis data through Sling’s database, warehouse and file adapters. PostgreSQL round trips are tested with template overrides and direct loading; the guide includes setup, MySQL migration guidance and other adapter examples. | [Guide](docs/integrations/sling.md) |
-
-Additional locally validated workflows use custom application code, adapters, or
-Arrow conversion. These examples do not establish built-in Redis connectors,
-remote deployment support, or Redis Flight SQL compatibility.
-
-| Tool | Example workflow | Usage guide |
-|---|---|---|
-| NumPy | Convert fetched Arrow results to arrays and check numeric values. | [Guide](docs/integrations/numpy.md) |
-| SciPy | Build a CSR sparse matrix from fetched coefficients and solve a linear system. | [Guide](docs/integrations/scipy.md) |
-| scikit-learn | Convert fetched results to arrays, then fit and predict with a small decision tree. | [Guide](docs/integrations/scikit-learn.md) |
-| Apache Spark | Convert fetched Arrow data into a local Spark DataFrame, then filter and aggregate; no Spark datasource is supplied. | [Guide](docs/integrations/spark.md) |
-| Jupyter / JupyterLab | Execute ADBC queries in a separate notebook kernel and save outputs; JupyterLab browser UI remains untested. | [Guide](docs/integrations/jupyter.md) |
-| Apache Beam | Run bound ADBC queries in local Python worker subprocesses; remote runners remain untested. | [Guide](docs/integrations/beam.md) |
-| Fivetran Connector SDK | Run a custom native ADBC source with the local SDK tester and verify warehouse output; hosted packaging remains unverified. | [Guide](docs/integrations/fivetran.md) |
-| dbt | Build models, run model tests, and generate a catalog using the community v1 adapter; the v2 adapter requires a custom engine. | [Guide](docs/integrations/dbt.md) |
-| PyArrow | Fetch and ingest Arrow data, including array, IPC, and union-stream interfaces. | [Guide](docs/integrations/pyarrow.md) |
-| R / DBI | Load the native driver through adbi and read typed and empty results; positional binding has documented limitations. | [Guide](docs/integrations/r-dbi.md) |
-| RStudio | Execute the saved R/DBI harness in the IDE; wider IDE workflows remain untested. | [Guide](docs/integrations/rstudio.md) |
-| PyTorch | Build a custom Dataset/DataLoader and run a CPU model forward pass with an explicit NULL mask. | [Guide](docs/integrations/pytorch.md) |
-| TensorFlow | Build a custom tf.data input pipeline from fetched rows and a NULL mask. | [Guide](docs/integrations/tensorflow.md) |
-| Keras | Use fetched values as CPU model inputs and save/reload the model with the TensorFlow backend. | [Guide](docs/integrations/keras.md) |
-| XGBoost | Convert fetched rows to a DMatrix, train a small CPU model, and save/reload it. | [Guide](docs/integrations/xgboost.md) |
-| Hugging Face Transformers | Feed fetched labels to a local tokenizer and tiny randomly initialized model; no pretrained-model or training-scale validation. | [Guide](docs/integrations/transformers.md) |
-| Hugging Face Datasets | Convert Arrow results into datasets and save/reload/filter locally; empty persistence needs the documented workaround. | [Guide](docs/integrations/huggingface-datasets.md) |
-| MLflow | Track datasets and artifacts from fetched Arrow/pandas data; no Redis tracking-store backend is supplied. | [Guide](docs/integrations/mlflow.md) |
-| Streamlit | Display fetched rows and rerun bound filters with AppTest; browser and hosting remain untested. | [Guide](docs/integrations/streamlit.md) |
-| Plotly | Serialize fetched data into figure JSON and interactive HTML; browser interaction remains untested. | [Guide](docs/integrations/plotly.md) |
-| Matplotlib | Render fetched values to a PNG using the Agg backend. | [Guide](docs/integrations/matplotlib.md) |
-| Mage | Pass bound-query results through a local Python loader/transformer pipeline. | [Guide](docs/integrations/mage.md) |
-| Kestra | Query from local Python Script tasks and hand managed output files to a downstream checker. | [Guide](docs/integrations/kestra.md) |
-| Ibis | Build expressions over fetched Arrow tables on a local DuckDB backend; no Redis backend or pushdown is supplied. | [Guide](docs/integrations/ibis.md) |
-| Kubeflow Pipelines | Run a custom ADBC component with the local SubprocessRunner; Kubernetes execution remains untested. | [Guide](docs/integrations/kubeflow.md) |
-| Metaflow | Read through ADBC in a local flow and persist rows between steps; remote backends remain untested. | [Guide](docs/integrations/metaflow.md) |
-| Quarto | Render a Python document containing native ADBC queries to HTML. | [Guide](docs/integrations/quarto.md) |
-
-## Experimental Redis Flex stopgap
-
-Set database option `adbc.redis.flex=true` for plain indexes and bounded row-ID
-reads on tested Software Flex builds. See [scope, usage and evidence](docs/redis-flex-stopgap.md).
-Retained replay and TRUNCATE are validated, as is table rename with
-`adbc.redis.rename_rekey=true`. Other ALTER TABLE operations, CREATE INDEX,
-materialized views, adoption and foreign indexes remain unsupported. The
-implementation and follow-up are merged in
-[PR #323](https://github.com/redis/redis-adbc-driver/pull/323) and
-[PR #331](https://github.com/redis/redis-adbc-driver/pull/331).
-
-The [historical Cloud report](docs/redis-flex-compatibility.md#historical-redis-cloud-test-configuration-2026-10-06)
-excludes the October 6 database without Search from Search-on-Flex compatibility
-results. Its provisioning rejection is historical; Cloud SQL remains unvalidated.
+- **Use SQL for reads and writes.** Query individual records, join tables,
+  aggregate data, and use supported inserts, updates, deletes and DDL.
+- **Move typed data with Arrow.** Fetch record batches or bulk-ingest Arrow
+  tables and streams, with explicit type and NULL handling.
+- **Connect data tools.** Use Python, pandas, Polars, DuckDB and orchestration
+  tools through their documented ADBC paths or repository adapters.
+- **Bring application data into SQL.** Import eligible existing HASH collections
+  into private managed tables, then refresh explicitly when the source changes.
 
 ## Quick start
 
-Install the driver from PyPI, start Redis Software, and load the sample dataset.
-You need Git, Docker with Compose, `curl`, `jq`, Make, and Python 3.12+.
+This walkthrough installs a published Python wheel, starts a disposable Redis
+Software database, and runs queries over sample data. You need Git, Docker with
+Compose, Make, `curl`, `jq`, and Python (3.14 recommended; package minimum 3.12).
 
-For the complete local Go suite, use `make -C go test-software`. It verifies the
-owned Software database's effective 4× QPF and `noeviction` policy through the
-management API before enabling retained-partition tests. The Software data proxy
-can return an empty `CONFIG GET maxmemory-policy` reply; that reply alone is not
-policy evidence. Concurrent test sessions should use separate
-`COMPOSE_PROJECT_NAME`, `SOFTWARE_API_PORT` and `SOFTWARE_DB_PORT` values.
+For an existing deployment or a different tool, use [Choose your tool and connect](docs/setup.md).
+Use a fresh, dedicated database for this walkthrough: the sample loader replaces
+any existing `customers` and `sales` tables. Legacy driver catalogs have no
+in-place upgrade path; see [storage compatibility](docs/snapshots.md).
 
 ### 1. Install the driver
 
-Clone the repository for its Redis startup script and sample data loader:
+Clone the repository for the startup script and sample programs:
 
 ```bash
 git clone --depth 1 https://github.com/redis/redis-adbc-driver.git
 cd redis-adbc-driver
-```
-
-Install the [published Python package](https://pypi.org/project/adbc-driver-redis/0.0.18/),
-which bundles the native driver and selects the wheel for your platform:
-
-```bash
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install 'adbc-driver-redis[dbapi]==0.0.18'
 ```
 
-Wheels support macOS Apple Silicon and Linux x86-64/ARM64 (glibc 2.28+).
-The examples use the installed package to locate the native library automatically.
-For other installation options, see the
-[installation guide](docs/python-integrations.md#install-and-discover-the-driver).
-To compile your own library, see [Building from source](docs/building.md).
+The wheel bundles the native driver for macOS Apple Silicon (macOS 15+) and Linux
+x86-64/ARM64 (glibc 2.28+). See [installation options](docs/setup.md#install-without-building)
+for other tools, the [managed native installer](docs/native-installation.md) for
+native applications, or [Building from source](docs/building.md).
+
+This example uses published version 0.0.18. Feature documentation describes the
+current source tree and may require a newer build than this wheel.
 
 ### 2. Start Redis Software
 
 ```bash
 make -C go redis-up
+source go/build/test.env
 ```
 
-This starts a disposable local Redis Software database at
-`redis://localhost:6379/0`, enables Redis Search (Query Engine), and verifies
-4× QPF. Keep this terminal's virtual environment active for the following steps.
+The setup creates a disposable, authenticated TLS Redis Software fixture with
+Search and verifies active **4× QPF**. Source the generated environment file in
+each terminal that runs the Python examples; it supplies the endpoint,
+credentials and certificate trust. Keep that file private.
 
 ### 3. Load the sample dataset
 
@@ -392,268 +102,170 @@ This starts a disposable local Redis Software database at
 python go/examples/load_sample.py
 ```
 
-This replaces any existing `customers` and `sales` tables in the target database
-and creates two tables in the default `public` schema:
-
-- `customers` (50 rows): created with `CREATE TABLE` / `INSERT`. `email` is
-  declared `NOINDEX`, so it is stored in the row HASHes but not in the index.
-- `sales` (10,000 rows, `--rows N` to change): bulk-ingested from an Arrow
-  table with `order_id, customer_id, country, product, quantity,
-  unit_price NUMERIC(10,2), discount, ordered_at TIMESTAMP WITH TIME ZONE,
-  status, notes`. Every column except `notes` is indexed.
+The loader creates `customers` (50 rows through SQL) and `sales` (10,000 rows
+through Arrow ingestion) in the `public` schema. Use `--rows N` to change the
+sales row count. The `email` and `notes` columns are stored without indexing.
 
 ### 4. Run SQL
 
-`go/examples/sql.py` runs one statement passed as an argument, or starts an
-interactive prompt (statements end with `;`) when given none:
+Run one statement:
 
 ```bash
 python go/examples/sql.py "SELECT COUNT(*) FROM sales"
 ```
 
+Or open the interactive prompt and end each statement with `;`:
+
 ```bash
 python go/examples/sql.py
 ```
 
-Common queries to try:
-
 ```sql
--- Browse rows (insertion order unless ORDER BY is given)
-SELECT * FROM sales ORDER BY order_id LIMIT 5;
-
--- Count rows: GROUPBY 0 REDUCE COUNT inside the index
-SELECT COUNT(*) FROM sales;
-
--- Filter on a TAG and a NUMERIC range, sort and limit inside the index,
--- then fetch just those 5 rows from their HASHes
 SELECT order_id, country, product, quantity, unit_price
 FROM sales
 WHERE country = 'JPN' AND quantity >= 18
 ORDER BY unit_price DESC
 LIMIT 5;
 
--- Aggregate per group, computed from SORTABLE fields without opening HASHes
-SELECT country, COUNT(*) AS orders, SUM(quantity) AS units, AVG(quantity) AS avg_units
+SELECT country, COUNT(*) AS orders, SUM(quantity) AS units
 FROM sales
 GROUP BY country
 ORDER BY units DESC;
 
--- Aggregate over an expression (computed exactly by the driver)
-SELECT product, SUM(quantity * unit_price) AS revenue
-FROM sales
-WHERE status = 'shipped'
-GROUP BY product
-ORDER BY revenue DESC;
-
--- Timestamp range
-SELECT order_id, ordered_at, status
-FROM sales
-WHERE ordered_at >= TIMESTAMP '2025-12-31 00:00:00'
-ORDER BY ordered_at
-LIMIT 5;
-
--- NULL handling
-SELECT COUNT(*) AS no_discount FROM sales WHERE discount IS NULL;
-SELECT order_id, notes FROM sales WHERE notes IS NOT NULL ORDER BY order_id LIMIT 3;
-
--- Full-row lookup by row id: a direct HMGET, the index is not used
-SELECT __rowid, order_id, country, notes FROM sales WHERE __rowid = 42;
-
--- CASE expressions, also usable in GROUP BY (by alias or position)
-SELECT order_id, quantity,
-       CASE WHEN quantity >= 15 THEN 'bulk' WHEN quantity >= 5 THEN 'standard' ELSE 'small' END AS size
-FROM sales ORDER BY order_id LIMIT 5;
-SELECT CASE WHEN discount IS NULL THEN 'full price' ELSE 'discounted' END AS pricing, COUNT(*) AS orders
-FROM sales GROUP BY pricing ORDER BY pricing;
-
--- HAVING filters groups; here the GROUPBY/REDUCE itself still runs in the index
-SELECT country, COUNT(*) AS orders, SUM(quantity) AS units
-FROM sales GROUP BY country HAVING SUM(quantity) > 17500 ORDER BY units DESC;
-
--- CREATE TABLE AS SELECT: column names and types come from the query
-CREATE TABLE country_revenue AS
-SELECT country, COUNT(*) AS orders, SUM(quantity * unit_price) AS revenue
-FROM sales WHERE status = 'shipped' GROUP BY country;
-SELECT * FROM country_revenue ORDER BY revenue DESC LIMIT 3;
-
--- Subqueries. An uncorrelated one runs once; its result is pushed into the
--- outer query's index filter (a range here, a union query for IN)
-SELECT COUNT(*) AS above_avg FROM sales WHERE unit_price > (SELECT AVG(unit_price) FROM sales);
-SELECT name, country FROM customers
-WHERE customer_id IN (SELECT customer_id FROM sales WHERE quantity = 20 AND status = 'returned')
-ORDER BY name LIMIT 5;
-
--- Correlated subqueries run per outer row (memoised on the outer values)
-SELECT c.name, (SELECT COUNT(*) FROM sales s WHERE s.customer_id = c.customer_id) AS orders
-FROM customers c ORDER BY orders DESC, c.name LIMIT 3;
-
--- EXISTS / IN correlated only by equalities can run once instead, as a hash
--- semi-join (here the matching customer ids also filter sales in the index)
-SELECT COUNT(*) FROM sales s
-WHERE EXISTS (SELECT 1 FROM customers c WHERE c.customer_id = s.customer_id AND c.country = 'JPN');
-
--- CTEs and derived tables are computed once and held in memory
-WITH per_customer AS (
-  SELECT customer_id, SUM(quantity) AS units FROM sales GROUP BY customer_id
-)
-SELECT customer_id, units FROM per_customer
-WHERE units > (SELECT AVG(units) FROM per_customer)
-ORDER BY units DESC LIMIT 3;
-SELECT bucket, COUNT(*) AS orders
-FROM (SELECT CASE WHEN quantity >= 15 THEN 'bulk' ELSE 'regular' END AS bucket FROM sales) AS t
-GROUP BY bucket ORDER BY bucket;
-
--- Joins. Each table's own filters run in its index; inner joins start from
--- the table with the fewest matching rows, then fetch only the matching rows
--- of the other (an index union on the join key)
-SELECT c.name, COUNT(*) AS orders, SUM(s.quantity) AS units
+SELECT c.name, COUNT(*) AS orders
 FROM sales s JOIN customers c ON s.customer_id = c.customer_id
-WHERE c.country = 'JPN' AND s.status = 'shipped'
-GROUP BY c.name ORDER BY units DESC LIMIT 3;
-
--- LEFT JOIN anti-join: customers who never bought 20 gizmos in one order
-SELECT c.name FROM customers c
-LEFT JOIN sales s ON s.customer_id = c.customer_id AND s.product = 'gizmo' AND s.quantity = 20
-WHERE s.order_id IS NULL ORDER BY c.name LIMIT 5;
-
--- Comma joins with the condition in WHERE are hash joins, not cross products
-SELECT c.country, COUNT(DISTINCT c.customer_id) AS customers, SUM(s.quantity * s.unit_price) AS revenue
-FROM customers c, sales s WHERE s.customer_id = c.customer_id
-GROUP BY c.country ORDER BY revenue DESC LIMIT 3;
-
--- Views. A single-table view stays lazy: filters on the view are pushed into
--- the base table's index together with the view's own WHERE
-CREATE VIEW shipped_sales AS
-SELECT order_id, customer_id, country, product, quantity FROM sales WHERE status = 'shipped';
-SELECT COUNT(*) FROM shipped_sales WHERE country = 'JPN' AND quantity >= 15;
-DROP VIEW shipped_sales;
-
--- Temporary tables and views belong to this connection: other connections
--- don't see them, and they are dropped when it closes
-CREATE TEMP TABLE big_jpn AS
-SELECT order_id, customer_id, quantity FROM sales WHERE country = 'JPN' AND quantity >= 18;
-SELECT c.name, COUNT(*) AS orders FROM big_jpn b JOIN customers c ON c.customer_id = b.customer_id
-GROUP BY c.name ORDER BY orders DESC, c.name LIMIT 3;
-
--- Set operations: each branch runs in its own index; the driver combines them
-SELECT country FROM customers WHERE customer_id <= 10
-UNION
-SELECT country FROM sales WHERE quantity = 20 AND product = 'gizmo'
-ORDER BY 1;
-SELECT customer_id FROM customers
-EXCEPT
-SELECT customer_id FROM sales WHERE product = 'gizmo' AND quantity = 20
-ORDER BY 1 LIMIT 5;
-
--- Window functions run in the driver, after WHERE / GROUP BY / HAVING.
--- Each customer's latest order (the dbt de-duplication idiom), and the same
--- with QUALIFY: the earliest customer per country
-SELECT customer_id, order_id, ordered_at FROM (
-  SELECT customer_id, order_id, ordered_at,
-         ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY ordered_at DESC) AS rn
-  FROM sales
-) AS latest WHERE rn = 1 ORDER BY customer_id LIMIT 5;
-SELECT name, country, signup_date FROM customers
-QUALIFY ROW_NUMBER() OVER (PARTITION BY country ORDER BY signup_date) = 1 ORDER BY country;
-
--- Ranks and running totals over grouped rows; LAG and a moving average
-SELECT country, SUM(quantity) AS units, RANK() OVER (ORDER BY SUM(quantity) DESC) AS rnk,
-       SUM(SUM(quantity)) OVER (ORDER BY SUM(quantity) DESC) AS running_units
-FROM sales GROUP BY country ORDER BY rnk;
-SELECT order_id, quantity, LAG(quantity) OVER w AS prev,
-       AVG(quantity) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS moving_avg
-FROM sales WHERE customer_id = 7 WINDOW w AS (ORDER BY order_id) ORDER BY order_id LIMIT 5;
-
--- Date/time functions (UTC): monthly totals for the first quarter
-SELECT TO_CHAR(DATE_TRUNC('month', ordered_at), 'YYYY-MM') AS month, COUNT(*) AS orders, SUM(quantity) AS units
-FROM sales WHERE EXTRACT(QUARTER FROM ordered_at) = 1
-GROUP BY month ORDER BY month;
-
--- Timestamp arithmetic: the bound is computed once, then runs as an index range
-SELECT COUNT(*) AS last_week FROM sales
-WHERE ordered_at >= TIMESTAMP '2025-12-31 00:00:00' - INTERVAL '7 days';
-SELECT MAX(ordered_at) - MIN(ordered_at) AS span, AGE(MAX(ordered_at), MIN(ordered_at)) AS age FROM sales;
-
--- Math, string and conditional functions. The index still answers the WHERE
--- clause; functions over columns run in the driver on the matching rows
-SELECT INITCAP(product) AS product, ROUND(AVG(unit_price), 2) AS avg_price,
-       ROUND(SUM(quantity * unit_price * (1 - COALESCE(discount, 0))), 2) AS net
-FROM sales WHERE status = 'shipped' GROUP BY product ORDER BY net DESC;
-SELECT LPAD(CAST(customer_id AS VARCHAR), 4, '0') AS id, SPLIT_PART(email, '@', 2) AS domain,
-       SUBSTRING(name FROM 10) AS num, IIF(country IN ('USA', 'CAN', 'MEX'), 'americas', 'other') AS region
-FROM customers WHERE customer_id <= 3 ORDER BY customer_id;
-
--- information_schema: which columns of sales are indexed?
-SELECT column_name, data_type, is_nullable, is_indexed
-FROM information_schema.columns WHERE table_name = 'sales' ORDER BY ordinal_position;
-
--- LIKE; a prefix pattern on an indexed column is an index prefix query
-SELECT COUNT(*) FROM sales WHERE product LIKE 'gi%';
-
--- Regular expressions and SIMILAR TO run in the driver, on the
--- rows the rest of the WHERE clause finds in the index
-SELECT name, REGEXP_SUBSTR(email, '([0-9]+)@', 1, 1, '', 1) AS num, SUBSTRING(email FROM '@(.*)$') AS domain
-FROM customers WHERE email ~ '^customer[0-9]@' ORDER BY customer_id LIMIT 3;
-SELECT product, COUNT(*) AS orders FROM sales
-WHERE country = 'JPN' AND product SIMILAR TO 'g(adget|izmo)' GROUP BY product ORDER BY product;
-
--- IN lists, dates
-SELECT name, country, signup_date
-FROM customers
-WHERE country IN ('USA', 'CAN')
-ORDER BY name
+WHERE s.status = 'shipped'
+GROUP BY c.name
+ORDER BY orders DESC, c.name
 LIMIT 5;
-
--- Writes
-INSERT INTO customers (customer_id, name, country, signup_date)
-VALUES (51, 'Ada', 'GBR', DATE '2026-09-30');
-UPDATE sales SET status = 'returned' WHERE order_id = 1;
-DELETE FROM customers WHERE customer_id = 51;
-
--- DDL
-CREATE TABLE events (id BIGINT NOT NULL, kind VARCHAR, payload VARCHAR NOINDEX, at TIMESTAMP(3));
-COMMENT ON COLUMN events.payload IS 'Raw JSON, as received';
-DROP TABLE events;
 ```
 
-### 5. Inspect the data in Redis
+Continue with [sample SQL queries](docs/sample-queries.md) for subqueries, CTEs,
+window functions, date/time expressions, views and writes. To query from your own
+code, follow the [Python DB-API and DataFrame examples](docs/setup.md#python-dataframes-and-db-api).
 
-Each row is a plain HASH, and each table has one RediSearch index. A renamed
-table keeps its key names unless `adbc.redis.rename_rekey` is set (see
-[ALTER TABLE](docs/driver-reference.md#schema-objects-and-ddl)), and a table created again after `DROP TABLE`, or
-emptied by `TRUNCATE`, gets new ones (`public:sales~2:`, see [Key prefixes](docs/driver-reference.md#metadata-and-key-naming)); `information_schema.tables` shows each table's `key_prefix` and
-`index_name`:
+### 5. Clean up
 
 ```bash
-docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-cli -p 12000 HGETALL public:sales:42
+make -C go redis-down
 ```
+
+## How tables and snapshots work
+
+**Managed tables are the default for SQL and Arrow workflows.** Write through
+the driver using SQL or supported Arrow ingestion. Each statement reads one
+committed generation, including streamed results, and supported writes publish
+atomically. Connections use autocommit; multi-statement transactions and rollback
+are unsupported.
+
+Read managed tables through SQL/ADBC. Ordinary Redis reads of physical HASHes or
+indexes do not resolve snapshot generations, row versions or tombstones, and
+direct writes bypass the storage protocol. The experimental
+[native client wrapper](docs/native-client.md) provides supported HASH-style reads
+through the snapshot reader; it requires a source build and internal `__rowid`
+values. Application-key lookup and `FT.SEARCH` are not implemented by the wrapper.
+
+Existing application HASHes remain application-owned. Adoption and foreign-index
+imports create private managed copies; refresh explicitly to capture later
+source changes. Compare [managed and application-owned data](docs/managed-vs-unmanaged-tables.md#choose-by-use-case)
+for ownership, freshness and storage tradeoffs.
+
+See the [snapshot contract](docs/snapshots.md) for storage compatibility and fixed
+limits, the [architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
+for layout, and the [SQL INSERT and SELECT walkthrough](docs/sql-redis-example.md)
+for snapshot-aware storage examples.
+
+## Data tools and integration status
+
+Choose a path, then follow its guide for installation, examples and validation limits:
+
+| Workflow | Guides |
+|---|---|
+| Python and DataFrames | [PyArrow](docs/integrations/pyarrow.md), [pandas](docs/integrations/pandas.md), [Polars](docs/integrations/polars.md) |
+| SQL exploration and BI | [DuckDB](docs/duckdb.md), [SQLAlchemy](docs/integrations/sqlalchemy.md), [Superset](docs/integrations/superset.md), [R / DBI](docs/integrations/r-dbi.md) |
+| Orchestration | [Airflow](docs/integrations/airflow.md), [Dagster](docs/integrations/dagster.md), [Prefect](docs/integrations/prefect.md) |
+| Pipelines and migration | [dlt](docs/integrations/dlt.md), [Sling](docs/integrations/sling.md), [dbt](docs/integrations/dbt.md) |
+| Partitioned processing | [Dask](docs/integrations/dask.md), [Ray Data](docs/integrations/ray.md) |
+
+The [full integration index](docs/integrations/README.md) also covers notebooks,
+machine learning, visualization and custom workflows. The
+[ecosystem comparison](docs/data-engineering-adbc-support.md) distinguishes
+native connectors, custom adapters, local validation and unverified deployment paths.
+A guide's availability does not imply upstream endorsement or hosted-service support.
+
+For Flight SQL or JDBC clients, deploy the separate
+[Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight),
+which uses this driver as its SQL/Arrow backend. Check that project's client
+examples and compatibility matrix for supported connections.
+
+## Compatibility and validation
+
+The driver requires **Redis Search (Query Engine)** and **RESP3**. Development and
+tests use Redis Software with active, verified **4× QPF**. QPF is a server setting,
+separate from driver worker settings; it does not promise a 4× speedup.
+
+Recorded validation covers Redis Software, Redis Open Source (standalone and
+cluster), and Redis Cloud, including Cloud Pro. See the
+[compatibility report](docs/compatibility.md) for exact versions, dates, settings
+and limitations, and [server requirements](docs/driver-reference.md#server-requirements)
+for deployment and ACL requirements. Historical runs are evidence for their
+recorded configurations.
+
+Administrator-configured [SQL SELECT grants](docs/sql-rbac.md) support a restricted
+Redis Software role/ACL mapping. Other privilege forms are rejected.
+
+### Experimental Redis Flex stopgap
+
+The opt-in `adbc.redis.flex=true` path supports plain indexes and bounded reads
+on tested Software Flex builds. SQL restrictions remain and Cloud SQL is
+unvalidated. See [scope, usage and evidence](docs/redis-flex-stopgap.md) before
+using it; historical Cloud provisioning results are recorded separately in the
+[Flex compatibility report](docs/redis-flex-compatibility.md).
+
+## Apache Arrow feature matrix
+
+The [detailed Arrow and ADBC matrix](docs/feature-matrices.md#apache-arrow-feature-matrix)
+covers types, ingestion, IPC, streaming, partitions, cancellation and limits.
+Supported interchange includes normalization; it does not guarantee preservation
+of every physical input encoding or extension identity.
+
+See [Arrow interoperability](docs/arrow-interoperability.md) for precise contracts,
+[Substrait](docs/substrait.md) for the bounded binary plan subset, and
+[experimental CUDA execution and Arrow C Device staging](docs/gpu-execution.md)
+for opt-in GPU paths. CPU execution is the default.
+
+## Redis Software feature matrix
+
+The [detailed Redis Software matrix](docs/feature-matrices.md#redis-software-feature-matrix)
+separates driver capabilities from server administration and companion services.
+It includes authentication, TLS, cluster connectivity, recovery and deployment limits.
+
+## Usage analytics
+
+[Product usage analytics](analytics/README.md) reports high-level statement types,
+execution counts, timings and row counts, plus documented source and deployment
+metadata. **SQL statements, query parameters, query results and database contents
+are not collected.** Reporting is on by default and uses
+`https://adbc-telemetry.sa.redislabs.com/v1/usage`.
+
+Opt out with the database option `adbc.redis.telemetry.enabled=false`.
+
+## Development
+
+The Go implementation builds on [driverbase-go](https://github.com/adbc-drivers/driverbase-go)
+and uses the [ADBC validation suite](https://github.com/adbc-drivers/validation).
+Start with [Building from source](docs/building.md), [CLAUDE.md](CLAUDE.md),
+and the [development workflow](docs/sdlc/README.md).
+
+For the complete default Redis Software test suite:
 
 ```bash
-docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-cli -p 12000 FT.INFO idx:public:sales
+make -C go test-software
 ```
 
-To see the `FT.AGGREGATE` / `FT.CURSOR` commands the driver sends for each query,
-run `MONITOR` in a second terminal while you run SQL:
+This target verifies effective 4× QPF and `noeviction` through the management API
+before running tests. Tests modify data; use a dedicated fixture. Concurrent
+sessions need separate Compose project names and API/database ports.
 
-```bash
-docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-cli -p 12000 MONITOR
-```
-
-Stop and remove the disposable Redis Software database with `make -C go redis-down`.
-
-
-### Integration test connection policy
-
-Integration tests use a three-shard Redis Enterprise cluster with verified TLS
-and an explicit username and password. Run `make -C go redis-up`, then source
-`go/build/test.env` for direct commands. Make test targets load these defaults.
-Setup preserves the existing 4x QPF and noeviction verification. The generated
-localhost certificate and disposable credentials are for the owned test fixture.
-
-### SQL grants and Redis roles
-
-With administrator-configured `adbc.redis.rbac`, `GRANT SELECT ON TABLE t TO role`
-and `REVOKE SELECT ON TABLE t FROM role` update a dedicated Redis Software ACL
-and enforce table-prefix read access. They preserve other ACLs and role
-membership. Unsupported privilege forms return errors; statements are never
-silently ignored. See [SQL RBAC setup, dbt scope and recovery](docs/sql-rbac.md).
+For native distribution and registry packaging, see the
+[managed installer](docs/native-installation.md) and [dbc guide](docs/dbc.md).
