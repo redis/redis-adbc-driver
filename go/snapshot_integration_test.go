@@ -38,6 +38,10 @@ func newSnapshotHarness(t *testing.T) (*sqlHarness, *goredis.Client, adbc.Databa
 // races with deliberately corrupted indexes/leases remain deterministic. The
 // background integration/native tests use automatic production workers.
 func newSnapshotHarnessMode(t *testing.T, background, drain bool) (*sqlHarness, *goredis.Client, adbc.DatabaseWithContext) {
+	return newSnapshotHarnessOptions(t, background, drain, map[string]string{OptionStringFlex: fmt.Sprint(os.Getenv("REDIS_SNAPSHOT_FLEX") == "true")})
+}
+
+func newSnapshotHarnessOptions(t *testing.T, background, drain bool, options map[string]string) (*sqlHarness, *goredis.Client, adbc.DatabaseWithContext) {
 	t.Helper()
 	uri := os.Getenv("REDIS_SNAPSHOT_URI")
 	if uri == "" {
@@ -76,7 +80,11 @@ func newSnapshotHarnessMode(t *testing.T, background, drain bool) (*sqlHarness, 
 		_ = raw.FlushDB(ctx).Err()
 		_ = raw.Close()
 	})
-	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, testUsageOptions(map[string]string{adbc.OptionKeyURI: uri}))
+	settings := map[string]string{adbc.OptionKeyURI: uri}
+	for key, value := range options {
+		settings[key] = value
+	}
+	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, testUsageOptions(settings))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,9 +95,18 @@ func newSnapshotHarnessMode(t *testing.T, background, drain bool) (*sqlHarness, 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close(ctx); _ = db.Close(ctx) })
+	if impl.flex {
+		stmt, err := conn.NewStatement(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stmt.(*statementImpl).conn.store.client.AddHook(&snapshotFlexCommandGuard{})
+		_ = stmt.Close(ctx)
+	}
 	h := &sqlHarness{t: t, ctx: ctx, conn: conn}
 	if drain {
 		maintenance := snapshotTestStore(t, raw)
+		maintenance.flex = impl.flex
 		h.afterExec = func() { snapshotDrainCompactionTest(t, maintenance) }
 	}
 	return h, raw, db
@@ -102,7 +119,7 @@ func snapshotTestStore(t *testing.T, raw *goredis.Client) *store {
 	c := goredis.NewClient(&opts)
 	c.AddHook(snapshotHook{})
 	t.Cleanup(func() { _ = c.Close() })
-	return &store{client: c, snapshots: true}
+	return &store{client: c, snapshots: true, flex: os.Getenv("REDIS_SNAPSHOT_FLEX") == "true"}
 }
 
 func TestSnapshotStreamRetainsGeneration(t *testing.T) {

@@ -23,6 +23,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/adbc-drivers/redis/go/internal/tlstrust"
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -36,6 +37,12 @@ func TestFlexProbeNoMetadata(t *testing.T) {
 	opts, err := goredis.ParseURL(uri)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if opts.TLSConfig != nil {
+		opts.TLSConfig.RootCAs, err = tlstrust.Roots()
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	raw := goredis.NewClient(opts)
 	defer raw.Close()

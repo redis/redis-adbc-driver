@@ -162,6 +162,9 @@ func (s *store) populateSnapshotIndex(ctx context.Context, meta *tableMeta) erro
 // contract. This rebuilds only private index state; SQL and row inputs are not
 // repeated. The old index cannot be reused as a completion proof for the new one.
 func (s *store) replaceSnapshotIndexWithScan(ctx context.Context, meta *tableMeta) error {
+	if s.flexEnabled() {
+		return errorf(adbc.StatusUnauthorized, "Flex snapshot publication requires FT.SEARCH permission to prove final index completeness; initial-scan fallback is unavailable")
+	}
 	old := meta.index()
 	meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
 	if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
