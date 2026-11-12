@@ -109,4 +109,3 @@ Implementation references: [connection and protocol configuration](../go/databas
 [TLS trust configuration](../go/tls.go), [QPF verification](../go/software-qpf.sh), and
 [the detailed driver reference](driver-reference.md). Green entries do not
 claim every server version or failover scenario has been validated.
-
