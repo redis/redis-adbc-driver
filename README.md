@@ -284,7 +284,7 @@ Integration setup guides:
 | SQLAlchemy | Run engine queries, reflect metadata, and bind query values through the repository dialect. | [Guide](docs/integrations/sqlalchemy.md) |
 | Apache Superset | Run SQL Lab queries and chart SQL through the repository dialect; browser dashboards and hosting remain untested. | [Guide](docs/integrations/superset.md) |
 | Dagster | Load and store Arrow/DataFrame asset outputs with the Redis IO manager, or query through dagster-adbc. | [Guide](docs/integrations/dagster.md) |
-| Apache Airflow | Ingest Arrow batches and query in TaskFlow tasks; use RedisAdbcHook for bound queries and get_records(). | [Guide](docs/integrations/airflow.md) |
+| Apache Airflow | Registered Redis ADBC provider for SQL operators and TaskFlow; supports bound queries and Arrow ingestion. | [Guide](docs/integrations/airflow.md) |
 | Prefect | Run local flows with Arrow ingestion, dependent tasks, concurrent queries, and retries. | [Guide](docs/integrations/prefect.md) |
 | Dask | Read lazy query partitions through worker-local ADBC connections and pandas Arrow dtypes. | [Guide](docs/integrations/dask.md) |
 | Ray Data | Stream partitioned Arrow batches from worker-local ADBC connections; install the native driver on each worker. | [Guide](docs/integrations/ray.md) |

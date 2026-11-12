@@ -57,7 +57,7 @@ Ordinary Python test runs skip these tests unless `RUN_AIRFLOW_TESTS=1`.
 ### Redis hook for get_records()
 
 Install `adbc-driver-redis[airflow]` in each Airflow task environment. Use the
-package's `RedisAdbcHook` for Redis queries:
+package's registered Redis ADBC provider and `RedisAdbcHook` for Redis queries:
 
 ```python
 from adbc_driver_redis.airflow import RedisAdbcHook
@@ -75,12 +75,11 @@ finally:
     hook.run(f'DROP TABLE IF EXISTS "{name}"')
 ```
 
-Create an Airflow connection named `redis_analytics` with type `adbc` and extras:
+Create an Airflow connection named `redis_analytics` with type `redis_adbc` (display name **Redis ADBC**) and extras:
 
 ```json
 {
-  "dialect": "redis",
-  "db_kwargs": {"uri": "redis://localhost:6379/0"}
+  "db_kwargs": {"uri": "rediss://user:password@localhost:6379/0"}
 }
 ```
 
@@ -99,11 +98,35 @@ For inherited `insert_rows()`, pass `autocommit=True`; each write takes effect
 immediately and a later failure cannot roll it back. Use native `$1`, `$2`, …
 placeholders for bound queries.
 
-This is an explicitly imported hook, rather than a registered Airflow provider.
-Selecting an `adbc` connection in `SQLExecuteQueryOperator` still selects the
-generic Arrow hook. The example above calls the Redis hook inside a Python task.
-[#272](https://github.com/redis/redis-adbc-driver/issues/272) tracks generic
-provider/operator selection and upstream autocommit configuration.
+The package registers a custom Airflow provider through the
+`apache_airflow_provider` entry point. A `redis_adbc` connection automatically
+selects `RedisAdbcHook`, including from the standard SQL operator:
+
+```python
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+
+query = SQLExecuteQueryOperator(
+    task_id="redis_query",
+    conn_id="redis_analytics",
+    sql="SELECT $1 AS answer",
+    parameters=(42,),
+    autocommit=True,
+)
+```
+
+Set `autocommit=True`: the SQL operator defaults to transaction mode, which
+Redis rejects before connecting. This operator belongs inside your DAG.
+`RedisAdbcHook(adbc_conn_id="redis_analytics")` remains supported for explicit
+Python tasks; its default connection ID is `redis_adbc_default`.
+
+Existing connections of type `adbc` still select the generic Arrow hook; change
+the type to `redis_adbc` to enable automatic Redis hook selection. Explicit
+Redis hook imports can continue using existing `adbc` connections. The native
+Redis provider's `redis` connection type is unaffected. Check registration with
+`airflow providers list` after installing `adbc-driver-redis[airflow]` in the
+Airflow services and workers that need it. Airflow remains an optional extra;
+other driver integrations do not require it. This is a provider shipped by this
+project, not an Apache-maintained provider package.
 
 The focused tests use Airflow 3.3.2, Arrow provider 0.1.1 and common-sql 2.1.1 in
 a separate Python 3.12 environment:

@@ -24,7 +24,7 @@ environment. Use Python 3.14 for current integrations; the package minimum is 3.
 | 5 | scikit-learn | `adbc-driver-redis[dbapi]` + `numpy scikit-learn` | Custom array/model input and output code; no database backend registered. [Guide](integrations/scikit-learn.md). |
 | 6 | PyTorch | `adbc-driver-redis[dbapi]` + `numpy torch` | Use the framework’s CPU/GPU distribution for the host; driver wheels are independent of CUDA. [Guide](integrations/pytorch.md). |
 | 7 | TensorFlow | `adbc-driver-redis[dbapi]` + `numpy tensorflow` | Install in training/inference processes; follow TensorFlow platform constraints. [Guide](integrations/tensorflow.md). |
-| 8 | Apache Airflow | `adbc-driver-redis[airflow]` under Airflow constraints | Install in every task worker; use the shipped RedisAdbcHook for autocommit handling. [Guide](integrations/airflow.md). |
+| 8 | Apache Airflow | `adbc-driver-redis[airflow]` under Airflow constraints | Install in Airflow services and workers; use redis_adbc connections and autocommit=True for SQL operators. [Guide](integrations/airflow.md). |
 | 9 | Polars | `adbc-driver-redis[polars]` | Use URI ADBC mode or an open Redis DB-API connection. [Guide](integrations/polars.md). |
 | 10 | dbt | Separate Redis adapter + `adbc-driver-redis[dbapi]` for Core v1 | The adapter has its own repository/release; experimental v2 requires a custom engine and native driver. [Guide](integrations/dbt.md). |
 | 11 | Apache Kafka / Kafka Connect | Separate Redis Kafka connector, or evaluate Flight SQL/JDBC | Install connector/JDBC JARs in every Connect worker; native ADBC wheels cannot serve as JARs. [Guide](data-engineering-adbc-support.md). |

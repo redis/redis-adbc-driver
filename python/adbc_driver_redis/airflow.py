@@ -1,6 +1,17 @@
 """Airflow's Arrow hook adapted to Redis's autocommit-only connections."""
 
-from airflow.providers.apache.arrow.hooks.adbc import AdbcHook
+from functools import cached_property
+
+try:
+    from airflow.providers.apache.arrow.hooks.adbc import AdbcHook
+except ModuleNotFoundError as exc:
+    if exc.name not in {"airflow.providers.apache", "airflow.providers.apache.arrow", "pyarrow"}:
+        raise
+    from airflow.exceptions import AirflowOptionalProviderFeatureException
+
+    raise AirflowOptionalProviderFeatureException(
+        "Install adbc-driver-redis[airflow] to use the Redis ADBC provider."
+    ) from exc
 
 from . import dbapi
 
@@ -13,12 +24,32 @@ def _require_autocommit(autocommit):
 
 
 class RedisAdbcHook(AdbcHook):
-    """Use an Airflow ``adbc`` connection with a Redis URI in extras.db_kwargs.
+    """Use a ``redis_adbc`` connection with a Redis URI in extras.db_kwargs.
 
     Inherited ``get_records`` and ``get_first`` use ``run`` with autocommit
     enabled. Explicit transaction requests are rejected. For inherited
     ``insert_rows``, pass ``autocommit=True``.
     """
+
+    conn_type = "redis_adbc"
+    default_conn_name = "redis_adbc_default"
+    hook_name = "Redis ADBC"
+    # Keep adbc_conn_id for existing explicit hook users and provider discovery.
+    conn_name_attr = "adbc_conn_id"
+
+    @classmethod
+    def get_ui_field_behaviour(cls):
+        return {
+            "hidden_fields": ["host", "port", "login", "password", "schema"],
+            "relabeling": {},
+            "placeholders": {
+                "extra": '{"db_kwargs": {"uri": "rediss://user:password@localhost:6379/0"}}',
+            },
+        }
+
+    @cached_property
+    def dialect_name(self):
+        return self.connection_extra_lower.get("dialect", "redis")
 
     def get_conn(self):
         options = dict(self.db_kwargs)

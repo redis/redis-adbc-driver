@@ -21,11 +21,12 @@ def check_linked_workflow(tool, root):
             run([sys.executable, str(root / "python/examples" / filename)], work)
         elif tool == "airflow":
             # Execute the exact hook block with the connection configured as the guide describes.
-            env["AIRFLOW_CONN_REDIS_ANALYTICS"] = json.dumps({"conn_type": "adbc", "extra": {
-                "dialect": "redis", "db_kwargs": {"uri": env["REDIS_URI"]}}})
+            env["AIRFLOW_CONN_REDIS_ANALYTICS"] = json.dumps({"conn_type": "redis_adbc", "extra": {
+                "db_kwargs": {"uri": env["REDIS_URI"]}}})
             env["AIRFLOW_HOME"] = str(work / "airflow")
             guide = (root / "docs/integrations/airflow.md").read_text()
-            code = re.findall(r"```python\n(.*?)```", guide, re.DOTALL)[0]
+            code = "\n\n".join(re.findall(r"```python\n(.*?)```", guide, re.DOTALL))
+            code += "\nassert query.execute(context={}) == [(42,)]\n"
             script = work / "hook.py"
             script.write_text(code)
             run([sys.executable, str(script)], work, env=env)
