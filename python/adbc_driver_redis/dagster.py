@@ -1,5 +1,6 @@
 """Dagster asset storage over Arrow; writes are not transactional."""
 
+import re
 import uuid
 
 import pyarrow as pa
@@ -13,6 +14,24 @@ def _quote(name):
     if not isinstance(name, str) or not name or "\x00" in name:
         raise ValueError("SQL names must be nonempty strings without NUL")
     return '"' + name.replace('"', '""') + '"'
+
+
+def _asset_name(parts, *, reserved=()):
+    """Encode paths injectively, keeping ordinary single identifiers readable."""
+    if not parts:
+        raise ValueError("Asset paths must not be empty")
+    for part in parts:
+        _quote(part)  # Validate before encoding invalid SQL names into valid ones.
+    if (
+        len(parts) == 1
+        and re.fullmatch(r"[a-z_][a-z0-9_]*", parts[0])
+        and not parts[0].startswith("dagster__")
+        and parts[0] not in reserved
+    ):
+        return parts[0]
+    # Hex cannot contain the separator. Reserve the marker even for literal
+    # components, so an encoded path cannot alias an unencoded name.
+    return "dagster__" + "_".join(part.encode("utf-8").hex() for part in parts)
 
 
 def _arrow(obj):
@@ -43,10 +62,13 @@ class RedisADBCIOManager(ConfigurableIOManager):
 
     def _table(self, context):
         parts = context.asset_key.path
-        schema = self.schema_name or (
-            "_".join(parts[:-1]) if len(parts) > 1 else "public"
+        if self.schema_name:
+            return self.schema_name.lower(), _asset_name(parts)
+        schema = (
+            _asset_name(parts[:-1], reserved=("public",))
+            if len(parts) > 1 else "public"
         )
-        return schema.lower(), parts[-1].lower()
+        return schema, _asset_name(parts[-1:])
 
     def _partition(self, context):
         if not context.has_asset_partitions:
