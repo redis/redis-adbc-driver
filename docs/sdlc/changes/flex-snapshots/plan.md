@@ -5,3 +5,5 @@ Add a failing live Flex lifecycle regression. Implement directory routing, fence
 Related: [intent](intent.md), [spec](spec.md), [plan](plan.md).
 
 Implementation and local verification completed; see [validation](validation.md) for commands, results, skips and review limits.
+
+Pull request: [#395](https://github.com/redis/redis-adbc-driver/pull/395).

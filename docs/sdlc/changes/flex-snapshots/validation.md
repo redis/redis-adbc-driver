@@ -108,3 +108,5 @@ all-package suite and native shared-library build passed again on the rebased
 source. The live Software RAM
 and Flex results above remain evidence from the original `a8de1c3c` baseline;
 they were not rerun after this rebase.
+
+Pull request: [#395](https://github.com/redis/redis-adbc-driver/pull/395).
