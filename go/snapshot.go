@@ -1541,6 +1541,9 @@ func validateSnapshotDescriptor(ctx context.Context, meta *tableMeta) error {
 	if !snapshotMetadataID(meta.SnapshotAccessID) {
 		return errorf(adbc.StatusIO, "invalid snapshot table access identity")
 	}
+	if meta.Unmanaged {
+		return validateUnmanagedDescriptor(meta)
+	}
 	own := snapshotOwns(ctx, meta.prefix())
 	if (!own && meta.SnapshotRows == nil) || meta.Adopted || meta.KeyRows || meta.Foreign || meta.AppIndex || meta.RekeyTo != "" {
 		return errorf(adbc.StatusIO, "invalid managed snapshot descriptor")
@@ -1567,6 +1570,9 @@ func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) erro
 	scope := snapshotOf(ctx)
 	if scope == nil {
 		return nil
+	}
+	if meta.Unmanaged {
+		return s.loadUnmanagedIndex(ctx, meta)
 	}
 	cache := snapshotValidationCache(scope)
 	var checks []*snapshotSegmentValidation
@@ -1776,11 +1782,16 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 	var sctx context.Context
 	var pin *snapshotPin
+	var targetMeta *tableMeta
 	var err error
 	if write {
 		var resolve func(context.Context) (*tableMeta, error)
 		if target != nil {
-			resolve = func(c context.Context) (*tableMeta, error) { return e.snapshotWriteTarget(c, target) }
+			resolve = func(c context.Context) (*tableMeta, error) {
+				var err error
+				targetMeta, err = e.snapshotWriteTarget(c, target)
+				return targetMeta, err
+			}
 		}
 		sctx, pin, err = e.store.acquireWritableSnapshot(ctx, resolve)
 	} else {
@@ -1798,6 +1809,22 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	}()
 	if err := e.store.refreshSnapshotTemp(sctx); err != nil {
 		return execResult{}, err
+	}
+	if targetMeta != nil {
+		if targetMeta.Unmanaged {
+			if snapshotOperationRequestOf(sctx) != nil {
+				return execResult{}, unmanagedUnsupported("retained operation preparation")
+			}
+			for _, cte := range statementWith(ps.Stmt) {
+				if cte.Statement != nil {
+					return execResult{}, unmanagedUnsupported("data-changing WITH statements")
+				}
+			}
+			// Source writes finish directly. The pin protects only the catalog
+			// descriptor; no private generation or publication is involved.
+			sctx = context.WithValue(sctx, unmanagedWriteKey{}, metaKey(targetMeta.Schema, targetMeta.Name))
+			write = false
+		}
 	}
 	baseCtx := sctx
 	published := false

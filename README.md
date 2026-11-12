@@ -166,8 +166,10 @@ through the snapshot reader; it requires a source build and internal `__rowid`
 values. Application-key lookup and `FT.SEARCH` are not implemented by the wrapper.
 
 Existing application HASHes remain application-owned. Adoption and foreign-index
-imports create private managed copies; refresh explicitly to capture later
-source changes. Compare [managed and application-owned data](docs/managed-vs-unmanaged-tables.md#choose-by-use-case)
+imports default to private managed copies; refresh explicitly to capture later
+source changes. Opt into [unmanaged tables](docs/unmanaged-tables.md) to read and
+write source HASHes directly without row snapshots or atomic multi-row writes.
+Compare [managed and application-owned data](docs/managed-vs-unmanaged-tables.md#choose-by-use-case)
 for ownership, freshness and storage tradeoffs.
 
 See the [snapshot contract](docs/snapshots.md) for storage compatibility and fixed

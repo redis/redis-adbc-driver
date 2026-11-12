@@ -91,6 +91,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return retainedJSON(c.retainedLimits), nil
 	case OptionStringForeignIndexes:
 		return strconv.FormatBool(c.store.foreignIndexes), nil
+	case OptionStringForeignIndexesMode:
+		return parseTableMode(c.store.foreignIndexesMode)
 	case OptionStringAggregateMetrics:
 		return c.aggregateMetrics.Load().json(), nil
 	case OptionIntQueryWorkersLastGrant:
@@ -121,6 +123,16 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		return snapshotUnsupported()
 	}
 	switch key {
+	case OptionStringForeignIndexesMode:
+		if c.store.hasSharedReadView() {
+			return sharedSnapshotUnsupported()
+		}
+		mode, err := parseTableMode(value)
+		if err != nil {
+			return err
+		}
+		c.store.foreignIndexesMode = mode
+		return nil
 	case OptionStringReadSnapshotAction, OptionStringReadSnapshotStatus, OptionIntReadSnapshotRetention:
 		return c.setReadSnapshotOption(ctx, key, value)
 	case OptionStringForeignIndexesRefresh:

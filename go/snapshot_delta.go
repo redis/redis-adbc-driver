@@ -366,6 +366,9 @@ func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) 
 	if err != nil {
 		return err
 	}
+	if old.Unmanaged {
+		return unmanagedUnsupported("managed row staging")
+	}
 	if snapshotOwns(ctx, old.prefix()) {
 		return nil
 	}

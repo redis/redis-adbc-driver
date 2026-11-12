@@ -148,6 +148,9 @@ func (t *tableMeta) rowFilter() string {
 // loadAppIndex reads the application's index of a table with AppIndex,
 // and marks what its attributes answer (applyAppAttrs).
 func (s *store) loadAppIndex(ctx context.Context, meta *tableMeta) error {
+	if meta.Unmanaged {
+		return s.loadUnmanagedIndex(ctx, meta)
+	}
 	if meta.Foreign {
 		return nil
 	}

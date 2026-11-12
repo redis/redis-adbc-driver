@@ -11,8 +11,9 @@ Managed tables are the default for SQL/Arrow workflows. Application-owned data
 can better fit direct Redis access, existing keys and TTL-driven lifecycles.
 See the [use-case comparison](managed-vs-unmanaged-tables.md#choose-by-use-case)
 for benefits and costs of both, including combining application data with
-managed imports. Current imports create private copies; they do not provide live
-SQL access to source keys. The snapshot contract below defines current behavior.
+managed imports. Imports default to private copies; explicit
+[unmanaged mode](unmanaged-tables.md) provides live SQL reads and source writes.
+The snapshot contract below applies to managed data.
 
 ## Managed-table snapshot format
 
@@ -23,11 +24,11 @@ catalogs normally require an empty isolated database; explicit imports may
 initialize alongside application data after rejecting legacy driver metadata.
 Storage protocol version 16 rejects legacy catalogs and prior draft formats 1–15 without
 modification; no upgrade path is provided. ALTER and temporary objects are
-supported. AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
+supported. By default, AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
 it. Managed imports retain the original application key as a queryable `__key`
 system column, excluded from `SELECT *` and public schemas; SQL-added rows have
 NULL provenance. Refresh replaces the private copy's rows and inferred schema.
-Foreign indexes are exposed as managed copies after enabling foreign_indexes;
+Foreign indexes default to managed copies after enabling foreign_indexes;
 set connection option `adbc.redis.foreign_indexes_refresh=true` (or call Go API
 `RefreshForeignIndexes`) for subsequent refreshes. Capturing external data is not
 atomic with application writers; published copies have normal snapshot guarantees.
@@ -569,7 +570,9 @@ the shared library. It connects with `-uri`, else `$REDIS_URI`, else
 Without `-prefix`, `check` lists collections from a 10,000-key sample, Search
 index prefixes and the driver's tables. With a prefix it samples HASHes and
 reports two ways to import them: `copy`, including its optional key column,
-and `adopt`, which always creates a private managed copy. Application changes
+and `adopt`, which defaults to a private managed copy. Explicit
+[unmanaged mode](unmanaged-tables.md) instead registers live source HASHes.
+For managed copies, application changes
 become visible only after an explicit refresh.
 
 ```bash
@@ -1154,6 +1157,13 @@ Deleted 13 HASHes under 2 prefixes.
     within about 256 ns of each other.
 
 ### Discover application indexes without adopting
+
+The default creates managed read-only copies, with explicit refreshes for source
+changes. To register live source tables that permit SQL writes instead, set
+`adbc.redis.foreign_indexes_mode=unmanaged` before enabling discovery. See
+[unmanaged tables](unmanaged-tables.md) for current registration, schema,
+consistency and write restrictions. The following dynamic-discovery description
+describes the historical path, not managed-copy freshness semantics.
 
 Set `adbc.redis.foreign_indexes=true` on a database or connection to expose
 existing HASH search indexes as read-only tables in `redis_foreign`. It is
@@ -4337,7 +4347,7 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | `adbc.redis.read_snapshot_action` | connection, write-only | `acquire` binds one read-only managed catalog view across metadata and sequential SELECTs; `release` unbinds while existing readers retain their view. Native connection only. See [shared read snapshots](shared-read-snapshots.md). |
 | `adbc.redis.read_snapshot_status` | connection, read-only | JSON `state`, `generation` and `deadline` while valid, or `state=unbound`. Unavailable bound views return an error. No attachment capability is exported. |
 | `adbc.redis.read_snapshot_retention_ms` | connection | String or int64 milliseconds, 120000–3600000; default 900000. Set while unbound; fixed lifetime includes discovery and active reads. |
-| `adbc.redis.foreign_indexes_refresh` | connection, write-only | Set `true` to refresh managed copies of external HASH indexes atomically per index. Does not modify source HASHes/indexes. Requires a managed connection. |
+| `adbc.redis.foreign_indexes_refresh` | connection, write-only | Set `true` to refresh managed copies or unmanaged schema registrations, per selected mode and index. Does not modify source HASHes/indexes. |
 | `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
 | `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |
 | `adbc.redis.result_layouts` | statement | JSON map of exact result names to explicit physical Arrow layouts; SQL/table schemas remain canonical. See [layout contract](arrow-interoperability.md#explicit-result-layouts). |
@@ -4377,7 +4387,8 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | `adbc.statement.exec.incremental` | statement | Canonical string `true`/`false` (default `false`). Emit available descriptors once, then empty terminal sets; see [lifecycle](../docs/partitioned-reads.md#standard-incremental-execution). |
 | `adbc.redis.time_zone` | database, connection | The session time zone, with the values `SET TIME ZONE` takes (default `UTC`; see Session time zone), and what `RESET timezone` and `SET TIME ZONE DEFAULT` go back to. The connection option overrides the database's and replaces a `SET`'s value; reading it gives the current value, as `SHOW timezone` does |
 | `adbc.redis.temporary_objects` | connection, read-only | `true` while the connection owns at least one temporary table or view, otherwise `false`. The value is read from connection-local state without a Redis round trip, so a Flight server can decide whether it is safe to move a scan to another pooled connection. |
-| `adbc.redis.foreign_indexes` | database, connection | `false` (default); `true` exposes application HASH indexes as read-only tables in `redis_foreign`, with connection-local, dynamically inferred metadata. |
+| `adbc.redis.foreign_indexes` | database, connection | `false` (default); `true` imports application HASH indexes into `redis_foreign`, using the selected ownership mode. |
+| `adbc.redis.foreign_indexes_mode` | database, connection | `managed` (default) creates read-only copies; `unmanaged` registers live source HASHes with SQL INSERT/UPDATE/DELETE. Set before enabling discovery. Existing registrations cannot silently change modes. |
 
 Aggregate worker tokens control concurrency; a token does not reserve a
 physical CPU. Connections should reuse one ADBC database handle to share

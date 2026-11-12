@@ -32,6 +32,9 @@ import (
 // table they become.
 type HashAdoptOptions struct {
 	operation *snapshotOperationRequest
+	// Mode is managed (the default) or unmanaged. Unmanaged tables read and
+	// write source HASHes through an existing application-owned Search index.
+	Mode string
 	// Encodings overrides inferred storage encodings (column -> text/native).
 	Encodings map[string]string
 	Prefix    string
@@ -62,13 +65,13 @@ type HashAdoptOptions struct {
 
 // HashAdoption is what AdoptHashes found, planned and did.
 type HashAdoption struct {
-	// ManagedCopy distinguishes explicit-refresh imports from historical in-place adoption.
+	// ManagedCopy distinguishes explicit-refresh copies from live unmanaged registrations.
 	ManagedCopy bool `json:"managed_copy,omitempty"`
 	// Report has the collection, the columns (InPlaceType) and the
 	// ChecklistSQLInPlace checklist.
 	Report *HashReport `json:"report"`
 	Table  string      `json:"table"`
-	// Index describes historical in-place layouts. Managed copies discover
+	// Index names an unmanaged table's application index. Managed copies discover
 	// their current private index through information_schema.tables.
 	Index string `json:"index,omitempty"`
 	// SourceIndex is used only while capturing a managed copy. SQL reads its
@@ -97,14 +100,18 @@ type adoptRecord struct {
 	Index  string `json:"index"`
 }
 
-// AdoptHashes imports the HASHes under o.Prefix into an immutable managed
-// copy. Repeating Apply for the same source and destination refreshes the copy;
+// AdoptHashes defaults to importing HASHes under o.Prefix into an immutable
+// managed copy. Mode "unmanaged" registers live source HASHes through an existing
+// application index instead. Repeating Apply refreshes the copy or registration;
 // source HASHes and indexes stay application-owned. Without o.Apply, it reads them,
 // checks, and says what it would do. Copy or publication failures return the
 // completed plan alongside the error. Applied reports acknowledged publication;
 // a publication error can still require resolving an uncertain outcome.
 // The options are the driver's database options.
 func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOptions) (*HashAdoption, error) {
+	if _, err := parseTableMode(o.Mode); err != nil {
+		return nil, err
+	}
 	if o.Prefix == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "a key prefix is required")
 	}
@@ -121,6 +128,9 @@ func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOpti
 		progress = func(string) {}
 	}
 	a := &adopter{c: c, o: o, progress: progress, res: &HashAdoption{Report: &HashReport{Prefix: o.Prefix}}}
+	if o.Mode == "unmanaged" {
+		return a.unmanagedAdopt(c.context(ctx))
+	}
 	return a.snapshotAdopt(c.context(ctx))
 }
 

@@ -1124,6 +1124,12 @@ func movingErr(meta *tableMeta) error {
 // back (or finished) first, or the statement waits while another connection
 // does; then a statement whose table is back as it was goes on.
 func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
+	if meta.Unmanaged {
+		if !unmanagedWriteAllowed(ctx, meta) || snapshotOf(ctx) == nil || snapshotOf(ctx).write {
+			return unmanagedUnsupported("schema changes or nested/staged writes")
+		}
+		return s.checkKeys(ctx, meta, true)
+	}
 	if meta.MaterializedSQL != "" {
 		return matViewWriteError(meta)
 	}

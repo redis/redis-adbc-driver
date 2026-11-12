@@ -150,6 +150,9 @@ func (s *store) readSnapshotHash(ctx context.Context, schema, table string, rowI
 	if err != nil {
 		return nil, false, err
 	}
+	if meta.Unmanaged {
+		return nil, false, unmanagedUnsupported("native row-ID reads")
+	}
 	wanted := make(map[string]bool)
 	if fields != nil {
 		for _, field := range fields {

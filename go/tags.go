@@ -336,6 +336,9 @@ func changeNeeds(meta *tableMeta, changes []rowChange) valueNeeds {
 // levels and NaNs it was read with, so each batch a statement writes is
 // compared with those: the table may have been replaced in between.
 func (s *store) raiseNeeds(ctx context.Context, meta *tableMeta, need valueNeeds) error {
+	if meta.Unmanaged {
+		return nil // Source values are mutable; no managed index-value proofs.
+	}
 	if len(need.levels) == 0 && len(need.nans) == 0 {
 		return nil
 	}

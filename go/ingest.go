@@ -116,6 +116,17 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	case schemaName == "":
 		schemaName = s.conn.sess.currentSchema()
 	}
+	if exists, err := st.tableExists(ctx, schemaName, opts.TableName); err != nil {
+		return -1, err
+	} else if exists {
+		meta, err := st.getTableMetadata(ctx, schemaName, opts.TableName)
+		if err != nil {
+			return -1, err
+		}
+		if meta.Unmanaged {
+			return -1, unmanagedUnsupported("Arrow ingestion")
+		}
+	}
 	arrowSchema := s.params.Schema()
 	wanted, err := metaFromArrow(schemaName, opts.TableName, arrowSchema)
 	if err != nil {

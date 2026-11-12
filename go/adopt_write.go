@@ -37,6 +37,14 @@ func insertMeta(meta *tableMeta) *tableMeta {
 }
 
 func (s *store) prepareKeyRows(ctx context.Context, meta *tableMeta, rows [][]Value) error {
+	if meta.Unmanaged {
+		if err := s.checkWritable(ctx, meta); err != nil {
+			return err
+		}
+		if meta.UnmanagedForeign && meta.UnmanagedFilter != "" {
+			return unmanagedUnsupported("INSERT through a filtered foreign index")
+		}
+	}
 	ki, ok := meta.resolve(keyField)
 	if !meta.KeyRows || !ok {
 		return errorf(adbc.StatusInvalidArgument, "INSERT into adopted table %q requires __key", meta.Name)
@@ -47,8 +55,13 @@ func (s *store) prepareKeyRows(ctx context.Context, meta *tableMeta, rows [][]Va
 			return notNullErr(keyField, meta.Name)
 		}
 		key := row[ki].S
-		if !isRowKey(meta.prefix(), key) {
+		if !meta.UnmanagedForeign && !isRowKey(meta.prefix(), key) {
 			return errorf(adbc.StatusInvalidArgument, "__key %q must be a row key under prefix %q (no nested ':')", key, meta.prefix())
+		}
+		if meta.Unmanaged {
+			if _, err := unmanagedRowContext(ctx, meta, []string{key}); err != nil {
+				return err
+			}
 		}
 		if seen[key] {
 			return stateErrorf(stateUnique, "duplicate __key %q", key)
@@ -93,11 +106,13 @@ func (s *store) prepareKeyRows(ctx context.Context, meta *tableMeta, rows [][]Va
 	return nil
 }
 
-var keyRowInsertScript = goredis.NewScript(`
+const keyRowInsertLua = `
 if redis.call('EXISTS', KEYS[1]) ~= 0 then return 0 end
 redis.call('HSET', KEYS[1], unpack(ARGV))
 return 1
-`)
+`
+
+var keyRowInsertScript = goredis.NewScript(keyRowInsertLua)
 
 func (s *store) writeKeyRows(ctx context.Context, meta *tableMeta, rows [][]Value) (int64, error) {
 	if len(rows) == 0 {
@@ -118,8 +133,23 @@ func (s *store) writeKeyRows(ctx context.Context, meta *tableMeta, rows [][]Valu
 				fields = append(fields, c.field(), c.encode(row[i], c.TextFormat))
 			}
 		}
-		n, err := keyRowInsertScript.Run(ctx, s.client, []string{row[ki].S}, fields...).Int()
+		var n int
+		var err error
+		if meta.Unmanaged {
+			rowCtx, contextErr := unmanagedRowContext(ctx, meta, []string{row[ki].S})
+			if contextErr != nil {
+				return written, contextErr
+			}
+			args := []any{"EVAL", keyRowInsertLua, 1, row[ki].S}
+			args = append(args, fields...)
+			n, err = once(rowCtx, s.client, args...).Int()
+		} else {
+			n, err = keyRowInsertScript.Run(ctx, s.client, []string{row[ki].S}, fields...).Int()
+		}
 		if err != nil {
+			if meta.Unmanaged {
+				return written, wrapRedis(err, "unmanaged INSERT failed; source writes may be partially applied")
+			}
 			return written, wrapRedis(err, "failed to insert adopted row")
 		}
 		if n == 0 {
@@ -137,6 +167,9 @@ return 0
 `)
 
 func (s *store) truncateAdoptedRows(ctx context.Context, meta *tableMeta) error {
+	if meta.Unmanaged {
+		return unmanagedUnsupported("TRUNCATE")
+	}
 	if !meta.KeyRows {
 		return errAdoptedByRowID(meta)
 	}

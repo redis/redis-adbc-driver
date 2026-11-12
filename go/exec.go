@@ -470,6 +470,9 @@ func (e *executor) runTruncate(ctx context.Context, st *TruncateStmt) error {
 		if err != nil {
 			return err
 		}
+		if meta.Unmanaged {
+			return unmanagedUnsupported("TRUNCATE")
+		}
 		if meta.MaterializedSQL != "" {
 			return matViewWriteError(meta)
 		}
@@ -1921,6 +1924,9 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 	if err := e.store.raiseNeeds(ctx, meta, changeNeeds(meta, changes)); err != nil {
 		return err
 	}
+	if meta.Unmanaged {
+		return e.store.updateUnmanagedRows(ctx, meta, changes)
+	}
 	if meta.SnapshotOverlay {
 		return e.writeSnapshotUpdates(ctx, meta, changes)
 	}
@@ -1976,6 +1982,9 @@ func (e *executor) deleteKeys(ctx context.Context, meta *tableMeta, keys []strin
 	}
 	if err := e.store.checkWritable(ctx, meta); err != nil {
 		return err
+	}
+	if meta.Unmanaged {
+		return e.store.deleteUnmanagedRows(ctx, meta, keys)
 	}
 	if meta.SnapshotOverlay {
 		return e.writeSnapshotDeletes(ctx, meta, keys)

@@ -72,7 +72,7 @@ func dialHashesWithPin(ctx context.Context, options map[string]string, reap, pin
 		_ = db.Base().Close(ctx)
 		return nil, err
 	}
-	c := &hashConn{db: db, client: client, st: &store{client: client, flex: db.flex}}
+	c := &hashConn{db: db, client: client, st: &store{client: client, flex: db.flex, foreignIndexesMode: db.foreignIndexesMode}}
 	n, err := client.Exists(ctx, snapshotCatalogKey).Result()
 	if err != nil {
 		c.close(ctx)

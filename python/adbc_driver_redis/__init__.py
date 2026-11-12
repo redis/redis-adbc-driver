@@ -62,6 +62,7 @@ class DatabaseOptions(str, enum.Enum):
     QUERY_WORKER_BUDGET = "adbc.redis.query_worker_budget"
     RENAME_REKEY = "adbc.redis.rename_rekey"
     FOREIGN_INDEXES = "adbc.redis.foreign_indexes"
+    FOREIGN_INDEXES_MODE = "adbc.redis.foreign_indexes_mode"
     STREAM_RESULTS = "adbc.redis.stream_results"
     STREAM_BATCH_ROWS = "adbc.redis.stream_batch_rows"
     PARTITION_RESULT_NAMESPACE = "adbc.redis.partition_result_namespace"

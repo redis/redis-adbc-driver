@@ -343,6 +343,9 @@ func PrepareAdoptHashes(ctx context.Context, options map[string]string, o HashAd
 // PrepareForeignIndexRefresh captures one external index as a managed copy.
 // Other external indexes are not refreshed or removed by this operation.
 func PrepareForeignIndexRefresh(ctx context.Context, options map[string]string, index string, retention time.Duration) (*SnapshotOperationStatus, error) {
+	if options[OptionStringForeignIndexesMode] == "unmanaged" {
+		return nil, unmanagedUnsupported("retained operation preparation")
+	}
 	retention, err := operationRetention(retention)
 	if err != nil {
 		return nil, err

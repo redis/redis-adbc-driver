@@ -3,6 +3,10 @@
 Statement snapshots are **always enabled for managed tables**, including temporary
 managed tables and imported copies of application data. No option is required.
 
+Explicit [unmanaged registrations](unmanaged-tables.md) expose live source
+HASHes without managed row snapshots. They own only catalog metadata, never
+source data/index generations. Their SQL writes affect source HASHes directly.
+
 **Write managed tables through the driver using SQL or supported Arrow
 ingestion. Read through SQL/ADBC or the experimental
 [native client wrapper](native-client.md).** The wrapper provides supported
@@ -187,7 +191,7 @@ an incompatible declared result schema change between executions returns an erro
 - Temporary tables/views belong to their connection and shadow unqualified names.
   Their metadata and references survive other connections' publications. Close
   and abandoned-session sweep publish removal, preserving pinned storage.
-- AdoptHashes now imports a managed copy rather than adopting mutable HASHes in
+- By default, AdoptHashes imports a managed copy rather than adopting mutable HASHes in
   place. Repeating Apply for the same source and destination explicitly refreshes
   that copy. A destination created independently cannot be replaced by adoption.
   CopyHashes supports the existing ingest modes with atomic publication.

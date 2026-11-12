@@ -208,11 +208,17 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
-	PlainIndex      bool   `json:"plain_index,omitempty"`
-	MaterializedSQL string `json:"materialized_sql,omitempty"`
-	matviewRead     *matviewRead
-	Unpopulated     bool         `json:"unpopulated,omitempty"`
-	NamedIndexes    []namedIndex `json:"named_indexes,omitempty"`
+	// Unmanaged descriptors own only catalog metadata, never source rows or
+	// indexes. Their schema is pinned but source values remain live.
+	Unmanaged         bool     `json:"unmanaged,omitempty"`
+	UnmanagedForeign  bool     `json:"unmanaged_foreign,omitempty"`
+	UnmanagedPrefixes []string `json:"unmanaged_prefixes,omitempty"`
+	UnmanagedFilter   string   `json:"unmanaged_filter,omitempty"`
+	PlainIndex        bool     `json:"plain_index,omitempty"`
+	MaterializedSQL   string   `json:"materialized_sql,omitempty"`
+	matviewRead       *matviewRead
+	Unpopulated       bool         `json:"unpopulated,omitempty"`
+	NamedIndexes      []namedIndex `json:"named_indexes,omitempty"`
 	// SnapshotRows counts physical row versions (including tombstones) in the
 	// current segment. Prior immutable segments carry their own expected counts.
 	// Acquisition validates indexes and directories against these counts.
@@ -916,6 +922,9 @@ func (s *store) updateTableTx(ctx context.Context, schema, table string, atRowID
 			if err != nil {
 				return err
 			}
+			if m.Unmanaged {
+				return unmanagedUnsupported("managed metadata changes")
+			}
 			var last int64
 			if atRowID {
 				if last, err = tx.Get(ctx, seq).Int64(); err != nil && !errors.Is(err, goredis.Nil) {
@@ -975,19 +984,20 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
-	sharedMu         sync.Mutex
-	sharedAcquiring  bool
-	sharedView       *sharedReadView
-	readerNamespace  string
-	restrictedReader bool
-	readerKeys       snapshotReaderKeyCache
-	controlScript    snapshotControlExecutor
-	snapshots        bool
-	compactor        *snapshotCompactor
-	flex             bool
-	foreignIndexes   bool
-	searchCapsOnce   sync.Once
-	searchCaps       [2]int64
+	sharedMu           sync.Mutex
+	sharedAcquiring    bool
+	sharedView         *sharedReadView
+	readerNamespace    string
+	restrictedReader   bool
+	readerKeys         snapshotReaderKeyCache
+	controlScript      snapshotControlExecutor
+	snapshots          bool
+	compactor          *snapshotCompactor
+	flex               bool
+	foreignIndexes     bool
+	foreignIndexesMode string
+	searchCapsOnce     sync.Once
+	searchCaps         [2]int64
 
 	searchAggregateCapKnown bool // initialized with searchCapsOnce
 	// client is a *goredis.Client, or a *goredis.ClusterClient when the
@@ -1179,6 +1189,12 @@ func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*ta
 // Apply the same local metadata policy to ordinary loads and already-decoded
 // private descriptors. This does not open an index or replace snapshot proofs.
 func (s *store) hydrateTableMetadata(ctx context.Context, meta *tableMeta, readAt time.Time) error {
+	if meta.Unmanaged {
+		meta.Foreign = meta.UnmanagedForeign
+		if sharedSnapshotScope(ctx) {
+			return unmanagedUnsupported("shared read snapshots")
+		}
+	}
 	if _, pending := snapshotDeferredIndex(ctx, meta); pending {
 		meta.SnapshotOverlay = true
 	}
@@ -1606,14 +1622,23 @@ var testHookDropping func()
 //     meanwhile, so that the new index and key prefix don't outlive the
 //     table.
 func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bool) error {
-	if schema == pgCatalog || schema == foreignSchema && !snapshotImporting(ctx) {
+	if schema == pgCatalog {
 		return virtualReadOnly(schema)
+	}
+	if schema == foreignSchema && !snapshotImporting(ctx) {
+		meta, err := s.getTableMetadata(ctx, schema, table)
+		if err != nil || !meta.Unmanaged {
+			return virtualReadOnly(schema)
+		}
 	}
 	name := table // as the statement names it
 	// dropped is the table whose index this dropped last.
 	var dropped *tableMeta
 	for attempt := 0; attempt < 20; attempt++ {
-		meta, err := s.getTable(ctx, schema, table)
+		meta, err := s.getTableMetadata(ctx, schema, table)
+		if err == nil && !meta.Unmanaged {
+			err = s.validateSnapshotTable(ctx, meta)
+		}
 		var ae adbc.Error
 		notFound := err != nil && asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound
 		if dropped != nil && (notFound || (err == nil && !meta.sameKeysAs(dropped))) {

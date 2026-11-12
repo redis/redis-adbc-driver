@@ -7,18 +7,18 @@ usually as Redis HASHes and application Search indexes. The choice is primarily
 about ownership, consistency and freshness. Both approaches have benefits and
 costs; choose the one that fits the workload, or use both.
 
-In this guide, **unmanaged table** means an application-owned collection of Redis
-data. It is not a second SQL table mode with the same guarantees. In the current
-driver, HASH adoption and foreign-index access import **managed copies**; they do
-not expose a continuously updated SQL view over the original keys. Historical
-in-place adoption documentation does not describe the current snapshot format.
+An **unmanaged table** is a SQL registration over application-owned Redis data.
+Explicit [unmanaged mode](unmanaged-tables.md) reads and writes the original
+HASHes without copying them or providing managed row snapshots. HASH adoption
+and foreign-index access default to **managed copies**; select unmanaged mode
+when source freshness and application ownership are the desired contract.
 
 ## Choose by use case
 
 | Approach | Good fit | Benefits | Tradeoffs |
 |---|---|---|---|
 | **Managed tables (default)** | SQL/Arrow pipelines, typed datasets and consistent analytical reads where the driver can own storage | Typed schema, statement snapshots, atomic supported writes and automatic version maintenance | Private storage/index costs, retained versions, driver ownership rules and fixed limits; no multi-statement write transactions |
-| **Application-owned data** | Operational workloads centered on direct Redis access, existing keys, TTLs and immediate source updates | Application controls encodings, indexes and lifecycle; no mandatory driver copy | Application owns schema and coordination; live source reads have no driver snapshot; current SQL access requires an import |
+| **Unmanaged source tables** | Operational workloads centered on existing keys, TTLs and source updates | Live SQL reads and source writes; application controls indexes and lifecycle; no data copy | Requires a source Search index; application owns coordination; reads have no row snapshot and writes can partially succeed |
 | **Both, connected by managed imports** | Reporting over application data with an explicit freshness budget | Source ownership stays with the application; the private SQL copy has managed read guarantees | Capture time, duplicate storage and refresh work; source capture is not atomic with application writers; refresh replaces private changes |
 
 ## At a glance
@@ -28,14 +28,14 @@ in-place adoption documentation does not describe the current snapshot format.
 | Owner | Driver owns private rows, metadata, directories and indexes | Application owns keys, field encodings, indexes and lifecycle |
 | Creation | SQL, Arrow ingestion, or import into a managed copy | Application writes Redis data directly |
 | Schema | Driver maintains SQL types and supported defaults and constraints | Application defines and enforces its own data contract |
-| Access | SQL and Arrow through the driver | Redis commands and application Search indexes; import for managed SQL access |
+| Access | SQL and Arrow through the driver | Redis commands and application Search indexes; explicit unmanaged registration for SQL reads and writes |
 | Read consistency | One committed version per statement; optional shared read snapshot across sequential reads | Depends on application access; incremental scans and live HASH reads do not freeze a collection |
 | Write publication | Supported SQL/Arrow changes publish atomically | Depends on the application's commands and coordination |
 | Concurrent changes | Open readers retain their original managed version | Direct reads can observe intervening application writes |
 | Freshness after import | Captured values remain until explicitly refreshed or changed through the driver | Application changes affect the source directly |
 | Expiry | Driver-owned storage must not be directly expired or evicted | Application can use TTLs according to its own design |
 | Maintenance | Driver manages private indexes, compaction and reference-safe reclamation | Application manages its keys and indexes |
-| Storage cost | Private data/indexes plus metadata, retained versions and staging | No driver-managed copy until imported; application storage/index costs still apply |
+| Storage cost | Private data/indexes plus metadata, retained versions and staging | Catalog registration only; source data/index storage costs still apply |
 
 ## Managed tables: benefits
 
@@ -83,8 +83,8 @@ in-place adoption documentation does not describe the current snapshot format.
 - **Immediate source updates.** Application clients read and write the source
   without waiting for a driver import or refresh. Search visibility follows the
   source index's own behavior.
-- **No mandatory analytical duplicate.** Keeping data unmanaged avoids the
-  private copy and version-retention costs until managed SQL access is needed.
+- **No mandatory analytical duplicate.** Unmanaged SQL registrations avoid
+  private data copies and version-retention costs.
 - **Independent application lifecycle.** An import leaves the original HASHes
   and application indexes unchanged; the application can continue using them.
 
@@ -98,24 +98,28 @@ in-place adoption documentation does not describe the current snapshot format.
 - **Application-owned coordination.** Collection-wide atomicity, schema changes
   and safe lifecycle operations require an application design outside the
   managed-table protocol.
-- **An import boundary for SQL.** Current adoption and foreign-index imports
-  create private tables rather than providing live SQL access to source keys.
-  That introduces capture time, storage cost and refresh latency.
+- **Weaker SQL write guarantees.** Unmanaged SQL writes change source HASHes
+  directly and can partially succeed. INSERT requires an explicit `__key`.
+  ALTER, TRUNCATE, Arrow ingestion and snapshot-only APIs are unsupported.
 
 ## How imports connect the two
 
-`AdoptHashes` creates a managed copy. Repeating Apply for the same source and
+By default, `AdoptHashes` creates a managed copy. Repeating Apply for the same source and
 destination explicitly refreshes that copy. `CopyHashes` copies source data into
 managed storage using its supported ingestion modes. Enabling
 `adbc.redis.foreign_indexes=true` imports missing copies into the read-only
 `redis_foreign` schema; existing copies need an explicit refresh to recapture
-source changes.
+source changes. Select `HashAdoptOptions.Mode="unmanaged"` (CLI
+`-mode unmanaged`) or `adbc.redis.foreign_indexes_mode=unmanaged` for live source
+registrations. These need no refresh for source values; explicit refresh
+updates their registered schema. The driver never silently changes a table's
+ownership mode.
 
 Capture is not atomic with application writers. If a consistent point-in-time
 source image is required, pause source writes during capture. After publication,
 the managed copy has normal statement snapshot guarantees.
 
-Adopted and foreign-index copies retain the original source key in the hidden,
+Managed adopted and foreign-index copies retain the original source key in the hidden,
 read-only `__key` provenance column. It is excluded from `SELECT *`; SQL-added
 rows in writable managed copies have NULL provenance. SQL writes affect the
 private copy, not the source. Source TTL expiry does not expire the managed copy.
@@ -131,8 +135,9 @@ Start with **managed tables**, the default, when SQL/Arrow consumers need typed 
 and consistent analytical reads, and the driver can own the storage lifecycle.
 
 Keep **application data unmanaged** when direct Redis access, application-defined
-keys, TTLs and source freshness are central. Import managed copies when reporting
-needs justify the additional storage and refresh process.
+keys, TTLs and source freshness are central. Register unmanaged SQL tables for
+live source access, or import managed copies when reporting needs justify the
+additional storage and refresh process.
 
 A common arrangement uses both: application-owned HASHes for operational data
 and explicitly refreshed managed copies for SQL analytics. Choose refresh
@@ -142,6 +147,7 @@ workload before making performance assumptions.
 ## Further reading
 
 - [Statement snapshots, imports and storage lifecycle](snapshots.md)
+- [Unmanaged registration, source writes and limits](unmanaged-tables.md)
 - [Connection-scoped shared read snapshots](shared-read-snapshots.md)
 - [HASH import and refresh reference](driver-reference.md#import-or-refresh-a-managed-copy)
 - [SQL authorization and ownership policies](sql-rbac.md)

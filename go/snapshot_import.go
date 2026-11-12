@@ -90,6 +90,9 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 		if !replace {
 			return stateErrorf(stateDuplicateTable, "table %q.%q already exists", schema, name)
 		}
+		if old.Unmanaged {
+			return errorf(adbc.StatusInvalidState, "cannot replace an unmanaged registration with a managed copy")
+		}
 		access, oid = old.SnapshotAccessID, old.OID
 		if err := s.dropTable(wctx, schema, name, false); err != nil {
 			return err
@@ -141,7 +144,8 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 	return s.publishSnapshot(wctx, pin, id)
 }
 
-// RefreshForeignIndexes replaces managed redis_foreign copies atomically per
+// RefreshForeignIndexes refreshes redis_foreign managed copies or unmanaged
+// schema registrations, according to foreign_indexes_mode, atomically per
 // index. It never alters the source HASHes or Search definitions. Enabling
 // foreign_indexes imports missing copies; call this API (or the connection
 // refresh option) explicitly to observe subsequent application changes.
@@ -185,6 +189,13 @@ func (s *store) refreshSnapshotForeign(ctx context.Context, replace bool) error 
 				return err
 			}
 			if exists {
+				old, err := s.getTableMetadata(sctx, foreignSchema, name)
+				if err != nil {
+					return err
+				}
+				if old.Unmanaged != (s.foreignIndexesMode == "unmanaged") {
+					return errorf(adbc.StatusInvalidState, "foreign table ownership mode differs; explicitly DROP its registration before changing modes")
+				}
 				continue
 			}
 		}
@@ -196,10 +207,19 @@ func (s *store) refreshSnapshotForeign(ctx context.Context, replace bool) error 
 		if err != nil {
 			return err
 		}
-		for _, prefix := range indexInfoOf(reply).prefixes {
+		info := indexInfoOf(reply)
+		for _, prefix := range info.prefixes {
 			if prefixesOverlap(prefix, metaPrefix) {
 				return errorf(adbc.StatusInvalidArgument, "source index overlaps driver control storage")
 			}
+		}
+		if s.foreignIndexesMode == "unmanaged" {
+			meta.Unmanaged, meta.UnmanagedForeign = true, true
+			meta.UnmanagedPrefixes, meta.UnmanagedFilter = info.prefixes, info.filter
+			if err := s.registerUnmanaged(ctx, meta); err != nil {
+				return err
+			}
+			continue
 		}
 		reader, err := s.snapshotForeignImportReader(sctx, source, meta)
 		if err != nil {
