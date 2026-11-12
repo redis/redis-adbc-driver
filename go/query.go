@@ -161,7 +161,7 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		return wherePlan{query: "*", residual: where}, nil
 	}
 	wp := wherePlan{query: "*"}
-	if meta.SnapshotOverlay {
+	if meta.SnapshotOverlay || e.store.flexSnapshotTable(meta) {
 		wp.original = where
 	}
 	if where == nil {
@@ -650,7 +650,9 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 // openScan starts a scan through the index (req.where.keys nil) and reads
 // its first page.
 func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value) (*scanIter, error) {
-	if req.meta.SnapshotOverlay {
+	// Flex's plain-index contract excludes sorted candidates and aggregate
+	// cursors. Resolve even single-segment snapshots through exact directories.
+	if req.meta.SnapshotOverlay || e.store.flexSnapshotTable(req.meta) {
 		if req.visibility != nil && len(req.sortBy) > 0 {
 			it, _, exactly := e.newScanIter(ctx, req, params)
 			// Both exact directories and index candidates merge ascending row

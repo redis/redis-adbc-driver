@@ -1681,7 +1681,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 				return wrapRedis(err, "failed to drop search index")
 			}
 		}
-		if s.flex && !meta.Adopted {
+		if s.flex && !s.snapshots && !meta.Adopted {
 			if err := s.deleteFlexRows(ctx, meta); err != nil {
 				return err
 			}
@@ -1960,7 +1960,7 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	// meta was read: these rows get their missing values (see defaults.go).
 	var last int64
 	var currentMetadata string
-	if s.flex {
+	if s.flex && !s.snapshots {
 		var err error
 		last, currentMetadata, err = s.allocateFlexRowIDs(ctx, meta, len(rows))
 		if err != nil {
@@ -1971,6 +1971,13 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 		incr := tx.IncrBy(ctx, seqKey(meta.Schema, meta.Name), int64(len(rows)))
 		cur := tx.Get(ctx, metaKey(meta.Schema, meta.Name))
 		if _, err := tx.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+			var native interface {
+				error
+				RedisError()
+			}
+			if s.flex && errors.As(err, &native) && strings.Contains(native.Error(), "ADBC_FLEX_ROW_ID_LIMIT") {
+				return rowAlloc{}, flexUnsupported("row IDs beyond 2^53")
+			}
 			return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
 		}
 		var err error

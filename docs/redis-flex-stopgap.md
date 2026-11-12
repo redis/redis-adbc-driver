@@ -1,10 +1,47 @@
 # Experimental Redis Flex stopgap
 
-This document records the upstream stopgap. In the always-on statement-snapshot
-branch, managed Flex source execution is rejected before dialing; snapshot
-index/publication compatibility has not been implemented or verified. That
-remains an open feature-parity gate. Reader-only retained-result replay has no
-managed source catalog and keeps its independent contract.
+The opt-in `adbc.redis.flex=true` mode supports managed-table statement
+snapshots on compatible Redis Software Flex deployments. It remains experimental
+and requires RESP3, plain NUMERIC/TAG Search support and noeviction. See the
+[current implementation and validation](sdlc/changes/flex-snapshots/validation.md).
+
+## Statement-snapshot implementation
+
+Flex snapshot reads traverse exact immutable row-ID directories and retrieve
+HASH values. Newest versions and tombstones are resolved before predicates,
+sorting, aggregation and SQL limits. This applies to single-segment baselines
+as well as overlays; the sorted Search candidate path is disabled. Filtering,
+sorting and aggregation execute in the driver. Broad reads can therefore cost
+more than the earlier Search-filtered stopgap; no performance parity is claimed.
+
+Final plain indexes retain `SKIPINITIALSCAN`. After private row images are
+complete, bounded guarded row-ID HSET notifications populate the fresh index.
+Publication requires readiness, no indexing failures, exact prefix/cardinality
+and a warning-free indexed-row count. Flex writers require FT.SEARCH permission
+for this proof; the RAM write-only initial-scan fallback is unavailable.
+
+Compaction creates its final index before copying complete images. If a populated
+private output has lost its index, the driver retires that job and rebuilds fresh
+output from retained immutable sources. It does not initial-scan Flex or replay
+uncertain mutations. Row-ID allocation uses snapshot metadata copy-on-write and
+an atomic ceiling of 2^53. DROP/replace and GC preserve pinned generations and
+use registered reference-owned data, rather than legacy prefix deletion.
+Managed physical prefixes remain immutable driver-owned namespaces; direct
+application writes inside them are unsupported.
+
+Existing stopgap exclusions remain: adoption, application/foreign indexes,
+materialized views, CREATE INDEX and general ALTER are unsupported. Explicit
+rename/rekey, TRUNCATE, Arrow ingestion and live snapshot partitions retain
+snapshot semantics. Reader-only retained-result replay keeps its independent
+contract. Cloud compatibility and current restart/failover coverage are not
+established by the focused snapshot validation.
+
+## Historical upstream stopgap
+
+The remainder records the pre-snapshot implementation and its dated evidence.
+Its mutable-source consistency and indexing descriptions do not describe the
+statement-snapshot implementation above. Historical measurements have not been
+rerun or relabeled.
 
 Implementation for [issue #322](https://github.com/redis/redis-adbc-driver/issues/322).
 Enable database option `adbc.redis.flex=true` together with the usual `uri`.

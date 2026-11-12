@@ -24,7 +24,7 @@ import (
 )
 
 // Faults wrap the verified TLS connection returned by go-redis's own dialer.
-// They act only on a later FT.SEARCH response, after rows have been delivered.
+// They act on a later row-directory/HASH response, after rows have been delivered.
 // No TLS verification, server data or server configuration is changed.
 type flexReadFault struct {
 	armed   atomic.Bool
@@ -41,7 +41,7 @@ type flexFaultSocket struct {
 }
 
 func (c *flexFaultSocket) Write(b []byte) (int, error) {
-	if bytes.Contains(bytes.ToUpper(b), []byte("FT.SEARCH")) && c.fault.armed.CompareAndSwap(true, false) {
+	if (bytes.Contains(bytes.ToUpper(b), []byte("FT.SEARCH")) || bytes.Contains(bytes.ToUpper(b), []byte("ZRANGE")) || bytes.Contains(bytes.ToUpper(b), []byte("HMGET"))) && c.fault.armed.CompareAndSwap(true, false) {
 		c.pending.Store(true)
 	}
 	return c.Conn.Write(b)
@@ -73,7 +73,7 @@ func (c *flexFaultSocket) Close() error { c.once.Do(func() { close(c.closed) });
 func TestFlexReadRobustness(t *testing.T) {
 	uri := os.Getenv("REDIS_FLEX_URI")
 	if uri == "" {
-		t.Skip("set REDIS_FLEX_URI to an isolated Software/Cloud Flex database")
+		t.Skip("set REDIS_FLEX_URI to an isolated Software Flex database")
 	}
 	// Reuse the normal ADBC database opener; measurement helpers do not alter
 	// execution. This test can run independently of the opt-in benchmark.
@@ -84,11 +84,11 @@ func TestFlexReadRobustness(t *testing.T) {
 	h.exec("CREATE TABLE " + name + " (n BIGINT)")
 	defer h.exec("DROP TABLE IF EXISTS " + name)
 	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,25000) AS t(i)")
-	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	waitFor(t, "robustness fixture indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 25000 })
+	readCtx, meta := flexSnapshotTableTest(t, c.store, h.ctx, name)
+	waitFor(t, "robustness fixture indexed", func() bool {
+		n, err := c.store.countMatches(readCtx, meta.index(), "*")
+		return err == nil && n == 25000
+	})
 	for _, mode := range []string{"disconnect", "timeout", "cancel"} {
 		t.Run(mode, func(t *testing.T) {
 			options := h.conn.(adbc.GetSetOptionsWithContext)
@@ -239,11 +239,11 @@ func flexServerTransition(t *testing.T, operation string) {
 		}
 	}()
 	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,25000) AS t(i)")
-	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	waitFor(t, "transition rows indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 25000 })
+	readCtx, meta := flexSnapshotTableTest(t, c.store, h.ctx, name)
+	waitFor(t, "transition rows indexed", func() bool {
+		n, err := c.store.countMatches(readCtx, meta.index(), "*")
+		return err == nil && n == 25000
+	})
 	st, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -372,11 +372,8 @@ func TestFlexLiveSearchCap(t *testing.T) {
 	h.exec("CREATE TABLE " + name + " (n BIGINT)")
 	defer h.exec("DROP TABLE IF EXISTS " + name)
 	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,100) AS t(i)")
-	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	waitFor(t, "live-cap rows indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 100 })
+	readCtx, meta := flexSnapshotTableTest(t, c.store, h.ctx, name)
+	waitFor(t, "live-cap rows indexed", func() bool { n, err := c.store.countMatches(readCtx, meta.index(), "*"); return err == nil && n == 100 })
 	caps := c.store.paginationCaps(h.ctx, meta.index())
 	t.Logf("server Search cap=%d, configured expectation=%d", caps[0], expected)
 	if caps[0] != expected {
@@ -401,25 +398,14 @@ func TestFlexRowIDBoundary(t *testing.T) {
 	h.exec("CREATE TABLE " + name + " (n BIGINT)")
 	defer h.exec("DROP TABLE IF EXISTS " + name)
 	h.exec("INSERT INTO " + name + " VALUES (10)")
-	if err := c.store.client.Set(h.ctx, seqKey(defaultSchema, name), exactDoubleLimit-2, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	flexSnapshotCounterTest(t, c.store, h.ctx, name, exactDoubleLimit-2)
 	h.exec("INSERT INTO " + name + " VALUES (20),(30)")
-	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	waitFor(t, "boundary rows indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 3 })
+	readCtx, meta := flexSnapshotTableTest(t, c.store, h.ctx, name)
 	h.expectRows("SELECT n FROM "+name, "10", "20", "30")
-	cur, err := c.store.openRangeReader(h.ctx, &aggRequest{meta: meta, index: meta.index(), query: "*", load: []string{"n"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cur.close(h.ctx)
-	cur.bounded.page = 2
+	scan := newSnapshotDeltaScan(c.store, meta, nil)
 	var boundaryIDs []string
 	for {
-		rows, err := cur.next(h.ctx)
+		_, rows, err := scan.next(readCtx)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -444,7 +430,7 @@ func TestFlexRowIDBoundary(t *testing.T) {
 	if _, err := st.ExecuteUpdate(h.ctx); !isStatus(err, adbc.StatusNotImplemented) {
 		t.Fatalf("limit insertion: %v", err)
 	}
-	seq, err := c.store.client.Get(h.ctx, seqKey(defaultSchema, name)).Int64()
+	seq, err := c.store.redis(readCtx).Get(readCtx, seqKey(defaultSchema, name)).Int64()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,11 +451,24 @@ func TestFlexConcurrentRowIDLimit(t *testing.T) {
 	h.exec("DROP TABLE IF EXISTS " + name)
 	h.exec("CREATE TABLE " + name + " (n BIGINT)")
 	defer h.exec("DROP TABLE IF EXISTS " + name)
-	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
+	base, pin, err := c.store.acquireSnapshot(h.ctx, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.store.client.Set(h.ctx, seqKey(defaultSchema, name), exactDoubleLimit-1, 0).Err(); err != nil {
+	defer pin.release()
+	work, id, err := c.store.beginSnapshotWrite(base, pin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.store.abortSnapshot(pin, id)
+	if err := c.store.prepareSnapshotTable(work, defaultSchema, name); err != nil {
+		t.Fatal(err)
+	}
+	meta, err := c.store.getTable(work, defaultSchema, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.store.redis(work).Set(work, seqKey(defaultSchema, name), exactDoubleLimit-1, 0).Err(); err != nil {
 		t.Fatal(err)
 	}
 	type result struct {
@@ -478,7 +477,10 @@ func TestFlexConcurrentRowIDLimit(t *testing.T) {
 	}
 	results := make(chan result, 2)
 	for range 2 {
-		go func() { last, _, err := c.store.allocateFlexRowIDs(h.ctx, meta, 1); results <- result{last, err} }()
+		go func() {
+			allocation, err := c.store.allocRows(work, meta, [][]Value{{{T: typeInt64, I: 1}}})
+			results <- result{allocation.first, err}
+		}()
 	}
 	accepted, rejected := 0, 0
 	for range 2 {
@@ -494,11 +496,44 @@ func TestFlexConcurrentRowIDLimit(t *testing.T) {
 			t.Fatal(r.err)
 		}
 	}
-	seq, err := c.store.client.Get(h.ctx, seqKey(defaultSchema, name)).Int64()
+	seq, err := c.store.redis(work).Get(work, seqKey(defaultSchema, name)).Int64()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if accepted != 1 || rejected != 1 || seq != exactDoubleLimit {
 		t.Fatalf("non-atomic boundary: accepted=%d rejected=%d seq=%d", accepted, rejected, seq)
+	}
+}
+
+func flexSnapshotTableTest(t *testing.T, s *store, ctx context.Context, name string) (context.Context, *tableMeta) {
+	t.Helper()
+	read, pin, err := s.acquireSnapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { pin.release() })
+	meta, err := s.getTable(read, defaultSchema, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return read, meta
+}
+func flexSnapshotCounterTest(t *testing.T, s *store, ctx context.Context, name string, value int64) {
+	t.Helper()
+	base, pin, err := s.acquireSnapshot(ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	work, id, err := s.beginSnapshotWrite(base, pin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.abortSnapshot(pin, id)
+	if err := s.redis(work).Set(work, seqKey(defaultSchema, name), value, 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.publishSnapshot(work, pin, id); err != nil {
+		t.Fatal(err)
 	}
 }

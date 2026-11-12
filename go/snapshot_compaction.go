@@ -372,6 +372,11 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 				if err := s.searchDo(wctx, output.index(), indexCreateArgs(&output)...).Err(); err != nil {
 					return err
 				}
+			} else if s.flexEnabled() {
+				// A populated output without its index cannot be backfilled on
+				// Flex. Retire only this private job; the durable candidate and
+				// retained sources let a later pass build fresh indexed output.
+				return s.finishSnapshotCompaction(ctx, j)
 			}
 		}
 	}
@@ -492,6 +497,9 @@ func (s *store) indexSnapshotCompaction(ctx context.Context, j *snapshotCompacti
 	if err != nil {
 		if !isUnknownIndex(err) {
 			return false, err
+		}
+		if s.flexEnabled() {
+			return true, s.finishSnapshotCompaction(ctx, j)
 		}
 		if err := s.searchDo(wctx, output.index(), snapshotScannedIndexArgs(&output)...).Err(); err != nil {
 			return false, err

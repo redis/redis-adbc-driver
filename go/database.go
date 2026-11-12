@@ -283,9 +283,6 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 
 // Shared connection initialization for ADBC and native managed-table readers.
 func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, error) {
-	if d.snapshots && d.flex && !d.readerOnly {
-		return nil, errorf(adbc.StatusNotImplemented, "managed-table statement snapshots require sortable indexes and aggregate cursors; Redis Flex snapshot execution is not supported")
-	}
 	if d.flex && d.foreignIndexes {
 		return nil, flexUnsupported("foreign_indexes")
 	}

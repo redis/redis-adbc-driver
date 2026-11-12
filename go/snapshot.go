@@ -957,7 +957,17 @@ const snapshotMutation = snapshotDataEdges + snapshotDescriptorRefs + snapshotMu
 // definitions for every HASH write in a large staged input.
 const snapshotRowMutation = snapshotRowLayoutLua + snapshotMutationAdmission + snapshotMutationExecute
 
-const snapshotMutationExecute = `
+const snapshotMutationExecute = snapshotMutationPrepare + snapshotMutationApply
+
+const snapshotFlexRowLimit = `
+local n=tonumber(ARGV[7])
+local current=tonumber(redis.call('GET',ARGV[6]) or '0')
+if not n or not current or n<1 or current<0 or current>9007199254740992-n then
+ return redis.error_reply('ADBC_FLEX_ROW_ID_LIMIT')
+end
+`
+
+const snapshotMutationPrepare = `
 local private='` + snapshotPrefix + `workspace:'..ARGV[1]..':'
 for i=4,#KEYS do
  if string.sub(KEYS[i],1,string.len('` + snapshotPrefix + `workspace:'))=='` + snapshotPrefix + `workspace:' and i~=#KEYS then
@@ -973,6 +983,9 @@ if (command=='set' or command=='setnx') and string.sub(tablekey,1,#(private..'ta
  data_live(KEYS[2],newrefs);data_releasable(KEYS[2],oldrefs)
 end
 if (w.metadata_builds or 0)>0 and string.sub(KEYS[#KEYS],1,#private)==private then return redis.error_reply('snapshot metadata construction is incomplete') end
+`
+
+const snapshotMutationApply = `
 local result = redis.call(unpack(ARGV,5))
 if newrefs and result and (command~='setnx' or result==1) then
  data_retain(KEYS[2],newrefs);data_release(KEYS[2],KEYS[3],oldrefs)
@@ -1033,6 +1046,12 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 		script := snapshotRowMutation
 		if strings.HasPrefix(fmt.Sprint(keys[len(keys)-1]), snapshotPrefix+"workspace:") {
 			script = snapshotMutation
+		}
+		if scope.store != nil && scope.store.flexEnabled() && strings.EqualFold(fmt.Sprint(original[0]), "incrby") && strings.HasPrefix(fmt.Sprint(original[1]), snapshotWorkspace(scope.id)+"seq:") {
+			// Native INCRBY participates in metadata COW and the writer fence.
+			// Check the Flex numeric-ID ceiling inside that same atomic fence,
+			// before advancing the private counter or recording its presence.
+			script = snapshotDataEdges + snapshotDescriptorRefs + snapshotMutationAdmission + snapshotMutationPrepare + snapshotFlexRowLimit + snapshotMutationApply
 		}
 		args := []any{"EVAL", script, len(keys)}
 		args = append(args, keys...)

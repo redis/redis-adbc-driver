@@ -2,6 +2,9 @@
 
 Statement snapshots are **always enabled for managed tables**, including temporary
 managed tables and imported copies of application data. No option is required.
+The experimental [Software Flex stopgap](redis-flex-stopgap.md) requires
+`adbc.redis.flex=true` and reads exact row directories with client-side SQL
+evaluation; its narrower feature and permission scope still applies.
 
 Explicit [unmanaged registrations](unmanaged-tables.md) expose live source
 HASHes without managed row snapshots. They own only catalog metadata, never

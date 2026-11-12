@@ -229,7 +229,7 @@ limitations on sortable fields and cursors.
 
 These settings, commands and API responses describe the historical attempt,
 not current provisioning requirements or a current test procedure. The current
-driver requires RESP3 and rejects Flex snapshot execution; see the separate
+driver requires RESP3 and offers experimental Software Flex snapshot execution; see the separate
 [experimental stopgap scope](redis-flex-stopgap.md). Cloud SQL remains unvalidated.
 
 Resource names, numeric IDs, endpoint names, and credentials are omitted

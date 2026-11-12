@@ -39,7 +39,7 @@ type snapshotCandidateScan struct {
 // Empty private tails are safe and skipped, keeping selective UPDATE/DELETE
 // discovery fast before their first mutation.
 func (e *executor) snapshotIndexable(ctx context.Context, m *tableMeta) bool {
-	if e.store == nil || !m.SnapshotOverlay {
+	if e.store == nil || e.store.flexEnabled() || !m.SnapshotOverlay {
 		return false
 	}
 	for _, seg := range m.snapshotSegments() {

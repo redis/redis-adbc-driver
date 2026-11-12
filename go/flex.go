@@ -31,6 +31,11 @@ import (
 
 func (s *store) flexEnabled() bool { return s != nil && s.flex }
 
+// Published Flex snapshots use exact directories even for a single baseline.
+func (s *store) flexSnapshotTable(meta *tableMeta) bool {
+	return s.flexEnabled() && s.snapshots && snapshotDataID(meta.prefix()) != ""
+}
+
 func flexUnsupported(operation string) error {
 	return errorf(adbc.StatusNotImplemented, "experimental Flex mode does not support %s", operation)
 }
