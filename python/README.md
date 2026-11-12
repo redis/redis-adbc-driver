@@ -57,8 +57,10 @@ Use `rediss://` for TLS. Search is required; writes autocommit and transactions
 are unsupported. SQL support comes from this driver. Installing the package
 does not install or start a Redis server.
 
-The `airflow` extra supports `adbc_driver_redis.airflow.RedisAdbcHook` for
-autocommit queries through Airflow.
+The `airflow` extra enables the registered Redis ADBC Airflow provider. Use a
+`redis_adbc` connection with `SQLExecuteQueryOperator(autocommit=True)` or import
+`adbc_driver_redis.airflow.RedisAdbcHook` directly. See the
+[Airflow guide](../docs/integrations/airflow.md).
 
 Optional extras: `sqlalchemy` for current SQLAlchemy, `superset` for the isolated
 Superset 6.1 / SQLAlchemy 1.4 compatibility environment,

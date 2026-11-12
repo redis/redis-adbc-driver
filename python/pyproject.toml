@@ -48,6 +48,9 @@ kestra-tests = ["pytest>=9.1.1", "pyarrow>=26", "requests>=2.32", "pyyaml>=6", "
 "redis.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
 "rediss.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
 
+[project.entry-points."apache_airflow_provider"]
+provider_info = "adbc_driver_redis.airflow_provider:get_provider_info"
+
 [project.entry-points."superset.db_engine_specs"]
 redis = "adbc_driver_redis.superset:RedisEngineSpec"
 rediss = "adbc_driver_redis.superset:RedisTLSEngineSpec"
