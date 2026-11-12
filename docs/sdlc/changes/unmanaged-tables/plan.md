@@ -1,7 +1,8 @@
 # Implementation and evidence
 
 Date: 2026-11-12. Base: a8de1c3c. Status: implemented and validated locally.
-See [intent](intent.md) and [specification](spec.md).
+See [intent](intent.md), [specification](spec.md), and
+[pull request #394](https://github.com/redis/redis-adbc-driver/pull/394).
 
 1. Add explicit mode selection and external descriptors with zero data edges.
 2. Register source identities without copying rows; preserve managed defaults.

@@ -1,7 +1,8 @@
 # Contract
 
 Date: 2026-11-12. Base: a8de1c3c. Status: implemented locally.
-See [intent](intent.md) and [plan](plan.md).
+See [intent](intent.md), [plan](plan.md), and
+[pull request #394](https://github.com/redis/redis-adbc-driver/pull/394).
 
 - Adoption accepts `Mode: "managed"` (also the empty default) or `"unmanaged"`.
   The CLI exposes `-mode`. Unmanaged adoption requires a compatible existing
