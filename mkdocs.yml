@@ -32,6 +32,8 @@ nav:
   - Reference:
       - Driver reference: docs/driver-reference.md
       - SQL example: docs/sql-redis-example.md
+      - Sample SQL queries: docs/sample-queries.md
+      - Feature matrices: docs/feature-matrices.md
       - SQL coverage: docs/sql-101-105.md
       - PostgreSQL compatibility: docs/postgresql18-compatibility.md
       - Statement snapshots: docs/snapshots.md

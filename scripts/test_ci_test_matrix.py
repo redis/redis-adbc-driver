@@ -30,6 +30,7 @@ class MatrixTests(unittest.TestCase):
             "go/validation/tests/test_partitions.py",
             "go/validation/tests/test_partitions_retained.py",
             ".github/workflows/test.yml", "scripts/ci_test_matrix.py",
+            "scripts/test_ci_parallel_suites.py",
         ):
             with self.subTest(path=path):
                 self.assert_full(select_matrix("pull_request", ["go/query.go", path]))
