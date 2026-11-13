@@ -2,7 +2,7 @@
 
 See [intent](intent.md) and [spec](spec.md).
 
-1. Reproduce a command-count regression on owned verified Software 4x QPF.
+1. Reproduce a pipeline-count regression and unchanged command bound on owned verified Software 4x QPF.
 2. Combine rank counts with independent lexicographic pages, preserving existing
    per-pipeline/per-source bounds and cardinality checks.
 3. Cover rank/page pipeline and command errors, sparse/tail/deletion cases,
