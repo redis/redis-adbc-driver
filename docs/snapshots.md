@@ -9,8 +9,9 @@ evaluation; its narrower feature and permission scope still applies.
 Explicit [unmanaged registrations](unmanaged-tables.md) expose live source
 HASHes without managed row snapshots. They own only catalog metadata, never
 source data/index generations. Their SQL writes and supported Arrow append
-change application HASHes one row at a time. These operations have no publication
-step and can partially succeed.
+change application HASHes with individually atomic row mutations. INSERT and
+Arrow append use bounded pipelines. These operations have no publication step
+and can partially succeed, including within an already-submitted pipeline.
 
 **Write managed tables through the driver using SQL or supported Arrow
 ingestion. Read through SQL/ADBC or the experimental

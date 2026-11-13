@@ -1,0 +1,70 @@
+{
+  "date": "2026-11-12",
+  "kind": "small in-process unmanaged diagnostic; not the published table-mode benchmark",
+  "base_commit": "8ed19932",
+  "candidate": {
+    "write_seconds": 0.122120125,
+    "one_reader_seconds": [
+      0.171807792,
+      0.17171125,
+      0.17798275
+    ],
+    "four_readers_seconds": [
+      0.097227125,
+      0.094549792,
+      0.091884459
+    ]
+  },
+  "rows": 4096,
+  "public_columns": 64,
+  "types": "BIGINT; generated exact values, no NULLs",
+  "server": {
+    "distribution": "Redis Software",
+    "redis_version": "8.8.0",
+    "shards": 3,
+    "storage": "RAM",
+    "tls": true,
+    "resp": 3,
+    "qpf_active": true,
+    "qpf_scaling_factor": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "container_cpu_limit": 0.0,
+    "container_ram_bytes": 0
+  },
+  "client": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "go": "go version go1.27.3 darwin/arm64",
+    "cpu": "Apple M5 Max",
+    "logical_cpus": 18,
+    "ram_bytes": 38654705664
+  },
+  "method": {
+    "writes": "one timed store.insertRows call per revision, including key preflight; conversion/input construction excluded; source scripts unchanged",
+    "reads": "three full-result SELECT * trials per reader count; one reader issues one scan; four readers process eight disjoint BETWEEN ranges; pre-opened connections, includes Arrow conversion and sqlHarness string rendering; no warmup",
+    "validation": "all stored HASH fields compared with input outside timing; complete query values and multiplicities compared outside timing; timings never assert a test threshold",
+    "order": "candidate experiments, then base, then final candidate; shared workstation; observational, not confidence intervals"
+  },
+  "base": {
+    "write_seconds": 3.369497792,
+    "one_reader_seconds": [
+      0.177719334,
+      0.190978458,
+      0.180049916
+    ],
+    "four_readers_seconds": [
+      0.432114125,
+      0.424750833,
+      0.422179959
+    ]
+  },
+  "limitations": [
+    "not an end-to-end SQL/Arrow ingest benchmark",
+    "no physical Flex performance run",
+    "no 100M ClickBench rerun",
+    "no new published benchmark claim",
+    "single write sample per revision"
+  ]
+}

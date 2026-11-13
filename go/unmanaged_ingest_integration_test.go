@@ -252,7 +252,12 @@ func TestUnmanagedArrowBoundedPartialFailure(t *testing.T) {
 
 func TestUnmanagedArrowUnknownReplyDoesNotReplay(t *testing.T) {
 	h, raw, schema := unmanagedIngestFixture(t, false)
-	st, input := unmanagedArrowInput(t, h, schema, adbc.OptionValueIngestModeAppend, []string{"app:0", "app:1", "app:2"}, []int64{20, 21, 22})
+	keys := make([]string, unmanagedInsertPipelineRows+1)
+	values := make([]int64, len(keys))
+	for i := range keys {
+		keys[i], values[i] = fmt.Sprintf("app:%d", i), int64(20+i)
+	}
+	st, input := unmanagedArrowInput(t, h, schema, adbc.OptionValueIngestModeAppend, keys, values)
 	hook := &unmanagedLostReply{t: t}
 	st.(*statementImpl).conn.store.client.AddHook(hook)
 	n, err := st.ExecuteUpdate(h.ctx)
@@ -260,8 +265,8 @@ func TestUnmanagedArrowUnknownReplyDoesNotReplay(t *testing.T) {
 		t.Fatalf("uncertain mutation replayed/count wrong: n=%d calls=%d err=%v", n, hook.calls, err)
 	}
 	assertUnmanagedAcknowledged(t, err, 1)
-	if input.batches.Load() != 1 || raw.HGet(h.ctx, "app:0", "n").Val() != "20" || raw.HGet(h.ctx, "app:1", "n").Val() != "21" || raw.Exists(h.ctx, "app:2").Val() != 0 {
-		t.Fatal("unknown reply did not stop after the applied, unacknowledged row")
+	if input.batches.Load() != 1 || raw.HGet(h.ctx, "app:0", "n").Val() != "20" || raw.HGet(h.ctx, "app:1", "n").Val() != "21" || raw.HGet(h.ctx, "app:2", "n").Val() != "22" || raw.Exists(h.ctx, keys[len(keys)-1]).Val() != 0 {
+		t.Fatal("submitted pipeline lost applied rows or replayed input")
 	}
 }
 
@@ -315,20 +320,44 @@ func (h *unmanagedArrowCancelHook) ProcessHook(next goredis.ProcessHook) goredis
 		return err
 	}
 }
+func (h *unmanagedArrowCancelHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		err := next(ctx, cmds)
+		for _, cmd := range cmds {
+			if err == nil && cmd.Name() == "eval" && len(cmd.Args()) > 3 && cmd.Args()[3] == "app:first" {
+				h.calls++
+				h.cancel()
+				break
+			}
+		}
+		return err
+	}
+}
 func TestUnmanagedArrowCancellation(t *testing.T) {
 	h, raw, schema := unmanagedIngestFixture(t, false)
-	st, input := unmanagedArrowInput(t, h, schema, adbc.OptionValueIngestModeAppend, []string{"app:first", "app:second"}, []int64{1, 2})
+	keys := make([]string, unmanagedInsertPipelineRows+1)
+	values := make([]int64, len(keys))
+	for i := range keys {
+		keys[i], values[i] = fmt.Sprintf("app:cancel%d", i), int64(i)
+	}
+	keys[0] = "app:first"
+	st, input := unmanagedArrowInput(t, h, schema, adbc.OptionValueIngestModeAppend, keys, values)
 	ctx, cancel := context.WithCancel(h.ctx)
 	defer cancel()
 	hook := &unmanagedArrowCancelHook{cancel: cancel}
 	st.(*statementImpl).conn.store.client.AddHook(hook)
 	n, err := st.ExecuteUpdate(ctx)
-	if n != 1 || err == nil || hook.calls != 1 {
+	if n != unmanagedInsertPipelineRows || err == nil || hook.calls != 1 {
 		t.Fatalf("n=%d calls=%d err=%v", n, hook.calls, err)
 	}
-	assertUnmanagedAcknowledged(t, err, 1)
-	if input.batches.Load() != 1 || raw.Exists(h.ctx, "app:second").Val() != 0 {
-		t.Fatal("cancellation continued or replayed source writes")
+	assertUnmanagedAcknowledged(t, err, n)
+	if input.batches.Load() != 1 || raw.Exists(h.ctx, keys[len(keys)-1]).Val() != 0 {
+		t.Fatal("cancellation submitted another pipeline or replayed input")
+	}
+	for _, key := range keys[:len(keys)-1] {
+		if raw.Exists(h.ctx, key).Val() != 1 {
+			t.Fatal("lost acknowledged pipeline row")
+		}
 	}
 }
 

@@ -378,7 +378,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 }
 
 // Acknowledged rows are a lower bound: an unknown reply can hide an applied
-// current row. Preserve the original status/SQLSTATE; never replay that row.
+// submitted batch. Preserve the original status/SQLSTATE; never replay writes.
 func unmanagedIngestError(acknowledged int64, err error) error {
 	var ae adbc.Error
 	if !errors.As(err, &ae) {
