@@ -1,0 +1,40 @@
+{
+  "unit_only": {
+    "command": "env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=4 go test -count=1 -p 1 -json ./...",
+    "exit_code": 0,
+    "test_pass_events": 1397,
+    "test_skip_events": 1273,
+    "test_fail_events": 0,
+    "package_pass_events": 7,
+    "package_skip_events": 3,
+    "skip_scope": "Integration endpoints and explicit opt-in diagnostics unset; no server compatibility inferred."
+  },
+  "live_broad_race": {
+    "command": "go test -count=1 -race -p 1 -timeout=10m -run '^TestUnmanaged' -json .",
+    "environment": "Owned Redis Software; API verified active/effective4xQPF,6Search workers,mnp32,noeviction,one4GiBshard; certificate-verified TLS/RESP3; GOMAXPROCS4; retained-control policy verified.",
+    "exit_code": 0,
+    "test_pass_events": 100,
+    "test_skip_events": 1,
+    "test_fail_events": 0,
+    "race_reports": 0,
+    "skips": [
+      {
+        "test": "TestUnmanagedPerformanceSample",
+        "reason": "Requires REDIS_UNMANAGED_PERF=true for timed diagnostic; native timing measured separately."
+      }
+    ]
+  },
+  "cleanup": {
+    "owned_containers_removed": 1,
+    "owned_networks_removed": 1,
+    "all_other_containers_preserved": true,
+    "all_other_networks_preserved": true,
+    "generated_env_removed": true,
+    "generated_tls_removed": true,
+    "private_settings_removed": true
+  },
+  "private_log_sha256": {
+    "unit-all.json": "5af2a6756818830bcdb0ea70f9d7daaad0c5553c923a4ef731507d04db51c6c3",
+    "live-broad-race.json": "4e348c43ad5d9b57e18fa93db62ba0633211f39c0f70fc292b89b179365ecb63"
+  }
+}

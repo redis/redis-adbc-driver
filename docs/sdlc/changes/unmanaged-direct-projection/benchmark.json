@@ -1,0 +1,1392 @@
+{
+  "date": "2026-11-13",
+  "host": {
+    "cpu": "Apple M5 Max",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664,
+    "os": "macOS26.7.3",
+    "architecture": "arm64"
+  },
+  "fixture": {
+    "product": "Redis Software",
+    "software_version": "8.2.6",
+    "redis_version": "8.8.0",
+    "search_version": 80808,
+    "database_memory_bytes": 4294967296,
+    "container_cpus": 4,
+    "container_memory_bytes": 8589934592,
+    "shards": 1,
+    "active_qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "eviction_policy": "noeviction",
+    "data_tls": "certificate-verified",
+    "protocol": 3,
+    "management_tls": "self-signed fixture bootstrap"
+  },
+  "design": {
+    "rows": 100000,
+    "columns": 105,
+    "block_order": [
+      "baseline",
+      "candidate"
+    ],
+    "case_order": "512/1,512/4,4096/1,4096/4 for odd repeat; reversed for even repeat; warmup repeat -1",
+    "warmup_per_cell": 1,
+    "measured_per_cell": 6,
+    "automatic_retries": 0,
+    "native_attempts": 56,
+    "validated_attempts": 56,
+    "failed_attempts": 0,
+    "discarded_attempts": 0,
+    "timing": "worker process pool creation through complete IPC writes; subsequent independent validation excluded",
+    "rss": "maximum individual worker ru_maxrss; not combined process-tree peak",
+    "validation": "complete independently typed source comparison including physical types, values and row multiplicities; SQL+raw checks before reads, raw after reads",
+    "caveats": [
+      "Baseline-first blocks are not time-interleaved; ordering/time effects remain.",
+      "One-reader full LOAD* scan targets new projection. Four-reader ordinal ranges retain unchanged residual/HGETALL fallback and are controls.",
+      "No ClickBench or unmanaged retrieval strategy change."
+    ]
+  },
+  "variants": {
+    "baseline": {
+      "metadata": {
+        "driver_version": "v0.1.0-dev.merged-perf",
+        "driver_source_commit": "ba855f7995b2685182ed1331bcf6703d73089c4a",
+        "driver_sha256": "dab0555209c3f61506aa1f5e23d33b3ff4a6351eb35dd67341af803c7507a190",
+        "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+        "read_rows": 100000,
+        "write_rows": 10000,
+        "columns": 105,
+        "read_repetitions": 6,
+        "write_repetitions": 0,
+        "sql_batch_rows": 1000,
+        "protocol": 3,
+        "tls": true,
+        "packages": {
+          "pyarrow": "26.0.1",
+          "adbc-driver-manager": "1.13.0",
+          "redis": "8.1.0",
+          "hiredis": "3.5.0"
+        },
+        "scope": "Unmanaged native direct projection",
+        "automatic_retries": 0
+      },
+      "cells": [
+        {
+          "readers": 1,
+          "batch_rows": 512,
+          "strategy": "full_LOAD",
+          "n": 6,
+          "seconds": {
+            "median": 6.2502900835097535,
+            "min": 6.113429792021634,
+            "max": 6.483195541979512,
+            "samples": [
+              6.258611750003183,
+              6.188078207982471,
+              6.483195541979512,
+              6.241968417016324,
+              6.307975667004939,
+              6.113429792021634
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.39504420800949447,
+            "min": 0.38341350000700913,
+            "max": 0.4096886250190437,
+            "samples": [
+              0.38974883302580565,
+              0.38412224999046884,
+              0.40210820897482336,
+              0.4003395829931833,
+              0.38341350000700913,
+              0.4096886250190437
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 355475456.0,
+            "min": 349716480,
+            "max": 359448576,
+            "samples": [
+              359448576,
+              352583680,
+              357761024,
+              349716480,
+              355221504,
+              355729408
+            ]
+          }
+        },
+        {
+          "readers": 1,
+          "batch_rows": 4096,
+          "strategy": "full_LOAD",
+          "n": 6,
+          "seconds": {
+            "median": 5.877855708502466,
+            "min": 5.831330250017345,
+            "max": 6.2080462079902645,
+            "samples": [
+              5.831330250017345,
+              5.899625666992506,
+              5.8330541670147795,
+              6.047958374983864,
+              6.2080462079902645,
+              5.856085750012426
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.6191186044889037,
+            "min": 0.5964745840174146,
+            "max": 0.6406753329792991,
+            "samples": [
+              0.6109695000050124,
+              0.6186174169997685,
+              0.632137334003346,
+              0.6196197919780388,
+              0.6406753329792991,
+              0.5964745840174146
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 465797120.0,
+            "min": 437633024,
+            "max": 484589568,
+            "samples": [
+              462045184,
+              457670656,
+              477806592,
+              437633024,
+              484589568,
+              469549056
+            ]
+          }
+        },
+        {
+          "readers": 4,
+          "batch_rows": 512,
+          "strategy": "live_residual_HGETALL",
+          "n": 6,
+          "seconds": {
+            "median": 2.206226021007751,
+            "min": 2.173584041011054,
+            "max": 2.36106033300166,
+            "samples": [
+              2.173584041011054,
+              2.36106033300166,
+              2.2097940420208033,
+              2.202657999994699,
+              2.189360291988123,
+              2.2797599579789676
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.5444152709824266,
+            "min": 0.4978065410105046,
+            "max": 0.5649976670101751,
+            "samples": [
+              0.4978065410105046,
+              0.5649976670101751,
+              0.5262450000154786,
+              0.5513846249959897,
+              0.543632124987198,
+              0.5451984169776551
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 506036224.0,
+            "min": 473120768,
+            "max": 513196032,
+            "samples": [
+              497401856,
+              473120768,
+              503939072,
+              513196032,
+              513114112,
+              508133376
+            ]
+          }
+        },
+        {
+          "readers": 4,
+          "batch_rows": 4096,
+          "strategy": "live_residual_HGETALL",
+          "n": 6,
+          "seconds": {
+            "median": 2.093224854004802,
+            "min": 2.0334565000084694,
+            "max": 2.184853708022274,
+            "samples": [
+              2.072583166998811,
+              2.0334565000084694,
+              2.1537767500267364,
+              2.184853708022274,
+              2.0755534160125535,
+              2.110896291997051
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.5522801670012996,
+            "min": 0.5342219580197707,
+            "max": 0.5688954170036595,
+            "samples": [
+              0.5431005419814028,
+              0.5420797090046108,
+              0.5342219580197707,
+              0.5688954170036595,
+              0.5680708329891786,
+              0.5614597920211963
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 516612096.0,
+            "min": 488603648,
+            "max": 528318464,
+            "samples": [
+              515932160,
+              517292032,
+              528318464,
+              488603648,
+              526794752,
+              509083648
+            ]
+          }
+        }
+      ],
+      "reads": [
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 6.2842937920067925,
+          "first_batch_seconds": 0.4929555840208195,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 357613568
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 2.2830773330060765,
+          "first_batch_seconds": 0.5327522910083644,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 503136256
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 5.91969679101021,
+          "first_batch_seconds": 0.5997633330116514,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 472285184
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 2.2259297089767642,
+          "first_batch_seconds": 0.6310497089871205,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 483655680
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 2.072583166998811,
+          "first_batch_seconds": 0.5431005419814028,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 515932160
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 5.831330250017345,
+          "first_batch_seconds": 0.6109695000050124,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 462045184
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 2.173584041011054,
+          "first_batch_seconds": 0.4978065410105046,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 497401856
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 6.258611750003183,
+          "first_batch_seconds": 0.38974883302580565,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 359448576
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 6.188078207982471,
+          "first_batch_seconds": 0.38412224999046884,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 352583680
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 2.36106033300166,
+          "first_batch_seconds": 0.5649976670101751,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 473120768
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 5.899625666992506,
+          "first_batch_seconds": 0.6186174169997685,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 457670656
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 2.0334565000084694,
+          "first_batch_seconds": 0.5420797090046108,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 517292032
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 2.1537767500267364,
+          "first_batch_seconds": 0.5342219580197707,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 528318464
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 5.8330541670147795,
+          "first_batch_seconds": 0.632137334003346,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 477806592
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 2.2097940420208033,
+          "first_batch_seconds": 0.5262450000154786,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 503939072
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 6.483195541979512,
+          "first_batch_seconds": 0.40210820897482336,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 357761024
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 6.241968417016324,
+          "first_batch_seconds": 0.4003395829931833,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 349716480
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 2.202657999994699,
+          "first_batch_seconds": 0.5513846249959897,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 513196032
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 6.047958374983864,
+          "first_batch_seconds": 0.6196197919780388,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 437633024
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 2.184853708022274,
+          "first_batch_seconds": 0.5688954170036595,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 488603648
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 2.0755534160125535,
+          "first_batch_seconds": 0.5680708329891786,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 526794752
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 6.2080462079902645,
+          "first_batch_seconds": 0.6406753329792991,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 484589568
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 2.189360291988123,
+          "first_batch_seconds": 0.543632124987198,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 513114112
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 6.307975667004939,
+          "first_batch_seconds": 0.38341350000700913,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 355221504
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 6.113429792021634,
+          "first_batch_seconds": 0.4096886250190437,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 355729408
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 2.2797599579789676,
+          "first_batch_seconds": 0.5451984169776551,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 508133376
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 5.856085750012426,
+          "first_batch_seconds": 0.5964745840174146,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 469549056
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 2.110896291997051,
+          "first_batch_seconds": 0.5614597920211963,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 509083648
+        }
+      ],
+      "initial_qpf": null,
+      "final_qpf": {
+        "factor": 4,
+        "workers": 6,
+        "routing": "mnp",
+        "connections": 32,
+        "memory_bytes": 4294967296
+      }
+    },
+    "candidate": {
+      "metadata": {
+        "driver_version": "v0.1.0-dev.unmanaged-projection",
+        "driver_source_commit": "699cfebf89157053a79a139f43001166584153c2",
+        "driver_sha256": "ba301764f2f77aa51af2ad55acd0bb456fd66b09cb0b0bf0debce52974d9e544",
+        "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+        "read_rows": 100000,
+        "write_rows": 10000,
+        "columns": 105,
+        "read_repetitions": 6,
+        "write_repetitions": 0,
+        "sql_batch_rows": 1000,
+        "protocol": 3,
+        "tls": true,
+        "packages": {
+          "pyarrow": "26.0.1",
+          "adbc-driver-manager": "1.13.0",
+          "redis": "8.1.0",
+          "hiredis": "3.5.0"
+        },
+        "scope": "Unmanaged native direct projection",
+        "automatic_retries": 0
+      },
+      "cells": [
+        {
+          "readers": 1,
+          "batch_rows": 512,
+          "strategy": "full_LOAD",
+          "n": 6,
+          "seconds": {
+            "median": 5.270102291484363,
+            "min": 5.223200584005099,
+            "max": 5.501623124990147,
+            "samples": [
+              5.501623124990147,
+              5.223200584005099,
+              5.282707124977605,
+              5.257497457991121,
+              5.2528899169992656,
+              5.320624958985718
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.38248843798646703,
+            "min": 0.3717780419974588,
+            "max": 0.3913007089868188,
+            "samples": [
+              0.3913007089868188,
+              0.3718799589842092,
+              0.38076633398304693,
+              0.3861225000000559,
+              0.3717780419974588,
+              0.38421054198988713
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 268976128.0,
+            "min": 267517952,
+            "max": 270467072,
+            "samples": [
+              270467072,
+              269074432,
+              269828096,
+              268877824,
+              268877824,
+              267517952
+            ]
+          }
+        },
+        {
+          "readers": 1,
+          "batch_rows": 4096,
+          "strategy": "full_LOAD",
+          "n": 6,
+          "seconds": {
+            "median": 5.1338502500002505,
+            "min": 5.01911675001611,
+            "max": 5.543014499999117,
+            "samples": [
+              5.543014499999117,
+              5.120711374998791,
+              5.14698912500171,
+              5.155412958003581,
+              5.101808458013693,
+              5.01911675001611
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.56303481249779,
+            "min": 0.5595634580240585,
+            "max": 0.5830492909881286,
+            "samples": [
+              0.5830492909881286,
+              0.5634661669901107,
+              0.5790247079858091,
+              0.5626034580054693,
+              0.5595634580240585,
+              0.5616816670226399
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 276471808.0,
+            "min": 274726912,
+            "max": 277282816,
+            "samples": [
+              276561920,
+              276381696,
+              277282816,
+              274726912,
+              275955712,
+              276791296
+            ]
+          }
+        },
+        {
+          "readers": 4,
+          "batch_rows": 512,
+          "strategy": "live_residual_HGETALL",
+          "n": 6,
+          "seconds": {
+            "median": 2.2160901040188037,
+            "min": 2.0979323749779724,
+            "max": 2.339339333004318,
+            "samples": [
+              2.213886083016405,
+              2.2119955829984974,
+              2.0979323749779724,
+              2.2182941250212025,
+              2.263575541001046,
+              2.339339333004318
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.5461719790037023,
+            "min": 0.5163689160253853,
+            "max": 0.5778950840176549,
+            "samples": [
+              0.5700897499918938,
+              0.5375712079985533,
+              0.5246174169878941,
+              0.5778950840176549,
+              0.5163689160253853,
+              0.5547727500088513
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 510361600.0,
+            "min": 499679232,
+            "max": 514326528,
+            "samples": [
+              514326528,
+              512065536,
+              508657664,
+              512638976,
+              499679232,
+              505266176
+            ]
+          }
+        },
+        {
+          "readers": 4,
+          "batch_rows": 4096,
+          "strategy": "live_residual_HGETALL",
+          "n": 6,
+          "seconds": {
+            "median": 2.1729076040064683,
+            "min": 2.00433370898827,
+            "max": 2.187522624997655,
+            "samples": [
+              2.178646916989237,
+              2.1676038329896983,
+              2.187522624997655,
+              2.00433370898827,
+              2.1260924999951385,
+              2.1782113750232384
+            ]
+          },
+          "first_batch_seconds": {
+            "median": 0.5650193124893121,
+            "min": 0.53298058299697,
+            "max": 0.5762864170246758,
+            "samples": [
+              0.5695700839860365,
+              0.53298058299697,
+              0.5604685409925878,
+              0.5709448340057861,
+              0.5405992500018328,
+              0.5762864170246758
+            ]
+          },
+          "peak_worker_rss_bytes": {
+            "median": 519700480.0,
+            "min": 497827840,
+            "max": 527089664,
+            "samples": [
+              524976128,
+              497827840,
+              525647872,
+              514424832,
+              514211840,
+              527089664
+            ]
+          }
+        }
+      ],
+      "reads": [
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 5.3857390000193845,
+          "first_batch_seconds": 0.44590504199732095,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 269959168
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 2.495205250015715,
+          "first_batch_seconds": 0.6498754580097739,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 500334592
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 5.131242584000574,
+          "first_batch_seconds": 0.5999106669914909,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 275660800
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": -1,
+          "warmup": true,
+          "seconds": 2.0147105409996584,
+          "first_batch_seconds": 0.5493556250003166,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 511918080
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 2.178646916989237,
+          "first_batch_seconds": 0.5695700839860365,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 524976128
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 5.543014499999117,
+          "first_batch_seconds": 0.5830492909881286,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 276561920
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 2.213886083016405,
+          "first_batch_seconds": 0.5700897499918938,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 514326528
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 0,
+          "warmup": false,
+          "seconds": 5.501623124990147,
+          "first_batch_seconds": 0.3913007089868188,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 270467072
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 5.223200584005099,
+          "first_batch_seconds": 0.3718799589842092,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 269074432
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 2.2119955829984974,
+          "first_batch_seconds": 0.5375712079985533,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 512065536
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 5.120711374998791,
+          "first_batch_seconds": 0.5634661669901107,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 276381696
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 1,
+          "warmup": false,
+          "seconds": 2.1676038329896983,
+          "first_batch_seconds": 0.53298058299697,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 497827840
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 2.187522624997655,
+          "first_batch_seconds": 0.5604685409925878,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 525647872
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 5.14698912500171,
+          "first_batch_seconds": 0.5790247079858091,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 277282816
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 2.0979323749779724,
+          "first_batch_seconds": 0.5246174169878941,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 508657664
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 2,
+          "warmup": false,
+          "seconds": 5.282707124977605,
+          "first_batch_seconds": 0.38076633398304693,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 269828096
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 5.257497457991121,
+          "first_batch_seconds": 0.3861225000000559,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 268877824
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 2.2182941250212025,
+          "first_batch_seconds": 0.5778950840176549,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 512638976
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 5.155412958003581,
+          "first_batch_seconds": 0.5626034580054693,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 274726912
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 3,
+          "warmup": false,
+          "seconds": 2.00433370898827,
+          "first_batch_seconds": 0.5709448340057861,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 514424832
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 2.1260924999951385,
+          "first_batch_seconds": 0.5405992500018328,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 514211840
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 5.101808458013693,
+          "first_batch_seconds": 0.5595634580240585,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 275955712
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 2.263575541001046,
+          "first_batch_seconds": 0.5163689160253853,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 499679232
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 4,
+          "warmup": false,
+          "seconds": 5.2528899169992656,
+          "first_batch_seconds": 0.3717780419974588,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 268877824
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 512,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 5.320624958985718,
+          "first_batch_seconds": 0.38421054198988713,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 267517952
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 512,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 2.339339333004318,
+          "first_batch_seconds": 0.5547727500088513,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 505266176
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 1,
+          "batch_rows": 4096,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 5.01911675001611,
+          "first_batch_seconds": 0.5616816670226399,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 1,
+          "validated": true,
+          "strategy": "full_LOAD",
+          "peak_worker_rss_bytes": 276791296
+        },
+        {
+          "mode": "unmanaged",
+          "readers": 4,
+          "batch_rows": 4096,
+          "repeat": 5,
+          "warmup": false,
+          "seconds": 2.1782113750232384,
+          "first_batch_seconds": 0.5762864170246758,
+          "rows": 100000,
+          "columns": 105,
+          "tasks": 8,
+          "validated": true,
+          "strategy": "live_residual_HGETALL",
+          "peak_worker_rss_bytes": 527089664
+        }
+      ],
+      "initial_qpf": null,
+      "final_qpf": {
+        "factor": 4,
+        "workers": 6,
+        "routing": "mnp",
+        "connections": 32,
+        "memory_bytes": 4294967296
+      }
+    }
+  },
+  "binaries": [
+    {
+      "label": "baseline",
+      "source_commit": "ba855f7995b2685182ed1331bcf6703d73089c4a",
+      "version": "v0.1.0-dev.merged-perf",
+      "library_sha256": "dab0555209c3f61506aa1f5e23d33b3ff4a6351eb35dd67341af803c7507a190",
+      "cli_sha256": "5913a0c906d1cd88f20537dca4dac027db511a8194d5671b52a1708004fe870f",
+      "go_toolchain": "go1.27.3",
+      "exit_code": 0
+    },
+    {
+      "label": "candidate",
+      "source_commit": "699cfebf89157053a79a139f43001166584153c2",
+      "version": "v0.1.0-dev.unmanaged-projection",
+      "library_sha256": "ba301764f2f77aa51af2ad55acd0bb456fd66b09cb0b0bf0debce52974d9e544",
+      "cli_sha256": "ee7b2af4d94142d4704f9210d0af8b7214351e953f24113594db8246beb2bbbe",
+      "go_toolchain": "go1.27.3",
+      "exit_code": 0
+    }
+  ],
+  "harness": {
+    "path": "benchmarks/table-modes/unmanaged_projection_read.py",
+    "sha256": "804ef479ad5ae96ec0c6738da93a7a9fffdd072465470e8114d561a2645c619a"
+  },
+  "conversion_microbenchmark": {
+    "command": "env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=4 go test -count=3 -p 1 -run '^$' -bench '^BenchmarkUnmanagedWideArrowConversion$' -benchmem -benchtime=200ms .",
+    "rows": 256,
+    "columns": 105,
+    "generic": {
+      "ns_per_op": [
+        5362560,
+        4998018,
+        5075312
+      ],
+      "bytes_per_op": [
+        10035438,
+        10035542,
+        10035431
+      ],
+      "allocations_per_op": [
+        30050,
+        30050,
+        30050
+      ]
+    },
+    "direct": {
+      "ns_per_op": [
+        2386473,
+        2380738,
+        2391898
+      ],
+      "bytes_per_op": [
+        658241,
+        658241,
+        658242
+      ],
+      "allocations_per_op": [
+        1487,
+        1487,
+        1487
+      ]
+    },
+    "exit_code": 0,
+    "validation": "complete values and physical types before and after timing",
+    "excluded_diagnostic": "Earlier overlapping microbenchmark invocation retained privately and excluded from these samples."
+  }
+}
