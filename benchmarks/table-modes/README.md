@@ -5,6 +5,11 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+The [managed SQL admission fix](sql-admission-2026-11-12/report.md) separately
+reruns the affected managed writers and synchronized controls on unreleased fix
+source. Same-table SQL DML now shares Arrow's admission gate; all recorded writers
+complete. Earlier conflicts remain labeled by the versions that produced them.
+
 `run.py` requires PyArrow, adbc-driver-manager, redis[hiredis] and requests, an
 exact release shared library/CLI, and the independently typed Arrow source
 identified by SHA-256 in the result metadata. Source data and private operational

@@ -8,3 +8,6 @@
    without retries, validate full output, document limits and create a PR.
 
 See [intent](intent.md), [spec](spec.md).
+
+All steps completed. See [validation](validation.md) for reproduction, full
+coverage accounting, benchmark results, fixture adaptation and cleanup.
