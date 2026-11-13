@@ -378,7 +378,10 @@ segment indexes remain unchanged. New segments get their own indexes.
 
 Each segment has an exact row-ID sorted-set directory. All directory scores are
 zero; zero-padded decimal IDs provide exact lexical ordering without double
-rounding. Reads merge the bounded segment directories in row-ID order. The newest
+rounding. Reads merge the bounded segment directories in row-ID order. Eligible row-local
+SELECTs over a single committed managed generation reuse this reader without
+explicit ORDER BY or LIMIT. Single-directory positional reads use at most 4,096
+identities per page; multi-segment and compaction bounds stay unchanged. The newest
 version wins, including deletion markers, **before** SQL predicates, grouping,
 aggregates, ordering, OFFSET or LIMIT. Direct row-ID lookups search newest to
 oldest. Unbounded implicit insertion-order reads use that exact ascending merge

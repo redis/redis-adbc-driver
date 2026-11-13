@@ -1,0 +1,287 @@
+{
+  "date": "2026-11-12",
+  "base_commit": "349f1e32",
+  "candidate": "working tree on codex/managed-performance",
+  "scope": "in-process Go diagnostic; synthetic 4096 rows x 64 BIGINT columns; exact values/multiplicities verified outside read timing",
+  "server": {
+    "distribution": "Redis Software",
+    "redis_version": "8.8.0",
+    "shards": 3,
+    "storage": "RAM",
+    "tls": true,
+    "resp": 3,
+    "qpf_active": true,
+    "qpf_scaling_factor": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "container_cpu_limit": 0.0,
+    "container_ram_bytes": 0
+  },
+  "client": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "go": "go version go1.27.3 darwin/arm64",
+    "cpu": "Apple M5 Max",
+    "logical_cpus": 18,
+    "ram_bytes": 38654705664
+  },
+  "method": {
+    "read_trials": "one warmup (trial=0) plus three measured complete-result trials per shape",
+    "write_trials": "one timed 4096-row SQL INSERT SELECT per revision; table creation excluded",
+    "reader_workers": 1,
+    "timing": "connection already open; query timing includes Arrow consumption and test-harness string rendering; command latency is client-observed, not server CPU",
+    "order": "baseline then candidate, sequential suites on a shared workstation; observational, not confidence intervals"
+  },
+  "baseline": {
+    "insert_seconds": 0.508045084,
+    "insert_script_calls": {
+      "eval-index-notify": {
+        "commands": 16,
+        "client_elapsed_seconds": 0.138198543
+      },
+      "eval-row-batch": {
+        "commands": 16,
+        "client_elapsed_seconds": 0.171864541
+      }
+    },
+    "read_seconds_including_warmup": {
+      "SELECT * FROM mp": [
+        0.284019541,
+        0.267982042,
+        0.27830875,
+        0.272785417
+      ],
+      "SELECT id FROM mp": [
+        0.169775792,
+        0.171047292,
+        0.172609125,
+        0.156186209
+      ],
+      "SELECT * FROM mp WHERE id BETWEEN 100 AND 200": [
+        0.165595458,
+        0.166527834,
+        0.167707916,
+        0.16955008300000002
+      ]
+    },
+    "overlay_narrow_seconds": 0.06633750000000001,
+    "read_trial_1_command_counts": {
+      "SELECT * FROM mp": {
+        "config": 2,
+        "evalsha": 7,
+        "ft.aggregate": 1,
+        "ft.cursor": 1,
+        "ft.info": 10,
+        "ft.search": 1,
+        "get": 2,
+        "hgetall": 1,
+        "p:exists": 2,
+        "p:ft.info": 1,
+        "p:hget": 3,
+        "p:hlen": 3,
+        "p:hmget": 4100,
+        "p:zcard": 4,
+        "pipelines": 7,
+        "zrange": 2
+      },
+      "SELECT id FROM mp": {
+        "config": 2,
+        "evalsha": 7,
+        "ft.aggregate": 1,
+        "ft.info": 7,
+        "ft.search": 1,
+        "get": 2,
+        "hgetall": 1,
+        "p:exists": 2,
+        "p:ft.info": 1,
+        "p:hget": 3,
+        "p:hlen": 3,
+        "p:hmget": 4100,
+        "p:zcard": 4,
+        "pipelines": 11,
+        "zrange": 2
+      },
+      "SELECT * FROM mp WHERE id BETWEEN 100 AND 200": {
+        "config": 2,
+        "evalsha": 7,
+        "ft.aggregate": 1,
+        "ft.info": 7,
+        "ft.search": 1,
+        "get": 2,
+        "hgetall": 1,
+        "p:exists": 2,
+        "p:ft.info": 1,
+        "p:hget": 3,
+        "p:hlen": 3,
+        "p:hmget": 105,
+        "p:zcard": 4,
+        "pipelines": 7,
+        "zrange": 2
+      }
+    }
+  },
+  "candidate_results": {
+    "insert_seconds": 0.48783499999999996,
+    "insert_script_calls": {
+      "eval-index-notify": {
+        "commands": 16,
+        "client_elapsed_seconds": 0.135636001
+      },
+      "eval-row-batch": {
+        "commands": 16,
+        "client_elapsed_seconds": 0.16640171
+      }
+    },
+    "read_seconds_including_warmup": {
+      "SELECT * FROM mp": [
+        0.11428475,
+        0.106987792,
+        0.116396458,
+        0.104590459
+      ],
+      "SELECT id FROM mp": [
+        0.035288708,
+        0.041875542,
+        0.038464083,
+        0.042100166
+      ],
+      "SELECT * FROM mp WHERE id BETWEEN 100 AND 200": [
+        0.048907083000000004,
+        0.053994541,
+        0.0415615,
+        0.052817791999999995
+      ]
+    },
+    "overlay_narrow_seconds": 0.059117584,
+    "read_trial_1_command_counts": {
+      "SELECT * FROM mp": {
+        "evalsha": 6,
+        "get": 1,
+        "hgetall": 1,
+        "p:exists": 1,
+        "p:ft.info": 1,
+        "p:hget": 2,
+        "p:hlen": 2,
+        "p:hmget": 4098,
+        "p:zcard": 3,
+        "pipelines": 5,
+        "zrange": 4
+      },
+      "SELECT id FROM mp": {
+        "evalsha": 6,
+        "get": 1,
+        "hgetall": 1,
+        "p:exists": 1,
+        "p:ft.info": 1,
+        "p:hget": 2,
+        "p:hlen": 2,
+        "p:hmget": 4098,
+        "p:zcard": 3,
+        "pipelines": 5,
+        "zrange": 4
+      },
+      "SELECT * FROM mp WHERE id BETWEEN 100 AND 200": {
+        "evalsha": 6,
+        "ft.search": 1,
+        "get": 3,
+        "hgetall": 1,
+        "p:exists": 2,
+        "p:ft.info": 1,
+        "p:hget": 3,
+        "p:hlen": 3,
+        "p:hmget": 105,
+        "p:zcard": 5,
+        "pipelines": 8,
+        "zrange": 2
+      }
+    }
+  },
+  "microbenchmarks": {
+    "image_byte_budget": {
+      "columns": 64,
+      "baseline_ns": [
+        2506,
+        2496,
+        2505
+      ],
+      "candidate_ns": [
+        44.1,
+        43.93,
+        42.81
+      ],
+      "baseline_allocs": 128,
+      "candidate_allocs": 0,
+      "baseline_bytes": 1217,
+      "candidate_bytes": 0
+    },
+    "directory_merge": {
+      "rows_per_page": 256,
+      "baseline": {
+        "1": {
+          "ns": [
+            28466,
+            26820,
+            26212
+          ],
+          "bytes": 32947,
+          "allocs": 940
+        },
+        "4": {
+          "ns": [
+            36118,
+            36249,
+            36719
+          ],
+          "bytes": 49349,
+          "allocs": 1196
+        },
+        "8": {
+          "ns": [
+            45030,
+            45378,
+            45340
+          ],
+          "bytes": 65750,
+          "allocs": 1196
+        }
+      },
+      "candidate": {
+        "1": {
+          "ns": [
+            16540,
+            16221,
+            16890
+          ],
+          "bytes": 26752,
+          "allocs": 526
+        },
+        "4": {
+          "ns": [
+            23410,
+            23127,
+            22705
+          ],
+          "bytes": 26752,
+          "allocs": 526
+        },
+        "8": {
+          "ns": [
+            29388,
+            29447,
+            29746
+          ],
+          "bytes": 26752,
+          "allocs": 526
+        }
+      }
+    }
+  },
+  "limitations": [
+    "no production throughput claim from the single write observations",
+    "no 100K published table-mode rerun",
+    "no 100M ClickBench rerun",
+    "no physical Flex performance run",
+    "Cluster API, restricted-principal and old-worker fixtures not configured for these runs"
+  ]
+}

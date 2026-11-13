@@ -709,6 +709,12 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		// preserving the ordinary path's residual/order/limit restrictions.
 		if req.where.keys == nil && snapshotHashFetch(req) {
 			it.hashFetch = true
+			// Match the existing positional HASH pipeline ceiling for a single
+			// committed directory. Multi-segment merge/copy checkpoints keep their
+			// smaller pages; no private writer output is admitted here.
+			if it.delta != nil && len(it.delta.sources) == 1 && !snapshotOwns(ctx, req.meta.prefix()) && req.meta.SnapshotRows != nil {
+				it.delta.pageRows, it.delta.directoryPageRows = wideFetchChunk, wideFetchChunk
+			}
 		}
 		return it, nil
 	}
@@ -1336,6 +1342,17 @@ type selectScan struct {
 // sorts and limits them.
 func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []Value) (selectScan, error) {
 	meta := plan.meta
+	// A committed single generation has the same exact directory/identity
+	// guarantees as an overlay. Reuse that reader for ordinary row-local scans,
+	// avoiding bounded Search cursors and repeated capability/readiness probes.
+	// Only the request's copy changes; persisted descriptors and plans stay intact.
+	if snapshotOf(ctx) != nil && meta.SnapshotRows != nil && !meta.SnapshotOverlay &&
+		len(meta.SnapshotSegments) == 0 && managedRowIDTable(meta) && !snapshotOwns(ctx, meta.prefix()) &&
+		len(meta.PendingCleanup) == 0 && plan.streamable() && len(plan.order) == 0 && plan.sel.Limit == nil {
+		copy := *meta
+		copy.SnapshotOverlay = true
+		meta = &copy
+	}
 	wp, err := e.planWhere(ctx, plan.sel.Where, meta, params)
 	if err != nil {
 		return selectScan{}, err

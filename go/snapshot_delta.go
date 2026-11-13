@@ -62,14 +62,15 @@ type snapshotDeltaSource struct {
 	done    bool
 }
 type snapshotDeltaScan struct {
-	store       *store
-	meta        *tableMeta
-	sources     []snapshotDeltaSource
-	fields      []string
-	last        string
-	pageRows    int
-	through     string
-	keepDeleted bool // partial compaction must shadow preserved older segments
+	store             *store
+	meta              *tableMeta
+	sources           []snapshotDeltaSource
+	fields            []string
+	last              string
+	pageRows          int
+	directoryPageRows int // bounded ordinary single-generation reads; zero uses the merge default
+	through           string
+	keepDeleted       bool // partial compaction must shadow preserved older segments
 }
 
 func newSnapshotDeltaScan(s *store, m *tableMeta, fields []string) *snapshotDeltaScan {
@@ -101,6 +102,9 @@ func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 		// Respect its smaller page bound instead of repeatedly fetching and
 		// throwing away directory entries beyond that checkpoint.
 		page := snapshotDeltaPage
+		if d.directoryPageRows > 0 {
+			page = d.directoryPageRows
+		}
 		if d.pageRows > 0 {
 			page = min(page, d.pageRows)
 		}
@@ -135,13 +139,11 @@ func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, e
 			return nil, nil, err
 		}
 		smallest := ""
-		heads := make([]string, len(d.sources))
 		for i := range d.sources {
 			id, err := d.head(ctx, i)
 			if err != nil {
 				return nil, nil, err
 			}
-			heads[i] = id
 			if id != "" && (smallest == "" || id < smallest) {
 				smallest = id
 			}
@@ -150,18 +152,24 @@ func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, e
 			break
 		}
 		winner := -1
-		for i, id := range heads {
-			if id == smallest {
+		// head has loaded each source's current page. Read those positions
+		// directly instead of allocating a scratch head slice for every row.
+		for i := range d.sources {
+			src := &d.sources[i]
+			if src.at < len(src.ids) && src.ids[src.at] == smallest {
 				winner = i
-				d.sources[i].at++
+				src.at++
 			}
 		}
 		n, err := strconv.ParseInt(smallest, 10, 64)
-		if err != nil || n < 1 || fmt.Sprintf("%020d", n) != smallest {
+		if err != nil || n < 1 || smallest[0] != '0' {
 			return nil, nil, errorf(adbc.StatusIO, "invalid snapshot row identity")
 		}
 		d.last = smallest
-		id := strconv.FormatInt(n, 10)
+		// head requires exactly 20 bytes. A positive int64 fits in 19 decimal
+		// digits, so leading zero plus successful ParseInt proves canonical
+		// zero padding; no formatting allocation is needed to recheck it.
+		id := strings.TrimLeft(smallest, "0")
 		logical = append(logical, d.meta.prefix()+id)
 		physical = append(physical, d.sources[winner].segment.Prefix+id)
 	}

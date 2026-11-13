@@ -293,7 +293,14 @@ func (s *store) writeSnapshotImages(ctx context.Context, prefix string, images [
 func snapshotImageBytes(row snapshotInsertRow) int {
 	size := len(row.key) + 128
 	for _, field := range row.fields {
-		size += len(fmt.Sprint(field))
+		// Column names and encodeStored results already are strings. Avoid a
+		// formatting buffer/allocation for each one; retain identical accounting
+		// for other command argument types used by callers.
+		if value, ok := field.(string); ok {
+			size += len(value)
+		} else {
+			size += len(fmt.Sprint(field))
+		}
 	}
 	return size
 }
