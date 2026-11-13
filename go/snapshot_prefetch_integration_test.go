@@ -53,7 +53,7 @@ func TestSnapshotPrefetchUpdateDeleteAfterDiscovery(t *testing.T) {
 			}
 			it := &scanIter{meta: meta, store: st, fetch: fields, need: need, hashFetch: true, allowPrefetch: true, env: &evalEnv{ctx: ctx}}
 			if indexed {
-				it.candidates = newSnapshotCandidateScan(ctx, st, meta, fmt.Sprintf("@c0:[1 %d]", count), fields)
+				it.candidates = newSnapshotCandidateScan(ctx, st, meta, fmt.Sprintf("@c0:[1 %d]", count), fields, snapshotDeltaPage)
 			} else {
 				it.delta = newSnapshotDeltaScan(st, meta, fields)
 			}

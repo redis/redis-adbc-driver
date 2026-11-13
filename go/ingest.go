@@ -398,17 +398,34 @@ func ingestColumn(arr arrow.Array, target ColType, zone tzZone, rows [][]Value, 
 		return errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
 	}
 	var read func(int) Value
+	exactInteger := false
 	switch a := arr.(type) {
 	case *array.Int16:
 		read = func(i int) Value { return intValue(typeInt16, int64(a.Value(i))) }
+		exactInteger = target == typeInt16
 	case *array.Int32:
 		read = func(i int) Value { return intValue(typeInt32, int64(a.Value(i))) }
+		exactInteger = target == typeInt32
 	case *array.Int64:
 		read = func(i int) Value { return intValue(typeInt64, a.Value(i)) }
+		exactInteger = target == typeInt64
 	case *array.String:
 		read = func(i int) Value { return stringValue(strings.Clone(a.Value(i))) }
 	case *array.LargeString:
 		read = func(i int) Value { return stringValue(strings.Clone(a.Value(i))) }
+	}
+	// A validated signed integer array already has the complete target type
+	// and range. Bind that fact once per column; aliases, narrowing, other
+	// conversions and every non-integer layout retain coerceIn below.
+	if exactInteger {
+		for i := range rows {
+			if arr.IsNull(i) {
+				rows[i][column] = nullValue(target)
+			} else {
+				rows[i][column] = read(i)
+			}
+		}
+		return nil
 	}
 	for i := range rows {
 		var v Value

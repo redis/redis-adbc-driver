@@ -1,0 +1,2816 @@
+{
+  "synthetic": {
+    "base": [
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 7.946874958,
+        "commands": {
+          "del": {
+            "count": 2,
+            "summed_client_seconds": 0.000509334
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.692233793
+          },
+          "eval-other": {
+            "count": 126,
+            "summed_client_seconds": 0.30502549900000003
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.939285249
+          },
+          "evalsha": {
+            "count": 280,
+            "summed_client_seconds": 1.205086367
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.0029862910000000003
+          },
+          "ft._list": {
+            "count": 2,
+            "summed_client_seconds": 0.000537042
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.045890417
+          },
+          "ft.dropindex": {
+            "count": 1,
+            "summed_client_seconds": 0.00021645899999999998
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.030538084000000004
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.128954543
+          },
+          "get": {
+            "count": 98,
+            "summed_client_seconds": 0.468689288
+          },
+          "hgetall": {
+            "count": 48,
+            "summed_client_seconds": 0.109878292
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 48,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 264,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 370,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 222,
+            "summed_client_seconds": 0.7891552470000001
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.136417
+          },
+          "zrange": {
+            "count": 76,
+            "summed_client_seconds": 0.163274626
+          },
+          "zrangebylex": {
+            "count": 52,
+            "summed_client_seconds": 0.066736164
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 7.972951083,
+        "commands": {
+          "del": {
+            "count": 6,
+            "summed_client_seconds": 0.004161832999999999
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.6521733319999999
+          },
+          "eval-other": {
+            "count": 142,
+            "summed_client_seconds": 0.317760955
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.925351251
+          },
+          "evalsha": {
+            "count": 286,
+            "summed_client_seconds": 1.234068882
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.00263896
+          },
+          "ft._list": {
+            "count": 6,
+            "summed_client_seconds": 0.002085041
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.0046624150000000005
+          },
+          "ft.dropindex": {
+            "count": 3,
+            "summed_client_seconds": 0.014307166000000001
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.018144627
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.120743749
+          },
+          "get": {
+            "count": 98,
+            "summed_client_seconds": 0.367184626
+          },
+          "hgetall": {
+            "count": 48,
+            "summed_client_seconds": 0.115665206
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 48,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 264,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 370,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 222,
+            "summed_client_seconds": 0.8751264440000001
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.110670792
+          },
+          "zrange": {
+            "count": 76,
+            "summed_client_seconds": 0.183504417
+          },
+          "zrangebylex": {
+            "count": 71,
+            "summed_client_seconds": 0.133514459
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 7.998324625,
+        "commands": {
+          "del": {
+            "count": 6,
+            "summed_client_seconds": 0.001505333
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.692032874
+          },
+          "eval-other": {
+            "count": 147,
+            "summed_client_seconds": 0.31073103700000004
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.911566874
+          },
+          "evalsha": {
+            "count": 284,
+            "summed_client_seconds": 1.146171874
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.003143252
+          },
+          "ft._list": {
+            "count": 6,
+            "summed_client_seconds": 0.002559791
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.0059278360000000006
+          },
+          "ft.dropindex": {
+            "count": 3,
+            "summed_client_seconds": 0.000865
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.009189247999999999
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.124963083
+          },
+          "get": {
+            "count": 99,
+            "summed_client_seconds": 0.359665504
+          },
+          "hgetall": {
+            "count": 49,
+            "summed_client_seconds": 0.14013070300000002
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 49,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 272,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 108,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 108,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 108,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 380,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 226,
+            "summed_client_seconds": 0.8876012930000001
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.12503070700000002
+          },
+          "zrange": {
+            "count": 78,
+            "summed_client_seconds": 0.329387837
+          },
+          "zrangebylex": {
+            "count": 86,
+            "summed_client_seconds": 0.062386039
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 7.908886458,
+        "commands": {
+          "del": {
+            "count": 6,
+            "summed_client_seconds": 0.001397835
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.649204956
+          },
+          "eval-other": {
+            "count": 160,
+            "summed_client_seconds": 0.31992278900000004
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.935804292
+          },
+          "evalsha": {
+            "count": 287,
+            "summed_client_seconds": 1.153529942
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.003241001
+          },
+          "ft._list": {
+            "count": 6,
+            "summed_client_seconds": 0.0029535840000000004
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.004812083000000001
+          },
+          "ft.dropindex": {
+            "count": 3,
+            "summed_client_seconds": 0.001065376
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.021566251
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.13311854299999998
+          },
+          "get": {
+            "count": 98,
+            "summed_client_seconds": 0.316504585
+          },
+          "hgetall": {
+            "count": 48,
+            "summed_client_seconds": 0.115618956
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 48,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 264,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 106,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 370,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 222,
+            "summed_client_seconds": 0.935383376
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.15861708400000002
+          },
+          "zrange": {
+            "count": 76,
+            "summed_client_seconds": 0.186229996
+          },
+          "zrangebylex": {
+            "count": 84,
+            "summed_client_seconds": 0.08486241800000001
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 1.7949235,
+        "commands": {
+          "del": {
+            "count": 1,
+            "summed_client_seconds": 0.000371917
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.6860733760000001
+          },
+          "eval-other": {
+            "count": 14,
+            "summed_client_seconds": 0.018183250999999997
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.688991796
+          },
+          "evalsha": {
+            "count": 54,
+            "summed_client_seconds": 0.058619373
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.000607583
+          },
+          "ft._list": {
+            "count": 1,
+            "summed_client_seconds": 0.00026175
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.000583
+          },
+          "ft.dropindex": {
+            "count": 1,
+            "summed_client_seconds": 0.00026516699999999996
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0010710420000000001
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.011853417
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.025719291
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.0007518749999999999
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.018156
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.010702708
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.0005393749999999999
+          },
+          "zrangebylex": {
+            "count": 46,
+            "summed_client_seconds": 0.015796251
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 1.816909666,
+        "commands": {
+          "del": {
+            "count": 1,
+            "summed_client_seconds": 0.00025266599999999997
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.691857502
+          },
+          "eval-other": {
+            "count": 52,
+            "summed_client_seconds": 0.048184458
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.684427459
+          },
+          "evalsha": {
+            "count": 55,
+            "summed_client_seconds": 0.07082366600000001
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.00018958299999999998
+          },
+          "ft._list": {
+            "count": 1,
+            "summed_client_seconds": 0.00058725
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.0006194999999999999
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.000997416
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.014469125000000001
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.028244125000000002
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.000507082
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.015701875
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.019945
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.000751417
+          },
+          "zrangebylex": {
+            "count": 78,
+            "summed_client_seconds": 0.028269751
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 1.74498075,
+        "commands": {
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.6802206270000001
+          },
+          "eval-other": {
+            "count": 15,
+            "summed_client_seconds": 0.004771791
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.688120795
+          },
+          "evalsha": {
+            "count": 53,
+            "summed_client_seconds": 0.072853208
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.00023475
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.000408
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.000977083
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.013178917
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.027496206999999998
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.000502707
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.023081168000000003
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.022874210000000002
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.0005144589999999999
+          },
+          "zrangebylex": {
+            "count": 41,
+            "summed_client_seconds": 0.013079913
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 1.8311605,
+        "commands": {
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.6917748340000001
+          },
+          "eval-other": {
+            "count": 15,
+            "summed_client_seconds": 0.015743998
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.694350465
+          },
+          "evalsha": {
+            "count": 53,
+            "summed_client_seconds": 0.07075938
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.000245875
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.00043891699999999993
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0010452920000000002
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.014466167
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.028099581000000002
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.000463583
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.02320279
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.022176917
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.000421582
+          },
+          "zrangebylex": {
+            "count": 41,
+            "summed_client_seconds": 0.014213248000000001
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 3.458667334,
+        "commands": {
+          "client": {
+            "count": 1,
+            "summed_client_seconds": 0.00022995899999999998
+          },
+          "config": {
+            "count": 1,
+            "summed_client_seconds": 0.013140333
+          },
+          "del": {
+            "count": 1,
+            "summed_client_seconds": 0.00026516699999999996
+          },
+          "eval-other": {
+            "count": 48,
+            "summed_client_seconds": 0.031593088000000005
+          },
+          "evalsha": {
+            "count": 11,
+            "summed_client_seconds": 0.010949376
+          },
+          "ft._list": {
+            "count": 1,
+            "summed_client_seconds": 0.002672708
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.00022783299999999999
+          },
+          "hello": {
+            "count": 6,
+            "summed_client_seconds": 0.0013282510000000001
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.000235084
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.907554584
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.34784495800000004
+          },
+          "zrangebylex": {
+            "count": 39,
+            "summed_client_seconds": 0.012010749000000001
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 3.412025208,
+        "commands": {
+          "evalsha": {
+            "count": 9,
+            "summed_client_seconds": 0.009049334000000001
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.000269875
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.000280833
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.919365752
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.35576037400000005
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 3.399893834,
+        "commands": {
+          "evalsha": {
+            "count": 9,
+            "summed_client_seconds": 0.008013665
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.000369333
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.000262583
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.876452412
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.383691829
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 3.364487917,
+        "commands": {
+          "evalsha": {
+            "count": 9,
+            "summed_client_seconds": 0.005186375
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.00029904199999999996
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.000244083
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.888736128
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.33912737499999995
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 3.561237625,
+        "commands": {
+          "client": {
+            "count": 4,
+            "summed_client_seconds": 0.001178917
+          },
+          "config": {
+            "count": 4,
+            "summed_client_seconds": 0.001518917
+          },
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.149274374
+          },
+          "ft.search": {
+            "count": 392,
+            "summed_client_seconds": 1.904486423
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.035068703
+          },
+          "hello": {
+            "count": 24,
+            "summed_client_seconds": 0.008864084
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.017582125
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 448,
+            "summed_client_seconds": 11.745141049
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.017658376
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 3.479671791,
+        "commands": {
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.090349249
+          },
+          "ft.search": {
+            "count": 392,
+            "summed_client_seconds": 1.70048562
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.061776292
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.003964335
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 448,
+            "summed_client_seconds": 11.747634662
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.008498417
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 3.382163459,
+        "commands": {
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.13290516500000002
+          },
+          "ft.search": {
+            "count": 392,
+            "summed_client_seconds": 1.737947537
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.015004084
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.023171626
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 448,
+            "summed_client_seconds": 11.350233956
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.023443918
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 3.206781709,
+        "commands": {
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.17308591
+          },
+          "ft.search": {
+            "count": 392,
+            "summed_client_seconds": 1.565389163
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.032160666
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.015591334
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 448,
+            "summed_client_seconds": 10.614327209
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.039933919000000005
+          }
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 8.423862667,
+        "commands": {
+          "del": {
+            "count": 2,
+            "summed_client_seconds": 0.000527625
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.7014359990000001
+          },
+          "eval-other": {
+            "count": 130,
+            "summed_client_seconds": 0.299039248
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.937061206
+          },
+          "evalsha": {
+            "count": 298,
+            "summed_client_seconds": 1.277957299
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.016231749
+          },
+          "ft._list": {
+            "count": 2,
+            "summed_client_seconds": 0.000524208
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.037111251000000005
+          },
+          "ft.dropindex": {
+            "count": 2,
+            "summed_client_seconds": 0.000661667
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.027502291
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.115549582
+          },
+          "get": {
+            "count": 101,
+            "summed_client_seconds": 0.424144917
+          },
+          "hgetall": {
+            "count": 51,
+            "summed_client_seconds": 0.097967039
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 51,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 288,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 112,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 112,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 112,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 400,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 234,
+            "summed_client_seconds": 1.032948159
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.12738608
+          },
+          "zrange": {
+            "count": 82,
+            "summed_client_seconds": 0.10718437
+          },
+          "zrangebylex": {
+            "count": 56,
+            "summed_client_seconds": 0.032095374999999995
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 8.648033208,
+        "commands": {
+          "del": {
+            "count": 6,
+            "summed_client_seconds": 0.001529041
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.720422875
+          },
+          "eval-other": {
+            "count": 145,
+            "summed_client_seconds": 0.326215499
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.956176628
+          },
+          "evalsha": {
+            "count": 302,
+            "summed_client_seconds": 1.293751288
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.016080169000000002
+          },
+          "ft._list": {
+            "count": 6,
+            "summed_client_seconds": 0.002436457
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.032116751
+          },
+          "ft.dropindex": {
+            "count": 3,
+            "summed_client_seconds": 0.000935624
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.022702043
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.148710499
+          },
+          "get": {
+            "count": 102,
+            "summed_client_seconds": 0.37643262800000005
+          },
+          "hgetall": {
+            "count": 52,
+            "summed_client_seconds": 0.129209082
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 52,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 296,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 410,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 238,
+            "summed_client_seconds": 1.062558739
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.14706758300000003
+          },
+          "zrange": {
+            "count": 84,
+            "summed_client_seconds": 0.157401624
+          },
+          "zrangebylex": {
+            "count": 69,
+            "summed_client_seconds": 0.055507917999999996
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 8.482698666,
+        "commands": {
+          "del": {
+            "count": 6,
+            "summed_client_seconds": 0.001730208
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.661553582
+          },
+          "eval-other": {
+            "count": 147,
+            "summed_client_seconds": 0.365856047
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.971372251
+          },
+          "evalsha": {
+            "count": 307,
+            "summed_client_seconds": 1.373456829
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.002978417
+          },
+          "ft._list": {
+            "count": 6,
+            "summed_client_seconds": 0.004685999
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.022029085
+          },
+          "ft.dropindex": {
+            "count": 3,
+            "summed_client_seconds": 0.013351001000000001
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.030670417000000002
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.154465248
+          },
+          "get": {
+            "count": 102,
+            "summed_client_seconds": 0.301426079
+          },
+          "hgetall": {
+            "count": 52,
+            "summed_client_seconds": 0.065931627
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 52,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 296,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 410,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 238,
+            "summed_client_seconds": 0.954929544
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.128552164
+          },
+          "zrange": {
+            "count": 84,
+            "summed_client_seconds": 0.150728998
+          },
+          "zrangebylex": {
+            "count": 71,
+            "summed_client_seconds": 0.06006359
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 1000,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 8.698706292,
+        "commands": {
+          "del": {
+            "count": 6,
+            "summed_client_seconds": 0.001593
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.680232624
+          },
+          "eval-other": {
+            "count": 159,
+            "summed_client_seconds": 0.36633057300000005
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.938249502
+          },
+          "evalsha": {
+            "count": 308,
+            "summed_client_seconds": 1.448061073
+          },
+          "exists": {
+            "count": 10,
+            "summed_client_seconds": 0.004071207
+          },
+          "ft._list": {
+            "count": 6,
+            "summed_client_seconds": 0.003037083
+          },
+          "ft.create": {
+            "count": 10,
+            "summed_client_seconds": 0.004750669000000001
+          },
+          "ft.dropindex": {
+            "count": 2,
+            "summed_client_seconds": 0.000560167
+          },
+          "ft.info": {
+            "count": 10,
+            "summed_client_seconds": 0.022855166
+          },
+          "ft.search": {
+            "count": 10,
+            "summed_client_seconds": 0.15447020800000003
+          },
+          "get": {
+            "count": 102,
+            "summed_client_seconds": 0.388117914
+          },
+          "hgetall": {
+            "count": 52,
+            "summed_client_seconds": 0.13638441599999998
+          },
+          "p:eval-other": {
+            "count": 30,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 52,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 296,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 114,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 10,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 410,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 238,
+            "summed_client_seconds": 0.8445860340000001
+          },
+          "zcard": {
+            "count": 30,
+            "summed_client_seconds": 0.15842470800000003
+          },
+          "zrange": {
+            "count": 84,
+            "summed_client_seconds": 0.083744373
+          },
+          "zrangebylex": {
+            "count": 83,
+            "summed_client_seconds": 0.12244699900000001
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 1.726460916,
+        "commands": {
+          "del": {
+            "count": 1,
+            "summed_client_seconds": 0.000290833
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.678376
+          },
+          "eval-other": {
+            "count": 22,
+            "summed_client_seconds": 0.020782959000000004
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.6726213719999999
+          },
+          "evalsha": {
+            "count": 53,
+            "summed_client_seconds": 0.058166919000000004
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.000251584
+          },
+          "ft._list": {
+            "count": 1,
+            "summed_client_seconds": 0.000266041
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.000443958
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0009845
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.016459875000000002
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.018623415
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.0005092909999999999
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.006216958
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.020778918
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.0005815
+          },
+          "zrangebylex": {
+            "count": 48,
+            "summed_client_seconds": 0.014684831
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 1.761216833,
+        "commands": {
+          "del": {
+            "count": 1,
+            "summed_client_seconds": 0.000226584
+          },
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.679017332
+          },
+          "eval-other": {
+            "count": 17,
+            "summed_client_seconds": 0.016873706
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.6833015410000001
+          },
+          "evalsha": {
+            "count": 53,
+            "summed_client_seconds": 0.074326869
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.000208125
+          },
+          "ft._list": {
+            "count": 1,
+            "summed_client_seconds": 0.000632
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.0004055
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0010122500000000001
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.015095709
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.029674457
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.00041862599999999996
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.021997837
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.010814334
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.000625542
+          },
+          "zrangebylex": {
+            "count": 43,
+            "summed_client_seconds": 0.012689292
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 1.78520425,
+        "commands": {
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.6830962479999999
+          },
+          "eval-other": {
+            "count": 15,
+            "summed_client_seconds": 0.017874415
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.687082794
+          },
+          "evalsha": {
+            "count": 52,
+            "summed_client_seconds": 0.078133541
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.000252
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.00039816699999999994
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0011140000000000002
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.014894333
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.033247709
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.000486
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.0161295
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.011393666
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.00044449999999999996
+          },
+          "zrangebylex": {
+            "count": 41,
+            "summed_client_seconds": 0.014238955000000001
+          }
+        }
+      },
+      {
+        "operation": "write",
+        "size": 10000,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 1.802283334,
+        "commands": {
+          "eval-index-notify": {
+            "count": 40,
+            "summed_client_seconds": 0.681359287
+          },
+          "eval-other": {
+            "count": 15,
+            "summed_client_seconds": 0.018399876
+          },
+          "eval-row-batch": {
+            "count": 40,
+            "summed_client_seconds": 0.6894331690000001
+          },
+          "evalsha": {
+            "count": 53,
+            "summed_client_seconds": 0.08035300100000001
+          },
+          "exists": {
+            "count": 1,
+            "summed_client_seconds": 0.000293125
+          },
+          "ft.create": {
+            "count": 1,
+            "summed_client_seconds": 0.00043075
+          },
+          "ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.001012
+          },
+          "ft.search": {
+            "count": 1,
+            "summed_client_seconds": 0.0133985
+          },
+          "get": {
+            "count": 7,
+            "summed_client_seconds": 0.029521123
+          },
+          "hgetall": {
+            "count": 2,
+            "summed_client_seconds": 0.002851292
+          },
+          "p:eval-other": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:exec": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:exists": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:get": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 5,
+            "summed_client_seconds": 0.0
+          },
+          "p:multi": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 6,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 13,
+            "summed_client_seconds": 0.027666041
+          },
+          "zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.010956708
+          },
+          "zrange": {
+            "count": 2,
+            "summed_client_seconds": 0.00047825
+          },
+          "zrangebylex": {
+            "count": 41,
+            "summed_client_seconds": 0.013056419
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 3.494444084,
+        "commands": {
+          "client": {
+            "count": 1,
+            "summed_client_seconds": 0.000268458
+          },
+          "config": {
+            "count": 1,
+            "summed_client_seconds": 0.016529625
+          },
+          "del": {
+            "count": 1,
+            "summed_client_seconds": 0.00027975
+          },
+          "eval-other": {
+            "count": 37,
+            "summed_client_seconds": 0.033749165
+          },
+          "evalsha": {
+            "count": 10,
+            "summed_client_seconds": 0.015819833
+          },
+          "ft._list": {
+            "count": 1,
+            "summed_client_seconds": 0.003085041
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.000225584
+          },
+          "hello": {
+            "count": 6,
+            "summed_client_seconds": 0.001426542
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.00023404199999999998
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.938925413
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.346886959
+          },
+          "zrangebylex": {
+            "count": 38,
+            "summed_client_seconds": 0.013335794
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 3.467721208,
+        "commands": {
+          "evalsha": {
+            "count": 9,
+            "summed_client_seconds": 0.012184791
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.00025125
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.0002405
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.948686169
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.38341187600000004
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 3.456166542,
+        "commands": {
+          "evalsha": {
+            "count": 9,
+            "summed_client_seconds": 0.013353625
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.000252041
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.000274375
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.945938377
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.37192841600000004
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 1,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 3.403965875,
+        "commands": {
+          "evalsha": {
+            "count": 9,
+            "summed_client_seconds": 0.011604916
+          },
+          "get": {
+            "count": 1,
+            "summed_client_seconds": 0.00024575
+          },
+          "hgetall": {
+            "count": 1,
+            "summed_client_seconds": 0.00026904199999999994
+          },
+          "p:exists": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 1,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 2,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100002,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 3,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 29,
+            "summed_client_seconds": 2.926535666
+          },
+          "zrange": {
+            "count": 27,
+            "summed_client_seconds": 0.33509466600000004
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 0,
+        "warmup": true,
+        "seconds": 2.842912292,
+        "commands": {
+          "client": {
+            "count": 4,
+            "summed_client_seconds": 0.001140459
+          },
+          "config": {
+            "count": 4,
+            "summed_client_seconds": 0.001455042
+          },
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.046759331
+          },
+          "ft.search": {
+            "count": 32,
+            "summed_client_seconds": 0.290159332
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.032332414000000004
+          },
+          "hello": {
+            "count": 24,
+            "summed_client_seconds": 0.007548293
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.013114208
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 88,
+            "summed_client_seconds": 10.642522377
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.011262040000000001
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 1,
+        "warmup": false,
+        "seconds": 2.858129625,
+        "commands": {
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.089454003
+          },
+          "ft.search": {
+            "count": 32,
+            "summed_client_seconds": 0.395360665
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.0583455
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.002784917
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 88,
+            "summed_client_seconds": 10.517449287
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.027982876
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 2,
+        "warmup": false,
+        "seconds": 2.984671042,
+        "commands": {
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.083577045
+          },
+          "ft.search": {
+            "count": 32,
+            "summed_client_seconds": 0.371440875
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.093322125
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.0033949180000000002
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 88,
+            "summed_client_seconds": 11.138690584
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.006388795
+          }
+        }
+      },
+      {
+        "operation": "read",
+        "size": 4,
+        "trial": 3,
+        "warmup": false,
+        "seconds": 2.999983917,
+        "commands": {
+          "evalsha": {
+            "count": 56,
+            "summed_client_seconds": 0.049483831000000006
+          },
+          "ft.search": {
+            "count": 32,
+            "summed_client_seconds": 0.39487879600000003
+          },
+          "get": {
+            "count": 24,
+            "summed_client_seconds": 0.03058025
+          },
+          "hgetall": {
+            "count": 8,
+            "summed_client_seconds": 0.003147957
+          },
+          "p:exists": {
+            "count": 16,
+            "summed_client_seconds": 0.0
+          },
+          "p:ft.info": {
+            "count": 8,
+            "summed_client_seconds": 0.0
+          },
+          "p:hget": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hlen": {
+            "count": 24,
+            "summed_client_seconds": 0.0
+          },
+          "p:hmget": {
+            "count": 100032,
+            "summed_client_seconds": 0.0
+          },
+          "p:zcard": {
+            "count": 40,
+            "summed_client_seconds": 0.0
+          },
+          "pipelines": {
+            "count": 88,
+            "summed_client_seconds": 11.289772793
+          },
+          "zrange": {
+            "count": 16,
+            "summed_client_seconds": 0.006756792
+          }
+        }
+      }
+    ]
+  },
+  "integer_conversion": {
+    "base": [
+      {
+        "ns_per_10000_values": 413789.0,
+        "bytes_per_op": 96,
+        "allocs_per_op": 3
+      },
+      {
+        "ns_per_10000_values": 416962.0,
+        "bytes_per_op": 96,
+        "allocs_per_op": 3
+      },
+      {
+        "ns_per_10000_values": 414716.0,
+        "bytes_per_op": 96,
+        "allocs_per_op": 3
+      }
+    ],
+    "candidate": [
+      {
+        "ns_per_10000_values": 153060.0,
+        "bytes_per_op": 96,
+        "allocs_per_op": 3
+      },
+      {
+        "ns_per_10000_values": 156581.0,
+        "bytes_per_op": 96,
+        "allocs_per_op": 3
+      },
+      {
+        "ns_per_10000_values": 155590.0,
+        "bytes_per_op": 96,
+        "allocs_per_op": 3
+      }
+    ]
+  }
+}

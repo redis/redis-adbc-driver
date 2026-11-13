@@ -29,7 +29,7 @@ import (
 func ingestTestArrays() []arrow.Array {
 	alloc := memory.DefaultAllocator
 	ib := array.NewInt64Builder(alloc)
-	ib.AppendValues([]int64{0, 32767, 32768, math.MaxInt64}, []bool{true, true, true, false})
+	ib.AppendValues([]int64{0, 32767, 32768, math.MaxInt64, math.MinInt64, 0}, []bool{true, true, true, true, true, false})
 	sb := array.NewStringBuilder(alloc)
 	sb.AppendValues([]string{"42", "", "éx  ", "unused"}, []bool{true, true, true, false})
 	i16 := array.NewInt16Builder(alloc)
@@ -59,6 +59,9 @@ func TestIngestColumnCoercion(t *testing.T) {
 		}
 	}()
 	targets := []ColType{typeInt16, typeInt32, typeInt64, typeString, typeBinary, typeDate, {Kind: KindString, Length: 3, Fixed: true}}
+	alias := typeInt64
+	alias.Alias = "oid"
+	targets = append(targets, alias)
 	for _, a := range arrays {
 		for _, target := range targets {
 			t.Run(a.DataType().String()+"/"+target.SQLName(), func(t *testing.T) {
