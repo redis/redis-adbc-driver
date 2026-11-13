@@ -133,8 +133,8 @@ The existing broad unmanaged ownership, source mutation, ingestion, error,
 concurrency, index and query cases passed alongside the new predicate cases.
 
 All clients/processes then exited. The authorized loaned database was returned
-empty (DBSIZE zero, FT._LIST empty); no parent-owned Compose/TLS or unrelated
-resource was removed. Exact final outcomes and raw-log digests are retained in
+empty (DBSIZE zero, FT._LIST empty); this child removed no parent-owned
+Compose/TLS or unrelated resource. Exact final outcomes and raw-log digests are retained in
 [checks.json](checks.json). After all remaining tracks completed, the parent
 reverified effective QPF/TLS/RESP3 and empty data, then removed the owned
 container/network and generated TLS, environment, settings and credential files.
