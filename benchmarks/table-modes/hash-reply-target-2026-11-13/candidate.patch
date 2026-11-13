@@ -1,0 +1,711 @@
+diff --git a/go/query.go b/go/query.go
+index 342a2f1d..a83ceb0e 100644
+--- a/go/query.go
++++ b/go/query.go
+@@ -602,6 +602,9 @@ type scanIter struct {
+ 	env           *evalEnv
+ 	cur           *aggCursor
+ 
++	// LIMIT/OFFSET keeps existing final-page validation geometry.
++	preserveHashPage bool
++
+ 	// fetch holds fields LOAD cannot return exactly. Managed rows can read
+ 	// these from their HASHes in bounded pipelines after each cursor page.
+ 	store *store
+diff --git a/go/scan_hash_reply_target.go b/go/scan_hash_reply_target.go
+new file mode 100644
+index 00000000..05a0a40d
+--- /dev/null
++++ b/go/scan_hash_reply_target.go
+@@ -0,0 +1,124 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"math"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++)
++
++// hashReplyTargetBytes is an internal retained-reply target per prefetched HASH
++// chunk. There may be one consumer chunk and one lookahead chunk. This is NOT
++// a hard wire, heap or RSS bound: Redis supplies unknown-length values and the
++// generic decoder owns each complete reply before its size can be observed.
++// A later larger row can overshoot the estimate; one row always makes progress.
++// Arrow buffers, key-discovery pages, allocator slack and caller-retained records
++// are separate. Existing discovery/server limits and the row ceiling still apply.
++const hashReplyTargetBytes int64 = 16 << 20
++
++type hashReplyTarget struct {
++	bytes    int64
++	maxRows  int
++	rowFloor int64
++	rowBytes int64
++	limit    int
++}
++
++func newHashReplyTarget(bytes int64, maxRows, fields int) *hashReplyTarget {
++	// Each field gets a conservative initial allowance for argument/reply
++	// interface slots, an owned string header and a modest payload. Larger
++	// observations shrink immediately; smaller chunks recover at most 2x at a
++	// time so an isolated large value cannot strand the rest at one-row reads.
++	fieldCount := int64(max(0, fields))
++	rowBytes := int64(math.MaxInt64)
++	if fieldCount <= (math.MaxInt64-128)/64 {
++		rowBytes = fieldCount*64 + 128
++	}
++	t := &hashReplyTarget{bytes: max(int64(1), bytes), maxRows: max(1, maxRows), rowFloor: rowBytes, rowBytes: rowBytes}
++	t.limit = t.rowsFor(rowBytes)
++	return t
++}
++
++func (t *hashReplyTarget) rows() int { return t.limit }
++
++func (t *hashReplyTarget) rowsFor(rowBytes int64) int {
++	rows := min(int64(t.maxRows), max(int64(1), t.bytes/rowBytes))
++	// Keep ordinary numeric pages reasonably aligned, without ever rounding a
++	// small server/discovery limit up or admitting zero rows.
++	if rows >= snapshotDeltaPage {
++		rows -= rows % snapshotDeltaPage
++	}
++	return int(rows)
++}
++
++func (t *hashReplyTarget) observe(keys []string, values [][]any) {
++	observed := t.rowFloor
++	for i, row := range values {
++		// Slice/interface/string accounting is conservative sizing, not an
++		// allocator measurement. Include key storage and boxed owned strings.
++		n := int64(24 + 32*len(row) + 32)
++		if i < len(keys) {
++			n = addBatchBytes(n, int64(len(keys[i])))
++		}
++		for _, value := range row {
++			switch value := value.(type) {
++			case string:
++				n = addBatchBytes(n, addBatchBytes(32, int64(len(value))))
++			case []byte:
++				n = addBatchBytes(n, addBatchBytes(32, int64(cap(value))))
++			}
++		}
++		observed = max(observed, n)
++	}
++	t.rowBytes = observed
++	t.limit = min(t.rowsFor(observed), max(1, t.limit*2))
++}
++
++// snapshotHashReplyFetcher keeps exact discovery/visibility pages unchanged,
++// but materializes their winning HASH replies in independently owned chunks.
++// Only this worker owns pending key slices and the target; the consumer owns
++// delivered reply slices through conversion. No reply/argument storage is reused.
++func snapshotHashReplyFetcher(
++	discover func(context.Context) ([]string, []string, error),
++	fetch func(context.Context, []string) ([][]any, error),
++	target *hashReplyTarget,
++) func(context.Context) hashPage {
++	var logical, physical []string
++	at := 0
++	return func(ctx context.Context) hashPage {
++		if err := cancelled(ctx); err != nil {
++			return hashPage{err: err}
++		}
++		if at == len(physical) {
++			var err error
++			logical, physical, err = discover(ctx)
++			at = 0
++			if err != nil {
++				return hashPage{err: err}
++			}
++			if len(logical) != len(physical) {
++				return hashPage{err: errorf(adbc.StatusInternal, "snapshot discovery returned mismatched keys")}
++			}
++		}
++		// A candidate page may contain only shadowed rows. Preserve progress
++		// to the next discovery page rather than turning it into successful EOF.
++		if len(physical) == 0 {
++			return hashPage{snapshot: true}
++		}
++		end := min(len(physical), at+target.rows())
++		keys := logical[at:end]
++		values, err := fetch(ctx, physical[at:end])
++		if err != nil {
++			return hashPage{err: err}
++		}
++		if len(values) != len(keys) {
++			return hashPage{err: errorf(adbc.StatusInternal, "snapshot fetch returned mismatched rows")}
++		}
++		target.observe(keys, values)
++		at = end
++		return hashPage{keys: keys, values: values, snapshot: true}
++	}
++}
+diff --git a/go/scan_hash_reply_target_integration_test.go b/go/scan_hash_reply_target_integration_test.go
+new file mode 100644
+index 00000000..6b98e126
+--- /dev/null
++++ b/go/scan_hash_reply_target_integration_test.go
+@@ -0,0 +1,157 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"fmt"
++	"strconv"
++	"strings"
++	"testing"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	"github.com/apache/arrow-go/v18/arrow"
++	"github.com/apache/arrow-go/v18/arrow/array"
++	"github.com/apache/arrow-go/v18/arrow/memory"
++)
++
++func hashTargetString(id int64) (string, bool) {
++	if id%1000 == 0 {
++		return strings.Repeat("λ\x00", 8192) + strconv.FormatInt(id, 10), false
++	}
++	return memoryString(id)
++}
++
++func hashTargetRecord(rows int) arrow.RecordBatch {
++	base := memoryRecord(rows)
++	defer base.Release()
++	columns := make([]arrow.Array, int(base.NumCols()))
++	for i := range columns {
++		columns[i] = base.Column(i)
++	}
++	b := array.NewStringBuilder(memory.DefaultAllocator)
++	for id := int64(1); id <= int64(rows); id++ {
++		value, null := hashTargetString(id)
++		if null {
++			b.AppendNull()
++		} else {
++			b.Append(value)
++		}
++	}
++	strings := b.NewArray()
++	b.Release()
++	defer strings.Release()
++	columns[104] = strings
++	return array.NewRecordBatch(base.Schema(), columns, int64(rows))
++}
++
++func validateHashTargetRecord(t *testing.T, rec arrow.RecordBatch, seen []bool) {
++	t.Helper()
++	if rec.NumCols() != 105 {
++		t.Fatal("wrong target fixture width", rec.NumCols())
++	}
++	ids := rec.Column(0).(*array.Int64)
++	for row := 0; row < int(rec.NumRows()); row++ {
++		id := ids.Value(row)
++		if id < 1 || id > int64(len(seen)) || seen[id-1] {
++			t.Fatal("invalid or duplicate target row", id)
++		}
++		seen[id-1] = true
++		for col := 0; col < 104; col++ {
++			a := rec.Column(col).(*array.Int64)
++			null := col == 1 && id%17 == 0
++			if a.IsNull(row) != null || !null && a.Value(row) != followupValue(id, col) {
++				t.Fatal("incorrect target integer/NULL", id, col)
++			}
++		}
++		a := rec.Column(104).(*array.String)
++		value, null := hashTargetString(id)
++		if a.IsNull(row) != null || !null && a.Value(row) != value {
++			t.Fatal("incorrect target variable string/NULL", id)
++		}
++	}
++}
++
++// The source can publish newer rows or disappear while a reply chunk is queued
++// and the worker still owns unfetched keys from an earlier exact discovery page.
++// The statement's immutable source pin and each output record must remain valid.
++func TestSnapshotHashReplyTargetPinnedDiscovery(t *testing.T) {
++	for _, candidate := range []bool{false, true} {
++		t.Run(fmt.Sprintf("candidate_%t", candidate), func(t *testing.T) {
++			h, _, _ := newSnapshotHarnessMode(t, false, false)
++			const table = "reply_target_pin"
++			const rows = 5001
++			rec := hashTargetRecord(rows)
++			defer rec.Release()
++			if err := followupIngest(h.ctx, h.conn, table, adbc.OptionValueIngestModeCreate, rec); err != nil {
++				t.Fatal(err)
++			}
++			if !candidate {
++				for _, suffix := range []string{" LIMIT 4500", " OFFSET 1", " LIMIT 4500 OFFSET 1"} {
++					st, limited, _ := h.openStmtStream(h.ctx, h.conn, "SELECT * FROM "+table+suffix, nil,
++						map[string]string{OptionIntStreamBatchRows: "512"})
++					stream, ok := inspectionReader(limited).(*streamReader)
++					if !ok || stream.it == nil || !stream.it.preserveHashPage {
++						t.Fatal("pagination exclusion was not set before initial fill", suffix)
++					}
++					seen := make([]bool, rows)
++					for limited.Next() {
++						validateHashTargetRecord(t, limited.RecordBatch(), seen)
++					}
++					if err := limited.Err(); err != nil {
++						t.Fatal(err)
++					}
++					limited.Release()
++					st.Close(h.ctx)
++					first, last := 1, rows
++					if strings.Contains(suffix, "OFFSET") {
++						first++
++					}
++					if strings.Contains(suffix, "LIMIT") {
++						last = first + 4499
++					}
++					for id, present := range seen {
++						if present != (id+1 >= first && id+1 <= last) {
++							t.Fatal("pagination result changed", suffix, id+1, present)
++						}
++					}
++				}
++			}
++			query := "SELECT * FROM " + table
++			if candidate {
++				query += " WHERE id >= 1"
++			}
++			_, reader, count := h.openStmtStream(h.ctx, h.conn, query, nil,
++				map[string]string{OptionIntStreamBatchRows: "512"})
++			defer reader.Release()
++			if count != -1 || !reader.Next() {
++				t.Fatal("fixture did not stream", count, reader.Err())
++			}
++			stream := inspectionReader(reader).(*streamReader)
++			if stream.it == nil || stream.it.prefetch == nil || !stream.it.hashFetch {
++				t.Fatal("fixture did not use managed HASH lookahead")
++			}
++			retained := reader.RecordBatch()
++			retained.Retain()
++			defer retained.Release()
++			seen := make([]bool, rows)
++			validateHashTargetRecord(t, retained, seen)
++			h.exec("UPDATE " + table + " SET c1=0 WHERE id=1")
++			h.exec("DELETE FROM " + table + " WHERE id=2")
++			h.exec("TRUNCATE " + table)
++			h.exec("DROP TABLE " + table)
++			for reader.Next() {
++				validateHashTargetRecord(t, reader.RecordBatch(), seen)
++			}
++			if err := reader.Err(); err != nil {
++				t.Fatal(err)
++			}
++			for _, present := range seen {
++				if !present {
++					t.Fatal("pending discovery tail lost after later source publication/drop")
++				}
++			}
++			validateHashTargetRecord(t, retained, make([]bool, rows))
++		})
++	}
++}
+diff --git a/go/scan_hash_reply_target_test.go b/go/scan_hash_reply_target_test.go
+new file mode 100644
+index 00000000..e55e0dc4
+--- /dev/null
++++ b/go/scan_hash_reply_target_test.go
+@@ -0,0 +1,314 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"math"
++	"reflect"
++	"strconv"
++	"strings"
++	"testing"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++func TestHashReplyTargetWidthAndRecovery(t *testing.T) {
++	narrow := newHashReplyTarget(hashReplyTargetBytes, wideFetchChunk, 2)
++	wide := newHashReplyTarget(hashReplyTargetBytes, wideFetchChunk, 108)
++	if narrow.rows() != wideFetchChunk || wide.rows() >= narrow.rows() || wide.rows() < 1 {
++		t.Fatal("initial target did not distinguish field width", narrow.rows(), wide.rows())
++	}
++	for _, maxRows := range []int{1, 137, 256, 1000, 4096} {
++		budget := newHashReplyTarget(hashReplyTargetBytes, maxRows, 108)
++		if budget.rows() < 1 || budget.rows() > maxRows {
++			t.Fatal("target exceeded original row cap", maxRows, budget.rows())
++		}
++	}
++	large := strings.Repeat("x", int(hashReplyTargetBytes)+1)
++	wide.observe([]string{"row"}, [][]any{{large}})
++	if wide.rows() != 1 || wide.rowBytes <= wide.bytes {
++		t.Fatal("oversized row did not shrink future target to one", wide.rows(), wide.rowBytes)
++	}
++	prior := wide.rows()
++	for i := 0; i < 20 && wide.rows() < 1024; i++ {
++		wide.observe([]string{"row"}, [][]any{{"small"}})
++		if wide.rows() < prior || wide.rows() > prior*2 || wide.rows() > wideFetchChunk {
++			t.Fatal("small-row recovery was not bounded", prior, wide.rows())
++		}
++		prior = wide.rows()
++	}
++	if wide.rows() < 1024 {
++		t.Fatal("single large outlier stranded the remaining query at tiny chunks", wide.rows())
++	}
++	// Pathological internal estimates saturate rather than wrapping into a
++	// huge row count. No zero-sized fetch can stall a pending discovery page.
++	if rows := newHashReplyTarget(1, 0, math.MaxInt).rows(); rows != 1 {
++		t.Fatal("invalid target failed to make progress", rows)
++	}
++}
++
++func TestSnapshotHashReplyTargetPreservesDiscoveryAndTail(t *testing.T) {
++	ctx := context.Background()
++	client := goredis.NewClient(&goredis.Options{Protocol: 3})
++	defer client.Close()
++	it := &scanIter{meta: &tableMeta{KeyPrefix: "logical:"}, store: &store{client: client}}
++	for j := 0; j < 105; j++ {
++		it.fetch = append(it.fetch, fmt.Sprintf("c%d", j))
++	}
++	hook := &hashSliceHook{t: t, rows: map[string][]any{}, fields: append(append([]string(nil), it.fetch...), snapshotDeletedField)}
++	client.AddHook(hook)
++	const rows = wideFetchChunk + 3
++	const firstID int64 = 9007199254740993
++	ids := make([]string, rows)
++	for i := range ids {
++		id := strconv.FormatInt(firstID+int64(i), 10)
++		ids[i] = fmt.Sprintf("%020d", firstID+int64(i))
++		value := make([]any, len(it.fetch)+2)
++		value[0], value[1], value[2], value[3], value[5] = id, id, "9223372036854775807", "a\x00λ", ""
++		if i%257 == 0 {
++			value[len(value)-1] = "1" // winning tombstone stays aligned
++		}
++		hook.rows["physical:"+id] = value
++	}
++	it.delta = &snapshotDeltaScan{meta: it.meta, pageRows: wideFetchChunk, directoryPageRows: wideFetchChunk,
++		sources: []snapshotDeltaSource{{segment: snapshotSegment{Prefix: "physical:", Rows: rows}, ids: ids, done: true}}}
++	fetch := it.prefetchedHashFetcher()
++	var chunks []int
++	var all []string
++	var retained hashPage
++	for {
++		page := fetch(ctx)
++		if errors.Is(page.err, io.EOF) {
++			break
++		}
++		if page.err != nil || !page.snapshot || len(page.keys) != len(page.values) {
++			t.Fatal("invalid snapshot chunk", page.err)
++		}
++		if len(chunks) == 0 {
++			retained = page
++			if len(page.keys) >= wideFetchChunk {
++				t.Fatal("wide snapshot fetched the full discovery page as one reply")
++			}
++		}
++		chunks = append(chunks, len(page.keys))
++		for i, key := range page.keys {
++			id := strings.TrimPrefix(key, "logical:")
++			if page.values[i][0] != id || page.values[i][1] != id || page.values[i][2] != "9223372036854775807" ||
++				page.values[i][3] != "a\x00λ" || page.values[i][4] != nil || page.values[i][5] != "" {
++				t.Fatal("logical/physical keys or exact/NULL/empty/binary values changed", key)
++			}
++			original := hook.rows["physical:"+id]
++			if page.values[i][len(page.values[i])-1] != original[len(original)-1] {
++				t.Fatal("tombstone moved to a different logical row")
++			}
++			all = append(all, key)
++		}
++	}
++	if len(all) != rows || len(chunks) < 3 || chunks[len(chunks)-1] != 3 {
++		t.Fatal("discovery tail was lost or duplicated", len(all), chunks)
++	}
++	if it.delta.pageRows != wideFetchChunk || it.delta.directoryPageRows != wideFetchChunk {
++		t.Fatal("reply targeting changed authoritative discovery bounds")
++	}
++	for i, key := range all {
++		if key != "logical:"+strconv.FormatInt(firstID+int64(i), 10) {
++			t.Fatal("chunk order/identity changed", i, key)
++		}
++	}
++	if retained.values[0][0] != strconv.FormatInt(firstID, 10) || retained.keys[0] != all[0] {
++		t.Fatal("later fetches reused an earlier consumer's reply/key storage")
++	}
++}
++
++func TestSnapshotHashReplyFetcherEmptyPageCancelAndErrors(t *testing.T) {
++	for _, mode := range []string{"complete", "cancel", "fetch_error", "discovery_error", "missing_row"} {
++		t.Run(mode, func(t *testing.T) {
++			ctx, cancel := context.WithCancel(context.Background())
++			defer cancel()
++			discoveryCalls, fetchCalls := 0, 0
++			wantErr := errors.New("read failed")
++			fetch := snapshotHashReplyFetcher(func(context.Context) ([]string, []string, error) {
++				discoveryCalls++
++				if discoveryCalls == 1 {
++					return nil, nil, nil // all candidates shadowed, not EOF
++				}
++				if discoveryCalls == 2 {
++					if mode == "discovery_error" {
++						return nil, nil, wantErr
++					}
++					return []string{"logical:1", "logical:2", "logical:3"}, []string{"physical:1", "physical:2", "physical:3"}, nil
++				}
++				return nil, nil, io.EOF
++			}, func(_ context.Context, keys []string) ([][]any, error) {
++				fetchCalls++
++				if mode == "fetch_error" {
++					return nil, wantErr
++				}
++				values := make([][]any, len(keys))
++				for i, key := range keys {
++					id := strings.TrimPrefix(key, "physical:")
++					if mode != "missing_row" || id != "2" {
++						values[i] = []any{id, "value", nil}
++					}
++				}
++				return values, nil
++			}, newHashReplyTarget(1, 2, 3))
++			if page := fetch(ctx); page.err != nil || len(page.keys) != 0 || fetchCalls != 0 {
++				t.Fatal("empty candidate page did not preserve progress without fetching", page.err)
++			}
++			var keys []string
++			for {
++				page := fetch(ctx)
++				if errors.Is(page.err, io.EOF) {
++					break
++				}
++				if mode == "fetch_error" || mode == "discovery_error" {
++					if !errors.Is(page.err, wantErr) {
++						t.Fatal("read error was lost", page.err)
++					}
++					break
++				}
++				if page.err != nil {
++					t.Fatal(page.err)
++				}
++				if mode == "missing_row" && page.values[0] == nil {
++					it := &scanIter{meta: &tableMeta{KeyPrefix: "logical:"}, env: &evalEnv{ctx: ctx}, projection: &scanProjection{consumeHash: func([]any) error { return nil }}}
++					if _, _, err := it.consumeSnapshotHashValues(ctx, page.keys, page.values); !isStatus(err, adbc.StatusIO) {
++						t.Fatal("missing immutable row became omission", err)
++					}
++					break
++				}
++				keys = append(keys, page.keys...)
++				if mode == "cancel" {
++					cancel()
++					if got := fetch(ctx); !isStatus(got.err, adbc.StatusCancelled) || fetchCalls != 1 || discoveryCalls != 2 {
++						t.Fatal("cancellation fetched or rediscovered pending keys", got.err, fetchCalls, discoveryCalls)
++					}
++					break
++				}
++			}
++			if mode == "complete" && !reflect.DeepEqual(keys, []string{"logical:1", "logical:2", "logical:3"}) {
++				t.Fatal("partial chunks lost pending keys", keys)
++			}
++		})
++	}
++}
++
++func TestSnapshotHashReplyFetcherUnexpectedWidthIsTerminal(t *testing.T) {
++	for _, discoveryMismatch := range []bool{false, true} {
++		fetchCalls := 0
++		fetch := snapshotHashReplyFetcher(func(context.Context) ([]string, []string, error) {
++			if discoveryMismatch {
++				return []string{"logical:1"}, nil, nil
++			}
++			return []string{"logical:1"}, []string{"physical:1"}, nil
++		}, func(context.Context, []string) ([][]any, error) { fetchCalls++; return nil, nil }, newHashReplyTarget(1, 1, 2))
++		p := newHashPagePrefetch(context.Background(), fetch)
++		if page := p.next(context.Background()); !isStatus(page.err, adbc.StatusInternal) {
++			t.Fatal("malformed internal page was accepted", page.err)
++		}
++		awaitPrefetch(t, p.done)
++		p.close()
++		wantFetch := 1
++		if discoveryMismatch {
++			wantFetch = 0
++		}
++		if fetchCalls != wantFetch {
++			t.Fatal("terminal failure was retried", fetchCalls)
++		}
++	}
++}
++
++func TestSnapshotHashReplyUnknownPayloadCanOvershootTarget(t *testing.T) {
++	ctx := context.Background()
++	discovered := false
++	payload := "\x00" + strings.Repeat("λ", 1024)
++	var chunks []int
++	fetch := snapshotHashReplyFetcher(func(context.Context) ([]string, []string, error) {
++		if discovered {
++			return nil, nil, io.EOF
++		}
++		discovered = true
++		keys := []string{"1", "2", "3", "4", "5", "6"}
++		return keys, keys, nil
++	}, func(_ context.Context, keys []string) ([][]any, error) {
++		chunks = append(chunks, len(keys))
++		values := make([][]any, len(keys))
++		for i := range keys {
++			values[i] = []any{payload}
++		}
++		return values, nil
++	}, newHashReplyTarget(1024, 4, 1))
++	var all []string
++	for {
++		page := fetch(ctx)
++		if errors.Is(page.err, io.EOF) {
++			break
++		}
++		if page.err != nil {
++			t.Fatal("adaptive target rejected an oversized valid value", page.err)
++		}
++		for _, row := range page.values {
++			if row[0] != payload {
++				t.Fatal("adaptive target truncated a string")
++			}
++		}
++		all = append(all, page.keys...)
++	}
++	if !reflect.DeepEqual(chunks, []int{4, 1, 1}) || len(all) != 6 {
++		t.Fatal("unknown initial payload was not retained/shrunk on later chunks", chunks, all)
++	}
++}
++
++func TestSnapshotHashReplyTargetPreservesLimitedPages(t *testing.T) {
++	one := int64(1)
++	for _, tc := range []struct {
++		name     string
++		sel      *SelectStmt
++		preserve bool
++	}{
++		{"unlimited", &SelectStmt{}, false},
++		{"limit", &SelectStmt{Limit: &one}, true},
++		{"offset", &SelectStmt{Offset: &one}, true},
++		{"limit_offset", &SelectStmt{Limit: &one, Offset: &one}, true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			it := &scanIter{}
++			it.preserveHashPageForLimits(tc.sel)
++			// The planner may clear pushed pagination during a cap rewrite, or
++			// DISTINCT construction may pass the stripped inner plan afterward.
++			it.preserveHashPageForLimits(&SelectStmt{})
++			if it.preserveHashPage != tc.preserve {
++				t.Fatal("SQL pagination geometry lost", it.preserveHashPage)
++			}
++			if tc.preserve {
++				client := goredis.NewClient(&goredis.Options{Protocol: 3})
++				defer client.Close()
++				it.meta, it.store = &tableMeta{KeyPrefix: "logical:"}, &store{client: client}
++				for j := 0; j < 105; j++ {
++					it.fetch = append(it.fetch, fmt.Sprintf("c%d", j))
++				}
++				hook := &hashSliceHook{t: t, rows: map[string][]any{}, fields: append(append([]string(nil), it.fetch...), snapshotDeletedField)}
++				client.AddHook(hook)
++				ids := make([]string, wideFetchChunk)
++				for i := range ids {
++					id := strconv.Itoa(i + 1)
++					ids[i] = fmt.Sprintf("%020d", i+1)
++					hook.rows["physical:"+id] = make([]any, len(it.fetch)+2)
++				}
++				it.delta = &snapshotDeltaScan{meta: it.meta, pageRows: wideFetchChunk, directoryPageRows: wideFetchChunk,
++					sources: []snapshotDeltaSource{{segment: snapshotSegment{Prefix: "physical:", Rows: wideFetchChunk}, ids: ids, done: true}}}
++				page := it.prefetchedHashFetcher()(context.Background())
++				if page.err != nil || len(page.keys) != wideFetchChunk {
++					t.Fatal("limited final discovery page was subdivided", len(page.keys), page.err)
++				}
++			}
++		})
++	}
++}
+diff --git a/go/scan_prefetch.go b/go/scan_prefetch.go
+index a745d493..71b7510d 100644
+--- a/go/scan_prefetch.go
++++ b/go/scan_prefetch.go
+@@ -135,7 +135,7 @@ func (it *scanIter) nextPrefetchedHash(ctx context.Context) ([]string, []map[str
+ 		// It never sees the consumer's mutable projection, env or Arrow builder.
+ 		worker := *it
+ 		worker.prefetch, worker.projection = nil, nil
+-		it.prefetch = newHashPagePrefetchWithCleanup(ctx, worker.fetchHashPage, worker.close)
++		it.prefetch = newHashPagePrefetchWithCleanup(ctx, worker.prefetchedHashFetcher(), worker.close)
+ 	}
+ 	page := it.prefetch.next(ctx)
+ 	if errors.Is(page.err, io.EOF) {
+@@ -155,6 +155,32 @@ func (it *scanIter) nextPrefetchedHash(ctx context.Context) ([]string, []map[str
+ 	return it.consumeHashValues(page.keys, page.values)
+ }
+ 
++func (it *scanIter) preserveHashPageForLimits(sel *SelectStmt) {
++	// Capture the SQL shape before the first fill, including when a runtime cap
++	// rewrites a pushed limit into a consumer limit. Smaller reply chunks could
++	// otherwise stop before validating the established final discovery-page tail.
++	it.preserveHashPage = it.preserveHashPage || sel != nil && (sel.Limit != nil || sel.Offset != nil)
++}
++
++// Ordinary cursor and narrow/generic paths keep their established fetch shape.
++// Managed snapshot discovery retains its exact source pages and visibility proofs;
++// only the materialized HASH response is divided by an adaptive byte target.
++func (it *scanIter) prefetchedHashFetcher() func(context.Context) hashPage {
++	if it.preserveHashPage || len(it.fetch) < 64 || it.candidates == nil && it.delta == nil {
++		return it.fetchHashPage
++	}
++	var discover func(context.Context) ([]string, []string, error)
++	if it.candidates != nil {
++		discover = it.candidates.nextKeys
++	} else {
++		discover = it.delta.nextKeys
++	}
++	fields := append(append([]string(nil), it.fetch...), snapshotDeletedField)
++	return snapshotHashReplyFetcher(discover, func(ctx context.Context, keys []string) ([][]any, error) {
++		return it.store.fetchRowSlices(ctx, keys, fields, wideFetchChunk)
++	}, newHashReplyTarget(hashReplyTargetBytes, wideFetchChunk, len(fields)+1))
++}
++
+ func (it *scanIter) fetchHashPage(ctx context.Context) hashPage {
+ 	if it.candidates != nil || it.delta != nil {
+ 		var logical, physical []string
+diff --git a/go/shared_scan.go b/go/shared_scan.go
+index d847f8da..a9809839 100644
+--- a/go/shared_scan.go
++++ b/go/shared_scan.go
+@@ -98,6 +98,7 @@ func (e *executor) newScanReader(ctx context.Context, plan *selectPlan, req scan
+ 	}
+ 	it.projection = newScanProjection(it, plan.items)
+ 	it.allowPrefetch = scanPrefetchEnabled
++	it.preserveHashPageForLimits(plan.sel)
+ 	r := &streamReader{ctx: sctx, cancel: cancel, exec: e, cache: e.cache, items: plan.items, it: it,
+ 		env: e.newEnv(sctx, plan.meta.types(), params), zone: e.zone(), cols: cols, schema: resultSchema(cols), mem: so.mem, batchRows: so.batchRows, batchBytes: so.batchBytes, left: -1}
+ 	r.refs.Store(1)
+diff --git a/go/stream.go b/go/stream.go
+index 460e6e05..126e1fbf 100644
+--- a/go/stream.go
++++ b/go/stream.go
+@@ -226,6 +226,8 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
+ 	if err != nil {
+ 		return execResult{}, err
+ 	}
++	// DISTINCT may have stripped the outer limits from plan before construction.
++	r.it.preserveHashPageForLimits(limits)
+ 	cols := r.cols
+ 	if !sc.pushLimit && sc.req.late == nil {
+ 		if off := limits.Offset; off != nil {
+diff --git a/go/union_stream.go b/go/union_stream.go
+index 5abeb439..2866c472 100644
+--- a/go/union_stream.go
++++ b/go/union_stream.go
+@@ -211,6 +211,8 @@ func (n *unionRows) nextLeaf(ctx context.Context) ([]Value, error) {
+ 		// Use the generic Value path, with no early fit to an Arrow column. The
+ 		// materialized set executor coerces the original Values at each pair.
+ 		r.arrow = nil
++		// UNION pagination can live above this leaf; retain generic page geometry.
++		r.it.preserveHashPage = true
+ 		r.zone = utcZone
+ 		if !n.scan.pushLimit && n.scan.req.late == nil {
+ 			if off := n.plan.sel.Offset; off != nil {
