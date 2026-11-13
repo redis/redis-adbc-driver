@@ -44,6 +44,7 @@ func TestSnapshotCompactionCombinedDirectoryProfile(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.WithValue(h.ctx, compactionReadObservation{}, true), 2*time.Minute)
 	defer cancel()
 	steps := 0
+	copySteps := 0
 	started := time.Now()
 	for {
 		job, err := s.readSnapshotCompaction(ctx)
@@ -52,6 +53,9 @@ func TestSnapshotCompactionCombinedDirectoryProfile(t *testing.T) {
 		}
 		if job == nil {
 			break
+		}
+		if job.Phase == "copy" {
+			copySteps++
 		}
 		if _, err := s.snapshotCompactionStep(ctx, token); err != nil {
 			t.Fatal(err)
@@ -70,7 +74,7 @@ func TestSnapshotCompactionCombinedDirectoryProfile(t *testing.T) {
 	}
 	encoded, err := json.Marshal(map[string]any{
 		"rows": len(rows), "columns": 3, "sources": len(observer.sources),
-		"steps": steps, "milliseconds": float64(elapsed) / float64(time.Millisecond),
+		"steps": steps, "copy_steps": copySteps, "milliseconds": float64(elapsed) / float64(time.Millisecond),
 		"directory_pipeline_calls": observer.pipelines, "directory_commands": observer.commands,
 		"directory_client_milliseconds": float64(observer.elapsed) / float64(time.Millisecond),
 		"pacing":                        false, "validated": true, "caller_retries": 0,
