@@ -89,8 +89,9 @@ func testNativeDMLRace(t *testing.T, sql string, empty, deleted bool, rows int, 
 			other.exec("TRUNCATE it_tr_t RESTART IDENTITY")
 		case "drop":
 			other.exec("DROP TABLE it_tr_t")
-			other.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
-			other.exec("INSERT INTO it_tr_t VALUES (999999,'replacement')")
+			// DDL replacement bypasses table DML admission; the paused writer
+			// must still reject this changed binding at publication.
+			other.exec("CREATE TABLE it_tr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
 		default:
 			t.Fatal("unknown race mode", mode)
 		}

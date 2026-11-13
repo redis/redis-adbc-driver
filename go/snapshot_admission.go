@@ -16,15 +16,16 @@ import (
 // Wait before reserving a workspace, planning SQL or consuming Arrow input.
 // Release a full lineage's write-intent pin while maintenance makes room;
 // retaining it would block the very compaction publication we need to admit.
-// Only admission is repeated, never statement execution or input consumption.
+// Managed SQL DML and Arrow appends share per-table admission. Only admission
+// is repeated, never statement execution or input consumption.
 func (s *store) acquireWritableSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
-	return s.acquireWritableSnapshotMode(ctx, target, false)
+	return s.acquireTableWriteSnapshot(ctx, target)
 }
 
 // Appends coordinate before Arrow input is consumed. The hint lives on the
 // existing leased writer pin, whose root/reference/expiry semantics are unchanged.
 func (s *store) acquireIngestSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
-	return s.acquireWritableSnapshotMode(ctx, target, true)
+	return s.acquireTableWriteSnapshot(ctx, target)
 }
 
 func snapshotIngestAdmissionTarget(meta *tableMeta) string {
@@ -32,7 +33,7 @@ func snapshotIngestAdmissionTarget(meta *tableMeta) string {
 	return fmt.Sprintf("%x", digest)
 }
 
-func (s *store) acquireWritableSnapshotMode(ctx context.Context, target func(context.Context) (*tableMeta, error), ingest bool) (context.Context, *snapshotPin, error) {
+func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
 	delay := 5 * time.Millisecond
 	for {
 		sctx, pin, err := s.acquireSnapshot(ctx, true)
@@ -52,20 +53,22 @@ func (s *store) acquireWritableSnapshotMode(ctx context.Context, target func(con
 		s.mu.Unlock()
 		space := meta == nil || len(meta.snapshotSegments()) < snapshotMaxSegments || !worker
 		if space {
-			if !ingest || meta == nil {
+			if meta == nil {
 				return sctx, pin, nil
 			}
+			// Keep the existing control operation/pin field so current Arrow
+			// clients and SQL DML coordinate without a storage-format change.
 			n, err := s.snapshotControl(sctx, "admit_ingest", pin.token, "", pin.root, snapshotIngestAdmissionTarget(meta)).Int()
 			if err != nil {
 				pin.release()
-				return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to admit snapshot ingest before input consumption")
+				return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to admit snapshot table write before execution or input consumption")
 			}
 			if n == 1 {
 				return sctx, pin, nil
 			}
 			if n != 0 {
 				pin.release()
-				return ctx, nil, errorf(adbc.StatusInvalidState, "snapshot ingest admission lease lost before input consumption")
+				return ctx, nil, errorf(adbc.StatusInvalidState, "snapshot table write admission lease lost before execution or input consumption")
 			}
 		}
 		pin.release()

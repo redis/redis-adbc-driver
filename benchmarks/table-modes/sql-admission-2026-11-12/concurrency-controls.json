@@ -1,0 +1,180 @@
+{
+  "metadata": {
+    "driver_version": "v0.0.26-dev.sql-admission",
+    "driver_source_commit": "8e178ba17f8775992ab77fc5710d1375528cd4da",
+    "driver_sha256": "9422d37d20ae402342e44cb331169f4731e85a6b7c8154e4b2c4ef107184bf35",
+    "rows": 100,
+    "columns": 105,
+    "writers": 4,
+    "repetitions": 3,
+    "start": "barrier after all four connections and inputs are ready",
+    "automatic_retries": 0,
+    "scope": "Correctness/conflict control; no throughput claim"
+  },
+  "trials": [
+    {
+      "api": "sql_insert",
+      "repetition": 0,
+      "successful_writers": 4,
+      "conflicting_writers": 0,
+      "visible_rows": 100,
+      "all_visible_values_validated": true,
+      "outcomes": [
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        }
+      ]
+    },
+    {
+      "api": "arrow_append",
+      "repetition": 0,
+      "successful_writers": 4,
+      "conflicting_writers": 0,
+      "visible_rows": 100,
+      "all_visible_values_validated": true,
+      "outcomes": [
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        }
+      ]
+    },
+    {
+      "api": "sql_insert",
+      "repetition": 1,
+      "successful_writers": 4,
+      "conflicting_writers": 0,
+      "visible_rows": 100,
+      "all_visible_values_validated": true,
+      "outcomes": [
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        }
+      ]
+    },
+    {
+      "api": "arrow_append",
+      "repetition": 1,
+      "successful_writers": 4,
+      "conflicting_writers": 0,
+      "visible_rows": 100,
+      "all_visible_values_validated": true,
+      "outcomes": [
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        }
+      ]
+    },
+    {
+      "api": "sql_insert",
+      "repetition": 2,
+      "successful_writers": 4,
+      "conflicting_writers": 0,
+      "visible_rows": 100,
+      "all_visible_values_validated": true,
+      "outcomes": [
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        }
+      ]
+    },
+    {
+      "api": "arrow_append",
+      "repetition": 2,
+      "successful_writers": 4,
+      "conflicting_writers": 0,
+      "visible_rows": 100,
+      "all_visible_values_validated": true,
+      "outcomes": [
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        },
+        {
+          "status": "success",
+          "rows": 25
+        }
+      ]
+    }
+  ],
+  "final_qpf": {
+    "factor": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296
+  },
+  "status": "complete"
+}

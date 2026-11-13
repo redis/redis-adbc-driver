@@ -200,8 +200,9 @@ func TestSQLDropDuringCreateTableAs(t *testing.T) {
 		}
 		other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
 		other.exec("DROP TABLE it_sr_t")
-		other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
-		other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+		// DDL replacement bypasses table DML admission; the paused writer
+		// must still reject this changed binding at publication.
+		other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
 	})
 	_, err := tryExec(h.ctx, h.conn, "CREATE TABLE it_sr_t AS SELECT id,note FROM it_sr_src")
 	h.expectNativeRowRefusal(raw, r, err)
@@ -223,8 +224,9 @@ func TestSQLDropDuringInsertSelect(t *testing.T) {
 	}
 	r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) {
 		other.exec("DROP TABLE it_sr_t")
-		other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
-		other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+		// DDL replacement bypasses table DML admission; the paused writer
+		// must still reject this changed binding at publication.
+		other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
 	})
 	_, err = tryExec(h.ctx, h.conn, "INSERT INTO it_sr_t SELECT id,note FROM it_sr_src")
 	h.expectNativeRowRefusal(raw, r, err)
@@ -307,8 +309,9 @@ func TestSQLDropDuringIngest(t *testing.T) {
 					other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
 				}
 				other.exec("DROP TABLE it_sr_t")
-				other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
-				other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+				// DDL replacement bypasses table DML admission; the paused writer
+				// must still reject this changed binding at publication.
+				other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
 			})
 			err := h.ingestNotes("it_sr_t", mode, srRows, srRows)
 			h.expectNativeRowRefusal(raw, r, err)
@@ -335,8 +338,9 @@ func TestSQLDropDuringIngest(t *testing.T) {
 			}
 			testHookRowsWritten = nil
 			other.exec("DROP TABLE it_sr_t")
-			other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
-			other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+			// DDL replacement bypasses table DML admission; the paused writer
+			// must still reject this changed binding at publication.
+			other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
 			root = raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 		}
 		t.Cleanup(func() { testHookRowsWritten = nil })

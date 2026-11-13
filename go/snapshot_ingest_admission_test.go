@@ -168,10 +168,23 @@ func TestSnapshotIngestAdmissionWaitsBeforeInput(t *testing.T) {
 	if otherInput.calls.Load() != 2 || otherInput.batches.Load() != 1 {
 		t.Fatal("independent input replay")
 	}
-	h.exec("INSERT INTO t VALUES(3)")
+	// Publish through the admitted owner's workspace; a new SQL statement now
+	// waits on the same gate as Arrow instead of bypassing this owner.
+	wctx, id, err := s.beginSnapshotWrite(old, pin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.abortSnapshot(pin, id)
+	if err := s.prepareSnapshotTable(wctx, defaultSchema, "t"); err != nil {
+		t.Fatal(err)
+	}
+	snapshotExecuteTest(t, s, wctx, "INSERT INTO t VALUES(3)")
 	oldRows := snapshotExecuteTest(t, s, old, "SELECT id FROM t")
 	if len(oldRows.rows) != 1 || oldRows.rows[0][0].I != 1 {
 		t.Fatal("admission pin lost its root", oldRows.rows)
+	}
+	if err := s.publishSnapshot(wctx, pin, id); err != nil {
+		t.Fatal(err)
 	}
 	pin.release()
 	select {

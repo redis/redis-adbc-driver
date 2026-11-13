@@ -1,0 +1,26 @@
+[
+  {
+    "api": "sql",
+    "writers": 1,
+    "measured_repetitions": 3,
+    "median_seconds": 8.47761845900095,
+    "min_seconds": 8.468123665996245,
+    "max_seconds": 8.58227695900132
+  },
+  {
+    "api": "sql",
+    "writers": 4,
+    "measured_repetitions": 3,
+    "median_seconds": 19.449189999999362,
+    "min_seconds": 18.712353958006133,
+    "max_seconds": 20.055112000001827
+  },
+  {
+    "api": "arrow",
+    "writers": 4,
+    "measured_repetitions": 3,
+    "median_seconds": 18.732521666999673,
+    "min_seconds": 10.669099291990278,
+    "max_seconds": 19.553140541989706
+  }
+]

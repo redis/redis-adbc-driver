@@ -447,14 +447,19 @@ gate also waits before execution, with bounded polling and the statement's
 cancellation/deadline. Existing immutable-index proofs are shared with the private
 workspace. No SQL or Arrow input is replayed. Reads remain available.
 
-Managed-table append and create-append Arrow ingestion also wait for another
-participating ingest targeting the same logical table before consuming input. Waiting releases
-the provisional pin and reacquires a current generation. Independent targets
+Managed-table top-level SQL INSERT, UPDATE, DELETE and MERGE share table admission
+with append and create-append Arrow ingestion. They wait for another participating
+writer targeting the same logical table before executing SQL or consuming Arrow
+input. Waiting releases the provisional pin and reacquires a current generation,
+so SQL evaluates against the state published by the preceding writer. Independent targets
 remain concurrent. This admission uses the existing leased writer pin, including
 for a table first created by create-append; it introduces no storage version or
 ownership change. Cancellation and uncertain admission replies terminate before
-input consumption. SQL/DDL writers and clients without this admission can still
-cause a publication conflict; input is never automatically replayed.
+execution/input consumption. DDL, additional targets in data-changing WITH
+statements, older SQL clients without this admission, and changed managed read
+dependencies can still cause a publication conflict; input is never automatically
+replayed. This gate coordinates statements, not multi-statement transactions,
+and does not guarantee fairness or conflict-free arbitrary SQL.
 Unmanaged Arrow append bypasses this gate and writes application HASHes directly;
 see its [partial-write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes).
 
@@ -547,7 +552,7 @@ marker left by an unexpected runtime failure blocks further row batches, sealing
 and publication; the private work is abortable and reclaimable.
 
 Redis also needs memory for retained generations, indexes and server overhead.
-Concurrent publication returns SQLSTATE `40001` to the losing writer. Retry the
+Conflicting publication returns SQLSTATE `40001` to the losing writer. Retry the
 whole statement with fresh input; SQL, volatile expressions and Arrow streams
 are never automatically replayed. Writes sharing catalog collections or metadata
 dependencies can still conflict even when their target tables differ.
