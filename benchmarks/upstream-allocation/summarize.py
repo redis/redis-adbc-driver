@@ -18,7 +18,10 @@ def main():
     assert metadata["mode"] == "bench"
     assert all(command["exit_code"] == 0 for command in metadata["commands"])
     samples, hardware = [], {}
-    for suite in ("redis", "arrow"):
+    suites = ("redis",) if metadata.get("suite") == "redis-owned" else ("redis", "arrow")
+    expected = metadata.get("expected_cases", 28)
+    assert expected == (12 if metadata.get("suite") == "redis-owned" else 28)
+    for suite in suites:
         text = (args.work / (suite + "-bench.log")).read_text()
         for line in text.splitlines():
             for field in ("goos", "goarch", "cpu"):
@@ -38,9 +41,9 @@ def main():
     groups = defaultdict(list)
     for sample in samples:
         groups[(sample["suite"], sample["name"])].append(sample)
-    assert len(groups) == 28, len(groups)
+    assert len(groups) == expected, len(groups)
     count = metadata["count"]
-    assert len(samples) == 28 * count
+    assert len(samples) == expected * count
     summary = []
     for (suite, name), group in sorted(groups.items()):
         assert len(group) == count, (name, len(group))
