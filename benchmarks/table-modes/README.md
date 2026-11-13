@@ -5,6 +5,12 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+[Latest main comparison](main-perf-2026-11-12/report.md) repeats the complete
+read/write/creation matrix on source `f630e117` after PRs #403–405, built as
+`v0.0.26-dev.main-perf`. Run `arrow_compare.py --suite all` with that pinned
+library/CLI, version and fresh private paths; `main_perf_audit.py` checks this
+separate evidence bundle. All 156 trials completed and validated without retries.
+
 The [managed SQL admission fix](sql-admission-2026-11-12/report.md) separately
 reruns the affected managed writers and synchronized controls on unreleased fix
 source. Same-table SQL DML now shares Arrow's admission gate; all recorded writers
