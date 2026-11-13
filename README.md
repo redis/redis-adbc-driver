@@ -44,38 +44,53 @@ For native Redis commands and data structures, start with the
 
 ## Why a Redis ADBC driver?
 
-Bring SQL and Arrow to Redis while keeping Redis-native application access:
+Your application already uses Redis. Redis ADBC lets your team query, analyze
+and load that data with SQL and Arrow, while keeping Redis-native access where
+it fits. That means less custom data-access code and more ways to use the data
+you already have.
 
-- **Use familiar PostgreSQL-style SQL.** Read and write records, join tables,
-  and use aggregates, CTEs and window functions. The recorded
+- **Put your team's SQL skills to work.** Express joins, aggregates, CTEs and
+  window functions in familiar PostgreSQL-style SQL instead of building custom
+  fetch-and-combine logic in application code. The recorded
   [PostgreSQL 18 comparison](docs/sdlc/changes/postgresql18-overlaps-input-errors/validation.md)
-  passes **604/651 scored cases (92.78%)**, with 47 known failures. This measures
-  the curated corpus, rather than full PostgreSQL or SQL-standard conformance.
-- **Write in SQL, read with Redis clients.** With
-  [application-owned (unmanaged) tables](docs/unmanaged-tables.md), SQL writes
-  update the same HASHes your existing Redis client reads. Managed tables offer
-  HASH-style reads through the experimental, snapshot-aware
-  [native client wrapper](docs/native-client.md), available from a source build.
-- **Keep fast point access alongside analytics.** Application-owned HASHes retain
-  Redis's O(1) single-field reads and writes for fixed-size values. Complete SQL
-  statement costs also include planning, index maintenance and, for managed
-  tables, snapshot/publication work.
-- **Analyze operational data in Redis.** Redis Search accelerates supported
-  filters, sorting and aggregations; the driver handles joins and other SQL
-  evaluation and streams typed Arrow results. Performance depends on the query
-  plan, selectivity and data volume.
-- **Choose who owns your tables.** Use driver-managed tables for typed schemas,
-  statement snapshots and atomic supported writes, or application-owned tables
-  for live access to existing keys, indexes and TTLs. Use both in one connection;
-  see the [table-mode comparison](docs/managed-vs-unmanaged-tables.md#choose-by-use-case).
-- **Load data into either table mode.** Bulk-ingest Arrow tables and streams
+  passes **604/651 scored cases (92.78%)**, with 47 known failures: useful evidence
+  when assessing query reuse, rather than full PostgreSQL or SQL-standard
+  conformance.
+- **Add SQL without rewriting your Redis application.** Write records through
+  SQL and read the same HASHes with your existing Redis client using
+  [application-owned (unmanaged) tables](docs/unmanaged-tables.md). You can adopt
+  SQL for a pipeline or reporting task while keeping your application's key
+  names and native read path. Managed tables instead require the experimental,
+  snapshot-aware [native client wrapper](docs/native-client.md) for HASH-style
+  reads, available from a source build.
+- **Serve individual records and ask broader questions.** Keep Redis point
+  access for application requests, then use SQL to filter, group and summarize
+  records for operational decisions. Underlying HASH single-field reads and
+  writes are O(1) for fixed-size values; complete SQL statements also incur
+  planning, index maintenance and, for managed tables, snapshot/publication work.
+- **Get answers without first building another data pipeline.** Query live
+  application-owned data in Redis for questions such as sales by country or
+  customers with unshipped orders. Redis Search accelerates supported filters,
+  sorting and aggregations; the driver handles joins and other SQL evaluation.
+  This can avoid a separate reporting copy and its refresh lag when live-source
+  consistency fits the task. Performance depends on the query and data volume.
+- **Choose the consistency your workflow needs.** Managed tables give reports
+  one committed view per statement, so concurrent driver writes do not mix row
+  versions within a result; supported writes publish atomically. Application-owned
+  tables preserve control over keys, indexes and TTLs, with live access and no row
+  snapshot. Use both in one connection; see the
+  [table-mode comparison](docs/managed-vs-unmanaged-tables.md#choose-by-use-case).
+- **Bring existing data into new workflows.** Bulk-load Arrow tables and streams
   into managed tables, or append new explicitly keyed rows to application-owned
-  tables. Import eligible existing HASH collections into private managed copies
-  and refresh explicitly when the source changes. Unmanaged writes can partially
+  HASHes that your application can immediately read. Import existing HASH
+  collections into private managed copies when reporting needs statement
+  snapshots, then refresh explicitly as needed. Unmanaged writes can partially
   succeed; see [Arrow write operations](docs/managed-vs-unmanaged-tables.md#arrow-write-operations).
-- **Connect your data tools.** Use Python, pandas, Polars, DuckDB and orchestration
-  tools through their documented ADBC paths or repository adapters, with explicit
-  type and NULL handling.
+- **Use Redis data in the tools your team already knows.** Stream typed Arrow
+  batches into Python, pandas, Polars, DuckDB and orchestration workflows through
+  documented ADBC paths or repository adapters. Explicit types and NULL handling
+  reduce the custom decoding and conversion code needed to turn Redis values
+  into analysis-ready tables.
 
 ## Quick start
 

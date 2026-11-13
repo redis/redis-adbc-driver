@@ -12,3 +12,8 @@ Documentation-only validation: local relative links and referenced headings
 checked; 604/651 rounds to 92.78%; `git diff --check` passes. No runtime tests
 or new benchmarks required or run. Automated self-review found no remaining
 ownership or compatibility claim conflicts; no human review claimed.
+
+Follow-up: rewrote each bullet around a user benefit and concrete workflow,
+retaining the same evidence and ownership boundaries. Rechecked links,
+percentage arithmetic and whitespace; reviewed every bullet for an explicit
+answer to why the feature is valuable.

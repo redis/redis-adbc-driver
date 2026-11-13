@@ -13,3 +13,8 @@ Scope O(1) to underlying fixed-size HASH field access, not complete SQL
 statements. No evidence establishes general Redis-client latency parity or
 superiority to every OLTP database for analytics; make neither claim. No runtime,
 release, benchmark or supported-server changes.
+
+Each bullet must connect a capability to a practical user outcome. Explain
+reduced application/pipeline work, preservation of existing Redis access,
+report consistency and tool reuse without promising measured cost savings,
+automatic query portability or snapshot consistency for unmanaged sources.
