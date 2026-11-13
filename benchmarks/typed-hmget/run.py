@@ -84,7 +84,25 @@ def main():
     modfile = args.work / 'typed.mod'
     modfile.write_text((candidate / 'go/go.mod').read_text().rstrip() + '\n\nreplace github.com/redis/go-redis/v9 => ' + str(api) + '\n')
     shutil.copyfile(candidate / 'go/go.sum', args.work / 'typed.sum')
+    normalized_mod = modfile.read_text().replace(str(api), '../go-redis-patched')
+    assert hashlib.sha256(normalized_mod.encode()).hexdigest() == data['reproduction_hashes']['normalized_modfile_sha256']
+    manifest = {
+        'api_base_commit': upstream['base_commit'],
+        'api_recorded_feature_commit': upstream['commit'],
+        'api_applied_patch_sha256': data['patch_sha256']['upstream-v9.23.patch'],
+        'api_source_sha256': {name: sha(api / name) if expected is not None else None for name, expected in upstream['files_sha256'].items()},
+        'driver_base_commit': data['freeze']['driver_base_commit'],
+        'adapter_source_sha256': {name: sha(overlay_tree / name) for name in data['freeze']['overlay_sources_sha256']},
+        'adapter_patch_sha256': sha(DATA / 'patches/driver-adapter.patch'),
+        'actual_overlay_json_sha256': sha(overlay),
+        'actual_modfile_sha256': sha(modfile),
+        'actual_sumfile_sha256': sha(args.work / 'typed.sum'),
+        'normalized_modfile_sha256': hashlib.sha256(normalized_mod.encode()).hexdigest(),
+        'go_version': subprocess.check_output(['go', 'version'], env=env, text=True).strip(),
+        'builds': {},
+    }
     extension = 'dylib' if sys.platform == 'darwin' else 'so'
+    # Finish both builds before either timed block, matching the measured plan.
     for label, source in (('baseline', baseline), ('candidate', candidate)):
         version = data['native'][label]['build']['version']
         flags = ['-modfile=' + str(modfile), '-overlay=' + str(overlay)] if label == 'candidate' else []
@@ -95,6 +113,17 @@ def main():
         cli = build / 'redis-adbc'
         run(['go', 'build', *flags, '-buildmode=c-shared', '-tags', 'driverlib', '-ldflags', linker, '-o', str(library), './pkg'], source / 'go', {'CGO_ENABLED': '1'})
         run(['go', 'build', *flags, '-ldflags', linker, '-o', str(cli), './cmd/redis-adbc'], source / 'go', {'CGO_ENABLED': '0'})
+        manifest['builds'][label] = {
+            'base_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source, text=True).strip(),
+            'version': version, 'driver_sha256': sha(library), 'cli_sha256': sha(cli),
+            'private_library_build_info': subprocess.check_output(['go', 'version', '-m', str(library)], env=env, text=True),
+            'private_cli_build_info': subprocess.check_output(['go', 'version', '-m', str(cli)], env=env, text=True),
+        }
+    (args.work / 'reproduction-manifest-private.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    for label, source in (('baseline', baseline), ('candidate', candidate)):
+        version = data['native'][label]['build']['version']
+        library = source / 'go/build' / ('libadbc_driver_redis.' + extension)
+        cli = source / 'go/build/redis-adbc'
         run([sys.executable, str(source / 'benchmarks/table-modes/managed_read_memory.py'), '--source', str(args.source.resolve()), '--driver', str(library), '--cli', str(cli), '--version', version, '--work', str(args.work / (label + '-results')), '--dedicated-empty-server', '--read-repeats', '6'], source)
     print('Both native blocks completed; preserve all samples and record new build/module/overlay hashes.')
 
