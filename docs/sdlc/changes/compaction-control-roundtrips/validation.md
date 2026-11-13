@@ -32,10 +32,27 @@ rows or leaked pins. Existing atomic copy/outcome, stale-owner/tail, source
 directory/index, DROP/TRUNCATE, publication/write-intent, queue and Close
 recovery checks passed in the same selection.
 
-The two skips were the new actual Software EVAL-only principal scenario (URI
-not provided in this initial loan) and the existing opt-in combined-directory
-timing diagnostic. Neither is claimed as tested. An actual ACL correctness gap
-and a matched native/diagnostic comparison remain pending before adoption.
+The two initial skips were the new actual Software EVAL-only principal scenario
+(URI not provided in this initial loan) and the existing opt-in combined-directory
+timing diagnostic. The actual ACL gap was closed in the separate block below;
+the skipped timing diagnostic is not performance evidence.
+
+## Actual Software ACL check
+
+A later parent-granted correctness gap used the existing SoftwarePrincipals
+creation/cleanup lifecycle for one temporary operator with EVALSHA denied.
+Positive PING/EVAL and native EVALSHA denial were verified over strict data
+TLS/RESP3, and active/effective 4x QPF was rechecked after mapping changes.
+The new combined acquisition/valid/release lifecycle and existing generic
+EVAL-only control lifecycle both passed under `-race`: two pass events, zero
+skips/failures/race reports. The new path retained exactly one top-level refusal,
+three successful EVAL control calls and no no-retry-marker violation.
+
+The complete controller, including principal setup and teardown, took 8.7
+seconds; this is a correctness duration, not a throughput sample. Its created
+user/role/ACL/mapping resources were removed, effective QPF reverified, and the
+owned loaned database returned empty/index-free. No certificate, topology or
+shared fixture ownership changes were made.
 
 After all subprocesses and clients exited, the loaned database was reset only
 within the owner's authorization. DBSIZE zero and an empty FT._LIST were
