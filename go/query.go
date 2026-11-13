@@ -282,6 +282,9 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		wp.query = strings.Join(terms, " ")
 	}
 	wp.residual = andAll(residual)
+	if meta.Unmanaged {
+		wp.residual = where
+	}
 	wp.none = slices.Contains(terms, noMatchQuery)
 	return wp, nil
 }
@@ -605,7 +608,8 @@ type scanIter struct {
 	fetch []string
 	// hashFetch discovers keys/IDs through Search and adopts authoritative
 	// wide HASH replies instead of copying each user field into a second map.
-	hashFetch bool
+	hashFetch          bool
+	unmanagedHashFetch bool // Search owns membership; live HASHes own values/existence
 	// ties is set for a scan with a tieSort, which also records the page
 	// keep last saw (raw) and which of its rows it kept.
 	ties       *tieScan
@@ -776,6 +780,12 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		if meta.SnapshotSourceKey {
 			ar.width++
 		}
+	}
+	// Keep full scans on LOAD *: small-fixture measurements favor its single
+	// retrieval stage. Filtered scans fetch live HASHes after index discovery.
+	if meta.Unmanaged && req.where.query != "*" && len(req.sortBy) == 0 && req.ties == nil && req.late == nil {
+		it.store, it.unmanagedHashFetch = e.store, true
+		ar.load, ar.loadAll, ar.hashFetch = []string{"__key"}, false, true
 	}
 	if req.authoritative {
 		it.store, it.fetch, it.hashFetch = e.store, append(fields, it.fetch...), true
@@ -958,11 +968,21 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 	}
 	keys := make([]string, len(page))
 	for i, r := range page {
-		if !it.exists(r) {
+		if !it.unmanagedHashFetch && !it.exists(r) {
 			page[i] = nil // deleted after the index matched it
 			continue
 		}
 		keys[i] = r["__key"]
+		if it.unmanagedHashFetch && !unmanagedSourceKey(keys[i]) {
+			return nil, nil, errorf(adbc.StatusInvalidArgument, "unmanaged index contains a key overlapping driver storage")
+		}
+	}
+	if it.unmanagedHashFetch {
+		fetched, err := it.store.fetchKeyRows(ctx, keys, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, fetched)
 	}
 	if it.projection != nil && it.projection.consumeHash != nil && (it.hashFetch || it.projection.hashExclusive) {
 		return it.nextHashValues(ctx, keys)
@@ -1085,7 +1105,7 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 	}
 	for i, raw := range fetched {
 		if raw == nil {
-			if snapshotOf(it.env.ctx) != nil && it.cur != nil {
+			if !it.meta.Unmanaged && snapshotOf(it.env.ctx) != nil && it.cur != nil {
 				return nil, nil, errorf(adbc.StatusIO, "a row from the published snapshot cursor disappeared")
 			}
 			continue

@@ -120,8 +120,12 @@ key-conflict, cancellation or Redis error leaves earlier successful rows in
 place. The ADBC error message and UTF-8 error detail
 `adbc.redis.ingest.acknowledged_rows` report the number of acknowledged rows;
 Go ExecuteUpdate/ExecuteQuery also return that count with the error. This is a
-**lower bound**, since a lost reply can hide an applied current row. The original
-ADBC status and SQLSTATE are retained. Failures before target resolution or
+**lower bound**, since a lost reply can hide applied rows in a submitted pipeline.
+The count includes all acknowledged successes and need not describe a contiguous
+prefix of input. INSERT uses pipelines of at most 128 single-key scripts with a
+1 MiB request target and a 64 MiB single-row ceiling. After a conflict,
+cancellation or lost reply, already-submitted rows may still apply; no further
+pipeline is submitted. The original ADBC status and SQLSTATE are retained. Failures before target resolution or
 unsupported-operation admission may have the usual unknown count instead of a
 progress detail; input has not been consumed. No input or uncertain mutation is
 replayed.
@@ -190,12 +194,21 @@ and staged writes are unsupported. Arrow `replace` remains deferred in
 An unmanaged statement pins catalog metadata, **not source row values**. Scans,
 joins and streamed results can observe intervening application changes or
 expiry. Source Search indexing determines when changes become visible to scans.
+For compatible native integer NUMERIC attributes, Search narrows candidate rows
+and SQL rechecks the complete predicate against current HASH values. Other
+attribute types and text encodings retain client evaluation. Source indexing lag
+can affect predicate candidate discovery as well as membership. Vanished/non-HASH
+keys are skipped when fetching live HASHes after discovery.
+Unfiltered full scans retain `LOAD *`; filtered unordered scans can fetch live
+HASHes after Search key discovery. Sorting and value aggregates do not trust
+mutable index values.
 A query mixing managed and unmanaged tables retains managed generations but
 does not acquire a common point-in-time view of all data.
 
-Source writes execute one HASH mutation at a time. Multi-row INSERT, UPDATE,
-DELETE, MERGE and Arrow append can partially succeed. There is no rollback or
-atomic publication for them; application and SQL writers must coordinate
+Each source HASH mutation is individually atomic. INSERT and Arrow append use
+bounded pipelines; UPDATE and DELETE issue one mutation at a time. Multi-row
+INSERT, UPDATE, DELETE, MERGE and Arrow append can partially succeed. There is no
+rollback or atomic publication for them; application and SQL writers must coordinate
 themselves.
 The driver never automatically replays an uncertain source mutation. After an
 error, inspect source state before retrying a write.

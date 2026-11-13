@@ -61,37 +61,53 @@ func validateUnmanagedDescriptor(meta *tableMeta) error {
 // Check the registered source definition each time. There is deliberately no
 // immutable index proof cache for application-owned indexes or row values.
 func (s *store) checkUnmanagedIndex(ctx context.Context, meta *tableMeta) error {
+	_, err := s.unmanagedIndexInfo(ctx, meta)
+	return err
+}
+
+func (s *store) unmanagedIndexInfo(ctx context.Context, meta *tableMeta) (indexInfo, error) {
 	if err := validateUnmanagedDescriptor(meta); err != nil {
-		return err
+		return indexInfo{}, err
 	}
 	reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
 	if err != nil {
-		return wrapRedis(err, "unmanaged source index is unavailable")
+		return indexInfo{}, wrapRedis(err, "unmanaged source index is unavailable")
 	}
 	info := indexInfoOf(reply)
 	if info.keyType != "HASH" || !slices.Equal(info.prefixes, meta.UnmanagedPrefixes) || info.filter != meta.UnmanagedFilter {
-		return errorf(adbc.StatusInvalidState, "unmanaged source index definition changed; unregister and register the table again")
+		return indexInfo{}, errorf(adbc.StatusInvalidState, "unmanaged source index definition changed; unregister and register the table again")
 	}
 	if info.indexing || info.percent < 1 || info.failures != 0 {
-		return errorf(adbc.StatusInvalidState, "unmanaged source index is not ready or has indexing failures")
+		return indexInfo{}, errorf(adbc.StatusInvalidState, "unmanaged source index is not ready or has indexing failures")
 	}
-	return nil
+	return info, nil
 }
 
 func (s *store) loadUnmanagedIndex(ctx context.Context, meta *tableMeta) error {
-	if err := s.checkUnmanagedIndex(ctx, meta); err != nil {
+	info, err := s.unmanagedIndexInfo(ctx, meta)
+	if err != nil {
 		return err
 	}
-	// The index supplies membership; SQL evaluates predicates and aggregates on
-	// authoritative HASH values. Mutable source attributes have no immutable
-	// value/NaN/tag proofs suitable for managed pushdown shortcuts.
-	for i := range meta.Columns {
-		meta.Columns[i].Indexed, meta.Columns[i].App = false, nil
-		meta.Columns[i].TagsChecked = true
-		meta.Columns[i].TagValues = tagsTruncated
-		meta.Columns[i].NaNs = true
-	}
+	applyUnmanagedAttrs(meta, info.attrs)
 	return nil
+}
+
+// Mutable source values have no immutable tag/NaN or sort/reducer proof.
+// Native integer NUMERIC attributes can narrow candidates, with the entire SQL
+// predicate rechecked against current HASH values. Read attributes afresh for
+// every statement; never cache this permission across application index changes.
+func applyUnmanagedAttrs(meta *tableMeta, attrs []indexAttr) {
+	applyAppAttrs(meta, attrs)
+	for i := range meta.Columns {
+		c := &meta.Columns[i]
+		if !c.Type.Kind.isInteger() {
+			c.Indexed, c.App = false, nil
+		}
+		if c.App != nil {
+			c.App.sortable = false
+		}
+		c.TagsChecked, c.TagValues, c.NaNs = true, tagsTruncated, true
+	}
 }
 
 // Register metadata atomically, with no owned row/index edges. Re-registration

@@ -41,6 +41,40 @@ func (h *unmanagedLostReply) ProcessHook(next goredis.ProcessHook) goredis.Proce
 	}
 }
 
+// Model a broken pipeline read after app:1: the rest of the submitted batch
+// may have applied, but its replies are unknown. No subsequent batch may run.
+func (h *unmanagedLostReply) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		first := -1
+		for i, cmd := range cmds {
+			args := cmd.Args()
+			if len(args) >= 4 && cmd.Name() == "eval" && args[1] == keyRowInsertLua {
+				if snapshotOf(ctx) != nil {
+					h.t.Fatal("source pipeline entered a managed fence")
+				}
+				marker, ok := cmd.(interface{ NoRetry() bool })
+				if !ok || !marker.NoRetry() {
+					h.t.Fatal("source pipeline permits retries")
+				}
+				if args[3] == "app:1" {
+					first = i
+				}
+			}
+		}
+		if first < 0 {
+			return next(ctx, cmds)
+		}
+		h.calls++
+		if err := next(ctx, cmds); err != nil {
+			return err
+		}
+		for _, cmd := range cmds[first:] {
+			cmd.SetErr(io.ErrUnexpectedEOF)
+		}
+		return io.ErrUnexpectedEOF
+	}
+}
+
 func TestUnmanagedUnknownWriteDoesNotReplay(t *testing.T) {
 	h, raw, _ := newSnapshotHarness(t)
 	for _, key := range []string{"app:1", "app:2"} {

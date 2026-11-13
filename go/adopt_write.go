@@ -58,11 +58,6 @@ func (s *store) prepareKeyRows(ctx context.Context, meta *tableMeta, rows [][]Va
 		if !meta.UnmanagedForeign && !isRowKey(meta.prefix(), key) {
 			return errorf(adbc.StatusInvalidArgument, "__key %q must be a row key under prefix %q (no nested ':')", key, meta.prefix())
 		}
-		if meta.Unmanaged {
-			if _, err := unmanagedRowContext(ctx, meta, []string{key}); err != nil {
-				return err
-			}
-		}
 		if seen[key] {
 			return stateErrorf(stateUnique, "duplicate __key %q", key)
 		}
@@ -83,7 +78,15 @@ func (s *store) prepareKeyRows(ctx context.Context, meta *tableMeta, rows [][]Va
 			return errorf(adbc.StatusIntegrity, "INSERT would leave HASH %s without fields", key)
 		}
 	}
-	if err := s.checkKeys(ctx, meta, true); err != nil {
+	if meta.Unmanaged {
+		keys := make([]string, len(rows))
+		for i, row := range rows {
+			keys[i] = row[ki].S
+		}
+		if _, err := unmanagedRowContext(ctx, meta, keys); err != nil {
+			return err
+		}
+	} else if err := s.checkKeys(ctx, meta, true); err != nil {
 		return err
 	}
 	// Preflight the complete batch; the script also checks atomically at write
@@ -121,6 +124,9 @@ func (s *store) writeKeyRows(ctx context.Context, meta *tableMeta, rows [][]Valu
 	if err := s.raiseNeeds(ctx, meta, rowNeeds(meta, rows)); err != nil {
 		return 0, err
 	}
+	if meta.Unmanaged {
+		return s.writeUnmanagedKeyRows(ctx, meta, rows)
+	}
 	ki, _ := meta.resolve(keyField)
 	var written int64
 	for _, row := range rows {
@@ -133,23 +139,8 @@ func (s *store) writeKeyRows(ctx context.Context, meta *tableMeta, rows [][]Valu
 				fields = append(fields, c.field(), c.encode(row[i], c.TextFormat))
 			}
 		}
-		var n int
-		var err error
-		if meta.Unmanaged {
-			rowCtx, contextErr := unmanagedRowContext(ctx, meta, []string{row[ki].S})
-			if contextErr != nil {
-				return written, contextErr
-			}
-			args := []any{"EVAL", keyRowInsertLua, 1, row[ki].S}
-			args = append(args, fields...)
-			n, err = once(rowCtx, s.client, args...).Int()
-		} else {
-			n, err = keyRowInsertScript.Run(ctx, s.client, []string{row[ki].S}, fields...).Int()
-		}
+		n, err := keyRowInsertScript.Run(ctx, s.client, []string{row[ki].S}, fields...).Int()
 		if err != nil {
-			if meta.Unmanaged {
-				return written, wrapRedis(err, "unmanaged INSERT failed; source writes may be partially applied")
-			}
 			return written, wrapRedis(err, "failed to insert adopted row")
 		}
 		if n == 0 {
