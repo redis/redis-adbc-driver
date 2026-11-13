@@ -9,7 +9,10 @@
    parent-owned verified Software 4x QPF strict data TLS/RESP3 fixture.
 5. Retain raw events privately, reconstruct split test-output payloads in order,
    and publish sanitized counts, full elapsed observations and provenance.
-6. Obtain parent source review before publication. Root owns native write
+6. Investigate the observed release latency with 64 alternating empty-catalog
+   probes and one additional unchanged dense job with optional socket/pool
+   counters. Retain both the empty non-reproduction and dense reproduction.
+7. Audit all samples and obtain parent source review before publication. Root owns native write
    controls and shared fixture teardown; no identical-binary comparison here.
 
 See [intent](intent.md), [contract](spec.md) and [validation](validation.md).

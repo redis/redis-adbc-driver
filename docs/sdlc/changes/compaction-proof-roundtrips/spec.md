@@ -17,4 +17,13 @@ Counts explain existing calls; they do not demonstrate a speedup. Do not time an
 identical production binary twice and label it baseline/candidate. Keep all
 attempts and distinguish correctness, profiling and native evidence.
 
+Separate opt-in release diagnostics compare 32 alternating fresh pins per arm
+(heartbeat delegation versus direct release with the same five-second context)
+and instrument one additional dense job. They preserve every pin release,
+existing job/index state, phase order, copy checkpoint and full row validation.
+TLS Read/Write wrappers retain NetConn traversal to the original TLS/TCP transport;
+they record durations/counts only, never bytes or addresses. Report instrumentation
+and workload differences. A Read duration includes network/reply wait and TLS
+processing, and does not identify server CPU, Search work or a causal mechanism.
+
 See [intent](intent.md) and [plan](plan.md).
