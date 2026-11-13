@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -22,6 +23,7 @@ type compactionReadPipelineObserver struct {
 	failed              bool
 	serial              bool
 	singles             int
+	elapsed             time.Duration // measured directory pipelines only
 }
 
 func (*compactionReadPipelineObserver) DialHook(next goredis.DialHook) goredis.DialHook { return next }
@@ -61,7 +63,11 @@ func (h *compactionReadPipelineObserver) ProcessPipelineHook(next goredis.Proces
 				return errors.New("unbounded directory read pipeline")
 			}
 		}
+		started := time.Now()
 		err := next(ctx, cmds)
+		if len(reads) > 0 {
+			h.elapsed += time.Since(started)
+		}
 		var target goredis.Cmder
 		for _, cmd := range reads {
 			if strings.HasPrefix(h.failure, "rank_") == (cmd.Name() == "zlexcount") {
