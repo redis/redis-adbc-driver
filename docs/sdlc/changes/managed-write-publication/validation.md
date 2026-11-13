@@ -97,3 +97,41 @@ fixtures were left intact. Temporary ACL accounts were removed by their harness.
 
 Implementation source: `896c4bef6897cd28c015816ee1d6a31d659ac0c8`;
 [PR #410](https://github.com/redis/redis-adbc-driver/pull/410).
+
+## November 13 follow-up: native cancellation CI
+
+At `bb35ea72`, both Linux driver jobs in [run 43377022503](https://github.com/redis/redis-adbc-driver/actions/runs/43377022503)
+fail the Python cancellation test: an unordered managed scan opens zero Search
+cursors, while the test requires one. The Go, snapshot and analytics checks
+pass. This is the remaining C-ABI test assumption after the managed-directory
+read change; it is independent of script caching.
+
+On owned three-shard Redis Software 8.8.0, started with `make -C go redis-up`
+and verified active/effective 4x QPF, the original test reproduces the same
+`0 == 0 + 1` assertion. The updated test explicitly covers unordered directory
+reads and `ORDER BY __rowid` Search reads. It retains cursor existence/deletion,
+CANCELLED/57014, exactly one batch before cancellation, reader termination and
+statement-reuse assertions. It additionally verifies distinct valid partial
+rows and every value/multiplicity after statement reuse. The reader is always
+unblocked/joined in `finally`, including when an earlier assertion fails. No
+production behavior, workflow settings or skip conditions change.
+
+The focused native test passes both cases (2 passed, no skips). The versioned
+shared library is built with `make -B -C go build VERSION=v0.1.0`. Local native
+validation uses macOS arm64 / Python 3.15.2 / PyArrow 26.0.1 / ADBC manager
+1.13.0, with the same validation-framework commit as failing CI
+(`fa05ea3a8a131581b55efffe855ecdd37b276cf7`) and pytest 9.2.0. Hosted Linux CI
+uses Python 3.14.10; local validation does not replace those platform checks.
+Full native validation passes: **568 passed, eight capability skips, three
+subtests passed**, zero failures (79.74 s). The existing unsupported-capability
+skips are unchanged. Python syntax, diff whitespace and change-record links
+pass. Updated hosted results are linked from PR #410.
+
+Review under REVIEW.md: the change selects each intended iterator explicitly,
+retains strict Search cursor expectations and cancellation/error checks,
+strengthens value/multiplicity checks, and joins the worker even on test failure.
+Production code, workflow permissions and compatibility scope are unchanged.
+
+The follow-up fixture's active QPF/topology/TLS/noeviction settings were verified
+after native validation. Its task-owned server/network were removed and absence
+verified; its generated test environment was removed. Other fixtures remain.

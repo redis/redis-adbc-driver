@@ -14,3 +14,7 @@ a demonstrated throughput improvement. See [validation](validation.md) and the
 Sanitized evidence published in PR #410 and task-owned resources removed.
 
 PR: [#410](https://github.com/redis/redis-adbc-driver/pull/410).
+
+November 13 CI follow-up: reproduce the native cursor assumption, cover both
+reader paths without relaxing cancellation checks, run full native validation,
+and verify the updated PR's hosted checks. See [validation](validation.md).

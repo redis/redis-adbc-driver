@@ -22,3 +22,11 @@ Acceptance separates measured script-header bytes from total traffic and
 end-to-end throughput. Timing may remain unchanged; do not claim otherwise.
 
 PR: [#410](https://github.com/redis/redis-adbc-driver/pull/410).
+
+## Native cancellation coverage
+
+C-ABI tests separately cancel an unordered managed directory scan and an ordered
+Search scan. Retain the strict cursor requirement on the Search path, all
+cancellation/error/cleanup assertions, and complete statement-reuse validation.
+Always unblock and join the reader on an earlier test failure. This is a test
+correction, without production or workflow changes.
