@@ -162,6 +162,52 @@ func (s *store) acquireCompactionCatalog(ctx context.Context) (context.Context, 
 	}
 	return context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p, store: s}), p, nil
 }
+
+// Acquire the durable job lease and a fresh current-root pin in one metadata-slot
+// command. The existing manifest/directory/map and descriptor proofs still run
+// for every step. Neither the pin nor a descriptor is reused by a later step.
+func (s *store) acquireCompactionStepCatalog(ctx context.Context, token string) (*snapshotCompactionJob, context.Context, *snapshotPin, error) {
+	pinToken := snapshotID()
+	cleanup := func() {
+		// The combined mutation is never replayed after an unknown reply. Its
+		// fresh token is known locally, so one idempotent release may retire an
+		// unseen pin. If that cleanup cannot reach Redis, the bounded lease expires.
+		bg, cancel := context.WithTimeout(context.Background(), snapshotCompactionStepTimeout)
+		defer cancel()
+		_ = s.snapshotControl(bg, "release", pinToken, "", "").Err()
+	}
+	result, err := s.snapshotControl(ctx, "compact_acquire_catalog", token, pinToken, "").Slice()
+	if err != nil {
+		cleanup()
+		return nil, ctx, nil, err
+	}
+	if len(result) != 2 {
+		cleanup()
+		return nil, ctx, nil, errorf(adbc.StatusIO, "invalid compaction catalog acquisition reply")
+	}
+	raw, rawOK := result[0].(string)
+	root, rootOK := result[1].(string)
+	if !rawOK || !rootOK || (raw == "") != (root == "") {
+		cleanup()
+		return nil, ctx, nil, errorf(adbc.StatusIO, "invalid compaction catalog acquisition reply")
+	}
+	if raw == "" {
+		return nil, ctx, nil, nil
+	}
+	var job snapshotCompactionJob
+	if err := json.Unmarshal([]byte(raw), &job); err != nil {
+		cleanup()
+		return nil, ctx, nil, err
+	}
+	if err := validateSnapshotCompactionJob(&job); err != nil {
+		cleanup()
+		return nil, ctx, nil, err
+	}
+	p := &snapshotPin{ctx: ctx, store: s, token: pinToken, root: root, stop: make(chan struct{}), done: make(chan struct{})}
+	go p.heartbeat()
+	cctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p, store: s})
+	return &job, cctx, p, nil
+}
 func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 	valid := func(id string) bool { return len(id) == 32 && snapshotDataID(snapshotRows(id)+"1") == id }
 	if j.Source == nil || j.QueueOID != strconv.FormatInt(j.Source.OID, 10) || !valid(j.QueueVersion) || j.QueueKey != strings.TrimPrefix(metaKey(j.Source.Schema, j.Source.Name), metaPrefix) || !valid(j.ID) || !valid(j.Data) || !valid(j.Token) || len(j.Source.Columns) == 0 || j.Source.SnapshotRows == nil {
@@ -253,8 +299,11 @@ func (s *store) snapshotCompactionCurrent(ctx context.Context, j *snapshotCompac
 	if err != nil {
 		return nil, false, err
 	}
+	return s.snapshotCompactionPinnedCurrent(cctx, pin, j)
+}
+func (s *store) snapshotCompactionPinnedCurrent(ctx context.Context, pin *snapshotPin, j *snapshotCompactionJob) (*tableMeta, bool, error) {
 	defer pin.release()
-	meta, err := s.getTable(cctx, j.Source.Schema, j.Source.Name)
+	meta, err := s.getTable(ctx, j.Source.Schema, j.Source.Name)
 	var ae adbc.Error
 	if errors.As(err, &ae) && ae.Code == adbc.StatusNotFound {
 		return nil, true, nil
@@ -301,24 +350,16 @@ func (s *store) releaseSnapshotCompaction(ctx context.Context, token string) err
 }
 func (s *store) snapshotCompactionStep(ctx context.Context, token string) (progress bool, err error) {
 	s.reapSnapshotBudget(ctx, 500*time.Millisecond)
-	raw, err := s.snapshotControl(ctx, "compact_acquire", token, "", "").Text()
+	j, cctx, pin, err := s.acquireCompactionStepCatalog(ctx, token)
 	if err != nil {
 		return false, err
 	}
-	if raw == "" {
+	if j == nil {
 		job, err := s.readSnapshotCompaction(ctx)
 		if err != nil || job != nil {
 			return false, err
 		}
 		return s.startSnapshotCompaction(ctx, token)
-	}
-	var job snapshotCompactionJob
-	if err := json.Unmarshal([]byte(raw), &job); err != nil {
-		return false, err
-	}
-	j := &job
-	if err := validateSnapshotCompactionJob(j); err != nil {
-		return false, err
 	}
 	defer func() {
 		if err != nil && ctx.Err() == nil {
@@ -327,7 +368,11 @@ func (s *store) snapshotCompactionStep(ctx context.Context, token string) (progr
 			_ = s.snapshotControl(ctx, "compact_error", j.Token, j.ID, "", err.Error()).Err()
 		}
 	}()
-	_, obsolete, err := s.snapshotCompactionCurrent(ctx, j)
+	if err := s.validateSnapshotMetadata(ctx, pin.root); err != nil {
+		pin.release()
+		return false, err
+	}
+	_, obsolete, err := s.snapshotCompactionPinnedCurrent(cctx, pin, j)
 	if err != nil {
 		return false, err
 	}
