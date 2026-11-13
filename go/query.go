@@ -1128,6 +1128,31 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 			return nil, nil, err
 		}
 		if it.projection != nil {
+			if it.projection.predicate != nil {
+				p := it.projection
+				if p.predicateRow == nil {
+					p.predicateRow = make([]Value, p.width)
+				}
+				if err := p.decodeInto(raw, p.predicateRow); err != nil {
+					return nil, nil, err
+				}
+				matched, err := p.predicate.matches()
+				if err != nil {
+					return nil, nil, invalidArg(err)
+				}
+				if !matched {
+					continue
+				}
+				if p.consumeMatched != nil {
+					if err := p.consumeMatched(); err != nil {
+						return nil, nil, err
+					}
+				} else {
+					p.rows = append(p.rows, append([]Value(nil), p.predicateRow...))
+				}
+				outKeys = append(outKeys, keys[i])
+				continue
+			}
 			if consume := it.projection.consume; consume != nil {
 				if err := consume(raw); err != nil {
 					return nil, nil, err
