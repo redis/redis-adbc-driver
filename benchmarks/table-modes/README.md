@@ -1,0 +1,41 @@
+# Managed/unmanaged table comparison
+
+[November 12 v0.0.26 results](2026-11-12/report.md) compare managed SQL,
+unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF.
+This directory changes benchmark tooling/evidence, not production driver behavior.
+The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
+
+`run.py` requires PyArrow, adbc-driver-manager, redis[hiredis] and requests, an
+exact release shared library/CLI, and the independently typed Arrow source
+identified by SHA-256 in the result metadata. Source data and private operational
+artifacts are deliberately excluded. Set `REDIS_BENCH_URI` (TLS with protocol=3),
+`SSL_CERT_FILE`, `REDIS_BENCH_API_URL`, `REDIS_BENCH_API_USER`,
+`REDIS_BENCH_API_PASSWORD` and optionally `REDIS_BENCH_DATABASE` (default adbc-test).
+Use `make -C go redis-up` with a dedicated Software project/database; verify
+4x QPF before any work. The harness rechecks effective configuration per case.
+
+Example, using task-specific paths and environment credentials:
+
+```sh
+python run.py --source /private/source.arrow --driver /private/release/go/build/libadbc_driver_redis.dylib \
+  --cli /private/release/go/build/redis-adbc --version v0.0.26 \
+  --work /private/new-results --dedicated-empty-server
+python audit.py
+```
+
+The database must initially be empty. The harness creates a private ownership
+marker and **erases that dedicated database between write trials** only after
+checking ownership. Do not use a shared or production database. A fresh work
+directory is required; existing evidence is never overwritten.
+
+`concurrency_control.py` runs four barrier-synchronized managed writers against
+100 rows, using SQL INSERT and Arrow append, three trials per API. Run each
+release in a separate process and a fresh dedicated empty fixture. It requires
+the same environment plus `--driver`, `--version`, `--source`, `--output`,
+`--source-commit` and `--dedicated-empty-server`. It checks correctness/conflicts;
+it does not measure throughput. Neither harness retries SQL or Arrow input.
+
+Known managed SQLSTATE 40001 outcomes remain failed throughput trials. Complete
+outputs and visible partial rows are independently checked; no partial-result
+latency is reported. Other errors stop the run. Raw logs may contain private
+operational details; publish only reviewed, sanitized evidence.

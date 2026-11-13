@@ -1,0 +1,196 @@
+{
+  "reads": [
+    {
+      "mode": "managed",
+      "readers": 1,
+      "measured_repetitions": 6,
+      "batch_rows": 512,
+      "status": "validated",
+      "median_seconds": 3.4110061255050823,
+      "min_seconds": 3.3776994999934686,
+      "max_seconds": 3.535146291993442,
+      "median_first_batch_seconds": 0.46733008350565797
+    },
+    {
+      "mode": "managed",
+      "readers": 1,
+      "measured_repetitions": 6,
+      "batch_rows": 4096,
+      "status": "validated",
+      "median_seconds": 3.432138562500768,
+      "min_seconds": 3.325921166004264,
+      "max_seconds": 3.5246037079923553,
+      "median_first_batch_seconds": 0.48692166650289437
+    },
+    {
+      "mode": "managed",
+      "readers": 4,
+      "measured_repetitions": 6,
+      "batch_rows": 512,
+      "status": "validated",
+      "median_seconds": 1.8603569379993132,
+      "min_seconds": 1.7840862500015646,
+      "max_seconds": 2.059192542001256,
+      "median_first_batch_seconds": 0.5651579170080367
+    },
+    {
+      "mode": "managed",
+      "readers": 4,
+      "measured_repetitions": 6,
+      "batch_rows": 4096,
+      "status": "validated",
+      "median_seconds": 1.7856143954995787,
+      "min_seconds": 1.671391500000027,
+      "max_seconds": 1.8718509170139441,
+      "median_first_batch_seconds": 0.5784245625036419
+    },
+    {
+      "mode": "unmanaged",
+      "readers": 1,
+      "measured_repetitions": 6,
+      "batch_rows": 512,
+      "status": "validated",
+      "median_seconds": 6.205541458002699,
+      "min_seconds": 6.16718525000033,
+      "max_seconds": 6.271631334006088,
+      "median_first_batch_seconds": 0.3954989170015324
+    },
+    {
+      "mode": "unmanaged",
+      "readers": 1,
+      "measured_repetitions": 6,
+      "batch_rows": 4096,
+      "status": "validated",
+      "median_seconds": 5.9767134790017735,
+      "min_seconds": 5.897791583993239,
+      "max_seconds": 6.055877332997625,
+      "median_first_batch_seconds": 0.6067315004984266
+    },
+    {
+      "mode": "unmanaged",
+      "readers": 4,
+      "measured_repetitions": 6,
+      "batch_rows": 512,
+      "status": "validated",
+      "median_seconds": 18.731409187501413,
+      "min_seconds": 18.025329791998956,
+      "max_seconds": 20.692960542000947,
+      "median_first_batch_seconds": 0.529562416500994
+    },
+    {
+      "mode": "unmanaged",
+      "readers": 4,
+      "measured_repetitions": 6,
+      "batch_rows": 4096,
+      "status": "validated",
+      "median_seconds": 18.75530745799915,
+      "min_seconds": 18.361074750006082,
+      "max_seconds": 19.944527750005363,
+      "median_first_batch_seconds": 1.1603867919984623
+    },
+    {
+      "mode": "redis_py",
+      "readers": 1,
+      "measured_repetitions": 6,
+      "batch_rows": 512,
+      "status": "validated",
+      "median_seconds": 4.482437270999071,
+      "min_seconds": 4.4542534579959465,
+      "max_seconds": 4.613534292002441,
+      "median_first_batch_seconds": 0.3743032084967126
+    },
+    {
+      "mode": "redis_py",
+      "readers": 1,
+      "measured_repetitions": 6,
+      "batch_rows": 4096,
+      "status": "validated",
+      "median_seconds": 4.48730491650349,
+      "min_seconds": 4.297196500003338,
+      "max_seconds": 4.50805004099675,
+      "median_first_batch_seconds": 0.41133291650476167
+    },
+    {
+      "mode": "redis_py",
+      "readers": 4,
+      "measured_repetitions": 6,
+      "batch_rows": 512,
+      "status": "validated",
+      "median_seconds": 2.1518424585010507,
+      "min_seconds": 2.0693886669905623,
+      "max_seconds": 2.2780317080032546,
+      "median_first_batch_seconds": 0.5262360209962935
+    },
+    {
+      "mode": "redis_py",
+      "readers": 4,
+      "measured_repetitions": 6,
+      "batch_rows": 4096,
+      "status": "validated",
+      "median_seconds": 2.16821224999876,
+      "min_seconds": 1.9985167080012616,
+      "max_seconds": 2.200668207995477,
+      "median_first_batch_seconds": 0.553695020993473
+    }
+  ],
+  "writes": [
+    {
+      "mode": "managed",
+      "writers": 1,
+      "measured_repetitions": 3,
+      "status": "validated",
+      "median_seconds": 7.798277500012773,
+      "min_seconds": 7.748045458996785,
+      "max_seconds": 7.870093249992351
+    },
+    {
+      "mode": "managed",
+      "writers": 4,
+      "measured_repetitions": 3,
+      "status": "serialization_conflict",
+      "successful_trials": 0,
+      "median_seconds": null,
+      "partial_rows": [
+        2500,
+        2500,
+        2500
+      ]
+    },
+    {
+      "mode": "unmanaged",
+      "writers": 1,
+      "measured_repetitions": 3,
+      "status": "validated",
+      "median_seconds": 9.516633833001833,
+      "min_seconds": 9.442719834012678,
+      "max_seconds": 9.589839666994521
+    },
+    {
+      "mode": "unmanaged",
+      "writers": 4,
+      "measured_repetitions": 3,
+      "status": "validated",
+      "median_seconds": 5.280413458996918,
+      "min_seconds": 5.200482500004,
+      "max_seconds": 5.35154670799966
+    },
+    {
+      "mode": "redis_py",
+      "writers": 1,
+      "measured_repetitions": 3,
+      "status": "validated",
+      "median_seconds": 1.2047204170085024,
+      "min_seconds": 1.1986933750013122,
+      "max_seconds": 1.2180640830047196
+    },
+    {
+      "mode": "redis_py",
+      "writers": 4,
+      "measured_repetitions": 3,
+      "status": "validated",
+      "median_seconds": 0.882344749988988,
+      "min_seconds": 0.8796100000035949,
+      "max_seconds": 0.8940382080036215
+    }
+  ]
+}

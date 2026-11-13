@@ -1,0 +1,398 @@
+{
+  "v0.0.25": {
+    "metadata": {
+      "driver_version": "v0.0.25",
+      "driver_source_commit": "a8de1c3cce12138ae4c37cdbff1e8ed8875b3bc4",
+      "driver_sha256": "cb605995b00241616f0b354d3452ce64c18fbd7063ebad1c23ac71db8203134f",
+      "rows": 100,
+      "columns": 105,
+      "writers": 4,
+      "repetitions": 3,
+      "start": "barrier after all four connections and inputs are ready",
+      "automatic_retries": 0,
+      "scope": "Correctness/conflict control; no throughput claim"
+    },
+    "trials": [
+      {
+        "api": "sql_insert",
+        "repetition": 0,
+        "successful_writers": 1,
+        "conflicting_writers": 3,
+        "visible_rows": 25,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          }
+        ]
+      },
+      {
+        "api": "arrow_append",
+        "repetition": 0,
+        "successful_writers": 4,
+        "conflicting_writers": 0,
+        "visible_rows": 100,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      },
+      {
+        "api": "sql_insert",
+        "repetition": 1,
+        "successful_writers": 1,
+        "conflicting_writers": 3,
+        "visible_rows": 25,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          }
+        ]
+      },
+      {
+        "api": "arrow_append",
+        "repetition": 1,
+        "successful_writers": 4,
+        "conflicting_writers": 0,
+        "visible_rows": 100,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      },
+      {
+        "api": "sql_insert",
+        "repetition": 2,
+        "successful_writers": 1,
+        "conflicting_writers": 3,
+        "visible_rows": 25,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      },
+      {
+        "api": "arrow_append",
+        "repetition": 2,
+        "successful_writers": 4,
+        "conflicting_writers": 0,
+        "visible_rows": 100,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      }
+    ],
+    "final_qpf": {
+      "factor": 4,
+      "workers": 6,
+      "routing": "mnp",
+      "connections": 32,
+      "memory_bytes": 4294967296
+    },
+    "status": "complete"
+  },
+  "v0.0.26": {
+    "metadata": {
+      "driver_version": "v0.0.26",
+      "driver_source_commit": "5c9d583a567e1f6891e6d6ef8703da6189957a04",
+      "driver_sha256": "3738bdecbb8cc89724cef95cc09cdaca9a32f5428bde4bd09cf7e2ce55b80d38",
+      "rows": 100,
+      "columns": 105,
+      "writers": 4,
+      "repetitions": 3,
+      "start": "barrier after all four connections and inputs are ready",
+      "automatic_retries": 0,
+      "scope": "Correctness/conflict control; no throughput claim"
+    },
+    "trials": [
+      {
+        "api": "sql_insert",
+        "repetition": 0,
+        "successful_writers": 1,
+        "conflicting_writers": 3,
+        "visible_rows": 25,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      },
+      {
+        "api": "arrow_append",
+        "repetition": 0,
+        "successful_writers": 4,
+        "conflicting_writers": 0,
+        "visible_rows": 100,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      },
+      {
+        "api": "sql_insert",
+        "repetition": 1,
+        "successful_writers": 1,
+        "conflicting_writers": 3,
+        "visible_rows": 25,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      },
+      {
+        "api": "arrow_append",
+        "repetition": 1,
+        "successful_writers": 4,
+        "conflicting_writers": 0,
+        "visible_rows": 100,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      },
+      {
+        "api": "sql_insert",
+        "repetition": 2,
+        "successful_writers": 1,
+        "conflicting_writers": 3,
+        "visible_rows": 25,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "conflict",
+            "rows": 0,
+            "error_type": "OperationalError",
+            "sqlstate": "40001"
+          }
+        ]
+      },
+      {
+        "api": "arrow_append",
+        "repetition": 2,
+        "successful_writers": 4,
+        "conflicting_writers": 0,
+        "visible_rows": 100,
+        "all_visible_values_validated": true,
+        "outcomes": [
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          },
+          {
+            "status": "success",
+            "rows": 25
+          }
+        ]
+      }
+    ],
+    "final_qpf": {
+      "factor": 4,
+      "workers": 6,
+      "routing": "mnp",
+      "connections": 32,
+      "memory_bytes": 4294967296
+    },
+    "status": "complete"
+  }
+}
