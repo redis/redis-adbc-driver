@@ -168,3 +168,19 @@ Cleanup completed: removed only the owned Software container/network and its
 generated endpoint environment file. Inventories confirmed all previously
 present unowned container/network IDs remained; operational inventories/logs
 stay private. The implementation branch is ready for parent PR coordination.
+
+## Final all-package unit pass
+
+Final combined tree `c3d0f0b8cbfae325af0eb5ee8c94c94be616c29e`, Go 1.27.3:
+from `go/`,
+`env -u REDIS_URI -u REDIS_SNAPSHOT_URI go test -count=1 -p 1 -json ./...`
+completed with exit 0. Six packages passed and three packages had no test files;
+1,377 test pass events, 1,266 expected skip events, zero failures. Counts include
+parent and nested test events. The main package completed in 27.470s.
+
+Integration skips primarily require the unset Redis endpoints (664 SQL and
+474 snapshot cases); the remaining skips require explicit cluster/Flex/operator
+fixtures, opt-in profiles/orchestrators, or are internal subprocess helpers.
+These skips do not replace the earlier verified Software live/race evidence.
+No server was started and no native benchmark was repeated for this check.
+The complete JSON test log remains private; `git diff --check` passed afterward.

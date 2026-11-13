@@ -31,3 +31,7 @@ All 84 native trial samples and all ten construction samples are retained.
 Owned Software container/network and generated endpoint env were removed;
 other containers/networks remained present. Human review/PR coordination is
 with the parent task; no PR or issue was created by this agent.
+
+Final unit-only all-package pass completed on combined tree `c3d0f0b8`: six
+packages passed, three had no tests, zero failures. Expected integration/profile
+skips are recorded in validation; no additional server or timing run was needed.
