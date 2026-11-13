@@ -43,10 +43,10 @@ select how a particular write uses the target table:
 
 | Arrow operation | Managed table | Unmanaged table |
 |---|---|---|
-| `create` | Create a new table; fail if it exists | Unsupported |
+| `create` | Create a new table; fail if it exists | Create/register a new application collection with explicit source configuration |
 | `append` | Add the complete input atomically | Insert new explicit `__key` values directly into source HASHes |
 | `replace` | Replace the schema and data atomically | Unsupported |
-| `create_append` | Create if missing; otherwise append | Unsupported |
+| `create_append` | Create if missing; otherwise append | Create with explicit source configuration if missing; otherwise append |
 
 Unmanaged writes have no publication step and can partially succeed. Ordinary
 Redis clients and supported driver SQL DML can also write unmanaged data. Managed
@@ -117,9 +117,9 @@ writes use the driver; managed HASH-style reads use the snapshot-aware
   managed-table protocol.
 - **Partial source writes.** Unmanaged SQL writes and Arrow append change source
   HASHes directly and can partially succeed. INSERT and Arrow append require new
-  explicit `__key` values. ALTER, TRUNCATE, other Arrow ingestion modes and
+  explicit `__key` values. ALTER, TRUNCATE, Arrow replace and
   snapshot-only APIs are unsupported. See the
-  [Arrow append contract](unmanaged-tables.md#append-arrow-data-to-source-hashes)
+  [Arrow write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes)
   for acknowledged-row reporting and uncertain-reply handling.
 
 ## How imports connect the two

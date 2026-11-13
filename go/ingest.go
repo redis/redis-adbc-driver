@@ -48,6 +48,13 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 	if s.params == nil {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
 	}
+	if s.unmanagedSource != nil {
+		if scope := snapshotOf(ctx); scope == nil {
+			return s.executeUnmanagedSourceIngest(ctx)
+		} else if scope.write {
+			return -1, unmanagedUnsupported("nested or staged Arrow creation")
+		}
+	}
 	if s.conn.store.snapshots && snapshotOf(ctx) == nil {
 		ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 		defer cancel()
@@ -140,8 +147,11 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 			return -1, err
 		}
 		if meta.Unmanaged {
-			if opts.Mode != adbc.OptionValueIngestModeAppend {
-				return -1, unmanagedUnsupported("Arrow ingestion modes other than append")
+			if opts.Mode == adbc.OptionValueIngestModeCreate {
+				return -1, stateErrorf(stateDuplicateTable, "table %q already exists", meta.Name)
+			}
+			if opts.Mode != adbc.OptionValueIngestModeAppend && opts.Mode != adbc.OptionValueIngestModeCreateAppend {
+				return -1, unmanagedUnsupported("Arrow replace")
 			}
 			if !unmanagedWriteAllowed(ctx, meta) || snapshotOf(ctx) == nil || snapshotOf(ctx).write {
 				return -1, unmanagedUnsupported("nested or staged Arrow ingestion")
@@ -374,7 +384,7 @@ func unmanagedIngestError(acknowledged int64, err error) error {
 	if !errors.As(err, &ae) {
 		ae = adbc.Error{Code: adbc.StatusIO, Msg: err.Error()}
 	}
-	ae.Msg = "unmanaged Arrow append stopped after " + strconv.FormatInt(acknowledged, 10) +
+	ae.Msg = "unmanaged Arrow write stopped after " + strconv.FormatInt(acknowledged, 10) +
 		" acknowledged rows; source writes may be partially applied; inspect source state before retrying: " + ae.Msg
 	ae.Details = append(ae.Details, &adbc.TextErrorDetail{Name: "adbc.redis.ingest.acknowledged_rows", Detail: strconv.FormatInt(acknowledged, 10)})
 	return ae

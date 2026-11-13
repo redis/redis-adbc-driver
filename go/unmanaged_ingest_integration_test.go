@@ -128,7 +128,7 @@ func TestUnmanagedArrowAppend(t *testing.T) {
 
 func TestUnmanagedArrowRefusalsBeforeInput(t *testing.T) {
 	h, raw, schema := unmanagedIngestFixture(t, false)
-	for _, mode := range []string{adbc.OptionValueIngestModeCreate, adbc.OptionValueIngestModeReplace, adbc.OptionValueIngestModeCreateAppend} {
+	for _, mode := range []string{adbc.OptionValueIngestModeReplace} {
 		t.Run(mode, func(t *testing.T) {
 			st, input := unmanagedArrowInput(t, h, schema, mode, []string{"app:new"}, []int64{1})
 			if _, err := st.ExecuteUpdate(h.ctx); err == nil || !strings.Contains(err.Error(), "unmanaged") {

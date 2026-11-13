@@ -63,10 +63,10 @@ input consumption. Managed Arrow modes, atomicity and admission regressions rema
 covered. Review against `REVIEW.md` found no known actionable issue; this is not
 an external human approval.
 
-The task-owned fixture is retained for the explicitly requested unmanaged
-`create`/`create_append` follow-up. Operational identifiers, credentials, raw
+The task-owned fixture was reused for the explicitly requested unmanaged
+`create`/`create_append` follow-up and removed after its final validation. Operational identifiers, credentials, raw
 logs, datasets, licenses and slide-edit payloads remain private. Benchmark/deck
 results remain labeled v0.0.26; this append feature is an unreleased change.
 
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and the
-[public API contract](../../../unmanaged-tables.md#append-arrow-data-to-source-hashes).
+[public API contract](../../../unmanaged-tables.md#write-arrow-data-to-source-hashes).
