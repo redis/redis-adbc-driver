@@ -73,8 +73,8 @@ func (*snapshotIndexNotifyObserver) ProcessPipelineHook(next goredis.ProcessPipe
 }
 func (h *snapshotIndexNotifyObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
-		notify := cmd.Name() == "eval" && len(args) > 2 && args[1] == snapshotIndexNotifyLua
+		args := snapshotObservedControlArgs(cmd)
+		notify := snapshotObservedControlName(cmd) == "eval" && len(args) > 2 && args[1] == snapshotIndexNotifyLua
 		if notify {
 			if once, ok := cmd.(interface{ NoRetry() bool }); !ok || !once.NoRetry() {
 				return fmt.Errorf("notification lost no-retry wrapper")
@@ -106,6 +106,11 @@ func (h *snapshotIndexNotifyObserver) ProcessHook(next goredis.ProcessHook) gore
 		}
 
 		err := next(ctx, cmd)
+		if missing, denied := snapshotControlScriptRefusal(err); notify && (missing || denied) {
+			h.calls.Add(-1)
+			h.rows.Add(-int64(args[2].(int) - 3))
+			return err
+		}
 		if notify && err == nil {
 			if h.cancel != nil {
 				h.cancel()

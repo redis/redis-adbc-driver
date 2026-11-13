@@ -13,8 +13,8 @@ import (
 
 var snapshotControlDigest = goredis.NewScript(snapshotControl).Hash()
 
-// Only standalone control calls use this executor. Row/image pipelines retain
-// their existing full-body commands and uncertain-outcome handling.
+// Standalone calls use this executor. Pipelines retain their full-body commands
+// and uncertain-outcome handling. Each script has its own compatibility state.
 type snapshotControlExecutor struct {
 	evalOnly atomic.Bool
 }
@@ -31,7 +31,7 @@ func snapshotControlScriptRefusal(err error) (missing, commandDenied bool) {
 	if strings.HasPrefix(message, "NOSCRIPT ") {
 		return true, false
 	}
-	// The fixed control script never invokes EVALSHA. Match only the native
+	// These fixed scripts never invoke EVALSHA. Match only the native
 	// top-level command refusal, not a Lua/key/transport permission failure.
 	if message == "NOPERM this user has no permissions to run the 'evalsha' command" ||
 		strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to run the 'evalsha' command") {
@@ -41,13 +41,22 @@ func snapshotControlScriptRefusal(err error) (missing, commandDenied bool) {
 }
 
 func (e *snapshotControlExecutor) run(ctx context.Context, client processor, keys []any, argv ...any) *goredis.Cmd {
-	command, body := "EVALSHA", snapshotControlDigest
-	if e.evalOnly.Load() {
-		command, body = "EVAL", snapshotControl
-	}
-	args := []any{command, body, len(keys)}
+	args := []any{"EVAL", snapshotControl, len(keys)}
 	args = append(args, keys...)
 	args = append(args, argv...)
+	return e.runScript(ctx, client, snapshotControlDigest, args)
+}
+
+// Takes ownership of the newly constructed EVAL argument slice. Only its script
+// header changes; keys, arguments, writer fences and durable outcomes do not.
+// Copy only on refusal so wide successful row batches need no second args slice.
+func (e *snapshotControlExecutor) runScript(ctx context.Context, client processor, digest string, args []any) *goredis.Cmd {
+	body := args[1]
+	command := "EVAL"
+	if !e.evalOnly.Load() {
+		command = "EVALSHA"
+		args[0], args[1] = command, digest
+	}
 	if err := ctx.Err(); err != nil {
 		cmd := goredis.NewCmd(ctx, args...)
 		cmd.SetErr(err)
@@ -72,6 +81,6 @@ func (e *snapshotControlExecutor) run(ctx context.Context, client processor, key
 	// attempt keeps identical keys/arguments and the existing no-retry marker.
 	// Never mutate the first command's argument slice or resend an unknown reply.
 	fallback := append([]any(nil), args...)
-	fallback[0], fallback[1] = "EVAL", snapshotControl
+	fallback[0], fallback[1] = "EVAL", body
 	return once(ctx, client, fallback...)
 }

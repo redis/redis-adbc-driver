@@ -66,6 +66,8 @@ for i,id in ipairs(ids) do redis.call('HSET',KEYS[i+3],'` + rowIDField + `',id) 
 return #ids
 `
 
+var snapshotIndexNotifyDigest = goredis.NewScript(snapshotIndexNotifyLua).Hash()
+
 func (s *store) notifySnapshotIndexBatch(ctx context.Context, prefix string, members []string) error {
 	scope := snapshotOf(ctx)
 	data := snapshotDataID(prefix)
@@ -84,7 +86,7 @@ func (s *store) notifySnapshotIndexBatch(ctx context.Context, prefix string, mem
 	for _, member := range members {
 		args = append(args, member)
 	}
-	n, err := once(ctx, s.redis(ctx), args...).Int64()
+	n, err := s.indexNotifyScript.runScript(ctx, s.redis(ctx), snapshotIndexNotifyDigest, args).Int64()
 	if err != nil {
 		return wrapRedis(transportContextError(ctx, err), "snapshot index notification failed; operation was not replayed")
 	}

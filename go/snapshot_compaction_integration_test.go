@@ -348,8 +348,13 @@ type snapshotCompactionBatchTracker struct {
 
 func (h *snapshotCompactionBatchTracker) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
-		if len(a) > 2 && cmd.Name() == "eval" && strings.Contains(fmt.Sprint(a[1]), "snapshot atomic compaction copy batch") {
+		err := next(ctx, cmd)
+		missing, denied := snapshotControlScriptRefusal(err)
+		if missing || denied {
+			return err
+		}
+		a := snapshotObservedControlArgs(cmd)
+		if len(a) > 2 && snapshotObservedControlName(cmd) == "eval" && strings.Contains(fmt.Sprint(a[1]), "snapshot atomic compaction copy batch") {
 			var keys int
 			fmt.Sscan(fmt.Sprint(a[2]), &keys)
 			rows, bytes := keys-3, 0
@@ -363,7 +368,7 @@ func (h *snapshotCompactionBatchTracker) ProcessHook(next goredis.ProcessHook) g
 			h.maxRows = max(h.maxRows, rows)
 			h.maxBytes = max(h.maxBytes, bytes)
 		}
-		return next(ctx, cmd)
+		return err
 	}
 }
 func (h *snapshotCompactionBatchTracker) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {

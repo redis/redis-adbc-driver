@@ -25,8 +25,15 @@ func (p *managedPerformanceCalls) DialHook(next goredis.DialHook) goredis.DialHo
 func managedPerformanceCategory(cmd goredis.Cmder) string {
 	args := cmd.Args()
 	name := cmd.Name()
+	var script any
+	if len(args) > 1 {
+		script = args[1]
+	}
+	if body := snapshotObservedScriptBody(cmd); body != "" {
+		script, name = body, "eval"
+	}
 	if name == "eval" && len(args) > 1 {
-		switch args[1] {
+		switch script {
 		case snapshotWriteBatchLua:
 			return "eval-row-batch"
 		case snapshotIndexNotifyLua:

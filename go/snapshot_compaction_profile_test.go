@@ -18,9 +18,10 @@ import (
 )
 
 type compactionProfileRoundTrips struct {
-	Calls    int     `json:"calls"`
-	Commands int     `json:"commands"`
-	Millis   float64 `json:"milliseconds"`
+	Calls       int     `json:"calls"`
+	Commands    int     `json:"commands"`
+	Millis      float64 `json:"milliseconds"`
+	ScriptBytes int64   `json:"script_header_bytes"`
 }
 type compactionProfilePhase struct {
 	Steps      int                                     `json:"steps"`
@@ -36,9 +37,17 @@ type compactionPhaseProfile struct {
 // Record categories and elapsed client round trips only. Arguments, keys, row
 // values and endpoint/credential data are deliberately absent from the report.
 func compactionProfileCategory(cmd goredis.Cmder) string {
-	a := snapshotObservedControlArgs(cmd)
-	if snapshotObservedControlName(cmd) == "eval" && len(a) > 3 {
-		switch a[1] {
+	a := cmd.Args()
+	name := cmd.Name()
+	var script any
+	if len(a) > 1 {
+		script = a[1]
+	}
+	if body := snapshotObservedScriptBody(cmd); body != "" {
+		script, name = body, "eval"
+	}
+	if name == "eval" && len(a) > 3 {
+		switch script {
 		case snapshotMetadataCloneRoot:
 			return "metadata_clone_root"
 		case snapshotMetadataCloneBucket:
@@ -64,24 +73,24 @@ func compactionProfileCategory(cmd goredis.Cmder) string {
 		case snapshotRowMutation:
 			return "row_mutation"
 		}
-		if a[1] == snapshotCompactionCopyLua {
+		if script == snapshotCompactionCopyLua {
 			return "copy_commit"
 		}
-		if a[1] == snapshotControl {
+		if script == snapshotControl {
 			n, err := strconv.Atoi(fmt.Sprint(a[2]))
 			if err == nil && n >= 1 && 3+n < len(a) {
 				return "control_" + fmt.Sprint(a[3+n])
 			}
 		}
 	}
-	return snapshotObservedControlName(cmd)
+	return name
 }
 func (p *compactionPhaseProfile) current() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.phase
 }
-func (p *compactionPhaseProfile) record(phase, category string, commands int, elapsed time.Duration) {
+func (p *compactionPhaseProfile) record(phase, category string, commands int, elapsed time.Duration, scriptBytes int64) {
 	if phase == "" {
 		return
 	}
@@ -95,6 +104,17 @@ func (p *compactionPhaseProfile) record(phase, category string, commands int, el
 	r.Calls++
 	r.Commands += commands
 	r.Millis += float64(elapsed) / float64(time.Millisecond)
+	r.ScriptBytes += scriptBytes
+}
+
+func compactionProfileScriptBytes(cmd goredis.Cmder) int64 {
+	a := cmd.Args()
+	if len(a) > 1 && (strings.EqualFold(fmt.Sprint(a[0]), "EVAL") || strings.EqualFold(fmt.Sprint(a[0]), "EVALSHA")) {
+		if body, ok := a[1].(string); ok {
+			return int64(len(body))
+		}
+	}
+	return 0
 }
 func (*compactionPhaseProfile) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func (p *compactionPhaseProfile) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
@@ -102,7 +122,7 @@ func (p *compactionPhaseProfile) ProcessHook(next goredis.ProcessHook) goredis.P
 		phase := p.current()
 		started := time.Now()
 		err := next(ctx, cmd)
-		p.record(phase, compactionProfileCategory(cmd), 1, time.Since(started))
+		p.record(phase, compactionProfileCategory(cmd), 1, time.Since(started), compactionProfileScriptBytes(cmd))
 		return err
 	}
 }
@@ -110,8 +130,10 @@ func (p *compactionPhaseProfile) ProcessPipelineHook(next goredis.ProcessPipelin
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
 		phase := p.current()
 		categories := make([]string, len(cmds))
+		var scriptBytes int64
 		for i, cmd := range cmds {
 			categories[i] = compactionProfileCategory(cmd)
+			scriptBytes += compactionProfileScriptBytes(cmd)
 		}
 		category := "pipeline_mixed"
 		if len(categories) > 0 {
@@ -125,7 +147,7 @@ func (p *compactionPhaseProfile) ProcessPipelineHook(next goredis.ProcessPipelin
 		}
 		started := time.Now()
 		err := next(ctx, cmds)
-		p.record(phase, category, len(cmds), time.Since(started))
+		p.record(phase, category, len(cmds), time.Since(started), scriptBytes)
 		return err
 	}
 }

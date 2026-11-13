@@ -21,7 +21,7 @@ import (
 )
 
 func snapshotInsertBatchRowKeys(cmd goredis.Cmder) []any {
-	a := cmd.Args()
+	a := snapshotObservedControlArgs(cmd)
 	if len(a) < 7 || !strings.EqualFold(fmt.Sprint(a[0]), "EVAL") || !strings.Contains(fmt.Sprint(a[1]), "snapshot insert row batch") {
 		return nil
 	}
@@ -137,6 +137,10 @@ func (h *snapshotInsertBatchInterruption) ProcessHook(next goredis.ProcessHook) 
 			return cmd.Err()
 		}
 		if err := next(ctx, cmd); err != nil {
+			if missing, denied := snapshotControlScriptRefusal(err); missing || denied {
+				h.calls--
+				h.rows -= len(keys)
+			}
 			return err
 		}
 		if h.calls == 2 && h.after {

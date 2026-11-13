@@ -17,8 +17,8 @@ func compactionPhysicalCopyRows(cmd goredis.Cmder) int64 {
 	if wrapped, ok := cmd.(snapshotFencedCommand); ok {
 		cmd = wrapped.Cmder
 	}
-	args := cmd.Args()
-	if len(args) > 2 && cmd.Name() == "eval" && strings.Contains(fmt.Sprint(args[1]), "snapshot atomic compaction copy batch") {
+	args := snapshotObservedControlArgs(cmd)
+	if len(args) > 2 && snapshotObservedControlName(cmd) == "eval" && strings.Contains(fmt.Sprint(args[1]), "snapshot atomic compaction copy batch") {
 		var keys int
 		fmt.Sscan(fmt.Sprint(args[2]), &keys)
 		return int64(keys - 3)
@@ -48,11 +48,15 @@ func (h *compactionAtomicBatchObserver) ProcessHook(next goredis.ProcessHook) go
 		}
 
 		rows := compactionPhysicalCopyRows(cmd)
+		err := next(ctx, cmd)
+		missing, denied := snapshotControlScriptRefusal(err)
+		if missing || denied {
+			return err
+		}
 		if rows >= 0 {
 			h.commands.Add(1)
 			h.rows.Add(rows)
 		}
-		err := next(ctx, cmd)
 		if err == nil && rows >= 0 && h.lose && h.lost.CompareAndSwap(false, true) {
 			err = fmt.Errorf("lost successful compaction copy reply")
 			cmd.SetErr(err)
@@ -313,7 +317,9 @@ func (*compactionPartialCopyHook) ProcessPipelineHook(next goredis.ProcessPipeli
 func (h *compactionPartialCopyHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		args := cmd.Args()
-		if len(args) > 1 && cmd.Name() == "eval" && args[1] == snapshotCompactionCopyLua && h.fired.CompareAndSwap(false, true) {
+		if len(args) > 1 && (args[1] == snapshotCompactionCopyLua || args[1] == snapshotCompactionCopyDigest) && h.fired.CompareAndSwap(false, true) {
+			// Inject into the actual wire command, including the cached path.
+			args[0] = "EVAL"
 			args[1] = strings.Replace(snapshotCompactionCopyLua, "for i,fields in ipairs(rows) do redis.call('HSET',KEYS[i+3],unpack(fields)) end", "for i,fields in ipairs(rows) do redis.call('HSET',KEYS[i+3],unpack(fields));if i==1 then return redis.error_reply('injected incomplete compaction copy') end end", 1)
 			if args[1] == snapshotCompactionCopyLua {
 				return fmt.Errorf("partial-copy injection did not match")

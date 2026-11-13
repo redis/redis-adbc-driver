@@ -991,6 +991,9 @@ type store struct {
 	restrictedReader   bool
 	readerKeys         snapshotReaderKeyCache
 	controlScript      snapshotControlExecutor
+	rowBatchScript     snapshotControlExecutor
+	indexNotifyScript  snapshotControlExecutor
+	compactionScript   snapshotControlExecutor
 	snapshots          bool
 	compactor          *snapshotCompactor
 	flex               bool
