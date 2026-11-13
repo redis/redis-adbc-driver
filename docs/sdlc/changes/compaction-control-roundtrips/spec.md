@@ -14,8 +14,10 @@ pin or storage-protocol format changes; the original compact-acquire operation
 remains compatible with older workers and direct maintenance helpers.
 
 An unknown combined reply is never replayed. The locally known fresh pin token
-permits one idempotent bounded release attempt; unavailable cleanup leaves the
-existing two-minute lease expiry. Existing worker error recovery reads the
+permits one idempotent bounded release attempt. This is best effort, not a
+guarantee of immediate removal: unavailable cleanup or an original request that
+executes after cleanup can leave an unseen pin until its existing two-minute
+server-time lease expires. Existing worker error recovery reads the
 durable compaction record and releases only its own lease. No SQL/Arrow or row
 mutation is resent. Keep cancellation, ACL and Cluster declared-key behavior.
 

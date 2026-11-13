@@ -85,6 +85,45 @@ func (h *compactionCatalogObserver) ProcessHook(next goredis.ProcessHook) goredi
 	}
 }
 
+// Retain one otherwise unknown original request without sending it yet. A raw
+// test client delivers that same frame only after the driver's cleanup attempt,
+// modeling late server execution rather than asking the driver to replay it.
+type compactionLateCatalogOriginal struct {
+	compactionCatalogObserver
+	args     []any
+	captured bool
+	attempts int
+	noRetry  bool
+}
+
+func (h *compactionLateCatalogOriginal) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	observed := h.compactionCatalogObserver.ProcessHook(next)
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		a := snapshotObservedControlArgs(cmd)
+		if len(a) >= 4 && a[1] == snapshotControl {
+			n, err := strconv.Atoi(fmt.Sprint(a[2]))
+			if err == nil && len(a) > n+5 && a[n+3] == "compact_acquire_catalog" {
+				h.mu.Lock()
+				h.attempts++
+				delay := !h.captured
+				if delay {
+					h.captured, h.pin = true, fmt.Sprint(a[n+5])
+					h.args = append([]any(nil), cmd.Args()...)
+					marker, ok := cmd.(interface{ NoRetry() bool })
+					h.noRetry = ok && marker.NoRetry()
+				}
+				h.mu.Unlock()
+				if delay {
+					err := errors.New("original compaction request has an unknown late outcome")
+					cmd.SetErr(err)
+					return err
+				}
+			}
+		}
+		return observed(ctx, cmd)
+	}
+}
+
 func newCompactionControlJob(t *testing.T) (*sqlHarness, *goredis.Client, *store, string, *snapshotCompactionJob) {
 	t.Helper()
 	h, raw, _ := newSnapshotHarnessMode(t, false, false)
@@ -189,6 +228,68 @@ func TestSnapshotCompactionCombinedReplyLoss(t *testing.T) {
 			h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "257|9007199254740993|9007199254740996")
 		})
 	}
+}
+
+func TestSnapshotCompactionCombinedLateOriginal(t *testing.T) {
+	h, raw, s, token, original := newCompactionControlJob(t)
+	if err := raw.ScriptLoad(h.ctx, snapshotControl).Err(); err != nil {
+		t.Fatal(err)
+	}
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	observer := &compactionLateCatalogOriginal{}
+	s.client.AddHook(observer)
+	if progress, err := s.snapshotCompactionStep(h.ctx, token); err == nil || progress {
+		t.Fatal("unknown delayed request was accepted", progress, err)
+	}
+	observer.mu.Lock()
+	args, pin, attempts, releases, noRetry := observer.args, observer.pin, observer.attempts, observer.releases, observer.noRetry
+	observer.mu.Unlock()
+	if !noRetry || attempts != 1 || releases != 1 || len(args) == 0 {
+		t.Fatal("unknown original was replayed or cleanup was repeated", attempts, releases, noRetry)
+	}
+	if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+pin).Val() {
+		t.Fatal("pin appeared before the simulated late server execution")
+	}
+	// This is the original frame's first server execution. The driver already
+	// returned its unknown-outcome error and completed its one cleanup attempt.
+	if _, err := raw.Do(h.ctx, args...).Slice(); err != nil {
+		t.Fatal("late original execution failed", err)
+	}
+	durable, err := s.readSnapshotCompaction(h.ctx)
+	if err != nil || durable == nil || durable.After != original.After ||
+		raw.ZCard(h.ctx, snapshotMembers(original.Data)).Val() != 0 ||
+		raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+		t.Fatal("late acquisition copied rows, advanced checkpoint or published", err)
+	}
+	var value struct {
+		Root    string `json:"root"`
+		Expires int64  `json:"expires"`
+	}
+	if err := json.Unmarshal([]byte(raw.HGet(h.ctx, snapshotCatalogKey, "p:"+pin).Val()), &value); err != nil {
+		t.Fatal("late pin missing", err)
+	}
+	now, err := raw.Time(h.ctx).Result()
+	if err != nil || value.Root != root || value.Expires <= now.UnixMilli() || value.Expires > now.Add(snapshotLease).UnixMilli() {
+		t.Fatal("late pin has no bounded server-time lease", err)
+	}
+	// Advance only this owned test pin's expiry instead of sleeping two minutes.
+	// The next ordinary maintenance step must prune it through existing policy.
+	value.Expires = 1
+	encoded, _ := json.Marshal(value)
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "p:"+pin, encoded).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if progress, err := s.snapshotCompactionStep(h.ctx, token); err != nil || !progress {
+		t.Fatal("ordinary recovery failed", progress, err)
+	}
+	if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+pin).Val() {
+		t.Fatal("ordinary expiry pruning retained the late pin")
+	}
+	if err := s.releaseSnapshotCompaction(h.ctx, token); err != nil {
+		t.Fatal(err)
+	}
+	snapshotDrainCompactionTest(t, s)
+	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "257|9007199254740993|9007199254740996")
 }
 
 func TestSnapshotCompactionCombinedRefusalIsUnchanged(t *testing.T) {
