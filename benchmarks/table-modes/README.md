@@ -5,6 +5,14 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+[Latest merged-main comparison](merged-main-2026-11-13/report.md) reruns the full
+156-trial read/write/creation matrix after PRs #408 and #410–413, source
+`ba855f79`, built as `v0.1.0-dev.merged-perf`. Every trial completed and
+independently validated without conflicts or caller retries. Run
+`python3 benchmarks/table-modes/merged_perf_audit.py` to check coverage,
+source/version/QPF, validation, timings and worker-RSS arithmetic. Historical
+observations remain unchanged and labeled by their actual source/settings.
+
 The [managed follow-up](managed-followup-2026-11-12/report.md) compares pinned
 base/candidate binaries for managed reads and writes, including a separate larger
 Arrow-call control. `managed_followup.py` accepts the same private fixture/path
@@ -13,7 +21,7 @@ arguments, defaults to six read and three write repetitions after warmup, and ad
 binary in a separate process with a fresh owned fixture/work directory.
 `managed_followup_audit.py` checks native coverage and diagnostic evidence.
 
-[Latest main comparison](main-perf-2026-11-12/report.md) repeats the complete
+[Historical main comparison](main-perf-2026-11-12/report.md) repeats the complete
 read/write/creation matrix on source `f630e117` after PRs #403–405, built as
 `v0.0.26-dev.main-perf`. Run `arrow_compare.py --suite all` with that pinned
 library/CLI, version and fresh private paths; `main_perf_audit.py` checks this
