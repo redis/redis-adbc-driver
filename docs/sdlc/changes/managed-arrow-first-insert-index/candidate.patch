@@ -1,0 +1,962 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 671d9a2b..5f5ec39e 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -61,6 +61,11 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
+   Import source indexes serve capture only. Apply private index policy after
+   native conversion, independently of source attributes/encodings and source
+   membership; keep IndexColumns working with explicit source indexes.
++  Ordinary managed Arrow may create its final private index before the first
++  complete insert-only row batch, on an empty registered prefix. This narrowly
++  avoids a second notification pass; SQL, imports/provenance, Flex and retained
++  operations stay deferred. Mutation/schema invalidation rebuilds the index;
++  final identity/readiness/indexed-row proofs and unknown-reply rules remain.
+   ALTER stages private metadata through the guarded descriptor pipeline.
+   Definition-only changes share rows/indexes only when no conversion, field or
+   index change, or row/constraint revalidation is required. Explicit rekeying
+diff --git a/docs/sdlc/changes/managed-arrow-first-insert-index/intent.md b/docs/sdlc/changes/managed-arrow-first-insert-index/intent.md
+new file mode 100644
+index 00000000..3fa1ed76
+--- /dev/null
++++ b/docs/sdlc/changes/managed-arrow-first-insert-index/intent.md
+@@ -0,0 +1,19 @@
++# Intent: index complete managed Arrow inserts once
++
++Date: 2026-11-13. Source: `ba855f7995b2685182ed1331bcf6703d73089c4a`.
++Requestor: repository user (performance improvements with subagents).
++Status: experiment under implementation, pending correctness and performance evidence.
++
++The current managed Arrow writer stages complete first-insert row images, then
++notifies every row a second time while constructing the final private index.
++The [baseline](validation.md) attributes about 0.69 seconds of a 1.71-second
++single-call diagnostic to that second pass. Eliminate it only when one empty
++private index can observe every complete immutable image's first insertion.
++
++Preserve public-call atomicity, leased admission before input consumption,
++metadata/source fences, bounded batches and exact final readiness proofs.
++Exclude SQL writes, imports/provenance, Flex and retained operations. Do not
++coalesce calls, change storage format or weaken source-index validation.
++
++See [specification](spec.md) and [plan](plan.md). No release or human review
++approval is claimed by this record.
+diff --git a/docs/sdlc/changes/managed-arrow-first-insert-index/plan.md b/docs/sdlc/changes/managed-arrow-first-insert-index/plan.md
+new file mode 100644
+index 00000000..8adec4b2
+--- /dev/null
++++ b/docs/sdlc/changes/managed-arrow-first-insert-index/plan.md
+@@ -0,0 +1,24 @@
++# Plan: managed Arrow first-insert index
++
++Date: 2026-11-13. Status: implementation; tests and acceptance pending.
++See [intent](intent.md), [specification](spec.md), [validation](validation.md).
++
++1. Record current-source native call-size controls and separate Go foreground /
++   maintenance attribution. Completed in baseline commit `c2776bda`.
++2. Audit late schema/value facts, provenance and private mutation paths,
++   durable ownership/GC and query-ACL fallback. Completed; preserve exclusions.
++3. Add narrow Arrow runtime eligibility and empty-directory global CREATE gate.
++   Keep immutable first-insert proof separate from final readiness. Add schema /
++   mutation invalidation and existing-index retirement. Implemented; source review
++   requested by parent found no remaining blocker after the gate was made stable.
++4. Add lifecycle, empty-input, complete-image and unknown-reply regressions;
++   run targeted tests on owned verified Redis Software active/effective 4x QPF.
++   Initial 47-pass selection and separate 35-pass/six-skip lifecycle selection
++   completed, followed by actual restricted-principal, retained-Arrow and race
++   checks: 59 pass, zero skips/failures. See the evidence's explicit Cluster
++   coverage limitation. Correctness prerequisites for native timing completed.
++5. Rerun the unchanged native control and diagnostic harness under an exclusive
++   measurement slot after correctness passes and candidate source is committed.
++   Retain every result. Review lifecycle/security/evidence before accepting gain.
++6. Document exact results, limitations and review handoff; parent reviews and
++   publishes. Keep infrastructure, raw logs and generated credentials private.
+diff --git a/docs/sdlc/changes/managed-arrow-first-insert-index/spec.md b/docs/sdlc/changes/managed-arrow-first-insert-index/spec.md
+new file mode 100644
+index 00000000..d94865e4
+--- /dev/null
++++ b/docs/sdlc/changes/managed-arrow-first-insert-index/spec.md
+@@ -0,0 +1,44 @@
++# Specification: managed Arrow first-insert index
++
++Date: 2026-11-13. Status: candidate, acceptance pending.
++See [intent](intent.md), [plan](plan.md) and [evidence](validation.md).
++
++## Contract and boundaries
++
++After converting and checking the first nonempty Arrow slice, an eligible
++ordinary managed writer creates its already registered private output index
++before inserting rows. Existing top-level global CREATE admission gates also
++require the exact registered output directory to be empty before and after
++CREATE. The prefix is newly allocated and exclusively owned; row insertion
++preflights both HASH absence and directory-member absence. Each row is one
++complete HASH image, written by the existing bounded atomic row-batch script.
++Empty input retains the deferred index path. Runtime-only eligibility excludes
++Flex, retained operations and imported/provenance-bearing outputs.
++
++Late TAG/NaN value facts affect query planning metadata, not the physical Search
++schema. Seal compares the exact index-creation arguments and identity. Any
++legacy physical mutation, import or replace-mode row batch invalidates the
++insert-only proof; seal creates/populates a fresh final index and retires the
++early one. Ordinary SQL remains deferred. Private reads still use authoritative
++directories; early index presence is not a visibility or readiness assertion.
++
++Every publication retains lease/source validation, final FT.INFO identity,
++prefix, indexing-error/readiness and exact directory/cardinality checks, plus
++the warning-free native indexed-row-ID proof. Only a typed query ACL refusal
++may select the existing private initial-scan fallback. Unknown outcomes,
++transport failures or warnings cannot select fallback or cause mutation replay.
++
++No stored fields or storage-protocol version changes. Every index retains the
++registered data ID in its unique name. Existing data retirement drops all such
++indexes; existing orphan-index cleanup handles CREATE arriving after retirement.
++An uncertain CREATE/DROP aborts, and unknown row replies use the existing
++read-only outcome resolution without replaying input or mutations.
++
++## Acceptance
++
++Prove first-row timing, complete typed/null images across bounded batches,
++zero-row behavior, invalidation/rebuild, cancellation/reader failure and
++unknown-reply behavior. Preserve native value/full-fetch validation and ACL
++fallback tests. Accept the optimization only after a comparable native rerun
++and diagnostic attribution show supported gain; retain all attempts and label
++any failed/negative experiment.
+diff --git a/docs/sdlc/changes/managed-arrow-first-insert-index/validation.md b/docs/sdlc/changes/managed-arrow-first-insert-index/validation.md
+index 2bba55f7..5bd5c476 100644
+--- a/docs/sdlc/changes/managed-arrow-first-insert-index/validation.md
++++ b/docs/sdlc/changes/managed-arrow-first-insert-index/validation.md
+@@ -52,3 +52,57 @@ It does not justify weakening admission, source-index validation or readiness.
+ 
+ Operational logs, connection settings and infrastructure identities remain
+ private. No 100-million-row rerun was performed.
++
++## Candidate correctness, first bounded block
++
++The narrow candidate compiled and passed 47 selected tests/subtests with zero
++skips/failures on the same owned Software TLS/RESP3 fixture with effective
++4x QPF reverified immediately before execution. Coverage includes first-insert
++index timing and complete 513×105 images, a lost acknowledged row reply without
++replay, zero-row deferral, unknown CREATE abort and reclamation, private overwrite
++rebuild, reader failure/cancellation, late TAG truncation/NaN metadata, typed
++query-ACL fallback versus transport/warning refusal, existing SQL notification
++bounds/readiness and SQL cold/hot/SCRIPT FLUSH notification-cache behavior.
++
++The first attempt had one leaf test-observer failure: typed ACL ingestion
++succeeded but the newly added initial-scan counter was attached only to the
++maintenance pool, while Search used the execution pool. The observer was fixed
++to instrument both existing transports. Production source was unchanged between
++that attempt and the 47-pass rerun. Both raw attempts are retained privately.
++
++A separate related lifecycle selection passed 35 tests/subtests, with six skips
++and no failures. It covered ingest admission, import atomic batches/index policy,
++provenance joins and Arrow-replace import identity. Two skipped journal-ACL
++preflight cases require dedicated restricted principals; four retained-operation
++cases require an explicit verified Cluster URI. Those skipped capabilities are
++not claimed as tested. Additional retained-Arrow/race/ACL checks and matched
++candidate native measurements remain pending; this is not acceptance evidence
++for a performance gain.
++
++## Candidate actual ACL, retained Arrow and race block
++
++The subsequent combined `go test -race -count=1 -p 1` selection passed
++**59 tests/subtests, zero skips/failures**, in 27.4 seconds (54.5 seconds including
++private principal setup and cleanup). Go 1.27.3 darwin/arm64; same owned Software
++fixture and effective 4x QPF, noeviction, strict data-plane TLS/RESP3.
++
++Four temporary Software principals independently denied EVALSHA, FT.SEARCH,
++HDEL and ZREM. Each principal's PING/EVAL positive control and intended command
++denial were verified before tests. Actual EVAL-only Arrow/SQL notification
++fallback, write-only Arrow publication, import-journal permission preflight and
++cleanup passed. Write-only Arrow built its early index and selected exactly
++one typed query-ACL initial-scan replacement, with no notification pass;
++independent admin full-fetch/type/value validation preserved all 513×105 values.
++
++A non-Cluster retained-Arrow regression verified that prepare creates no index,
++resume consumes no further input, and the deferred final CREATE plus three
++notification batches preserves all 513×105 values. This covers the functional
++retained-operation exclusion without claiming the earlier skipped Cluster-only
++API/topology scenarios. The combined race selection also re-exercised input
++admission, unknown replies, cancellation, index-policy/provenance and source
++refresh identity. The four temporary users, role mappings, ACLs and roles were
++removed; effective 4x QPF was reverified after cleanup. Only the owned disposable
++DB was reset; emptiness was asserted and all clients closed before ending the
++exclusive correctness slot.
++
++Candidate performance acceptance remains pending matched native measurements.
+diff --git a/docs/snapshots.md b/docs/snapshots.md
+index 3e0f8f3e..59e91825 100644
+--- a/docs/snapshots.md
++++ b/docs/snapshots.md
+@@ -293,7 +293,7 @@ index outside Software's distributed registry. A late global CREATE after lease
+ loss cannot publish; maintenance removes its private orphan index. Row and metadata
+ mutations remain inside atomic Lua fences. Private staging reads resolve
+ immutable inputs and their unindexed outputs through authoritative row directories.
+-After SQL/Arrow changes finish, each ordinary private output gets one empty
++After SQL changes finish, each ordinary private output gets one empty
+ final index. Bounded batches traverse only its exact registered directory and
+ notify Search using unchanged row-ID fields; ownership, lease, score, HASH type,
+ row identity and permissions are checked before any batch notification. No
+@@ -303,7 +303,16 @@ and requires a warning-free indexed-row-ID count for nonempty outputs. A typed
+ query-permission refusal selects a new private index built with the original
+ initial-scan completion proof, preserving write-only principals; other errors
+ remain terminal. Document counts alone do not prove that incremental updates
+-have settled. Background compaction retains its separate resumable copy/index/
++have settled. Eligible ordinary managed Arrow instead creates its final empty
++private index before its first complete insert-only row batch. Ownership/lease
++gates require an empty registered directory; atomic insert batches reject any
++existing HASH or directory member. This avoids the second notification pass.
++Private reads still use directories, and the same final native readiness and
++indexed-row proofs apply. Schema changes or private row replacement invalidate
++this optimization and rebuild a fresh final index. Empty Arrow inputs, imports
++and provenance-bearing tables, Flex and retained operations stay deferred.
++An uncertain CREATE or row reply never causes input/mutation replay or a
++fallback index attempt. Background compaction retains its separate resumable copy/index/
+ install path. For new empty compaction outputs, an empty index is created before
+ the first complete-image copy batch. The existing atomic directory/image/
+ checkpoint batches populate it directly, avoiding a database initial scan or a
+diff --git a/go/ingest.go b/go/ingest.go
+index 08a18cf1..4e3e3818 100644
+--- a/go/ingest.go
++++ b/go/ingest.go
+@@ -307,6 +307,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
+ 		return -1, err
+ 	}
+ 
++	firstSlice := true
+ 	writeRecord := func(rec arrow.RecordBatch) (int64, error) {
+ 		n := int(rec.NumRows())
+ 		rows := make([][]Value, n)
+@@ -333,6 +334,12 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
+ 				return -1, err
+ 			}
+ 		}
++		if firstSlice && n > 0 {
++			firstSlice = false
++			if err := st.beginSnapshotArrowIndex(ctx, meta); err != nil {
++				return -1, err
++			}
++		}
+ 		return st.insertRows(ctx, meta, rows)
+ 	}
+ 	for {
+diff --git a/go/snapshot.go b/go/snapshot.go
+index be4a29ad..b1178743 100644
+--- a/go/snapshot.go
++++ b/go/snapshot.go
+@@ -1165,6 +1165,11 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
+ 			if data := snapshotDataID(fmt.Sprint(args[n])); data != "" && !scope.owned[data] {
+ 				return errorf(adbc.StatusInvalidState, "shared snapshot data is immutable")
+ 			}
++			if data := snapshotDataID(fmt.Sprint(args[n])); data != "" {
++				if state := scope.deferredIndexes[data]; state != nil && name != "ft.create" {
++					state.mutable = true
++				}
++			}
+ 		}
+ 		if name == "hset" && len(args) > 1 && snapshotRowPrefix(fmt.Sprint(args[1])) != "" {
+ 			scope.writes++
+@@ -1269,8 +1274,8 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
+ 		return err
+ 	}
+ 	// Document counts alone cannot establish that incremental updates have
+-	// settled. Populate a fresh index from the final registered row images and
+-	// require both readiness metadata and a native indexed-row proof.
++	// settled. Populate a fresh index from final images, or retain an eligible
++	// complete-first-insert Arrow index; both require readiness and native proof.
+ 	if err := s.rebuildSnapshotIndexes(ctx); err != nil {
+ 		return err
+ 	}
+@@ -1413,12 +1418,15 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
+ 		if deferred {
+ 			meta.SnapshotOverlay = overlay
+ 		}
+-		meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
+-		if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
+-			return wrapRedis(err, "failed to index final snapshot rows")
+-		}
+-		if err := s.populateSnapshotIndex(ctx, meta); err != nil {
+-			return err
++		insertCreated, insertUsable := snapshotInsertIndex(ctx, meta)
++		if !insertUsable {
++			meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
++			if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
++				return wrapRedis(err, "failed to index final snapshot rows")
++			}
++			if err := s.populateSnapshotIndex(ctx, meta); err != nil {
++				return err
++			}
+ 		}
+ 		raw, err := json.Marshal(meta)
+ 		if err != nil {
+@@ -1431,8 +1439,14 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
+ 		}
+ 		if deferred {
+ 			finishSnapshotIndex(ctx, meta)
+-		} else if err := s.searchDo(ctx, old, "FT.DROPINDEX", old).Err(); err != nil && !isUnknownIndex(err) {
+-			return wrapRedis(err, "failed to retire private working index")
++		}
++		if insertCreated != "" {
++			old = insertCreated
++		}
++		if !insertUsable && (!deferred || insertCreated != "") {
++			if err := s.searchDo(ctx, old, "FT.DROPINDEX", old).Err(); err != nil && !isUnknownIndex(err) {
++				return wrapRedis(err, "failed to retire private working index")
++			}
+ 		}
+ 	}
+ 	return nil
+diff --git a/go/snapshot_arrow_index_integration_test.go b/go/snapshot_arrow_index_integration_test.go
+new file mode 100644
+index 00000000..de9cdcd4
+--- /dev/null
++++ b/go/snapshot_arrow_index_integration_test.go
+@@ -0,0 +1,400 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"fmt"
++	"io"
++	"math"
++	"os"
++	"testing"
++	"time"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	"github.com/apache/arrow-go/v18/arrow"
++	"github.com/apache/arrow-go/v18/arrow/array"
++	"github.com/apache/arrow-go/v18/arrow/memory"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++type snapshotArrowIndexObserver struct {
++	raw                                    goredis.UniversalClient
++	creates, early, batches, notifications int
++	loseRow, loseCreate                    bool
++	indexedFirst                           bool
++	cancel                                 context.CancelFunc
++	index                                  string
++	proof                                  *snapshotIndexNotifyObserver
++	scans                                  *snapshotFullIndexScanCounter
++}
++
++func (*snapshotArrowIndexObserver) DialHook(next goredis.DialHook) goredis.DialHook { return next }
++func (*snapshotArrowIndexObserver) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return next
++}
++func (o *snapshotArrowIndexObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
++	if o.proof != nil {
++		next = o.proof.ProcessHook(next)
++	}
++	if o.scans != nil {
++		next = o.scans.ProcessHook(next)
++	}
++	return func(ctx context.Context, cmd goredis.Cmder) error {
++		a := snapshotObservedControlArgs(cmd)
++		row := len(a) > 2 && snapshotObservedControlName(cmd) == "eval" && a[1] == snapshotWriteBatchLua
++		notify := len(a) > 2 && snapshotObservedControlName(cmd) == "eval" && a[1] == snapshotIndexNotifyLua
++		create := cmd.Name() == "ft.create"
++		if create {
++			o.creates++
++			o.index = fmt.Sprint(cmd.Args()[1])
++			if data, ok := ctx.Value(snapshotEmptyIndexKey{}).(string); ok {
++				o.early++
++				if n, err := o.raw.ZCard(ctx, snapshotMembers(data)).Result(); err != nil || n != 0 {
++					return fmt.Errorf("early index directory not empty: %d %v", n, err)
++				}
++			}
++		}
++		err := next(ctx, cmd)
++		if err != nil {
++			return err
++		}
++		if create && o.loseCreate {
++			cmd.SetErr(io.ErrUnexpectedEOF)
++			return io.ErrUnexpectedEOF
++		}
++		if notify {
++			o.notifications++
++		}
++		if row {
++			o.batches++
++			if o.batches == 1 {
++				o.indexedFirst = o.early == 1
++				if o.cancel != nil {
++					o.cancel()
++				}
++			}
++			if o.loseRow {
++				o.loseRow = false
++				cmd.SetErr(io.ErrUnexpectedEOF)
++				return io.ErrUnexpectedEOF
++			}
++		}
++		return nil
++	}
++}
++
++func TestSnapshotArrowFirstInsertIndex(t *testing.T) {
++	for _, lose := range []bool{false, true} {
++		t.Run(fmt.Sprint("lost_row_reply_", lose), func(t *testing.T) {
++			h, raw, _ := newSnapshotHarnessMode(t, false, false)
++			observer := &snapshotArrowIndexObserver{raw: raw, loseRow: lose}
++			ctx, _ := statisticsHookedTransport(t, h, observer)
++			rec := followupRecord(513)
++			defer rec.Release()
++			if err := followupIngest(ctx, h.conn, "arrow_first", adbc.OptionValueIngestModeCreate, rec); err != nil {
++				t.Fatal(err)
++			}
++			if observer.creates != 1 || observer.early != 1 || observer.batches != 3 || observer.notifications != 0 || !observer.indexedFirst {
++				t.Fatalf("unexpected index/insert lifecycle: %+v", observer)
++			}
++			got, err := followupFetch(ctx, h.conn, "SELECT * FROM arrow_first")
++			if err != nil {
++				t.Fatal(err)
++			}
++			followupValidate(t, got, 1, 513)
++		})
++	}
++}
++
++func TestSnapshotArrowEmptyStaysDeferred(t *testing.T) {
++	h, raw, _ := newSnapshotHarnessMode(t, false, false)
++	observer := &snapshotArrowIndexObserver{raw: raw}
++	ctx, _ := statisticsHookedTransport(t, h, observer)
++	rec := followupRecord(0)
++	defer rec.Release()
++	if err := followupIngest(ctx, h.conn, "arrow_empty", adbc.OptionValueIngestModeCreate, rec); err != nil {
++		t.Fatal(err)
++	}
++	if observer.creates != 1 || observer.early != 0 || observer.batches != 0 || observer.notifications != 0 {
++		t.Fatalf("empty input started an early index: %+v", observer)
++	}
++	h.expectRows("SELECT COUNT(*) FROM arrow_empty", "0")
++}
++
++func TestSnapshotArrowUnknownCreateDoesNotPublish(t *testing.T) {
++	h, raw, _ := newSnapshotHarnessMode(t, false, false)
++	h.exec("CREATE TABLE arrow_unknown(v INTEGER)")
++	h.exec("INSERT INTO arrow_unknown VALUES(7)")
++	before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
++	observer := &snapshotArrowIndexObserver{raw: raw, loseCreate: true}
++	ctx, impl := statisticsHookedTransport(t, h, observer)
++	rec := followupRecord(513)
++	defer rec.Release()
++	if err := followupIngest(ctx, h.conn, "arrow_unknown", adbc.OptionValueIngestModeReplace, rec); err == nil {
++		t.Fatal("unknown CREATE was accepted")
++	}
++	if observer.creates != 1 || observer.batches != 0 || raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != before {
++		t.Fatal("unknown CREATE was retried, consumed rows or published")
++	}
++	h.expectRows("SELECT v FROM arrow_unknown", "7")
++	impl.store.reapSnapshotBudget(h.ctx, 2*time.Second)
++	if err := raw.Do(h.ctx, "FT.INFO", observer.index).Err(); !isUnknownIndex(err) {
++		t.Fatal("uncertain CREATE left an uncollectible private index", err)
++	}
++}
++
++func TestSnapshotArrowIndexFallsBackAfterPrivateOverwrite(t *testing.T) {
++	h, raw, _ := newSnapshotHarnessMode(t, false, false)
++	h.exec("CREATE TABLE arrow_overwrite(v INTEGER)")
++	s := snapshotTestStore(t, raw)
++	ctx, pin, err := s.acquireSnapshot(h.ctx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer pin.release()
++	wctx, id, err := s.beginSnapshotWrite(ctx, pin)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer s.abortSnapshot(pin, id)
++	if err := s.prepareSnapshotTable(wctx, "public", "arrow_overwrite"); err != nil {
++		t.Fatal(err)
++	}
++	m := snapshotTableTest(t, s, wctx, "arrow_overwrite")
++	if err := s.beginSnapshotArrowIndex(wctx, m); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := s.insertRows(wctx, m, [][]Value{{intValue(typeInt32, 7)}}); err != nil {
++		t.Fatal(err)
++	}
++	old := m.index()
++	snapshotExecuteTest(t, s, wctx, "UPDATE arrow_overwrite SET v=8")
++	if err := s.publishSnapshot(wctx, pin, id); err != nil {
++		t.Fatal(err)
++	}
++	if err := raw.Do(h.ctx, "FT.INFO", old).Err(); !isUnknownIndex(err) {
++		t.Fatal("invalidated early index was retained", err)
++	}
++	h.expectRows("SELECT v FROM arrow_overwrite", "8")
++}
++
++func TestSnapshotArrowEarlyIndexAbortsIncompleteInput(t *testing.T) {
++	for _, mode := range []string{"reader_error", "cancel"} {
++		t.Run(mode, func(t *testing.T) {
++			h, raw, _ := newSnapshotHarnessMode(t, false, false)
++			h.exec("CREATE TABLE arrow_abort(v INTEGER)")
++			h.exec("INSERT INTO arrow_abort VALUES(7)")
++			before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
++			observer := &snapshotArrowIndexObserver{raw: raw}
++			ctx, _ := statisticsHookedTransport(t, h, observer)
++			if mode == "cancel" {
++				var cancel context.CancelFunc
++				ctx, cancel = context.WithCancel(ctx)
++				defer cancel()
++				observer.cancel = cancel
++			}
++			st, err := h.conn.NewStatement(ctx)
++			if err != nil {
++				t.Fatal(err)
++			}
++			defer st.Close(h.ctx)
++			for key, value := range map[string]string{adbc.OptionKeyIngestTargetTable: "arrow_abort", adbc.OptionKeyIngestMode: adbc.OptionValueIngestModeReplace} {
++				if err := st.SetOption(ctx, key, value); err != nil {
++					t.Fatal(err)
++				}
++			}
++			rec := followupRecord(513)
++			defer rec.Release()
++			reader, err := array.NewRecordReader(rec.Schema(), []arrow.RecordBatch{rec})
++			if err != nil {
++				t.Fatal(err)
++			}
++			defer reader.Release()
++			if err := st.BindStream(ctx, &unmanagedArrowReaderFailure{RecordReader: reader}); err != nil {
++				t.Fatal(err)
++			}
++			if _, err := st.ExecuteUpdate(ctx); err == nil {
++				t.Fatal("incomplete input published")
++			}
++			if observer.early != 1 || observer.batches == 0 || raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != before {
++				t.Fatal("failed input lost early-index coverage or changed root")
++			}
++			h.expectRows("SELECT v FROM arrow_abort", "7")
++		})
++	}
++}
++
++func TestSnapshotArrowEarlyIndexProofRefusals(t *testing.T) {
++	for _, mode := range []string{"typed_acl", "transport", "warning"} {
++		t.Run(mode, func(t *testing.T) {
++			h, raw, _ := newSnapshotHarnessMode(t, false, false)
++			proof := &snapshotIndexNotifyObserver{proofDenied: mode == "typed_acl", proofTransport: mode == "transport", proofWarning: mode == "warning"}
++			scans := &snapshotFullIndexScanCounter{}
++			ctx, _ := statisticsHookedTransport(t, h, &snapshotArrowIndexObserver{raw: raw, proof: proof, scans: scans})
++			rec := followupRecord(300)
++			defer rec.Release()
++			err := followupIngest(ctx, h.conn, "arrow_proof", adbc.OptionValueIngestModeCreate, rec)
++			if proof.proofCalls.Load() != 1 || proof.calls.Load() != 0 {
++				t.Fatal("proof/notification repeated", proof.proofCalls.Load(), proof.calls.Load())
++			}
++			if mode == "typed_acl" {
++				if err != nil || scans.full.Load() != 1 {
++					t.Fatal("typed ACL fallback failed", err, scans.full.Load())
++				}
++				got, err := followupFetch(h.ctx, h.conn, "SELECT * FROM arrow_proof")
++				if err != nil {
++					t.Fatal(err)
++				}
++				followupValidate(t, got, 1, 300)
++			} else if err == nil || scans.full.Load() != 0 {
++				t.Fatal("unknown/warning proof selected fallback", err, scans.full.Load())
++			}
++		})
++	}
++}
++
++func TestSnapshotArrowIndexKeepsLateValueFacts(t *testing.T) {
++	h, raw, _ := newSnapshotHarnessMode(t, false, false)
++	h.exec("CREATE TABLE arrow_facts(id BIGINT,payload VARCHAR,v DOUBLE PRECISION)")
++	s := snapshotTestStore(t, raw)
++	ctx, pin, err := s.acquireSnapshot(h.ctx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer pin.release()
++	wctx, id, err := s.beginSnapshotWrite(ctx, pin)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer s.abortSnapshot(pin, id)
++	if err := s.prepareSnapshotTable(wctx, "public", "arrow_facts"); err != nil {
++		t.Fatal(err)
++	}
++	m := snapshotTableTest(t, s, wctx, "arrow_facts")
++	if err := s.beginSnapshotArrowIndex(wctx, m); err != nil {
++		t.Fatal(err)
++	}
++	for _, row := range [][]Value{
++		{intValue(typeInt64, 1), stringValue("plain"), floatValue(typeFloat64, 1)},
++		{intValue(typeInt64, 2), stringValue("before\x00after"), floatValue(typeFloat64, math.NaN())},
++	} {
++		if _, err := s.insertRows(wctx, m, [][]Value{row}); err != nil {
++			t.Fatal(err)
++		}
++	}
++	current, err := s.getTableMetadata(wctx, "public", "arrow_facts")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if current.Columns[1].TagValues != tagsTruncated || !current.Columns[2].NaNs {
++		t.Fatal("late query facts missing")
++	}
++	if _, usable := snapshotInsertIndex(wctx, current); !usable {
++		t.Fatal("late query facts incorrectly changed physical index schema")
++	}
++	if err := s.publishSnapshot(wctx, pin, id); err != nil {
++		t.Fatal(err)
++	}
++	h.expectRows("SELECT id,payload,v FROM arrow_facts ORDER BY id", "1|plain|1", "2|before\x00after|NaN")
++	h.expectRows("SELECT id FROM arrow_facts WHERE v='NaN'::double precision", "2")
++}
++
++func TestSnapshotArrowRetainedOperationStaysDeferred(t *testing.T) {
++	h, raw, _ := newSnapshotHarnessMode(t, false, false)
++	observer := &snapshotArrowIndexObserver{raw: raw}
++	ctx, _ := statisticsHookedTransport(t, h, observer)
++	st, err := h.conn.NewStatement(ctx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer st.Close(ctx)
++	for key, value := range map[string]string{adbc.OptionKeyIngestTargetTable: "arrow_retained", adbc.OptionKeyIngestMode: adbc.OptionValueIngestModeCreate, OptionStringOperationAction: "prepare"} {
++		if err := st.SetOption(ctx, key, value); err != nil {
++			t.Fatal(err)
++		}
++	}
++	rec := followupRecord(513)
++	defer rec.Release()
++	reader, err := array.NewRecordReader(rec.Schema(), []arrow.RecordBatch{rec})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer reader.Release()
++	input := &operationCountingInput{RecordReader: reader}
++	if err := st.BindStream(ctx, input); err != nil {
++		t.Fatal(err)
++	}
++	if n, err := st.ExecuteUpdate(ctx); err != nil || n != 0 {
++		t.Fatal("prepare", n, err)
++	}
++	consumed := input.calls
++	if observer.early != 0 || observer.creates != 0 || observer.batches != 3 || observer.notifications != 0 {
++		t.Fatalf("retained input created a runtime-only index: %+v", observer)
++	}
++	handle, err := st.(adbc.GetSetOptionsWithContext).GetOption(ctx, OptionStringOperationHandle)
++	if err != nil {
++		t.Fatal(err)
++	}
++	resume, err := h.conn.NewStatement(ctx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer resume.Close(ctx)
++	for key, value := range map[string]string{OptionStringOperationHandle: handle, OptionStringOperationAction: "resume"} {
++		if err := resume.SetOption(ctx, key, value); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if n, err := resume.ExecuteUpdate(ctx); err != nil || n != 513 {
++		t.Fatal("resume", n, err)
++	}
++	if observer.early != 0 || observer.creates != 1 || observer.notifications != 3 || input.calls != consumed {
++		t.Fatal("retained resume lost deferred index or replayed Arrow input")
++	}
++	got, err := followupFetch(ctx, h.conn, "SELECT * FROM arrow_retained")
++	if err != nil {
++		t.Fatal(err)
++	}
++	followupValidate(t, got, 1, 513)
++}
++
++func TestSnapshotArrowWriteOnlySoftware(t *testing.T) {
++	uri := os.Getenv("REDIS_SNAPSHOT_ARROW_WRITE_ONLY_URI")
++	if uri == "" {
++		t.Skip("requires owned Software principal with FT.SEARCH denied")
++	}
++	operator, err := goredis.ParseURL(uri)
++	admin, adminErr := goredis.ParseURL(os.Getenv("REDIS_SNAPSHOT_URI"))
++	if err != nil || adminErr != nil || operator.Addr != admin.Addr || operator.DB != admin.DB || operator.Username == "" || operator.TLSConfig == nil || admin.TLSConfig == nil {
++		t.Fatal("write-only endpoint differs from owned strict-TLS fixture")
++	}
++	h, raw, _ := newSnapshotHarnessOptions(t, false, false, map[string]string{adbc.OptionKeyURI: uri})
++	scans := &snapshotFullIndexScanCounter{}
++	observer := &snapshotArrowIndexObserver{raw: raw, scans: scans}
++	ctx, _ := statisticsHookedTransport(t, h, observer)
++	rec := followupRecord(513)
++	defer rec.Release()
++	if err := followupIngest(ctx, h.conn, "arrow_write_only", adbc.OptionValueIngestModeCreate, rec); err != nil {
++		t.Fatal(err)
++	}
++	if observer.early != 1 || observer.creates != 2 || observer.notifications != 0 || scans.full.Load() != 1 {
++		t.Fatal("write-only Arrow did not retain typed query-ACL scan fallback", observer.early, observer.creates, observer.notifications, scans.full.Load())
++	}
++	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, retainedTestDatabaseOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI")}))
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer db.Close(h.ctx)
++	conn, err := db.Open(h.ctx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer conn.Close(h.ctx)
++	got, err := followupFetch(h.ctx, conn, "SELECT * FROM arrow_write_only")
++	if err != nil {
++		t.Fatal(err)
++	}
++	followupValidate(t, got, 1, 513)
++}
+diff --git a/go/snapshot_arrow_index_test.go b/go/snapshot_arrow_index_test.go
+new file mode 100644
+index 00000000..09afc0ee
+--- /dev/null
++++ b/go/snapshot_arrow_index_test.go
+@@ -0,0 +1,32 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++package redis
++
++import (
++	"context"
++	"reflect"
++	"strings"
++	"testing"
++
++	goredis "github.com/redis/go-redis/v9"
++)
++
++func TestSnapshotArrowEmptyGateHasStableScript(t *testing.T) {
++	var previous []any
++	for _, data := range []string{strings.Repeat("a", 32), strings.Repeat("b", 32)} {
++		scope := &snapshotScope{id: strings.Repeat("c", 32), write: true, pin: &snapshotPin{token: "test"}}
++		ctx := context.WithValue(context.Background(), snapshotContextKey{}, scope)
++		ctx = context.WithValue(ctx, snapshotEmptyIndexKey{}, data)
++		meta := &tableMeta{Schema: "public", Name: "t", KeyPrefix: snapshotRows(data, "public", data), IndexName: snapshotIndexPrefix(data) + "working"}
++		gate := snapshotSearchGate(ctx, goredis.NewCmd(ctx, indexCreateArgs(meta)...)).Args()
++		if previous != nil {
++			if !reflect.DeepEqual(previous[1], gate[1]) {
++				t.Fatal("empty-index gate compiles one script per output")
++			}
++			if reflect.DeepEqual(previous[3:], gate[3:]) {
++				t.Fatal("distinct outputs lost their distinct key/argument data")
++			}
++		}
++		previous = gate
++	}
++}
+diff --git a/go/snapshot_batch_script_integration_test.go b/go/snapshot_batch_script_integration_test.go
+index 32821ba1..42a97f18 100644
+--- a/go/snapshot_batch_script_integration_test.go
++++ b/go/snapshot_batch_script_integration_test.go
+@@ -49,10 +49,19 @@ func TestSnapshotBatchScriptEvalOnlySoftware(t *testing.T) {
+ 		}
+ 	}
+ 	observer.Lock()
+-	for _, digest := range []string{snapshotWriteBatchDigest, snapshotIndexNotifyDigest} {
+-		if observer.digests[digest] != 1 || observer.bodies[digest] != 16 {
+-			t.Errorf("EVAL-only row/index commands: digest attempts %d full bodies %d, want 1/16", observer.digests[digest], observer.bodies[digest])
+-		}
++	if observer.digests[snapshotWriteBatchDigest] != 1 || observer.bodies[snapshotWriteBatchDigest] != 16 {
++		t.Errorf("EVAL-only rows: digest attempts %d full bodies %d, want 1/16", observer.digests[snapshotWriteBatchDigest], observer.bodies[snapshotWriteBatchDigest])
++	}
++	if observer.digests[snapshotIndexNotifyDigest] != 0 || observer.bodies[snapshotIndexNotifyDigest] != 0 {
++		t.Error("insert-only Arrow unexpectedly needed index notifications")
++	}
++	observer.Unlock()
++	// Arrow no longer exercises index notification. Keep its EVAL-only ACL
++	// compatibility coverage on an ordinary SQL rewrite instead.
++	snapshotExecuteTest(t, impl.store, ctx, "UPDATE eval_only SET c104=c104")
++	observer.Lock()
++	if observer.digests[snapshotIndexNotifyDigest] != 1 || observer.bodies[snapshotIndexNotifyDigest] != 16 {
++		t.Error("SQL index notifications did not retain EVAL-only fallback")
+ 	}
+ 	observer.Unlock()
+ 	snapshotDrainCompactionTest(t, impl.store)
+@@ -176,10 +185,11 @@ func TestSnapshotBatchScriptCacheColdHotFlush(t *testing.T) {
+ 			wantBody = 0
+ 		}
+ 		observer.Lock()
+-		for _, digest := range []string{snapshotWriteBatchDigest, snapshotIndexNotifyDigest} {
+-			if observer.digests[digest] != 4 || observer.bodies[digest] != wantBody {
+-				t.Errorf("trial %d: digest attempts %d full bodies %d, want 4/%d", trial, observer.digests[digest], observer.bodies[digest], wantBody)
+-			}
++		if observer.digests[snapshotWriteBatchDigest] != 4 || observer.bodies[snapshotWriteBatchDigest] != wantBody {
++			t.Errorf("trial %d: digest attempts %d full bodies %d, want 4/%d", trial, observer.digests[snapshotWriteBatchDigest], observer.bodies[snapshotWriteBatchDigest], wantBody)
++		}
++		if observer.digests[snapshotIndexNotifyDigest] != 0 || observer.bodies[snapshotIndexNotifyDigest] != 0 {
++			t.Error("insert-only Arrow unexpectedly needed index notifications")
+ 		}
+ 		observer.Unlock()
+ 	}
+@@ -189,3 +199,34 @@ func TestSnapshotBatchScriptCacheColdHotFlush(t *testing.T) {
+ 	}
+ 	followupValidate(t, actual, 1, 3000)
+ }
++
++func TestSnapshotSQLNotificationScriptCacheColdHotFlush(t *testing.T) {
++	h, raw, _ := newSnapshotHarnessMode(t, false, false)
++	h.exec("CREATE TABLE notify_cache(v BIGINT)")
++	h.exec("INSERT INTO notify_cache SELECT 9007199254740993 FROM generate_series(1,257)")
++	s := snapshotTestStore(t, raw)
++	observer := &snapshotBatchWire{digests: map[string]int{}, bodies: map[string]int{}}
++	s.client.AddHook(observer)
++	for trial := range 3 {
++		if trial != 1 {
++			if err := raw.ScriptFlush(h.ctx).Err(); err != nil {
++				t.Fatal(err)
++			}
++		}
++		observer.Lock()
++		clear(observer.digests)
++		clear(observer.bodies)
++		observer.Unlock()
++		snapshotExecuteTest(t, s, h.ctx, "UPDATE notify_cache SET v=v+1")
++		wantBody := 1
++		if trial == 1 {
++			wantBody = 0
++		}
++		observer.Lock()
++		if observer.digests[snapshotIndexNotifyDigest] != 2 || observer.bodies[snapshotIndexNotifyDigest] != wantBody {
++			t.Errorf("trial %d: notification digest/body=%d/%d, want 2/%d", trial, observer.digests[snapshotIndexNotifyDigest], observer.bodies[snapshotIndexNotifyDigest], wantBody)
++		}
++		observer.Unlock()
++	}
++	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM notify_cache", "257|9007199254740996|9007199254740996")
++}
+diff --git a/go/snapshot_index_lifecycle.go b/go/snapshot_index_lifecycle.go
+index 80fa9a75..714d983f 100644
+--- a/go/snapshot_index_lifecycle.go
++++ b/go/snapshot_index_lifecycle.go
+@@ -3,12 +3,67 @@
+ 
+ package redis
+ 
+-import "context"
++import (
++	"context"
++	"reflect"
++)
+ 
+-// A private segment has no Search index until publication seals its row images.
+-// Keep its eventual overlay flag separately: private SQL must always resolve
++// Most private segments have no Search index until publication seals their row
++// images. Eligible Arrow instead indexes complete first inserts, retaining the
++// same final proof. Keep the eventual overlay flag separately: private SQL resolves
+ // authoritative directories, even for a future single-source baseline index.
+-type snapshotIndexState struct{ overlay, deleted bool }
++type snapshotIndexState struct {
++	overlay, deleted bool
++	// Ordinary Arrow can index complete first-insert images as they arrive.
++	// This is deliberately runtime-only: detached operations stay deferred.
++	insertIndex string
++	insertArgs  []any
++	mutable     bool
++}
++
++type snapshotEmptyIndexKey struct{}
++
++// beginSnapshotArrowIndex is called once, after checking the first conversion
++// slice but before inserting any rows. All other writers remain deferred.
++func (s *store) beginSnapshotArrowIndex(ctx context.Context, meta *tableMeta) error {
++	scope := snapshotOf(ctx)
++	if scope == nil || !scope.write || scope.operation || scope.maintenance || meta.Unmanaged || s.flexEnabled() ||
++		meta.SnapshotImportSource != "" || meta.SnapshotSourceKey || snapshotOperationRequestOf(ctx) != nil ||
++		!snapshotOwns(ctx, meta.prefix()) {
++		return nil
++	}
++	data := snapshotDataID(meta.prefix())
++	scope.mu.Lock()
++	state := scope.deferredIndexes[data]
++	eligible := state != nil && !state.mutable && !state.deleted && state.insertIndex == ""
++	scope.mu.Unlock()
++	if !eligible {
++		return nil
++	}
++	// The global CREATE is never replayed. Existing Search gates validate the
++	// registered owner and lease before and after it; this context also requires
++	// the directory to be empty at both gates. Only insert-mode row batches follow.
++	args := indexCreateArgs(meta)
++	ectx := context.WithValue(ctx, snapshotEmptyIndexKey{}, data)
++	if err := s.searchDo(ectx, meta.index(), args...).Err(); err != nil {
++		return wrapRedis(err, "failed to index private Arrow inserts")
++	}
++	scope.mu.Lock()
++	state.insertIndex, state.insertArgs = meta.index(), args
++	scope.mu.Unlock()
++	return nil
++}
++
++func snapshotInsertIndex(ctx context.Context, meta *tableMeta) (created string, usable bool) {
++	scope := snapshotOf(ctx)
++	scope.mu.Lock()
++	defer scope.mu.Unlock()
++	state := scope.deferredIndexes[snapshotDataID(meta.prefix())]
++	if state == nil || state.insertIndex == "" {
++		return "", false
++	}
++	return state.insertIndex, !state.mutable && !state.deleted && state.insertIndex == meta.index() && reflect.DeepEqual(state.insertArgs, indexCreateArgs(meta))
++}
+ 
+ func deferSnapshotIndex(ctx context.Context, meta *tableMeta) bool {
+ 	scope := snapshotOf(ctx)
+@@ -51,7 +106,7 @@ func finishSnapshotIndex(ctx context.Context, meta *tableMeta) {
+ }
+ 
+ // Route capability discovery through an existing immutable input. A deferred
+-// output index is deliberately absent, including from Software's global registry.
++// output index may be absent or not yet proven ready in Software's global registry.
+ func snapshotSourceIndex(ctx context.Context, meta *tableMeta) string {
+ 	if _, pending := snapshotDeferredIndex(ctx, meta); pending {
+ 		for _, seg := range meta.snapshotSegments() {
+diff --git a/go/snapshot_search.go b/go/snapshot_search.go
+index 43ae1a4e..732c0a14 100644
+--- a/go/snapshot_search.go
++++ b/go/snapshot_search.go
+@@ -31,6 +31,16 @@ func snapshotSearchGate(ctx context.Context, cmd goredis.Cmder) *goredis.Cmd {
+ 	fenced := fenceSnapshotCommand(ctx, cmd).(snapshotFencedCommand)
+ 	args := append([]any(nil), fenced.args...)
+ 	args[1] = snapshotRowLayoutLua + snapshotMutationAdmission + "return 1"
++	if _, ok := ctx.Value(snapshotEmptyIndexKey{}).(string); ok && strings.EqualFold(cmd.Name(), "ft.create") {
++		// CREATE must see an empty, durably registered private output. The
++		// existing gate already proves index identity and physical ownership.
++		args[1] = snapshotRowLayoutLua + snapshotMutationAdmission + `
++local data=string.match(ARGV[6],'^adbc_snapshot17_{meta}_([0-9a-f]+)_')
++if not data or KEYS[#KEYS] ~= '` + snapshotPrefix + `members:'..data or redis.call('ZCARD',KEYS[#KEYS]) ~= 0 then
++ return redis.error_reply('private Arrow index requires an empty directory')
++end
++return 1`
++	}
+ 	check := goredis.NewCmd(ctx, args...)
+ 	check.SetFirstKeyPos(3)
+ 	return check
+diff --git a/go/snapshot_write_batch.go b/go/snapshot_write_batch.go
+index 2aa6f4bf..5ea4a000 100644
+--- a/go/snapshot_write_batch.go
++++ b/go/snapshot_write_batch.go
+@@ -206,6 +206,13 @@ func (s *store) snapshotRowBatch(ctx context.Context, prefix string, rows []snap
+ 	}
+ 	operation := snapshotID()
+ 	journal, _ := ctx.Value(snapshotImportOutputKey{}).(*snapshotImportOutput)
++	if replace || journal != nil {
++		scope.mu.Lock()
++		if state := scope.deferredIndexes[data]; state != nil {
++			state.mutable = true
++		}
++		scope.mu.Unlock()
++	}
+ 	keyCount := len(rows) + 3
+ 	if journal != nil {
+ 		keyCount += 3
+@@ -265,6 +272,9 @@ func (s *store) noteSnapshotBatchWrites(scope *snapshotScope, data string, rows
+ 	if state == nil || state.deleted {
+ 		return
+ 	}
++	if state.insertIndex == "" {
++		state.mutable = true // An already populated output cannot start early indexing.
++	}
+ 	for _, row := range rows {
+ 		for i := 0; i+1 < len(row.fields); i += 2 {
+ 			if fmt.Sprint(row.fields[i]) == snapshotDeletedField && fmt.Sprint(row.fields[i+1]) == "1" {

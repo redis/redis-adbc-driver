@@ -1,0 +1,5222 @@
+{
+  "decision": "rejected; no production/default change",
+  "date": "2026-11-13",
+  "native_order": "entire baseline before entire candidate; 1K call block before 10K block; case order alternates per repetition",
+  "diagnostics_order": "each variant native completed before its diagnostic block",
+  "fixture": {
+    "server": "Redis Software",
+    "redis_version": "8.8.0",
+    "search_module_version": 80808,
+    "qpf_active": true,
+    "qpf_scaling_factor": 4,
+    "search_workers": 6,
+    "sched_policy": "mnp",
+    "connections": 32,
+    "noeviction": true,
+    "tls_resp3_verified": true,
+    "docker_cpus": 4,
+    "docker_memory_bytes": 8589934592,
+    "database_memory_bytes": 4294967296
+  },
+  "toolchain": {
+    "go": "go1.27.3 darwin/arm64",
+    "python": "3.15.2",
+    "pyarrow": "26.0.1",
+    "adbc_manager": "1.13.0"
+  },
+  "candidate_patch_sha256": "bf4f4d13bfe6176146a08f6a98324eee0eb26cc4b8f24e5baf3e5dd8ee40c7dd",
+  "variants": {
+    "base": {
+      "source_commit": "ba855f7995b2685182ed1331bcf6703d73089c4a",
+      "build_version": "v0.1.0-dev.publication-base",
+      "driver_sha256": "99521eca0638556f808616c70ddce90ae00a3bbc7bff31c1856b6dd7210d187c",
+      "native_arrow_source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+      "go_profile_helper_sha256": "bc81ecdda25dd0cea93e71e546069fb8213aca56909977d39bb806bc338f2321",
+      "native_trials": [
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 7.893677541986108,
+          "validated": true,
+          "peak_worker_rss_bytes": 270581760
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 16.34530708301463,
+          "validated": true,
+          "peak_worker_rss_bytes": 260292608
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 17.66449783401913,
+          "validated": true,
+          "peak_worker_rss_bytes": 258572288
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 7.725541374995373,
+          "validated": true,
+          "peak_worker_rss_bytes": 268550144
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 7.6201452910027,
+          "validated": true,
+          "peak_worker_rss_bytes": 271187968
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 16.595419042016147,
+          "validated": true,
+          "peak_worker_rss_bytes": 259424256
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 16.121067457977915,
+          "validated": true,
+          "peak_worker_rss_bytes": 260325376
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 7.5818324589927215,
+          "validated": true,
+          "peak_worker_rss_bytes": 268697600
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.5822147500002757,
+          "validated": true,
+          "peak_worker_rss_bytes": 399245312
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.370950625016121,
+          "validated": true,
+          "peak_worker_rss_bytes": 283426816
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.5703971670009196,
+          "validated": true,
+          "peak_worker_rss_bytes": 281559040
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.6761326660052873,
+          "validated": true,
+          "peak_worker_rss_bytes": 398098432
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.6144188749894965,
+          "validated": true,
+          "peak_worker_rss_bytes": 398999552
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.4158403750043362,
+          "validated": true,
+          "peak_worker_rss_bytes": 284835840
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.42207854197477,
+          "validated": true,
+          "peak_worker_rss_bytes": 283066368
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.593251499987673,
+          "validated": true,
+          "peak_worker_rss_bytes": 398737408
+        }
+      ],
+      "go_diagnostic_samples": [
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.259417,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.344375,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 75,
+                "commands": 75,
+                "milliseconds": 944.2037900000005,
+                "script_header_bytes": 3000
+              },
+              "control_claim": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 371.792249,
+                "script_header_bytes": 3120
+              },
+              "control_claim_data": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 125.90604100000006,
+                "script_header_bytes": 3120
+              },
+              "control_compact_acquire": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 72.69691699999998,
+                "script_header_bytes": 3120
+              },
+              "control_compact_candidates": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.967208,
+                "script_header_bytes": 240
+              },
+              "control_compact_checkpoint": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.80225,
+                "script_header_bytes": 80
+              },
+              "control_compact_finish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.510625,
+                "script_header_bytes": 40
+              },
+              "control_compact_start": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 14.148625,
+                "script_header_bytes": 80
+              },
+              "control_publish_compaction": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 13.228125,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.266875,
+                "script_header_bytes": 120
+              },
+              "control_reclaimed_data": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.361791,
+                "script_header_bytes": 160
+              },
+              "control_release": {
+                "calls": 75,
+                "commands": 75,
+                "milliseconds": 799.2660489999998,
+                "script_header_bytes": 3000
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 12.36175,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.53725,
+                "script_header_bytes": 40
+              },
+              "copy_commit": {
+                "calls": 68,
+                "commands": 68,
+                "milliseconds": 1503.116136,
+                "script_header_bytes": 2720
+              },
+              "del": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.9839589999999999,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 21,
+                "commands": 21,
+                "milliseconds": 35.086375,
+                "script_header_bytes": 58084
+              },
+              "ft._list": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 5.687290999999999,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.019957,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.744958,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.776624,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 77,
+                "commands": 77,
+                "milliseconds": 104.26125200000006,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.3344170000000002,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 2.726834,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.774084,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 40.14379399999999,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.367208,
+                "script_header_bytes": 4343
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.436292,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_bucket": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.115292,
+                "script_header_bytes": 3264
+              },
+              "metadata_collect_value": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.055707,
+                "script_header_bytes": 5889
+              },
+              "metadata_own_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.82225,
+                "script_header_bytes": 3644
+              },
+              "metadata_retire_root": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 11.275667,
+                "script_header_bytes": 4044
+              },
+              "pipeline_hgetall": {
+                "calls": 68,
+                "commands": 4320,
+                "milliseconds": 251.02945899999995,
+                "script_header_bytes": 0
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.986791,
+                "script_header_bytes": 8349
+              },
+              "pipeline_mixed": {
+                "calls": 376,
+                "commands": 2316,
+                "milliseconds": 1551.3878740000007,
+                "script_header_bytes": 0
+              },
+              "pipeline_zrange": {
+                "calls": 2,
+                "commands": 9,
+                "milliseconds": 1.378374,
+                "script_header_bytes": 0
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 13.714083,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 156,
+                "commands": 156,
+                "milliseconds": 242.289364,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 66.69000100000001,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            304.19325,
+            302.244667,
+            297.959083,
+            298.693,
+            416.435042,
+            438.837167,
+            438.371042,
+            457.349333,
+            4616.806834,
+            379.467875
+          ],
+          "call_rows": 1000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.235042,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 15.008002000000001,
+                "script_header_bytes": 400
+              },
+              "control_acquire": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 95.46991799999999,
+                "script_header_bytes": 1640
+              },
+              "control_admit_ingest": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 97.247503,
+                "script_header_bytes": 400
+              },
+              "control_claim": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 253.73916900000003,
+                "script_header_bytes": 1480
+              },
+              "control_claim_data": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 142.919795,
+                "script_header_bytes": 1480
+              },
+              "control_own_data": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 113.312584,
+                "script_header_bytes": 400
+              },
+              "control_publish": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 18.055168,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed": {
+                "calls": 9,
+                "commands": 9,
+                "milliseconds": 3.304083,
+                "script_header_bytes": 360
+              },
+              "control_reclaimed_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.8608750000000001,
+                "script_header_bytes": 80
+              },
+              "control_release": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 302.658539,
+                "script_header_bytes": 1480
+              },
+              "control_reserve": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 3.551668,
+                "script_header_bytes": 400
+              },
+              "control_valid": {
+                "calls": 62,
+                "commands": 62,
+                "milliseconds": 138.67025099999998,
+                "script_header_bytes": 2480
+              },
+              "del": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.531666,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 136.25825200000003,
+                "script_header_bytes": 77260
+              },
+              "exists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 10.62254,
+                "script_header_bytes": 0
+              },
+              "ft._list": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.5295000000000001,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 15.164750999999999,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.276542,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 11.273126,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 123.607249,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 97,
+                "commands": 97,
+                "milliseconds": 350.7455819999999,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.8369179999999999,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 47,
+                "commands": 47,
+                "milliseconds": 177.793708,
+                "script_header_bytes": 0
+              },
+              "index_notify": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 710.526796,
+                "script_header_bytes": 1600
+              },
+              "metadata_clone_bucket": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 38.675418,
+                "script_header_bytes": 86860
+              },
+              "metadata_clone_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 6.105457,
+                "script_header_bytes": 18630
+              },
+              "metadata_collect_bucket": {
+                "calls": 16,
+                "commands": 16,
+                "milliseconds": 13.698292999999998,
+                "script_header_bytes": 17408
+              },
+              "metadata_collect_value": {
+                "calls": 16,
+                "commands": 16,
+                "milliseconds": 4.47071,
+                "script_header_bytes": 31408
+              },
+              "metadata_mutation": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 66.24221100000001,
+                "script_header_bytes": 83490
+              },
+              "metadata_own_value": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 19.655083999999995,
+                "script_header_bytes": 72880
+              },
+              "metadata_retire_root": {
+                "calls": 9,
+                "commands": 9,
+                "milliseconds": 14.547623000000002,
+                "script_header_bytes": 12132
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 60.71299799999999,
+                "script_header_bytes": 166980
+              },
+              "pipeline_mixed": {
+                "calls": 198,
+                "commands": 1015,
+                "milliseconds": 868.9560019999998,
+                "script_header_bytes": 83490
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 980.0083770000001,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 30,
+                "commands": 30,
+                "milliseconds": 124.24650200000002,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 74,
+                "commands": 74,
+                "milliseconds": 201.88087599999994,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 52,
+                "commands": 52,
+                "milliseconds": 76.47858400000001,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 7950.660541,
+          "rows": 10000,
+          "trial": 0,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.215792,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.319125,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 936.262373,
+                "script_header_bytes": 3040
+              },
+              "control_claim": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 396.5619169999999,
+                "script_header_bytes": 3160
+              },
+              "control_claim_data": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 56.564584,
+                "script_header_bytes": 3160
+              },
+              "control_compact_acquire": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 116.77679699999996,
+                "script_header_bytes": 3160
+              },
+              "control_compact_candidates": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 2.420666,
+                "script_header_bytes": 240
+              },
+              "control_compact_checkpoint": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.7098330000000002,
+                "script_header_bytes": 80
+              },
+              "control_compact_finish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.584125,
+                "script_header_bytes": 40
+              },
+              "control_compact_start": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 25.466167,
+                "script_header_bytes": 80
+              },
+              "control_publish_compaction": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.27425,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.7501260000000001,
+                "script_header_bytes": 80
+              },
+              "control_reclaimed_data": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.412416,
+                "script_header_bytes": 160
+              },
+              "control_release": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 843.9174969999998,
+                "script_header_bytes": 3040
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 13.258291,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.304625,
+                "script_header_bytes": 40
+              },
+              "copy_commit": {
+                "calls": 70,
+                "commands": 70,
+                "milliseconds": 1583.0027519999999,
+                "script_header_bytes": 2800
+              },
+              "del": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 17.482082999999996,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 17,
+                "commands": 17,
+                "milliseconds": 41.976046,
+                "script_header_bytes": 47492
+              },
+              "ft._list": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 4.849042000000001,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.293709,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 0.952542,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.6451259999999999,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 82.34583599999998,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.982375,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 2.561084,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.7386239999999997,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 77,
+                "commands": 77,
+                "milliseconds": 67.50133399999999,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.372792,
+                "script_header_bytes": 4343
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.350125,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.289833,
+                "script_header_bytes": 1088
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.280625,
+                "script_header_bytes": 1963
+              },
+              "metadata_own_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.381917,
+                "script_header_bytes": 3644
+              },
+              "metadata_retire_root": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.719166,
+                "script_header_bytes": 2696
+              },
+              "pipeline_hgetall": {
+                "calls": 70,
+                "commands": 4448,
+                "milliseconds": 210.766582,
+                "script_header_bytes": 0
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.604833,
+                "script_header_bytes": 8349
+              },
+              "pipeline_mixed": {
+                "calls": 382,
+                "commands": 2347,
+                "milliseconds": 1547.409191999999,
+                "script_header_bytes": 0
+              },
+              "pipeline_zrange": {
+                "calls": 2,
+                "commands": 9,
+                "milliseconds": 1.088916,
+                "script_header_bytes": 0
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 14.322999,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 158,
+                "commands": 158,
+                "milliseconds": 243.49496400000012,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 16,
+                "commands": 16,
+                "milliseconds": 33.154291,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            306.312584,
+            305.052792,
+            288.8615,
+            299.56175,
+            433.805458,
+            424.257583,
+            360.685625,
+            443.6265,
+            4680.986083,
+            458.853417
+          ],
+          "call_rows": 1000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.201625,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 23.434918,
+                "script_header_bytes": 400
+              },
+              "control_acquire": {
+                "calls": 42,
+                "commands": 42,
+                "milliseconds": 95.77170899999999,
+                "script_header_bytes": 1680
+              },
+              "control_admit_ingest": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 123.49241699999999,
+                "script_header_bytes": 400
+              },
+              "control_claim": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 212.26629100000002,
+                "script_header_bytes": 1480
+              },
+              "control_claim_data": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 79.27441699999999,
+                "script_header_bytes": 1480
+              },
+              "control_own_data": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 110.09829199999999,
+                "script_header_bytes": 400
+              },
+              "control_publish": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 34.835124,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 13.062542,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.814833,
+                "script_header_bytes": 80
+              },
+              "control_release": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 295.4025429999999,
+                "script_header_bytes": 1480
+              },
+              "control_reserve": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 16.569043,
+                "script_header_bytes": 400
+              },
+              "control_valid": {
+                "calls": 64,
+                "commands": 64,
+                "milliseconds": 166.42545099999995,
+                "script_header_bytes": 2560
+              },
+              "del": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.467584,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 24,
+                "commands": 24,
+                "milliseconds": 151.919916,
+                "script_header_bytes": 87852
+              },
+              "exists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 24.429792,
+                "script_header_bytes": 0
+              },
+              "ft._list": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.46775,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 8.502624,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.482501,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 21.960459000000004,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 114.464208,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 97,
+                "commands": 97,
+                "milliseconds": 383.4865430000002,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.8717079999999999,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 47,
+                "commands": 47,
+                "milliseconds": 167.8635,
+                "script_header_bytes": 0
+              },
+              "index_notify": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 628.9274220000001,
+                "script_header_bytes": 1600
+              },
+              "metadata_clone_bucket": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 40.976916,
+                "script_header_bytes": 86860
+              },
+              "metadata_clone_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 17.91425,
+                "script_header_bytes": 18630
+              },
+              "metadata_collect_bucket": {
+                "calls": 18,
+                "commands": 18,
+                "milliseconds": 5.266415000000001,
+                "script_header_bytes": 19584
+              },
+              "metadata_collect_value": {
+                "calls": 18,
+                "commands": 18,
+                "milliseconds": 25.105082,
+                "script_header_bytes": 35334
+              },
+              "metadata_mutation": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 44.263874,
+                "script_header_bytes": 83490
+              },
+              "metadata_own_value": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 22.083287,
+                "script_header_bytes": 72880
+              },
+              "metadata_retire_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 5.873374999999999,
+                "script_header_bytes": 13480
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 66.921626,
+                "script_header_bytes": 166980
+              },
+              "pipeline_mixed": {
+                "calls": 198,
+                "commands": 1015,
+                "milliseconds": 912.2217100000003,
+                "script_header_bytes": 83490
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 921.1320810000001,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 30,
+                "commands": 30,
+                "milliseconds": 149.62441800000002,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 74,
+                "commands": 74,
+                "milliseconds": 191.168251,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 56,
+                "commands": 56,
+                "milliseconds": 78.849169,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 8002.304459,
+          "rows": 10000,
+          "trial": 1,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.231208,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.326541,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 900.1023320000002,
+                "script_header_bytes": 3040
+              },
+              "control_claim": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 377.667668,
+                "script_header_bytes": 3160
+              },
+              "control_claim_data": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 135.87233100000006,
+                "script_header_bytes": 3160
+              },
+              "control_compact_acquire": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 102.347959,
+                "script_header_bytes": 3160
+              },
+              "control_compact_candidates": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.939668,
+                "script_header_bytes": 240
+              },
+              "control_compact_checkpoint": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.132166,
+                "script_header_bytes": 80
+              },
+              "control_compact_finish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.546917,
+                "script_header_bytes": 40
+              },
+              "control_compact_start": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 26.25325,
+                "script_header_bytes": 80
+              },
+              "control_publish_compaction": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.320875,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 27.327042,
+                "script_header_bytes": 200
+              },
+              "control_reclaimed_data": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.1016249999999999,
+                "script_header_bytes": 120
+              },
+              "control_release": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 878.3661209999999,
+                "script_header_bytes": 3040
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 10.388583,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.280083,
+                "script_header_bytes": 40
+              },
+              "copy_commit": {
+                "calls": 70,
+                "commands": 70,
+                "milliseconds": 1577.5842949999992,
+                "script_header_bytes": 2800
+              },
+              "del": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 0.774125,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 17,
+                "commands": 17,
+                "milliseconds": 51.444,
+                "script_header_bytes": 47492
+              },
+              "ft._list": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 6.72725,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.967791,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.052001,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.792291,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 73.74112000000001,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.168333,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 14.083082000000001,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.862457,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 77,
+                "commands": 77,
+                "milliseconds": 61.744792000000004,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.36675,
+                "script_header_bytes": 4343
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.396958,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_bucket": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 2.168916,
+                "script_header_bytes": 7616
+              },
+              "metadata_collect_value": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 2.212874,
+                "script_header_bytes": 13741
+              },
+              "metadata_own_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.393042,
+                "script_header_bytes": 3644
+              },
+              "metadata_retire_root": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 8.678958999999999,
+                "script_header_bytes": 6740
+              },
+              "pipeline_hgetall": {
+                "calls": 70,
+                "commands": 4448,
+                "milliseconds": 222.78883000000002,
+                "script_header_bytes": 0
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.578125,
+                "script_header_bytes": 8349
+              },
+              "pipeline_mixed": {
+                "calls": 382,
+                "commands": 2347,
+                "milliseconds": 1558.1065469999974,
+                "script_header_bytes": 0
+              },
+              "pipeline_zrange": {
+                "calls": 2,
+                "commands": 9,
+                "milliseconds": 1.0292080000000001,
+                "script_header_bytes": 0
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 14.877707,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 158,
+                "commands": 158,
+                "milliseconds": 113.463333,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 15,
+                "commands": 15,
+                "milliseconds": 32.903541000000004,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            302.380209,
+            308.540166,
+            300.257041,
+            307.763291,
+            401.402334,
+            423.870791,
+            372.685375,
+            497.788583,
+            4583.482542,
+            502.88075
+          ],
+          "call_rows": 1000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.236583,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 11.599123999999998,
+                "script_header_bytes": 400
+              },
+              "control_acquire": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 69.332792,
+                "script_header_bytes": 1640
+              },
+              "control_admit_ingest": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 117.63329,
+                "script_header_bytes": 400
+              },
+              "control_claim": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 206.99966499999994,
+                "script_header_bytes": 1480
+              },
+              "control_claim_data": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 170.31616699999995,
+                "script_header_bytes": 1480
+              },
+              "control_own_data": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 112.621376,
+                "script_header_bytes": 400
+              },
+              "control_publish": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 15.555833999999999,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 2.414873,
+                "script_header_bytes": 280
+              },
+              "control_reclaimed_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.550791,
+                "script_header_bytes": 80
+              },
+              "control_release": {
+                "calls": 37,
+                "commands": 37,
+                "milliseconds": 288.03987300000006,
+                "script_header_bytes": 1480
+              },
+              "control_reserve": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 4.657543,
+                "script_header_bytes": 400
+              },
+              "control_valid": {
+                "calls": 64,
+                "commands": 64,
+                "milliseconds": 208.04983100000007,
+                "script_header_bytes": 2560
+              },
+              "del": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.46674899999999997,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 24,
+                "commands": 24,
+                "milliseconds": 185.517083,
+                "script_header_bytes": 87852
+              },
+              "exists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 3.1765860000000004,
+                "script_header_bytes": 0
+              },
+              "ft._list": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.5555,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 21.399125999999995,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.051208,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 27.188665999999998,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 112.925125,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 97,
+                "commands": 97,
+                "milliseconds": 324.33920599999993,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.889208,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 47,
+                "commands": 47,
+                "milliseconds": 196.30428699999996,
+                "script_header_bytes": 0
+              },
+              "index_notify": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 691.1636640000002,
+                "script_header_bytes": 1600
+              },
+              "metadata_clone_bucket": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 22.370833000000005,
+                "script_header_bytes": 86860
+              },
+              "metadata_clone_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 3.4266240000000003,
+                "script_header_bytes": 18630
+              },
+              "metadata_collect_bucket": {
+                "calls": 12,
+                "commands": 12,
+                "milliseconds": 3.982332,
+                "script_header_bytes": 13056
+              },
+              "metadata_collect_value": {
+                "calls": 12,
+                "commands": 12,
+                "milliseconds": 4.226669,
+                "script_header_bytes": 23556
+              },
+              "metadata_mutation": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 47.97429100000001,
+                "script_header_bytes": 83490
+              },
+              "metadata_own_value": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 8.504793,
+                "script_header_bytes": 72880
+              },
+              "metadata_retire_root": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 2.497707,
+                "script_header_bytes": 9436
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 77.97687300000001,
+                "script_header_bytes": 166980
+              },
+              "pipeline_mixed": {
+                "calls": 198,
+                "commands": 1015,
+                "milliseconds": 908.2269570000003,
+                "script_header_bytes": 83490
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 957.2401660000002,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 30,
+                "commands": 30,
+                "milliseconds": 183.97691900000004,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 74,
+                "commands": 74,
+                "milliseconds": 179.4761220000001,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 56,
+                "commands": 56,
+                "milliseconds": 86.72871100000002,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 8001.3385,
+          "rows": 10000,
+          "trial": 2,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.19275,
+                "script_header_bytes": 0
+              },
+              "control_claim": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 8.609457999999998,
+                "script_header_bytes": 120
+              },
+              "control_claim_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.6425000000000001,
+                "script_header_bytes": 80
+              },
+              "control_compact_acquire": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.502833,
+                "script_header_bytes": 80
+              },
+              "control_compact_candidates": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.731208,
+                "script_header_bytes": 80
+              },
+              "eval": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.324667,
+                "script_header_bytes": 264
+              },
+              "ft._list": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 2.836458,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.498624,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.226916,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.479958,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 3.4042499999999998,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            1810.843125
+          ],
+          "call_rows": 10000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.208,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.36625,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.282,
+                "script_header_bytes": 40
+              },
+              "control_admit_ingest": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.332875,
+                "script_header_bytes": 40
+              },
+              "control_claim": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.418916,
+                "script_header_bytes": 40
+              },
+              "control_claim_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.376375,
+                "script_header_bytes": 40
+              },
+              "control_own_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.248958,
+                "script_header_bytes": 40
+              },
+              "control_publish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.514792,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.401166,
+                "script_header_bytes": 40
+              },
+              "control_release": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.421625,
+                "script_header_bytes": 40
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.313542,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 42,
+                "commands": 42,
+                "milliseconds": 40.38912500000001,
+                "script_header_bytes": 1680
+              },
+              "eval": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 14.347833000000001,
+                "script_header_bytes": 7726
+              },
+              "exists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.283792,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.451125,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.864792,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 20.439125,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 28.061082999999996,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.908709,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.708709,
+                "script_header_bytes": 0
+              },
+              "index_notify": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 705.77962,
+                "script_header_bytes": 1600
+              },
+              "metadata_clone_bucket": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 3.746583,
+                "script_header_bytes": 8686
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.346125,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.423959,
+                "script_header_bytes": 1963
+              },
+              "metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.80225,
+                "script_header_bytes": 8349
+              },
+              "metadata_own_value": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.841958,
+                "script_header_bytes": 7288
+              },
+              "metadata_retire_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.387458,
+                "script_header_bytes": 1348
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.389791,
+                "script_header_bytes": 16698
+              },
+              "pipeline_mixed": {
+                "calls": 11,
+                "commands": 36,
+                "milliseconds": 21.982289999999995,
+                "script_header_bytes": 25047
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 687.6955460000001,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 10.837125,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.4555,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 14.533169000000001,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 1810.861541,
+          "rows": 10000,
+          "trial": 0,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.207416,
+                "script_header_bytes": 0
+              },
+              "control_claim": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 5.9185,
+                "script_header_bytes": 120
+              },
+              "control_claim_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 14.903667,
+                "script_header_bytes": 80
+              },
+              "control_compact_acquire": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.658292,
+                "script_header_bytes": 80
+              },
+              "control_compact_candidates": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.507251,
+                "script_header_bytes": 80
+              },
+              "eval": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.259916,
+                "script_header_bytes": 264
+              },
+              "ft._list": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 2.358458,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.490875,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.248584,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.538626,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 1.333208,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            1706.572125
+          ],
+          "call_rows": 10000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.193708,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.264333,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.226917,
+                "script_header_bytes": 40
+              },
+              "control_admit_ingest": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 13.373375,
+                "script_header_bytes": 40
+              },
+              "control_claim": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.293417,
+                "script_header_bytes": 40
+              },
+              "control_claim_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.323208,
+                "script_header_bytes": 40
+              },
+              "control_own_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.325833,
+                "script_header_bytes": 40
+              },
+              "control_publish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.342375,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.352167,
+                "script_header_bytes": 40
+              },
+              "control_release": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.255542,
+                "script_header_bytes": 40
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.240375,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 42,
+                "commands": 42,
+                "milliseconds": 40.022751,
+                "script_header_bytes": 1680
+              },
+              "eval": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 11.828084,
+                "script_header_bytes": 7726
+              },
+              "exists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.2805,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.443958,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 1.17675,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 9.986834,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 26.601416,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.7845,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.4485,
+                "script_header_bytes": 0
+              },
+              "index_notify": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 684.367751,
+                "script_header_bytes": 1600
+              },
+              "metadata_clone_bucket": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.841542,
+                "script_header_bytes": 8686
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.422667,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.244667,
+                "script_header_bytes": 1963
+              },
+              "metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.515292,
+                "script_header_bytes": 8349
+              },
+              "metadata_own_value": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.9450419999999999,
+                "script_header_bytes": 7288
+              },
+              "metadata_retire_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.262958,
+                "script_header_bytes": 1348
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.1462910000000002,
+                "script_header_bytes": 16698
+              },
+              "pipeline_mixed": {
+                "calls": 11,
+                "commands": 36,
+                "milliseconds": 23.964125,
+                "script_header_bytes": 25047
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 683.4694559999999,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 10.685833,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.373958,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 13.957,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 1706.587208,
+          "rows": 10000,
+          "trial": 1,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.175708,
+                "script_header_bytes": 0
+              },
+              "control_claim": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 12.37925,
+                "script_header_bytes": 120
+              },
+              "control_claim_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 15.983792,
+                "script_header_bytes": 80
+              },
+              "control_compact_acquire": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.6759580000000001,
+                "script_header_bytes": 80
+              },
+              "control_compact_candidates": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 19.364625,
+                "script_header_bytes": 80
+              },
+              "eval": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.252541,
+                "script_header_bytes": 264
+              },
+              "ft._list": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 2.551542,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.553208,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.23075,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.495417,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.832916,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            1712.388583
+          ],
+          "call_rows": 10000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.190583,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.37275,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.207833,
+                "script_header_bytes": 40
+              },
+              "control_admit_ingest": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 11.979083,
+                "script_header_bytes": 40
+              },
+              "control_claim": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.259917,
+                "script_header_bytes": 40
+              },
+              "control_claim_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.229958,
+                "script_header_bytes": 40
+              },
+              "control_own_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.142666,
+                "script_header_bytes": 40
+              },
+              "control_publish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.324167,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.295125,
+                "script_header_bytes": 40
+              },
+              "control_release": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.287916,
+                "script_header_bytes": 40
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.259375,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 42,
+                "commands": 42,
+                "milliseconds": 37.050873,
+                "script_header_bytes": 1680
+              },
+              "eval": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 12.315584,
+                "script_header_bytes": 7726
+              },
+              "exists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.1895,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.499166,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.985875,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.263834,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 27.835583000000003,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.767125,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.418209,
+                "script_header_bytes": 0
+              },
+              "index_notify": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 687.896371,
+                "script_header_bytes": 1600
+              },
+              "metadata_clone_bucket": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.7099580000000001,
+                "script_header_bytes": 8686
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.258333,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.283375,
+                "script_header_bytes": 1963
+              },
+              "metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.506584,
+                "script_header_bytes": 8349
+              },
+              "metadata_own_value": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.812,
+                "script_header_bytes": 7288
+              },
+              "metadata_retire_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.245917,
+                "script_header_bytes": 1348
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.195251,
+                "script_header_bytes": 16698
+              },
+              "pipeline_mixed": {
+                "calls": 11,
+                "commands": 36,
+                "milliseconds": 11.409332999999998,
+                "script_header_bytes": 25047
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 694.0651280000001,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 21.106959,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 1.040959,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 13.024081999999995,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 1712.403958,
+          "rows": 10000,
+          "trial": 2,
+          "validated": true
+        }
+      ],
+      "native_completed": true,
+      "go_profile_exit_code": 0,
+      "caller_retries": 0
+    },
+    "candidate": {
+      "source_commit": "f81b7a048741e181895f0f35ee557953cf849c3d",
+      "build_version": "v0.1.0-dev.publication-candidate",
+      "driver_sha256": "9b6ce672647c0a94e694b233204f3369b5b173a47a060d3e21439dd6158fd481",
+      "native_arrow_source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+      "go_profile_helper_sha256": "bc81ecdda25dd0cea93e71e546069fb8213aca56909977d39bb806bc338f2321",
+      "native_trials": [
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 8.274318250012584,
+          "validated": true,
+          "peak_worker_rss_bytes": 270565376
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 18.860899459017674,
+          "validated": true,
+          "peak_worker_rss_bytes": 243023872
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 20.226979958999436,
+          "validated": true,
+          "peak_worker_rss_bytes": 253837312
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 8.417428249988006,
+          "validated": true,
+          "peak_worker_rss_bytes": 267567104
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 8.326952125004027,
+          "validated": true,
+          "peak_worker_rss_bytes": 269041664
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 18.55793866602471,
+          "validated": true,
+          "peak_worker_rss_bytes": 258260992
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 19.23639250002452,
+          "validated": true,
+          "peak_worker_rss_bytes": 258572288
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 1000,
+          "seconds": 8.41982791700866,
+          "validated": true,
+          "peak_worker_rss_bytes": 267845632
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.5951987089938484,
+          "validated": true,
+          "peak_worker_rss_bytes": 399048704
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": -1,
+          "warmup": true,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.6072448330232874,
+          "validated": true,
+          "peak_worker_rss_bytes": 283607040
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.679684625007212,
+          "validated": true,
+          "peak_worker_rss_bytes": 281690112
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 0,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.6390440840041265,
+          "validated": true,
+          "peak_worker_rss_bytes": 398114816
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.6269130829896312,
+          "validated": true,
+          "peak_worker_rss_bytes": 399048704
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 1,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.555089917004807,
+          "validated": true,
+          "peak_worker_rss_bytes": 283115520
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 4,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 2.4015910839952994,
+          "validated": true,
+          "peak_worker_rss_bytes": 282263552
+        },
+        {
+          "mode": "managed",
+          "api": "arrow",
+          "operation": "append",
+          "writers": 1,
+          "repeat": 2,
+          "warmup": false,
+          "rows": 10000,
+          "columns": 105,
+          "batch_rows": 10000,
+          "seconds": 1.6145476249803323,
+          "validated": true,
+          "peak_worker_rss_bytes": 400244736
+        }
+      ],
+      "go_diagnostic_samples": [
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.221292,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.321416,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 1102.6035029999998,
+                "script_header_bytes": 3040
+              },
+              "control_claim": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 446.67029099999996,
+                "script_header_bytes": 3160
+              },
+              "control_claim_data": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 144.19449599999996,
+                "script_header_bytes": 3160
+              },
+              "control_compact_acquire": {
+                "calls": 79,
+                "commands": 79,
+                "milliseconds": 76.150414,
+                "script_header_bytes": 3160
+              },
+              "control_compact_candidates": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.804958,
+                "script_header_bytes": 240
+              },
+              "control_compact_checkpoint": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.2835840000000003,
+                "script_header_bytes": 80
+              },
+              "control_compact_finish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.600208,
+                "script_header_bytes": 40
+              },
+              "control_compact_start": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 15.075209,
+                "script_header_bytes": 80
+              },
+              "control_publish_compaction": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 13.218917,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 28.046333,
+                "script_header_bytes": 160
+              },
+              "control_reclaimed_data": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.272959,
+                "script_header_bytes": 160
+              },
+              "control_release": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 1017.2456239999999,
+                "script_header_bytes": 3040
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 8.996916,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.287166,
+                "script_header_bytes": 40
+              },
+              "copy_commit": {
+                "calls": 69,
+                "commands": 69,
+                "milliseconds": 1704.3015850000002,
+                "script_header_bytes": 2760
+              },
+              "del": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.0978750000000002,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 21,
+                "commands": 21,
+                "milliseconds": 34.46425099999999,
+                "script_header_bytes": 58084
+              },
+              "ft._list": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 4.754247,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 13.290040999999999,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.228166,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 2.175084,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 107.12937899999997,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.05925,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 2.6131249999999997,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.7894590000000001,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 77,
+                "commands": 77,
+                "milliseconds": 37.67183899999999,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.345125,
+                "script_header_bytes": 4343
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.352209,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_bucket": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 1.520208,
+                "script_header_bytes": 5440
+              },
+              "metadata_collect_value": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 1.679667,
+                "script_header_bytes": 9815
+              },
+              "metadata_own_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.41175,
+                "script_header_bytes": 3644
+              },
+              "metadata_retire_root": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 6.281833000000001,
+                "script_header_bytes": 5392
+              },
+              "pipeline_hgetall": {
+                "calls": 69,
+                "commands": 4384,
+                "milliseconds": 302.66524799999985,
+                "script_header_bytes": 0
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.672584,
+                "script_header_bytes": 8349
+              },
+              "pipeline_mixed": {
+                "calls": 380,
+                "commands": 2349,
+                "milliseconds": 1500.5656710000005,
+                "script_header_bytes": 0
+              },
+              "pipeline_zrange": {
+                "calls": 2,
+                "commands": 9,
+                "milliseconds": 1.182125,
+                "script_header_bytes": 0
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 17.152250000000002,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 158,
+                "commands": 158,
+                "milliseconds": 185.88729500000002,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 23.369413,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            319.047584,
+            303.199083,
+            301.978458,
+            321.933709,
+            371.589709,
+            412.922208,
+            375.769958,
+            397.674291,
+            5353.4515,
+            467.313208
+          ],
+          "call_rows": 1000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.205833,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 34.922916,
+                "script_header_bytes": 400
+              },
+              "control_acquire": {
+                "calls": 47,
+                "commands": 47,
+                "milliseconds": 121.087918,
+                "script_header_bytes": 1880
+              },
+              "control_admit_ingest": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 89.25399800000001,
+                "script_header_bytes": 400
+              },
+              "control_claim": {
+                "calls": 42,
+                "commands": 42,
+                "milliseconds": 181.89016500000002,
+                "script_header_bytes": 1680
+              },
+              "control_claim_data": {
+                "calls": 42,
+                "commands": 42,
+                "milliseconds": 48.77766799999999,
+                "script_header_bytes": 1680
+              },
+              "control_own_data": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 114.20541600000001,
+                "script_header_bytes": 400
+              },
+              "control_publish": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 4.347625000000001,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed": {
+                "calls": 8,
+                "commands": 8,
+                "milliseconds": 2.6291239999999996,
+                "script_header_bytes": 320
+              },
+              "control_reclaimed_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.262583,
+                "script_header_bytes": 40
+              },
+              "control_release": {
+                "calls": 42,
+                "commands": 42,
+                "milliseconds": 393.52899900000006,
+                "script_header_bytes": 1680
+              },
+              "control_reserve": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 18.894082,
+                "script_header_bytes": 400
+              },
+              "control_valid": {
+                "calls": 84,
+                "commands": 84,
+                "milliseconds": 333.062917,
+                "script_header_bytes": 3360
+              },
+              "del": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.199708,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 71.98158500000001,
+                "script_header_bytes": 82660
+              },
+              "exists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 16.072665,
+                "script_header_bytes": 0
+              },
+              "ft._list": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.256667,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 22.297669000000003,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.246166,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 10.417166,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 141.782626,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 102,
+                "commands": 102,
+                "milliseconds": 394.75670999999994,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.9439169999999999,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 52,
+                "commands": 52,
+                "milliseconds": 172.05816399999998,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 49.633750000000006,
+                "script_header_bytes": 86860
+              },
+              "metadata_clone_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 15.000749,
+                "script_header_bytes": 18630
+              },
+              "metadata_collect_bucket": {
+                "calls": 14,
+                "commands": 14,
+                "milliseconds": 18.114250000000002,
+                "script_header_bytes": 15232
+              },
+              "metadata_collect_value": {
+                "calls": 14,
+                "commands": 14,
+                "milliseconds": 40.920249,
+                "script_header_bytes": 27482
+              },
+              "metadata_mutation": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 7.022916,
+                "script_header_bytes": 83490
+              },
+              "metadata_own_value": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 37.338792999999995,
+                "script_header_bytes": 72880
+              },
+              "metadata_retire_root": {
+                "calls": 8,
+                "commands": 8,
+                "milliseconds": 11.696417,
+                "script_header_bytes": 10784
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 152.92849999999999,
+                "script_header_bytes": 166980
+              },
+              "pipeline_mixed": {
+                "calls": 218,
+                "commands": 1140,
+                "milliseconds": 1034.6466239999997,
+                "script_header_bytes": 83490
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 1486.9104960000002,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 138.300084,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 84,
+                "commands": 84,
+                "milliseconds": 78.75715999999998,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.237709,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 8625.206041,
+          "rows": 10000,
+          "trial": 0,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.217417,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.286166,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 75,
+                "commands": 75,
+                "milliseconds": 1088.5821270000001,
+                "script_header_bytes": 3000
+              },
+              "control_claim": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 421.514076,
+                "script_header_bytes": 3120
+              },
+              "control_claim_data": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 100.385495,
+                "script_header_bytes": 3120
+              },
+              "control_compact_acquire": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 71.125959,
+                "script_header_bytes": 3120
+              },
+              "control_compact_candidates": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.722,
+                "script_header_bytes": 240
+              },
+              "control_compact_checkpoint": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.314666,
+                "script_header_bytes": 80
+              },
+              "control_compact_finish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.453958,
+                "script_header_bytes": 40
+              },
+              "control_compact_start": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 27.990707999999998,
+                "script_header_bytes": 80
+              },
+              "control_publish_compaction": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.446667,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 29.207998999999997,
+                "script_header_bytes": 160
+              },
+              "control_reclaimed_data": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 6.659209,
+                "script_header_bytes": 160
+              },
+              "control_release": {
+                "calls": 74,
+                "commands": 74,
+                "milliseconds": 969.468791,
+                "script_header_bytes": 2960
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 13.141125,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.288083,
+                "script_header_bytes": 40
+              },
+              "copy_commit": {
+                "calls": 68,
+                "commands": 68,
+                "milliseconds": 1641.8784190000006,
+                "script_header_bytes": 2720
+              },
+              "del": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 11.793333,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 18,
+                "commands": 18,
+                "milliseconds": 12.431876999999998,
+                "script_header_bytes": 50140
+              },
+              "ft._list": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 17.637877,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.864541,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.010334,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.835709,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 77,
+                "commands": 77,
+                "milliseconds": 94.48611899999999,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.9694579999999999,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 2.552126,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.7452899999999998,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 39.34949999999999,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.323917,
+                "script_header_bytes": 4343
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.371334,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_bucket": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 1.8939589999999997,
+                "script_header_bytes": 5440
+              },
+              "metadata_collect_value": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 1.7306660000000003,
+                "script_header_bytes": 9815
+              },
+              "metadata_own_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.331208,
+                "script_header_bytes": 3644
+              },
+              "metadata_retire_root": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 6.576958,
+                "script_header_bytes": 5392
+              },
+              "pipeline_hgetall": {
+                "calls": 68,
+                "commands": 4320,
+                "milliseconds": 168.36933200000004,
+                "script_header_bytes": 0
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.605333,
+                "script_header_bytes": 8349
+              },
+              "pipeline_mixed": {
+                "calls": 373,
+                "commands": 2304,
+                "milliseconds": 1564.4021209999992,
+                "script_header_bytes": 0
+              },
+              "pipeline_zrange": {
+                "calls": 2,
+                "commands": 9,
+                "milliseconds": 0.8965000000000001,
+                "script_header_bytes": 0
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 20.844834,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 156,
+                "commands": 156,
+                "milliseconds": 150.46295199999994,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 17,
+                "commands": 17,
+                "milliseconds": 18.564041999999997,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            323.08375,
+            298.396208,
+            307.733958,
+            322.285333,
+            413.041875,
+            443.220458,
+            457.585791,
+            422.592875,
+            4954.208459,
+            388.501083
+          ],
+          "call_rows": 1000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.21325,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 17.307291000000003,
+                "script_header_bytes": 400
+              },
+              "control_acquire": {
+                "calls": 45,
+                "commands": 45,
+                "milliseconds": 83.71041500000001,
+                "script_header_bytes": 1800
+              },
+              "control_admit_ingest": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 104.97766499999999,
+                "script_header_bytes": 400
+              },
+              "control_claim": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 139.715708,
+                "script_header_bytes": 1640
+              },
+              "control_claim_data": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 56.596042,
+                "script_header_bytes": 1640
+              },
+              "control_own_data": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 127.699292,
+                "script_header_bytes": 400
+              },
+              "control_publish": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 4.187791,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed": {
+                "calls": 8,
+                "commands": 8,
+                "milliseconds": 14.8085,
+                "script_header_bytes": 320
+              },
+              "control_reclaimed_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.576709,
+                "script_header_bytes": 80
+              },
+              "control_release": {
+                "calls": 41,
+                "commands": 41,
+                "milliseconds": 349.914247,
+                "script_header_bytes": 1640
+              },
+              "control_reserve": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 29.209372000000002,
+                "script_header_bytes": 400
+              },
+              "control_valid": {
+                "calls": 81,
+                "commands": 81,
+                "milliseconds": 359.63103999999987,
+                "script_header_bytes": 3240
+              },
+              "del": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.531292,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 24,
+                "commands": 24,
+                "milliseconds": 78.590544,
+                "script_header_bytes": 93252
+              },
+              "exists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 2.600085,
+                "script_header_bytes": 0
+              },
+              "ft._list": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.47366600000000003,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 5.5969180000000005,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.5621670000000001,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 27.166124,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 165.74837399999998,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 101,
+                "commands": 101,
+                "milliseconds": 326.14812399999994,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.827792,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 51,
+                "commands": 51,
+                "milliseconds": 118.12112799999996,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 10.334415,
+                "script_header_bytes": 86860
+              },
+              "metadata_clone_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 3.3746650000000002,
+                "script_header_bytes": 18630
+              },
+              "metadata_collect_bucket": {
+                "calls": 14,
+                "commands": 14,
+                "milliseconds": 4.917292,
+                "script_header_bytes": 15232
+              },
+              "metadata_collect_value": {
+                "calls": 14,
+                "commands": 14,
+                "milliseconds": 3.612959,
+                "script_header_bytes": 27482
+              },
+              "metadata_mutation": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 48.802876999999995,
+                "script_header_bytes": 83490
+              },
+              "metadata_own_value": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 79.265583,
+                "script_header_bytes": 72880
+              },
+              "metadata_retire_root": {
+                "calls": 8,
+                "commands": 8,
+                "milliseconds": 3.038292,
+                "script_header_bytes": 10784
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 186.60516500000006,
+                "script_header_bytes": 166980
+              },
+              "pipeline_mixed": {
+                "calls": 214,
+                "commands": 1115,
+                "milliseconds": 989.4092150000006,
+                "script_header_bytes": 83490
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 1469.0762469999995,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 143.267126,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 82,
+                "commands": 82,
+                "milliseconds": 169.05911900000004,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.831585,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 8331.416333,
+          "rows": 10000,
+          "trial": 1,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.242875,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.298292,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 75,
+                "commands": 75,
+                "milliseconds": 1054.0216619999997,
+                "script_header_bytes": 3000
+              },
+              "control_claim": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 337.90899699999994,
+                "script_header_bytes": 3120
+              },
+              "control_claim_data": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 79.78112300000002,
+                "script_header_bytes": 3120
+              },
+              "control_compact_acquire": {
+                "calls": 78,
+                "commands": 78,
+                "milliseconds": 73.92370300000002,
+                "script_header_bytes": 3120
+              },
+              "control_compact_candidates": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.693126,
+                "script_header_bytes": 240
+              },
+              "control_compact_checkpoint": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 15.234416000000001,
+                "script_header_bytes": 80
+              },
+              "control_compact_finish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.496375,
+                "script_header_bytes": 40
+              },
+              "control_compact_start": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 15.262749000000001,
+                "script_header_bytes": 80
+              },
+              "control_publish_compaction": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 17.088125,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.874251,
+                "script_header_bytes": 80
+              },
+              "control_reclaimed_data": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.314958,
+                "script_header_bytes": 160
+              },
+              "control_release": {
+                "calls": 74,
+                "commands": 74,
+                "milliseconds": 923.6603389999995,
+                "script_header_bytes": 2960
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 10.530959,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.308,
+                "script_header_bytes": 40
+              },
+              "copy_commit": {
+                "calls": 68,
+                "commands": 68,
+                "milliseconds": 1595.2782560000003,
+                "script_header_bytes": 2720
+              },
+              "del": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.1327099999999999,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 21,
+                "commands": 21,
+                "milliseconds": 64.14183100000001,
+                "script_header_bytes": 58084
+              },
+              "ft._list": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 5.737042000000001,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 16.522167,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.729584,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 1.8245419999999999,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 77,
+                "commands": 77,
+                "milliseconds": 59.42404999999998,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 1.1206669999999999,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 2.514207,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 1.639999,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 76,
+                "commands": 76,
+                "milliseconds": 23.908455000000004,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.390125,
+                "script_header_bytes": 4343
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.322875,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_bucket": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.30025,
+                "script_header_bytes": 1088
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.401958,
+                "script_header_bytes": 1963
+              },
+              "metadata_own_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.393792,
+                "script_header_bytes": 3644
+              },
+              "metadata_retire_root": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.770625,
+                "script_header_bytes": 2696
+              },
+              "pipeline_hgetall": {
+                "calls": 68,
+                "commands": 4320,
+                "milliseconds": 354.180254,
+                "script_header_bytes": 0
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.673125,
+                "script_header_bytes": 8349
+              },
+              "pipeline_mixed": {
+                "calls": 374,
+                "commands": 2318,
+                "milliseconds": 1625.018408,
+                "script_header_bytes": 0
+              },
+              "pipeline_zrange": {
+                "calls": 2,
+                "commands": 9,
+                "milliseconds": 1.58425,
+                "script_header_bytes": 0
+              },
+              "zcard": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 17.465083000000003,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 156,
+                "commands": 156,
+                "milliseconds": 219.5469250000001,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 33.471208000000004,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            312.8735,
+            311.155666,
+            296.695417,
+            324.363209,
+            430.160625,
+            451.579583,
+            436.688,
+            449.579084,
+            4967.075917,
+            397.491875
+          ],
+          "call_rows": 1000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.215916,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 32.932041000000005,
+                "script_header_bytes": 400
+              },
+              "control_acquire": {
+                "calls": 44,
+                "commands": 44,
+                "milliseconds": 97.903873,
+                "script_header_bytes": 1760
+              },
+              "control_admit_ingest": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 104.07441499999999,
+                "script_header_bytes": 400
+              },
+              "control_claim": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 196.967082,
+                "script_header_bytes": 1600
+              },
+              "control_claim_data": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 14.722123999999999,
+                "script_header_bytes": 1600
+              },
+              "control_own_data": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 127.794124,
+                "script_header_bytes": 400
+              },
+              "control_publish": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 17.677251000000002,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 3.4927909999999995,
+                "script_header_bytes": 400
+              },
+              "control_reclaimed_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.734166,
+                "script_header_bytes": 80
+              },
+              "control_release": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 368.237498,
+                "script_header_bytes": 1600
+              },
+              "control_reserve": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 16.524834,
+                "script_header_bytes": 400
+              },
+              "control_valid": {
+                "calls": 80,
+                "commands": 80,
+                "milliseconds": 330.7905860000002,
+                "script_header_bytes": 3200
+              },
+              "del": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.5291250000000001,
+                "script_header_bytes": 0
+              },
+              "eval": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 51.49028800000001,
+                "script_header_bytes": 82660
+              },
+              "exists": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 18.171585,
+                "script_header_bytes": 0
+              },
+              "ft._list": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.5155000000000001,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 5.642334,
+                "script_header_bytes": 0
+              },
+              "ft.dropindex": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.2555,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 18.430332,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 159.10062499999998,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 100,
+                "commands": 100,
+                "milliseconds": 426.79867,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.9822500000000001,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 50,
+                "commands": 50,
+                "milliseconds": 142.042207,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 73.621501,
+                "script_header_bytes": 86860
+              },
+              "metadata_clone_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 10.429918,
+                "script_header_bytes": 18630
+              },
+              "metadata_collect_bucket": {
+                "calls": 18,
+                "commands": 18,
+                "milliseconds": 58.96608399999999,
+                "script_header_bytes": 19584
+              },
+              "metadata_collect_value": {
+                "calls": 18,
+                "commands": 18,
+                "milliseconds": 28.900166000000002,
+                "script_header_bytes": 35334
+              },
+              "metadata_mutation": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 21.700374999999998,
+                "script_header_bytes": 83490
+              },
+              "metadata_own_value": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 30.332624000000003,
+                "script_header_bytes": 72880
+              },
+              "metadata_retire_root": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 14.687458,
+                "script_header_bytes": 13480
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 20,
+                "commands": 20,
+                "milliseconds": 184.70987300000002,
+                "script_header_bytes": 166980
+              },
+              "pipeline_mixed": {
+                "calls": 210,
+                "commands": 1090,
+                "milliseconds": 903.2414889999994,
+                "script_header_bytes": 83490
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 1523.696462,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 10,
+                "commands": 10,
+                "milliseconds": 124.457168,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 80,
+                "commands": 80,
+                "milliseconds": 153.944499,
+                "script_header_bytes": 0
+              },
+              "zrangebylex": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.47387500000000005,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 8377.98375,
+          "rows": 10000,
+          "trial": 2,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.258375,
+                "script_header_bytes": 0
+              },
+              "control_claim": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 0.8288329999999999,
+                "script_header_bytes": 120
+              },
+              "control_claim_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.482209,
+                "script_header_bytes": 80
+              },
+              "control_compact_acquire": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.505501,
+                "script_header_bytes": 80
+              },
+              "control_compact_candidates": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.696375,
+                "script_header_bytes": 80
+              },
+              "eval": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.234333,
+                "script_header_bytes": 264
+              },
+              "ft._list": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 2.7485,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.472291,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.297583,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.572875,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 1.34225,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            1742.943959
+          ],
+          "call_rows": 10000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.344083,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.304125,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.216625,
+                "script_header_bytes": 40
+              },
+              "control_admit_ingest": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 15.500917,
+                "script_header_bytes": 40
+              },
+              "control_claim": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.426958,
+                "script_header_bytes": 40
+              },
+              "control_claim_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.311125,
+                "script_header_bytes": 40
+              },
+              "control_own_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 17.049792,
+                "script_header_bytes": 40
+              },
+              "control_publish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.29925,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.285208,
+                "script_header_bytes": 40
+              },
+              "control_release": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.285708,
+                "script_header_bytes": 40
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.318666,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 43,
+                "commands": 43,
+                "milliseconds": 40.391918000000004,
+                "script_header_bytes": 1720
+              },
+              "eval": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.996042,
+                "script_header_bytes": 8266
+              },
+              "exists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.269833,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.48625,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.983084,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 15.565875,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 29.19575,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.9629169999999999,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 3.051958,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.7102919999999999,
+                "script_header_bytes": 8686
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.29575,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.299708,
+                "script_header_bytes": 1963
+              },
+              "metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.510375,
+                "script_header_bytes": 8349
+              },
+              "metadata_own_value": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.72675,
+                "script_header_bytes": 7288
+              },
+              "metadata_retire_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.438584,
+                "script_header_bytes": 1348
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 10.701583999999999,
+                "script_header_bytes": 16698
+              },
+              "pipeline_mixed": {
+                "calls": 11,
+                "commands": 36,
+                "milliseconds": 16.580208,
+                "script_header_bytes": 25047
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 1314.613539,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 16.748083,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.590125,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 1742.979584,
+          "rows": 10000,
+          "trial": 0,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.233917,
+                "script_header_bytes": 0
+              },
+              "control_claim": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 5.2135,
+                "script_header_bytes": 120
+              },
+              "control_claim_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.582917,
+                "script_header_bytes": 80
+              },
+              "control_compact_acquire": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.5355,
+                "script_header_bytes": 80
+              },
+              "control_compact_candidates": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.555125,
+                "script_header_bytes": 80
+              },
+              "eval": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.251125,
+                "script_header_bytes": 264
+              },
+              "ft._list": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 2.343042,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.58025,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.244375,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.664459,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 5,
+                "commands": 5,
+                "milliseconds": 1.4888750000000002,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            1755.34325
+          ],
+          "call_rows": 10000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.216292,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.375041,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.301625,
+                "script_header_bytes": 40
+              },
+              "control_admit_ingest": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 11.338208,
+                "script_header_bytes": 40
+              },
+              "control_claim": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.31975,
+                "script_header_bytes": 40
+              },
+              "control_claim_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.215625,
+                "script_header_bytes": 40
+              },
+              "control_own_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 15.657208,
+                "script_header_bytes": 40
+              },
+              "control_publish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.328208,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.283875,
+                "script_header_bytes": 40
+              },
+              "control_release": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.286166,
+                "script_header_bytes": 40
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.310541,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 43,
+                "commands": 43,
+                "milliseconds": 30.454670999999998,
+                "script_header_bytes": 1720
+              },
+              "eval": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.824959,
+                "script_header_bytes": 8266
+              },
+              "exists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.203166,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.468292,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.979209,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 17.266792,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 32.419458000000006,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.903667,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 2.401792,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.7222919999999999,
+                "script_header_bytes": 8686
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.265625,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.376125,
+                "script_header_bytes": 1963
+              },
+              "metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.512125,
+                "script_header_bytes": 8349
+              },
+              "metadata_own_value": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.6018749999999999,
+                "script_header_bytes": 7288
+              },
+              "metadata_retire_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.280208,
+                "script_header_bytes": 1348
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 11.170791,
+                "script_header_bytes": 16698
+              },
+              "pipeline_mixed": {
+                "calls": 11,
+                "commands": 36,
+                "milliseconds": 13.523751,
+                "script_header_bytes": 25047
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 1347.4013300000001,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 16.927833,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.416041,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 1755.358708,
+          "rows": 10000,
+          "trial": 1,
+          "validated": true
+        },
+        {
+          "background": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.229042,
+                "script_header_bytes": 0
+              },
+              "control_claim": {
+                "calls": 3,
+                "commands": 3,
+                "milliseconds": 20.452167,
+                "script_header_bytes": 120
+              },
+              "control_claim_data": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.513667,
+                "script_header_bytes": 80
+              },
+              "control_compact_acquire": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.44683300000000004,
+                "script_header_bytes": 80
+              },
+              "control_compact_candidates": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.45366700000000004,
+                "script_header_bytes": 80
+              },
+              "eval": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.21925,
+                "script_header_bytes": 264
+              },
+              "ft._list": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 2.596916,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.466958,
+                "script_header_bytes": 0
+              },
+              "hexists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.249375,
+                "script_header_bytes": 0
+              },
+              "hget": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.493791,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 6,
+                "commands": 6,
+                "milliseconds": 5.112291999999999,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "call_milliseconds": [
+            1791.580291
+          ],
+          "call_rows": 10000,
+          "caller_retries": 0,
+          "columns": 105,
+          "foreground": {
+            "steps": 0,
+            "step_milliseconds": 0,
+            "round_trips": {
+              "client": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.212792,
+                "script_header_bytes": 0
+              },
+              "control_abort": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.305458,
+                "script_header_bytes": 40
+              },
+              "control_acquire": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.236917,
+                "script_header_bytes": 40
+              },
+              "control_admit_ingest": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 10.3595,
+                "script_header_bytes": 40
+              },
+              "control_claim": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.33225,
+                "script_header_bytes": 40
+              },
+              "control_claim_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.32325,
+                "script_header_bytes": 40
+              },
+              "control_own_data": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 16.980875,
+                "script_header_bytes": 40
+              },
+              "control_publish": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.37925,
+                "script_header_bytes": 40
+              },
+              "control_reclaimed": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.449959,
+                "script_header_bytes": 40
+              },
+              "control_release": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.237458,
+                "script_header_bytes": 40
+              },
+              "control_reserve": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.258458,
+                "script_header_bytes": 40
+              },
+              "control_valid": {
+                "calls": 43,
+                "commands": 43,
+                "milliseconds": 43.003958999999995,
+                "script_header_bytes": 1720
+              },
+              "eval": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.902417,
+                "script_header_bytes": 8266
+              },
+              "exists": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.240209,
+                "script_header_bytes": 0
+              },
+              "ft.create": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.503542,
+                "script_header_bytes": 0
+              },
+              "ft.info": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 1.016333,
+                "script_header_bytes": 0
+              },
+              "ft.search": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 16.079875,
+                "script_header_bytes": 0
+              },
+              "get": {
+                "calls": 7,
+                "commands": 7,
+                "milliseconds": 32.11475,
+                "script_header_bytes": 0
+              },
+              "hello": {
+                "calls": 4,
+                "commands": 4,
+                "milliseconds": 0.8975,
+                "script_header_bytes": 0
+              },
+              "hgetall": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 3.097833,
+                "script_header_bytes": 0
+              },
+              "metadata_clone_bucket": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.664999,
+                "script_header_bytes": 8686
+              },
+              "metadata_clone_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.303667,
+                "script_header_bytes": 1863
+              },
+              "metadata_collect_value": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.31925,
+                "script_header_bytes": 1963
+              },
+              "metadata_mutation": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.4615,
+                "script_header_bytes": 8349
+              },
+              "metadata_own_value": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.60375,
+                "script_header_bytes": 7288
+              },
+              "metadata_retire_root": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 0.256334,
+                "script_header_bytes": 1348
+              },
+              "pipeline_metadata_mutation": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 20.223332,
+                "script_header_bytes": 16698
+              },
+              "pipeline_mixed": {
+                "calls": 11,
+                "commands": 36,
+                "milliseconds": 11.324292999999999,
+                "script_header_bytes": 25047
+              },
+              "row_batch": {
+                "calls": 40,
+                "commands": 40,
+                "milliseconds": 1364.2991260000001,
+                "script_header_bytes": 1600
+              },
+              "zcard": {
+                "calls": 1,
+                "commands": 1,
+                "milliseconds": 14.183583,
+                "script_header_bytes": 0
+              },
+              "zrange": {
+                "calls": 2,
+                "commands": 2,
+                "milliseconds": 0.402709,
+                "script_header_bytes": 0
+              }
+            }
+          },
+          "milliseconds": 1791.59575,
+          "rows": 10000,
+          "trial": 2,
+          "validated": true
+        }
+      ],
+      "native_completed": true,
+      "go_profile_exit_code": 0,
+      "caller_retries": 0
+    }
+  }
+}
