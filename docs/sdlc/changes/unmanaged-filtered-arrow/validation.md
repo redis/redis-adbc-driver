@@ -135,7 +135,12 @@ concurrency, index and query cases passed alongside the new predicate cases.
 All clients/processes then exited. The authorized loaned database was returned
 empty (DBSIZE zero, FT._LIST empty); no parent-owned Compose/TLS or unrelated
 resource was removed. Exact final outcomes and raw-log digests are retained in
-[checks.json](checks.json). Parent owns eventual server/credential teardown.
+[checks.json](checks.json). After all remaining tracks completed, the parent
+reverified effective QPF/TLS/RESP3 and empty data, then removed the owned
+container/network and generated TLS, environment, settings and credential files.
+All one pre-existing container and 31 networks were preserved. The sanitized
+[final cleanup proof](cleanup.json) is retained. No retained raw-log credential
+redactions were needed, so existing log digests remain unchanged.
 
 The all-56-sample audit passed exact coverage/build/input identity, complete
 validation, effective QPF and elapsed/RSS recomputation. New public-artifact
