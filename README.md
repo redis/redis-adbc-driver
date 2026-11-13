@@ -44,14 +44,38 @@ For native Redis commands and data structures, start with the
 
 ## Why a Redis ADBC driver?
 
-- **Use SQL for reads and writes.** Query individual records, join tables,
-  aggregate data, and use supported inserts, updates, deletes and DDL.
-- **Move typed data with Arrow.** Fetch record batches or bulk-ingest Arrow
-  tables and streams, with explicit type and NULL handling.
-- **Connect data tools.** Use Python, pandas, Polars, DuckDB and orchestration
-  tools through their documented ADBC paths or repository adapters.
-- **Bring application data into SQL.** Import eligible existing HASH collections
-  into private managed tables, then refresh explicitly when the source changes.
+Bring SQL and Arrow to Redis while keeping Redis-native application access:
+
+- **Use familiar PostgreSQL-style SQL.** Read and write records, join tables,
+  and use aggregates, CTEs and window functions. The recorded
+  [PostgreSQL 18 comparison](docs/sdlc/changes/postgresql18-overlaps-input-errors/validation.md)
+  passes **604/651 scored cases (92.78%)**, with 47 known failures. This measures
+  the curated corpus, rather than full PostgreSQL or SQL-standard conformance.
+- **Write in SQL, read with Redis clients.** With
+  [application-owned (unmanaged) tables](docs/unmanaged-tables.md), SQL writes
+  update the same HASHes your existing Redis client reads. Managed tables offer
+  HASH-style reads through the experimental, snapshot-aware
+  [native client wrapper](docs/native-client.md), available from a source build.
+- **Keep fast point access alongside analytics.** Application-owned HASHes retain
+  Redis's O(1) single-field reads and writes for fixed-size values. Complete SQL
+  statement costs also include planning, index maintenance and, for managed
+  tables, snapshot/publication work.
+- **Analyze operational data in Redis.** Redis Search accelerates supported
+  filters, sorting and aggregations; the driver handles joins and other SQL
+  evaluation and streams typed Arrow results. Performance depends on the query
+  plan, selectivity and data volume.
+- **Choose who owns your tables.** Use driver-managed tables for typed schemas,
+  statement snapshots and atomic supported writes, or application-owned tables
+  for live access to existing keys, indexes and TTLs. Use both in one connection;
+  see the [table-mode comparison](docs/managed-vs-unmanaged-tables.md#choose-by-use-case).
+- **Load data into either table mode.** Bulk-ingest Arrow tables and streams
+  into managed tables, or append new explicitly keyed rows to application-owned
+  tables. Import eligible existing HASH collections into private managed copies
+  and refresh explicitly when the source changes. Unmanaged writes can partially
+  succeed; see [Arrow write operations](docs/managed-vs-unmanaged-tables.md#arrow-write-operations).
+- **Connect your data tools.** Use Python, pandas, Polars, DuckDB and orchestration
+  tools through their documented ADBC paths or repository adapters, with explicit
+  type and NULL handling.
 
 ## Quick start
 
