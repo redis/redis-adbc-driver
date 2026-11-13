@@ -78,3 +78,12 @@ failed SQL/Arrow operations or reports incomplete loads as successful throughput
 The [managed write attribution](managed-write-2026-11-12/report.md) is a separate
 Go diagnostic of repeated script traffic, publication and maintenance. It retains
 all timing trials and reports no demonstrated write-throughput improvement.
+
+## Rejected adaptive managed reply target
+
+The [November 13 evaluation](hash-reply-target-2026-11-13/report.md) retains all
+56 matched native trials of an experimental 16-MiB reply target. Peak worker RSS
+fell 8.9–10.8%, but single-reader elapsed time rose 32.7–34.0%; the candidate was
+rejected as the default and production policy is unchanged. This is negative
+evidence, with exact source/build hashes and reproduction controls. Audit the
+retained samples with `python3 benchmarks/table-modes/hash-reply-target-2026-11-13/audit.py`.
