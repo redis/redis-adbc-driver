@@ -27,7 +27,7 @@ type compactionReadPipelineObserver struct {
 func (*compactionReadPipelineObserver) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func (h *compactionReadPipelineObserver) directory(ctx context.Context, cmd goredis.Cmder) bool {
 	a := cmd.Args()
-	return ctx.Value(compactionReadObservation{}) == true && len(a) > 1 && h.sources[fmt.Sprint(a[1])] && (cmd.Name() == "zrange" || cmd.Name() == "zlexcount")
+	return ctx.Value(compactionReadObservation{}) == true && len(a) > 1 && h.sources[fmt.Sprint(a[1])] && (cmd.Name() == "zrange" || cmd.Name() == "zrangebylex" || cmd.Name() == "zlexcount")
 }
 func (h *compactionReadPipelineObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
@@ -62,15 +62,18 @@ func (h *compactionReadPipelineObserver) ProcessPipelineHook(next goredis.Proces
 			}
 		}
 		err := next(ctx, cmds)
-		target := 1
-		if strings.HasPrefix(h.failure, "page_") {
-			target = 2
+		var target goredis.Cmder
+		for _, cmd := range reads {
+			if strings.HasPrefix(h.failure, "rank_") == (cmd.Name() == "zlexcount") {
+				target = cmd
+				break
+			}
 		}
-		if err == nil && len(reads) > 0 && h.failure != "" && !h.failed && h.pipelines == target {
+		if err == nil && target != nil && h.failure != "" && !h.failed {
 			h.failed = true
 			injected := errors.New("injected compaction directory read failure")
 			if strings.HasSuffix(h.failure, "command") {
-				reads[0].SetErr(injected)
+				target.SetErr(injected)
 				return nil
 			}
 			return injected
@@ -176,8 +179,9 @@ func TestSnapshotCompactionReadPipelines(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if observer.pipelines != 2 || observer.commands != 2*len(observer.sources) {
-					t.Fatal("expected two bounded directory pipelines", observer.pipelines, observer.commands)
+				wantPipelines := (2*len(observer.sources) + snapshotMaxSegments - 1) / snapshotMaxSegments
+				if observer.pipelines != wantPipelines || observer.commands != 2*len(observer.sources) {
+					t.Fatal("expected combined bounded directory reads", observer.pipelines, observer.commands)
 				}
 			}
 			if err := s.releaseSnapshotCompaction(h.ctx, token); err != nil {
@@ -191,6 +195,127 @@ func TestSnapshotCompactionReadPipelines(t *testing.T) {
 			for i, row := range rows {
 				if row != fmt.Sprintf("%d|9007199254740996", i+1) {
 					t.Fatal("incorrect compacted row", i+1)
+				}
+			}
+		})
+	}
+}
+
+func TestSnapshotCompactionPrefetchBoundsAndSparseTails(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	s := snapshotTestStore(t, raw)
+	for _, sources := range []int{1, 4, 5, snapshotMaxSegments} {
+		t.Run(fmt.Sprint(sources), func(t *testing.T) {
+			var original []snapshotDeltaSource
+			observer := &compactionReadPipelineObserver{sources: map[string]bool{}}
+			var members []string
+			for row := range 129 {
+				members = append(members, formatSnapshotIndexMember(9007199254740993+int64(row)*3))
+			}
+			for range sources {
+				data := snapshotID()
+				directory := snapshotMembers(data)
+				observer.sources[directory] = true
+				values := make([]goredis.Z, len(members))
+				for i, member := range members {
+					values[i] = goredis.Z{Score: 0, Member: member}
+				}
+				if err := raw.ZAdd(h.ctx, directory, values...).Err(); err != nil {
+					t.Fatal(err)
+				}
+				original = append(original, snapshotDeltaSource{segment: snapshotSegment{Prefix: snapshotRows(data), Rows: int64(len(members))}})
+			}
+			s.client.AddHook(observer)
+			ctx := context.WithValue(h.ctx, compactionReadObservation{}, true)
+			for _, position := range []int{-1, 63, 127} {
+				after := ""
+				commandsPerSource := 1
+				if position >= 0 {
+					after, commandsPerSource = members[position], 2
+				}
+				scan := &snapshotDeltaScan{sources: append([]snapshotDeltaSource(nil), original...)}
+				observer.pipelines, observer.commands = 0, 0
+				if err := s.prefetchSnapshotCompactionScan(ctx, ctx, scan, after); err != nil {
+					t.Fatal(err)
+				}
+				end := min(position+1+snapshotCompactionBatchRows, len(members))
+				want := members[position+1 : end]
+				for _, src := range scan.sources {
+					if fmt.Sprint(src.ids) != fmt.Sprint(want) || src.offset != int64(end) || src.done != (len(want) < snapshotCompactionBatchRows) {
+						t.Fatal("sparse exact-ID page or tail proof changed", position, src.offset, len(src.ids), src.done)
+					}
+				}
+				commands := commandsPerSource * sources
+				wantPipelines := (commands + snapshotMaxSegments - 1) / snapshotMaxSegments
+				if observer.commands != commands || observer.pipelines != wantPipelines {
+					t.Fatal("directory pipeline bound/round trips changed", observer.commands, observer.pipelines, wantPipelines)
+				}
+			}
+		})
+	}
+}
+
+func TestSnapshotCompactionPrefetchRejectsChangedDirectory(t *testing.T) {
+	for _, corruption := range []string{"missing", "truncated_tail", "malformed"} {
+		t.Run(corruption, func(t *testing.T) {
+			h, raw, s, job, token := compactionAtomicFixture(t)
+			if err := s.copySnapshotCompactionBatch(h.ctx, job); err != nil {
+				t.Fatal(err)
+			}
+			before := job.After
+			directory := snapshotMembers(snapshotDataID(job.Source.snapshotSegments()[0].Prefix))
+			original, err := raw.ZRange(h.ctx, directory, 0, -1).Result()
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch corruption {
+			case "missing":
+				err = raw.Del(h.ctx, directory).Err()
+			case "truncated_tail":
+				err = raw.ZRemRangeByLex(h.ctx, directory, "["+formatSnapshotIndexMember(80), "+").Err()
+			case "malformed":
+				bad := formatSnapshotIndexMember(65)[:19] + "x"
+				if err = raw.ZRem(h.ctx, directory, formatSnapshotIndexMember(65)).Err(); err == nil {
+					err = raw.ZAdd(h.ctx, directory, goredis.Z{Member: bad}).Err()
+				}
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.copySnapshotCompactionBatch(h.ctx, job); err == nil {
+				t.Fatal("changed source directory accepted")
+			}
+			durable, err := s.readSnapshotCompaction(h.ctx)
+			if err != nil || durable == nil || durable.After != before || durable.CopyPending != nil || raw.ZCard(h.ctx, snapshotMembers(job.Data)).Val() != 64 {
+				t.Fatal("invalid read advanced a checkpoint or emitted rows", err)
+			}
+			// Restore only the deliberately corrupted test directory, then prove
+			// that a new owner resumes from the same acknowledged checkpoint.
+			if err := raw.Del(h.ctx, directory).Err(); err != nil {
+				t.Fatal(err)
+			}
+			values := make([]goredis.Z, len(original))
+			for i, member := range original {
+				values[i] = goredis.Z{Member: member}
+			}
+			if err := raw.ZAdd(h.ctx, directory, values...).Err(); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.releaseSnapshotCompaction(h.ctx, token); err != nil {
+				t.Fatal(err)
+			}
+			snapshotDrainCompactionTest(t, s)
+			rows, _ := h.query("SELECT id,v FROM t ORDER BY id")
+			if len(rows) != 257 {
+				t.Fatal("incomplete recovered result", len(rows))
+			}
+			for i, row := range rows {
+				v := 1
+				if i < 128 {
+					v = 4
+				}
+				if row != fmt.Sprintf("%d|%d", i+1, v) {
+					t.Fatal("incorrect recovered row", i+1)
 				}
 			}
 		})

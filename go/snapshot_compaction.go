@@ -441,50 +441,60 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 // Only larger jobs use prefetch. Small jobs and ordinary readers retain their
 // original call paths after native comparisons exposed sparse regressions.
 func (s *store) prefetchSnapshotCompactionScan(ctx, wctx context.Context, scan *snapshotDeltaScan, after string) error {
-	// All sources are immutable and retained by the durable job. Batch their
-	// independent positions, then their bounded first pages. Keep the same rank
-	// queries and complete-directory checks as the single-command scanner; no
-	// cursor, cache or copy checkpoint survives a failed read pipeline.
+	// The durable job retains immutable, score-zero directories. A page after
+	// the checkpoint therefore does not depend on the rank reply. Fetch both in
+	// one pipeline, retaining the rank-derived complete-directory proof. Keep
+	// the existing eight-command ceiling, even for the largest source sets.
+	positions := make([]*goredis.IntCmd, len(scan.sources))
+	pages := make([]*goredis.StringSliceCmd, len(scan.sources))
+	commandsPerSource := 1
 	if after != "" {
-		pipe := s.redis(ctx).Pipeline()
-		positions := make([]*goredis.IntCmd, len(scan.sources))
-		for i, src := range scan.sources {
-			positions[i] = pipe.ZLexCount(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), "-", "["+after)
+		commandsPerSource = 2
+	}
+	sourcesPerPipeline := snapshotMaxSegments / commandsPerSource
+	for start := 0; start < len(scan.sources); start += sourcesPerPipeline {
+		pipe := s.redis(wctx).Pipeline()
+		for i := start; i < min(start+sourcesPerPipeline, len(scan.sources)); i++ {
+			src := &scan.sources[i]
+			directory := snapshotMembers(snapshotDataID(src.segment.Prefix))
+			if after == "" {
+				pages[i] = pipe.ZRange(wctx, directory, src.offset, src.offset+snapshotCompactionBatchRows-1)
+			} else {
+				positions[i] = pipe.ZLexCount(ctx, directory, "-", "["+after)
+				pages[i] = pipe.ZRangeByLex(wctx, directory, &goredis.ZRangeBy{Min: "(" + after, Max: "+", Count: snapshotCompactionBatchRows})
+			}
 		}
-		if _, err := pipe.Exec(ctx); err != nil {
-			return err
+		if _, err := pipe.Exec(wctx); err != nil {
+			return wrapRedis(err, "failed to read compaction row directories")
 		}
-		for i, position := range positions {
+	}
+	// Validate every reply before changing even the temporary scanner state.
+	// No cursor, cached page or copy checkpoint survives a failed read.
+	prefetched := make([]snapshotDeltaSource, len(scan.sources))
+	for i, page := range pages {
+		src := scan.sources[i]
+		if position := positions[i]; position != nil {
 			offset, err := position.Result()
 			if err != nil {
 				return err
 			}
-			scan.sources[i].offset = offset
+			src.offset = offset
 		}
-	}
-	pipe := s.redis(wctx).Pipeline()
-	pages := make([]*goredis.StringSliceCmd, len(scan.sources))
-	for i, src := range scan.sources {
-		pages[i] = pipe.ZRange(wctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), src.offset, src.offset+snapshotCompactionBatchRows-1)
-	}
-	if _, err := pipe.Exec(wctx); err != nil {
-		return wrapRedis(err, "failed to read compaction row directories")
-	}
-	for i, page := range pages {
 		ids, err := page.Result()
 		if err != nil {
 			return wrapRedis(err, "failed to read compaction row directory")
 		}
 		// Apply the same complete-page/cardinality proof as the unchanged
 		// ordinary scanner. Keep prefetch isolated from its foreground path.
-		src := &scan.sources[i]
 		src.ids, src.at = ids, 0
 		src.offset += int64(len(ids))
 		src.done = len(ids) < snapshotCompactionBatchRows
 		if src.done && !snapshotOwns(wctx, src.segment.Prefix) && src.offset != src.segment.Rows {
 			return errorf(adbc.StatusIO, "published snapshot row directory changed")
 		}
+		prefetched[i] = src
 	}
+	copy(scan.sources, prefetched)
 	return nil
 }
 
