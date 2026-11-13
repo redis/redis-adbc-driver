@@ -1,0 +1,486 @@
+--- a/go/scan_arrow.go
++++ b/go/scan_arrow.go
+@@ -9,6 +9,7 @@
+ 
+ 	"github.com/apache/arrow-go/v18/arrow"
+ 	"github.com/apache/arrow-go/v18/arrow/array"
++	goredis "github.com/redis/go-redis/v9"
+ )
+ 
+ // scanArrow retains one reusable row, one partial Arrow batch and complete
+@@ -45,8 +46,9 @@
+ 	p.consume = r.appendArrow
+ 	if p.hashFields != nil {
+ 		p.consumeHash = r.appendArrowHash
+-	}
+-	defer func() { p.consume = nil; p.consumeHash = nil }()
++		p.consumeTypedHash = r.appendArrowTypedHash
++	}
++	defer func() { p.consume = nil; p.consumeHash = nil; p.consumeTypedHash = nil }()
+ 	for !r.exhausted && len(a.ready) == 0 {
+ 		_, _, err := r.it.next(r.ctx)
+ 		if errors.Is(err, io.EOF) {
+@@ -205,3 +207,10 @@
+ 	a.ready = a.ready[1:]
+ 	return true
+ }
++
++func (r *streamReader) appendArrowTypedHash(vals goredis.NullableStringSlice) error {
++	if err := r.it.projection.decodeTypedHashInto(vals, r.arrow.scratch); err != nil {
++		return err
++	}
++	return r.appendDecodedArrow()
++}
+--- /dev/null
++++ b/go/scan_hash_typed_experiment.go
+@@ -0,0 +1,175 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"errors"
++	"strings"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++// Experimental adapter for the unreleased owned nullable-string command.
++// Page discovery and bounds are identical to fetchHashPage. No interface values
++// or result buffers are reconstructed/reused between the parser and projection.
++func (it *scanIter) fetchTypedHashPage(ctx context.Context) hashPage {
++	if it.candidates != nil || it.delta != nil {
++		var logical, physical []string
++		var err error
++		if it.candidates != nil {
++			logical, physical, err = it.candidates.nextKeys(ctx)
++		} else {
++			logical, physical, err = it.delta.nextKeys(ctx)
++		}
++		if err != nil {
++			return hashPage{err: err}
++		}
++		fields := append(append([]string(nil), it.fetch...), snapshotDeletedField)
++		values, err := it.store.fetchTypedRowSlices(ctx, physical, fields, wideFetchChunk)
++		return hashPage{keys: logical, typedValues: values, err: err, snapshot: true}
++	}
++	if err := it.checkReadiness(ctx); err != nil {
++		return hashPage{err: err}
++	}
++	rows, err := it.cur.next(ctx)
++	if checked := it.checkReadiness(ctx); checked != nil {
++		return hashPage{err: checked}
++	}
++	if err != nil {
++		return hashPage{err: err}
++	}
++	keys := make([]string, len(rows))
++	for i, row := range rows {
++		if it.exists(row) {
++			keys[i] = row["__key"]
++		}
++	}
++	values, err := it.store.fetchTypedRowSlices(ctx, keys, it.fetch, wideFetchChunk)
++	return hashPage{keys: keys, typedValues: values, err: err}
++}
++
++func (s *store) fetchTypedRowSlices(ctx context.Context, keys, fields []string, chunk int) ([]goredis.NullableStringSlice, error) {
++	if err := cancelled(ctx); err != nil {
++		return nil, err
++	}
++	fields = append([]string{rowIDField}, fields...)
++	boxed := make([]any, len(fields))
++	for i, field := range fields {
++		boxed[i] = field
++	}
++	out := make([]goredis.NullableStringSlice, len(keys))
++	for start := 0; start < len(keys); start += chunk {
++		if err := cancelled(ctx); err != nil {
++			return nil, err
++		}
++		end := min(start+chunk, len(keys))
++		pipe := s.redis(ctx).Pipeline()
++		cmds := make([]*goredis.NullableStringSliceCmd, end-start)
++		for i, key := range keys[start:end] {
++			if key == "" {
++				continue
++			}
++			args := make([]any, 2+len(boxed))
++			args[0], args[1] = "hmget", key
++			copy(args[2:], boxed)
++			cmd := goredis.NewNullableStringSliceCmd(ctx, args...)
++			_ = pipe.Process(ctx, cmd)
++			cmds[i] = cmd
++		}
++		if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
++			return nil, wrapRedis(err, "failed to read rows")
++		}
++		for i, cmd := range cmds {
++			if cmd == nil {
++				continue
++			}
++			row, err := cmd.Result()
++			if err != nil {
++				return nil, wrapRedis(err, "failed to read rows")
++			}
++			if len(row.Values) != len(fields) || len(row.Valid) != len(fields) {
++				return nil, errorf(adbc.StatusInternal, "unexpected typed HMGET row width")
++			}
++			if !row.Valid[0] {
++				continue
++			}
++			out[start+i] = row
++		}
++	}
++	return out, nil
++}
++
++func (it *scanIter) consumeTypedHashValues(ctx context.Context, keys []string, rows []goredis.NullableStringSlice, snapshot bool) ([]string, []map[string]Value, error) {
++	defer clear(rows) // Only the driver-owned outer page, never a command result.
++	if it.diagnostics != nil {
++		it.diagnostics.processed.Add(int64(len(rows)))
++	}
++	kept := make([]string, 0, len(keys))
++	for i, row := range rows {
++		rows[i] = goredis.NullableStringSlice{}
++		if err := cancelled(ctx); err != nil {
++			return nil, nil, err
++		}
++		if snapshot {
++			if len(row.Values) == 0 || !row.Valid[0] || row.Values[0] != strings.TrimPrefix(keys[i], it.meta.prefix()) {
++				return nil, nil, errorf(adbc.StatusIO, "snapshot directory references a missing or invalid row")
++			}
++			last := len(row.Values) - 1
++			if row.Valid[last] && row.Values[last] == "1" {
++				continue
++			}
++			row = goredis.NullableStringSlice{Values: row.Values[:last], Valid: row.Valid[:last]}
++		} else if row.Values == nil {
++			continue
++		}
++		if err := it.projection.consumeTypedHash(row); err != nil {
++			return nil, nil, err
++		}
++		kept = append(kept, keys[i])
++	}
++	if it.diagnostics != nil {
++		it.diagnostics.matched.Add(int64(len(kept)))
++	}
++	return kept, nil, nil
++}
++
++func (p *scanProjection) decodeTypedHashInto(vals goredis.NullableStringSlice, row []Value) error {
++	if len(vals.Values) != len(p.hashFields)+1 || len(vals.Valid) != len(vals.Values) {
++		return errorf(adbc.StatusInternal, "unexpected typed HMGET row width")
++	}
++	id := nullValue(typeInt64)
++	if vals.Valid[0] {
++		var err error
++		id, err = decodeStored(vals.Values[0], typeInt64)
++		if err != nil {
++			return err
++		}
++	}
++	for _, output := range p.rowID {
++		row[output] = id
++	}
++	for i := range p.columns {
++		c := &p.columns[i]
++		var v Value
++		var err error
++		pos := p.hashPositions[i]
++		if vals.Valid[pos] {
++			v, err = c.decode(vals.Values[pos])
++		} else {
++			v = nullValue(c.column.Type)
++			if c.column.MissingThrough > 0 && !id.Null && !vals.Valid[p.hashNullPositions[i]] {
++				v, err = c.column.missingValueForID(id.I)
++			}
++		}
++		if err != nil {
++			return errorf(adbc.StatusInternal, "column %q: %v", c.column.Name, err)
++		}
++		for _, output := range c.outputs {
++			row[output] = v
++		}
++	}
++	return nil
++}
+--- /dev/null
++++ b/go/scan_hash_typed_experiment_test.go
+@@ -0,0 +1,132 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"errors"
++	"fmt"
++	goredis "github.com/redis/go-redis/v9"
++	"io"
++	"strconv"
++	"strings"
++	"testing"
++)
++
++// Prefetch resolves visibility before fetching immutable winning HASHes.
++// Later SQL publications cannot change delivered or queued pages.
++func TestTypedHMGetSnapshotUpdateDeleteAfterDiscovery(t *testing.T) {
++	for _, indexed := range []bool{false, true} {
++		t.Run(fmt.Sprintf("candidates_%t", indexed), func(t *testing.T) {
++			h := newSQLHarness(t)
++			const table = "it_snapshot_prefetch"
++			const count = snapshotDeltaPage + 1
++			h.dropTables(table)
++			defs, fields, exprs := []string{}, []string{}, []string{}
++			need := map[string]bool{}
++			for j := range 64 {
++				name := fmt.Sprintf("c%d", j)
++				defs = append(defs, name+" BIGINT")
++				fields = append(fields, name)
++				need[name] = true
++				expr := fmt.Sprintf("i*100+%d", j)
++				if j == 0 {
++					expr = "i"
++				}
++				if j == 1 {
++					expr = "9007199254740993+i"
++				}
++				if j == 2 {
++					expr = "CASE WHEN i%7=0 THEN NULL ELSE i*100+2 END"
++				}
++				exprs = append(exprs, expr)
++			}
++			h.exec("CREATE TABLE " + table + " (" + strings.Join(defs, ",") + ")")
++			h.exec(fmt.Sprintf("INSERT INTO %s SELECT %s FROM generate_series(1,%d) AS g(i)", table, strings.Join(exprs, ","), count))
++			h.exec("UPDATE " + table + " SET c1=-9007199254740993 WHERE c0=10")
++			h.exec("DELETE FROM " + table + " WHERE c0=11")
++			raw := h.rawClient()
++			st, ctx, pin := h.inspectionSnapshot(raw)
++			defer pin.release()
++			meta, err := st.getTable(ctx, defaultSchema, table)
++			if err != nil {
++				t.Fatal(err)
++			}
++			it := &scanIter{meta: meta, store: st, fetch: fields, need: need, hashFetch: true, allowPrefetch: true, env: &evalEnv{ctx: ctx}}
++			if indexed {
++				it.candidates = newSnapshotCandidateScan(ctx, st, meta, fmt.Sprintf("@c0:[1 %d]", count), fields, snapshotDeltaPage)
++			} else {
++				it.delta = newSnapshotDeltaScan(st, meta, fields)
++			}
++			seen := map[int]bool{}
++			it.projection = &scanProjection{consumeHash: func(values []any) error {
++				id, err := strconv.Atoi(fmt.Sprint(values[1]))
++				if err != nil || id < 1 || id > count || id == 11 || seen[id] {
++					return fmt.Errorf("invalid or duplicate visible id %d: %v", id, err)
++				}
++				seen[id] = true
++				for j := range 64 {
++					var want any = fmt.Sprint(id*100 + j)
++					if j == 0 {
++						want = fmt.Sprint(id)
++					}
++					if j == 1 {
++						want = strconv.FormatInt(9007199254740993+int64(id), 10)
++						if id == 10 {
++							want = "-9007199254740993"
++						}
++					}
++					if j == 2 && id%7 == 0 {
++						want = nil
++					}
++					if values[j+1] != want {
++						return fmt.Errorf("id %d column %d: got %v want %v", id, j, values[j+1], want)
++					}
++				}
++				return nil
++			}}
++
++			typedCalls := 0
++			ordinary := it.projection.consumeHash
++			it.projection.consumeTypedHash = func(row goredis.NullableStringSlice) error {
++				typedCalls++
++				values := make([]any, len(row.Values))
++				for i, value := range row.Values {
++					if row.Valid[i] {
++						values[i] = value
++					}
++				}
++				return ordinary(values)
++			}
++			defer it.close(ctx)
++			if _, _, err := it.next(ctx); err != nil || it.prefetch == nil {
++				t.Fatal("prefetch did not start", err)
++			}
++			h.exec("UPDATE " + table + " SET c1=0 WHERE c0=1")
++			h.exec("DELETE FROM " + table + " WHERE c0=2")
++			h.exec("TRUNCATE " + table)
++			h.exec("DROP TABLE " + table)
++			snapshotReapTest(st, h.ctx)
++			for {
++				_, _, err := it.next(ctx)
++				if errors.Is(err, io.EOF) {
++					break
++				}
++				if err != nil {
++					t.Fatal(err)
++				}
++			}
++			if typedCalls == 0 {
++				t.Fatal("typed path was not selected")
++			}
++			if len(seen) != count-1 {
++				t.Fatalf("snapshot returned %d rows, want %d", len(seen), count-1)
++			}
++			it.close(ctx)
++			pin.release()
++			for _, seg := range meta.snapshotSegments() {
++				h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
++			}
++		})
++	}
++}
+--- /dev/null
++++ b/go/scan_hash_typed_parity_test.go
+@@ -0,0 +1,66 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"fmt"
++	"reflect"
++	"testing"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++func typedTestRow(values []any) goredis.NullableStringSlice {
++	row := goredis.NullableStringSlice{Values: make([]string, len(values)), Valid: make([]bool, len(values))}
++	for i, value := range values {
++		if value != nil {
++			row.Values[i] = value.(string)
++			row.Valid[i] = true
++		}
++	}
++	return row
++}
++
++func TestTypedHMGetProjectionParity(t *testing.T) {
++	_, p := hashProjectionFixture()
++	for _, values := range [][]any{
++		{"1", "9007199254740993", "a\x00b", nil, nil, "1234567890123456"},
++		{"2", "-9223372036854775808", nil, nil, "1", nil},
++		{"10", "9223372036854775807", "", nil, "", nil},
++		{"11", "1", nil, nil, nil, nil},
++		{"12", "1", "x", "-4", nil, nil},
++		{nil, nil, nil, nil, nil, nil},
++		{"3", "bad", "x", nil, nil, nil},
++		{"bad", "1", nil, nil, nil, nil},
++		{"4", "1", nil, nil, nil, "bad"},
++	} {
++		got, want := make([]Value, p.width), make([]Value, p.width)
++		gotErr := p.decodeTypedHashInto(typedTestRow(values), got)
++		wantErr := p.decodeHashInto(values, want)
++		if fmt.Sprint(gotErr) != fmt.Sprint(wantErr) || !reflect.DeepEqual(got, want) {
++			t.Fatalf("typed decode parity: %v / %v", gotErr, wantErr)
++		}
++	}
++	for _, row := range []goredis.NullableStringSlice{{}, {Values: []string{"1"}, Valid: []bool{true}}, {Values: make([]string, 6), Valid: make([]bool, 5)}} {
++		if err := p.decodeTypedHashInto(row, make([]Value, p.width)); !isStatus(err, adbc.StatusInternal) {
++			t.Fatal("width/mask error", err)
++		}
++	}
++}
++
++func TestTypedHMGetOuterReleaseOwnership(t *testing.T) {
++	it, _ := hashProjectionFixture()
++	row := typedTestRow([]any{"1", "9007199254740993", "x", nil, nil, nil, "0"})
++	retained := row
++	rows := []goredis.NullableStringSlice{row}
++	it.projection = &scanProjection{consumeTypedHash: func(goredis.NullableStringSlice) error { return nil }}
++	if _, _, err := it.consumeTypedHashValues(context.Background(), []string{it.meta.prefix() + "1"}, rows, true); err != nil {
++		t.Fatal(err)
++	}
++	if rows[0].Values != nil || retained.Values[0] != "1" || !retained.Valid[0] {
++		t.Fatal("outer release mutated a retained command result")
++	}
++}
+--- a/go/scan_prefetch.go
++++ b/go/scan_prefetch.go
+@@ -9,6 +9,7 @@
+ 	"io"
+ 
+ 	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
+ )
+ 
+ // The worker alone discovers and fetches pages; the consumer alone decodes and
+@@ -16,10 +17,11 @@
+ // consumer holds its current page, including a page blocked on delivery. There
+ // is no command/reply pool: each page owns its reply slices through consumption.
+ type hashPage struct {
+-	keys     []string
+-	values   [][]any
+-	err      error
+-	snapshot bool // values include the deletion marker and require exact row IDs
++	keys        []string
++	values      [][]any
++	typedValues []goredis.NullableStringSlice
++	err         error
++	snapshot    bool // values include the deletion marker and require exact row IDs
+ }
+ 
+ type hashPagePrefetch struct {
+@@ -135,7 +137,11 @@
+ 		// It never sees the consumer's mutable projection, env or Arrow builder.
+ 		worker := *it
+ 		worker.prefetch, worker.projection = nil, nil
+-		it.prefetch = newHashPagePrefetchWithCleanup(ctx, worker.fetchHashPage, worker.close)
++		fetch := worker.fetchHashPage
++		if it.projection != nil && it.projection.consumeTypedHash != nil {
++			fetch = worker.fetchTypedHashPage
++		}
++		it.prefetch = newHashPagePrefetchWithCleanup(ctx, fetch, worker.close)
+ 	}
+ 	page := it.prefetch.next(ctx)
+ 	if errors.Is(page.err, io.EOF) {
+@@ -148,6 +154,9 @@
+ 	}
+ 	if page.err != nil {
+ 		return nil, nil, page.err
++	}
++	if page.typedValues != nil {
++		return it.consumeTypedHashValues(ctx, page.keys, page.typedValues, page.snapshot)
+ 	}
+ 	if page.snapshot {
+ 		return it.consumeSnapshotHashValues(ctx, page.keys, page.values)
+--- a/go/scan_projection.go
++++ b/go/scan_projection.go
+@@ -3,7 +3,10 @@
+ 
+ package redis
+ 
+-import "github.com/apache/arrow-adbc/go/adbc"
++import (
++	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
++)
+ 
+ // scanProjection binds bare output columns to HASH fields once. The ordinary
+ // scan still owns fetching, existence/readiness checks and cancellation. Only
+@@ -22,6 +25,7 @@
+ 	consume func(aggRow) error
+ 	// Positional HASH bindings are private to authoritative simple projections.
+ 	consumeHash       func([]any) error
++	consumeTypedHash  func(goredis.NullableStringSlice) error
+ 	hashExclusive     bool // scalar consumer: every needed field comes from HMGET
+ 	hashFields        []string
+ 	hashPositions     []int
