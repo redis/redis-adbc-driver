@@ -1,7 +1,7 @@
 # Validation
 
 Date: 2026-11-12. Benchmark and API-control validation complete.
-Presentation update/visual verification is tracked separately below.
+Presentation update and visual verification complete.
 
 - Exact release build and CLI: `make -C go build adbc-cli VERSION=v0.0.26`;
   source `5c9d583a567e1f6891e6d6ef8703da6189957a04`, GetInfo verified.
@@ -29,8 +29,13 @@ clock boundaries, environment, medians and interpretation limits. No 100M run,
 Flex performance claim or NativeClient benchmark. Existing supporting v0.0.25
 results remain labeled by their actual version.
 
-Presentation comparison slides and notes: update/visual QA in progress.
-Task-owned fixture cleanup: pending completion of presentation validation.
+Presentation: four native tables, 32 text shapes and five note sections verified
+against computed results. All 35 pages rendered and inspected; zero issue-checker
+errors, two inherited typography warnings. Full-scale pages 27–29, including notes,
+remain unchanged. Supporting v0.0.25 results retain their actual release labels;
+shared benchmark footers use a neutral date/method label.
+Task-owned fixture retained for the separately requested unmanaged Arrow feature
+implementation/tests; it remains isolated from user databases.
 Operational identifiers, credentials, raw logs and slide payloads remain private.
 
 See [intent](intent.md), [spec](spec.md) and [plan](plan.md).

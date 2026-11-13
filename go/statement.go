@@ -803,7 +803,7 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 	if s.ingest.TableName != "" {
 		n, err := s.executeIngest(ctx)
 		if err != nil {
-			return nil, -1, err
+			return nil, n, err
 		}
 		rdr, err := recordsReader(s.conn.Alloc, nil, nil)
 		return rdr, n, err

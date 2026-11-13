@@ -77,7 +77,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   own metadata only and use existing application indexes; their SQL DML writes
   source HASHes directly without managed row publication or replay. Keep those
   writes out of metadata-slot mutation fences and reject unmanaged staging,
-  shared snapshots, native row-ID reads, ALTER, TRUNCATE and Arrow ingestion.
+  shared snapshots, native row-ID reads, ALTER, TRUNCATE and Arrow ingestion modes
+  other than append. Unmanaged Arrow append requires new explicit string __key
+  values, a catalog pin and the top-level source-write context; reuse checked
+  source INSERT outside managed fences/publication/admission. Bound conversion
+  slices, preserve status/SQLSTATE and acknowledged-row error details, and never
+  replay input or uncertain mutations. Counts are lower bounds on lost replies.
   DROP and GC must preserve external HASHes/indexes. See docs/unmanaged-tables.md.
   Capture managed imports into reference-owned
   private metadata before emitting destination HASHes, so overlapping application

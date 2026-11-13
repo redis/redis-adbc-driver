@@ -28,13 +28,30 @@ when source freshness and application ownership are the desired contract.
 | Owner | Driver owns private rows, metadata, directories and indexes | Application owns keys, field encodings, indexes and lifecycle |
 | Creation | SQL, Arrow ingestion, or import into a managed copy | Application writes Redis data directly |
 | Schema | Driver maintains SQL types and supported defaults and constraints | Application defines and enforces its own data contract |
-| Access | SQL and Arrow through the driver | Redis commands and application Search indexes; explicit unmanaged registration for SQL reads and writes |
+| Access | SQL and Arrow through the driver | Redis commands and application Search indexes; explicit unmanaged registration for SQL reads/writes and Arrow append |
 | Read consistency | One committed version per statement; optional shared read snapshot across sequential reads | Depends on application access; incremental scans and live HASH reads do not freeze a collection |
-| Write publication | Supported SQL/Arrow changes publish atomically | Depends on the application's commands and coordination |
+| Write behavior | Supported SQL/Arrow changes publish atomically | SQL and Arrow append write HASHes directly; multi-row writes can be partial, with no driver publication step |
 | Concurrent changes | Open readers retain their original managed version | Direct reads can observe intervening application writes |
 | Freshness after import | Captured values remain until explicitly refreshed or changed through the driver | Application changes affect the source directly |
 | Expiry | Driver-owned storage must not be directly expired or evicted | Application can use TTLs according to its own design |
 | Maintenance | Driver manages private indexes, compaction and reference-safe reclamation | Application manages its keys and indexes |
+
+### Arrow write operations
+
+Managed and unmanaged are table ownership modes. Arrow ingestion operations
+select how a particular write uses the target table:
+
+| Arrow operation | Managed table | Unmanaged table |
+|---|---|---|
+| `create` | Create a new table; fail if it exists | Unsupported |
+| `append` | Add the complete input atomically | Insert new explicit `__key` values directly into source HASHes |
+| `replace` | Replace the schema and data atomically | Unsupported |
+| `create_append` | Create if missing; otherwise append | Unsupported |
+
+Unmanaged writes have no publication step and can partially succeed. Ordinary
+Redis clients and supported driver SQL DML can also write unmanaged data. Managed
+writes use the driver; managed HASH-style reads use the snapshot-aware
+`NativeClient` wrapper rather than raw Redis reads of physical row versions.
 | Storage cost | Private data/indexes plus metadata, retained versions and staging | Catalog registration only; source data/index storage costs still apply |
 
 ## Managed tables: benefits
@@ -98,9 +115,12 @@ when source freshness and application ownership are the desired contract.
 - **Application-owned coordination.** Collection-wide atomicity, schema changes
   and safe lifecycle operations require an application design outside the
   managed-table protocol.
-- **Weaker SQL write guarantees.** Unmanaged SQL writes change source HASHes
-  directly and can partially succeed. INSERT requires an explicit `__key`.
-  ALTER, TRUNCATE, Arrow ingestion and snapshot-only APIs are unsupported.
+- **Partial source writes.** Unmanaged SQL writes and Arrow append change source
+  HASHes directly and can partially succeed. INSERT and Arrow append require new
+  explicit `__key` values. ALTER, TRUNCATE, other Arrow ingestion modes and
+  snapshot-only APIs are unsupported. See the
+  [Arrow append contract](unmanaged-tables.md#append-arrow-data-to-source-hashes)
+  for acknowledged-row reporting and uncertain-reply handling.
 
 ## How imports connect the two
 
