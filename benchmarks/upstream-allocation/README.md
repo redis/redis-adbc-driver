@@ -5,6 +5,9 @@ and [Arrow Go #1548](https://github.com/apache/arrow-go/issues/1548). They attri
 specific library work; they do not assume either library is an end-to-end driver
 bottleneck. They do not run a Redis server or benchmark the ADBC driver.
 
+The [November 13 evidence report](2026-11-13/report.md) preserves all 84 audited
+samples and the ownership/measurement limitations.
+
 Pinned dependencies are go-redis **v9.23.0**, Arrow Go **v18.8.0** and Go **1.27.3**.
 The runner records module checksums, fixture/implementation SHA-256 values, CPU,
 OS/architecture and Go versions. It never edits the shared module cache. A fresh

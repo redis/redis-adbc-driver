@@ -1,0 +1,1297 @@
+{
+  "metadata": {
+    "mode": "bench",
+    "workspace_commit": "434905b945f27b53c8db90ea82804b7cd9ad3b4a",
+    "count": 3,
+    "benchtime": "200ms",
+    "server": "none; byte-reader parser and C Data/C Stream fixtures only",
+    "go_version": "go version go1.27.3 darwin/arm64",
+    "gomaxprocs": 1,
+    "redis": {
+      "Path": "github.com/redis/go-redis/v9",
+      "Version": "v9.23.0",
+      "Sum": "h1:/TTVdJa8BRNsybwwGGnmiYktHNlUXtbOQxlWpHBPL3s="
+    },
+    "arrow": {
+      "Path": "github.com/apache/arrow-go/v18",
+      "Version": "v18.8.0",
+      "Sum": "h1:BLOzbPv7bxMPgXPacAg6HQjnxupYsZzC4tf+FkqPU/M="
+    },
+    "sha256": {
+      "redis_command.go": "baaf5c2a74a6b3b0197400a6873b5adbb8a42ca16fc68ca352600e64bd3bde85",
+      "redis_reader.go": "644761c0fac02008231a24ea0437798588f8f8efee984659700bcc635248ecd9",
+      "redis_license": "a3a7dff87da3927db65cb4c87b1cfbc96ca2755704461a485d457be7ae300a86",
+      "fixture_license": "38f0ca9731b222987356ab19f71d838ede5d4a5057c30faa0249f03d81e16b52",
+      "redis_fixture": "23ce3af1d0728b6d90619e1035359a892a95fb2ac384f3d142aed047ee361d76",
+      "arrow_interface.go": "a0cde9306756d79015815dcaf2f1ff4a9bf71d341c2c667df6f62e9aaf0784a1",
+      "arrow_license": "ff2fe52b8dfd2574c6ea7f0c407948c857f62672c2a3a9a17083ee10af8067ef",
+      "arrow_exports.go": "824aa39b3b008a28717a0915ec851d0083417661ac1c2d4b4a2eac8dc9a05031",
+      "arrow_fixture": "5976f43654e307d1938b910f4fc414ed00b3dea061910a7a8ec8f300abc18966",
+      "arrow_bridge": "26d1f638b98d562c210135f792ef45ca2fe5e60313baa75aff90b126e69217e9"
+    },
+    "go_counters": "B/op and allocs/op exclude C malloc/calloc and shared prebuilt payloads",
+    "commands": [
+      {
+        "name": "redis-check",
+        "argv": [
+          "go",
+          "test",
+          "-count=1",
+          "-race",
+          "-p",
+          "1",
+          "-run",
+          "^TestUpstreamRESP3Fixture$",
+          "."
+        ],
+        "seconds": 10.283124832989415,
+        "exit_code": 0
+      },
+      {
+        "name": "arrow-check",
+        "argv": [
+          "go",
+          "test",
+          "-count=1",
+          "-race",
+          "-p",
+          "1",
+          "./benchmarks/upstreamalloc"
+        ],
+        "seconds": 3.52985108300345,
+        "exit_code": 0
+      },
+      {
+        "name": "redis-bench",
+        "argv": [
+          "go",
+          "test",
+          "-count=3",
+          "-benchtime=200ms",
+          "-benchmem",
+          "-run=^$",
+          "-bench=^BenchmarkUpstreamHMGETDecode$",
+          "."
+        ],
+        "seconds": 27.996769042001688,
+        "exit_code": 0
+      },
+      {
+        "name": "arrow-bench",
+        "argv": [
+          "go",
+          "test",
+          "-count=3",
+          "-benchtime=200ms",
+          "-benchmem",
+          "-run=^$",
+          "-bench=^BenchmarkArrowHandoff$",
+          "./benchmarks/upstreamalloc"
+        ],
+        "seconds": 14.805271041986998,
+        "exit_code": 0
+      }
+    ]
+  },
+  "hardware": {
+    "goos": "darwin",
+    "goarch": "arm64",
+    "cpu": "Apple M5 Max"
+  },
+  "samples": [
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/slice_cmd",
+      "iterations": 213,
+      "metrics": {
+        "ns/op": 995023.0,
+        "MB/s": 552.33,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/slice_cmd",
+      "iterations": 244,
+      "metrics": {
+        "ns/op": 986548.0,
+        "MB/s": 557.07,
+        "B/op": 1383572.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/slice_cmd",
+      "iterations": 243,
+      "metrics": {
+        "ns/op": 969301.0,
+        "MB/s": 566.98,
+        "B/op": 1383572.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/string_slice_reuse",
+      "iterations": 320,
+      "metrics": {
+        "ns/op": 755133.0,
+        "MB/s": 727.79,
+        "B/op": 551441.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/string_slice_reuse",
+      "iterations": 320,
+      "metrics": {
+        "ns/op": 750825.0,
+        "MB/s": 731.96,
+        "B/op": 551441.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/string_slice_reuse",
+      "iterations": 314,
+      "metrics": {
+        "ns/op": 752557.0,
+        "MB/s": 730.28,
+        "B/op": 551442.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/byte_slots_prototype",
+      "iterations": 480,
+      "metrics": {
+        "ns/op": 487627.0,
+        "MB/s": 1127.04,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/byte_slots_prototype",
+      "iterations": 488,
+      "metrics": {
+        "ns/op": 483404.0,
+        "MB/s": 1136.89,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/byte_slots_prototype",
+      "iterations": 499,
+      "metrics": {
+        "ns/op": 479544.0,
+        "MB/s": 1146.04,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/slice_cmd",
+      "iterations": 254,
+      "metrics": {
+        "ns/op": 955176.0,
+        "MB/s": 575.37,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/slice_cmd",
+      "iterations": 252,
+      "metrics": {
+        "ns/op": 935324.0,
+        "MB/s": 587.58,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/slice_cmd",
+      "iterations": 250,
+      "metrics": {
+        "ns/op": 946886.0,
+        "MB/s": 580.4,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/string_slice_reuse",
+      "iterations": 319,
+      "metrics": {
+        "ns/op": 738048.0,
+        "MB/s": 744.64,
+        "B/op": 551441.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/string_slice_reuse",
+      "iterations": 325,
+      "metrics": {
+        "ns/op": 736944.0,
+        "MB/s": 745.75,
+        "B/op": 551441.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/string_slice_reuse",
+      "iterations": 324,
+      "metrics": {
+        "ns/op": 737613.0,
+        "MB/s": 745.08,
+        "B/op": 551441.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/byte_slots_prototype",
+      "iterations": 489,
+      "metrics": {
+        "ns/op": 491460.0,
+        "MB/s": 1118.25,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/byte_slots_prototype",
+      "iterations": 490,
+      "metrics": {
+        "ns/op": 484463.0,
+        "MB/s": 1134.4,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/byte_slots_prototype",
+      "iterations": 493,
+      "metrics": {
+        "ns/op": 488880.0,
+        "MB/s": 1124.15,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/slice_cmd",
+      "iterations": 73,
+      "metrics": {
+        "ns/op": 4005164.0,
+        "MB/s": 550.12,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/slice_cmd",
+      "iterations": 56,
+      "metrics": {
+        "ns/op": 4093626.0,
+        "MB/s": 538.23,
+        "B/op": 5562494.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/slice_cmd",
+      "iterations": 58,
+      "metrics": {
+        "ns/op": 4014649.0,
+        "MB/s": 548.82,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/string_slice_reuse",
+      "iterations": 79,
+      "metrics": {
+        "ns/op": 2978733.0,
+        "MB/s": 739.68,
+        "B/op": 2233594.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/string_slice_reuse",
+      "iterations": 80,
+      "metrics": {
+        "ns/op": 2946326.0,
+        "MB/s": 747.82,
+        "B/op": 2233595.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/string_slice_reuse",
+      "iterations": 79,
+      "metrics": {
+        "ns/op": 2976375.0,
+        "MB/s": 740.27,
+        "B/op": 2233595.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/byte_slots_prototype",
+      "iterations": 123,
+      "metrics": {
+        "ns/op": 1945402.0,
+        "MB/s": 1132.58,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/byte_slots_prototype",
+      "iterations": 124,
+      "metrics": {
+        "ns/op": 1902874.0,
+        "MB/s": 1157.89,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/byte_slots_prototype",
+      "iterations": 123,
+      "metrics": {
+        "ns/op": 1957801.0,
+        "MB/s": 1125.4,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/slice_cmd",
+      "iterations": 67,
+      "metrics": {
+        "ns/op": 4257484.0,
+        "MB/s": 517.52,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/slice_cmd",
+      "iterations": 78,
+      "metrics": {
+        "ns/op": 3941408.0,
+        "MB/s": 559.02,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/slice_cmd",
+      "iterations": 76,
+      "metrics": {
+        "ns/op": 3953510.0,
+        "MB/s": 557.31,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/string_slice_reuse",
+      "iterations": 79,
+      "metrics": {
+        "ns/op": 2966088.0,
+        "MB/s": 742.84,
+        "B/op": 2233594.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/string_slice_reuse",
+      "iterations": 79,
+      "metrics": {
+        "ns/op": 3080573.0,
+        "MB/s": 715.23,
+        "B/op": 2233594.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/string_slice_reuse",
+      "iterations": 80,
+      "metrics": {
+        "ns/op": 2949829.0,
+        "MB/s": 746.93,
+        "B/op": 2233594.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/byte_slots_prototype",
+      "iterations": 122,
+      "metrics": {
+        "ns/op": 1953995.0,
+        "MB/s": 1127.6,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/byte_slots_prototype",
+      "iterations": 122,
+      "metrics": {
+        "ns/op": 1947681.0,
+        "MB/s": 1131.25,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/byte_slots_prototype",
+      "iterations": 122,
+      "metrics": {
+        "ns/op": 1989504.0,
+        "MB/s": 1107.47,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/slice_cmd",
+      "iterations": 18,
+      "metrics": {
+        "ns/op": 16004803.0,
+        "MB/s": 553.5,
+        "B/op": 22323130.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/slice_cmd",
+      "iterations": 20,
+      "metrics": {
+        "ns/op": 16348900.0,
+        "MB/s": 541.85,
+        "B/op": 22323132.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/slice_cmd",
+      "iterations": 20,
+      "metrics": {
+        "ns/op": 16258519.0,
+        "MB/s": 544.86,
+        "B/op": 22323131.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/string_slice_reuse",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 11788149.0,
+        "MB/s": 751.49,
+        "B/op": 9005656.0,
+        "allocs/op": 404782.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/string_slice_reuse",
+      "iterations": 24,
+      "metrics": {
+        "ns/op": 12017047.0,
+        "MB/s": 737.17,
+        "B/op": 9005656.0,
+        "allocs/op": 404782.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/string_slice_reuse",
+      "iterations": 22,
+      "metrics": {
+        "ns/op": 11932667.0,
+        "MB/s": 742.38,
+        "B/op": 9005657.0,
+        "allocs/op": 404782.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/byte_slots_prototype",
+      "iterations": 30,
+      "metrics": {
+        "ns/op": 7939588.0,
+        "MB/s": 1115.75,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/byte_slots_prototype",
+      "iterations": 30,
+      "metrics": {
+        "ns/op": 7801436.0,
+        "MB/s": 1135.51,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/byte_slots_prototype",
+      "iterations": 30,
+      "metrics": {
+        "ns/op": 7775654.0,
+        "MB/s": 1139.28,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/slice_cmd",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 16337643.0,
+        "MB/s": 542.22,
+        "B/op": 22323131.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/slice_cmd",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 16352678.0,
+        "MB/s": 541.72,
+        "B/op": 22323130.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/slice_cmd",
+      "iterations": 18,
+      "metrics": {
+        "ns/op": 16378894.0,
+        "MB/s": 540.86,
+        "B/op": 22323130.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/string_slice_reuse",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 11796204.0,
+        "MB/s": 750.97,
+        "B/op": 9005656.0,
+        "allocs/op": 404782.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/string_slice_reuse",
+      "iterations": 24,
+      "metrics": {
+        "ns/op": 11875134.0,
+        "MB/s": 745.98,
+        "B/op": 9005657.0,
+        "allocs/op": 404782.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/string_slice_reuse",
+      "iterations": 24,
+      "metrics": {
+        "ns/op": 11696720.0,
+        "MB/s": 757.36,
+        "B/op": 9005657.0,
+        "allocs/op": 404782.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/byte_slots_prototype",
+      "iterations": 30,
+      "metrics": {
+        "ns/op": 7890447.0,
+        "MB/s": 1122.7,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/byte_slots_prototype",
+      "iterations": 28,
+      "metrics": {
+        "ns/op": 7814147.0,
+        "MB/s": 1133.66,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/byte_slots_prototype",
+      "iterations": 30,
+      "metrics": {
+        "ns/op": 7770786.0,
+        "MB/s": 1139.99,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/go_retain",
+      "iterations": 8943793,
+      "metrics": {
+        "ns/op": 26.49,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/go_retain",
+      "iterations": 9033919,
+      "metrics": {
+        "ns/op": 26.45,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/go_retain",
+      "iterations": 9046831,
+      "metrics": {
+        "ns/op": 26.82,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_fresh",
+      "iterations": 183,
+      "metrics": {
+        "ns/op": 1260283.0,
+        "B/op": 2746468.0,
+        "allocs/op": 21333.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_fresh",
+      "iterations": 187,
+      "metrics": {
+        "ns/op": 1242913.0,
+        "B/op": 2746217.0,
+        "allocs/op": 21332.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_fresh",
+      "iterations": 192,
+      "metrics": {
+        "ns/op": 1238091.0,
+        "B/op": 2746185.0,
+        "allocs/op": 21331.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_reuse",
+      "iterations": 193,
+      "metrics": {
+        "ns/op": 1240957.0,
+        "B/op": 2746371.0,
+        "allocs/op": 21332.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_reuse",
+      "iterations": 192,
+      "metrics": {
+        "ns/op": 1251034.0,
+        "B/op": 2746311.0,
+        "allocs/op": 21332.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_reuse",
+      "iterations": 190,
+      "metrics": {
+        "ns/op": 1250798.0,
+        "B/op": 2746240.0,
+        "allocs/op": 21331.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_known_reuse",
+      "iterations": 330,
+      "metrics": {
+        "ns/op": 714840.0,
+        "B/op": 1440529.0,
+        "allocs/op": 12365.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_known_reuse",
+      "iterations": 333,
+      "metrics": {
+        "ns/op": 706384.0,
+        "B/op": 1440603.0,
+        "allocs/op": 12366.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_known_reuse",
+      "iterations": 328,
+      "metrics": {
+        "ns/op": 729166.0,
+        "B/op": 1440626.0,
+        "allocs/op": 12365.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_stream_schema_once",
+      "iterations": 306,
+      "metrics": {
+        "ns/op": 770029.0,
+        "B/op": 1570167.0,
+        "allocs/op": 13264.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_stream_schema_once",
+      "iterations": 309,
+      "metrics": {
+        "ns/op": 777481.0,
+        "B/op": 1570123.0,
+        "allocs/op": 13263.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_stream_schema_once",
+      "iterations": 306,
+      "metrics": {
+        "ns/op": 778484.0,
+        "B/op": 1570102.0,
+        "allocs/op": 13263.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/go_retain",
+      "iterations": 64889697,
+      "metrics": {
+        "ns/op": 3.669,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/go_retain",
+      "iterations": 67279507,
+      "metrics": {
+        "ns/op": 3.61,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/go_retain",
+      "iterations": 68340379,
+      "metrics": {
+        "ns/op": 3.603,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_fresh",
+      "iterations": 1958,
+      "metrics": {
+        "ns/op": 123994.0,
+        "B/op": 274634.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_fresh",
+      "iterations": 1894,
+      "metrics": {
+        "ns/op": 123766.0,
+        "B/op": 274642.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_fresh",
+      "iterations": 1815,
+      "metrics": {
+        "ns/op": 124322.0,
+        "B/op": 274621.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_reuse",
+      "iterations": 1851,
+      "metrics": {
+        "ns/op": 124661.0,
+        "B/op": 274624.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_reuse",
+      "iterations": 1831,
+      "metrics": {
+        "ns/op": 122039.0,
+        "B/op": 274632.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_reuse",
+      "iterations": 1848,
+      "metrics": {
+        "ns/op": 122956.0,
+        "B/op": 274617.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_known_reuse",
+      "iterations": 3356,
+      "metrics": {
+        "ns/op": 71386.0,
+        "B/op": 144066.0,
+        "allocs/op": 1236.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_known_reuse",
+      "iterations": 3397,
+      "metrics": {
+        "ns/op": 71911.0,
+        "B/op": 144065.0,
+        "allocs/op": 1236.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_known_reuse",
+      "iterations": 3307,
+      "metrics": {
+        "ns/op": 70277.0,
+        "B/op": 144066.0,
+        "allocs/op": 1236.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_stream_schema_once",
+      "iterations": 1860,
+      "metrics": {
+        "ns/op": 127234.0,
+        "B/op": 275044.0,
+        "allocs/op": 2143.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_stream_schema_once",
+      "iterations": 1827,
+      "metrics": {
+        "ns/op": 129426.0,
+        "B/op": 275035.0,
+        "allocs/op": 2143.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_stream_schema_once",
+      "iterations": 1660,
+      "metrics": {
+        "ns/op": 128800.0,
+        "B/op": 275037.0,
+        "allocs/op": 2143.0
+      }
+    }
+  ],
+  "summary": [
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_fresh",
+      "samples": 3,
+      "median": {
+        "ns/op": 1242913.0,
+        "B/op": 2746217.0,
+        "allocs/op": 21332.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_each_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 1250798.0,
+        "B/op": 2746311.0,
+        "allocs/op": 21332.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_data_schema_known_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 714840.0,
+        "B/op": 1440603.0,
+        "allocs/op": 12365.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/c_stream_schema_once",
+      "samples": 3,
+      "median": {
+        "ns/op": 777481.0,
+        "B/op": 1570123.0,
+        "allocs/op": 13263.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_1000/go_retain",
+      "samples": 3,
+      "median": {
+        "ns/op": 26.49,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_fresh",
+      "samples": 3,
+      "median": {
+        "ns/op": 123994.0,
+        "B/op": 274634.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_each_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 122956.0,
+        "B/op": 274624.0,
+        "allocs/op": 2133.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_data_schema_known_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 71386.0,
+        "B/op": 144066.0,
+        "allocs/op": 1236.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/c_stream_schema_once",
+      "samples": 3,
+      "median": {
+        "ns/op": 128800.0,
+        "B/op": 275037.0,
+        "allocs/op": 2143.0
+      }
+    },
+    {
+      "suite": "arrow",
+      "name": "BenchmarkArrowHandoff/batch_10000/go_retain",
+      "samples": 3,
+      "median": {
+        "ns/op": 3.61,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/byte_slots_prototype",
+      "samples": 3,
+      "median": {
+        "ns/op": 1953995.0,
+        "MB/s": 1127.6,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 3953510.0,
+        "MB/s": 557.31,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_1048576/string_slice_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 2966088.0,
+        "MB/s": 742.84,
+        "B/op": 2233594.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/byte_slots_prototype",
+      "samples": 3,
+      "median": {
+        "ns/op": 1945402.0,
+        "MB/s": 1132.58,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 4014649.0,
+        "MB/s": 548.82,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_1024/buffer_32768/string_slice_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 2976375.0,
+        "MB/s": 740.27,
+        "B/op": 2233595.0,
+        "allocs/op": 101195.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/byte_slots_prototype",
+      "samples": 3,
+      "median": {
+        "ns/op": 488880.0,
+        "MB/s": 1124.15,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 946886.0,
+        "MB/s": 580.4,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_1048576/string_slice_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 737613.0,
+        "MB/s": 745.08,
+        "B/op": 551441.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/byte_slots_prototype",
+      "samples": 3,
+      "median": {
+        "ns/op": 483404.0,
+        "MB/s": 1136.89,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 986548.0,
+        "MB/s": 557.07,
+        "B/op": 1383572.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_256/buffer_32768/string_slice_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 752557.0,
+        "MB/s": 730.28,
+        "B/op": 551441.0,
+        "allocs/op": 25298.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/byte_slots_prototype",
+      "samples": 3,
+      "median": {
+        "ns/op": 7814147.0,
+        "MB/s": 1133.66,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 16352678.0,
+        "MB/s": 541.72,
+        "B/op": 22323130.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_1048576/string_slice_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 11796204.0,
+        "MB/s": 750.97,
+        "B/op": 9005657.0,
+        "allocs/op": 404782.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/byte_slots_prototype",
+      "samples": 3,
+      "median": {
+        "ns/op": 7801436.0,
+        "MB/s": 1135.51,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 16258519.0,
+        "MB/s": 544.86,
+        "B/op": 22323131.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETDecode/rows_4096/buffer_32768/string_slice_reuse",
+      "samples": 3,
+      "median": {
+        "ns/op": 11932667.0,
+        "MB/s": 742.38,
+        "B/op": 9005656.0,
+        "allocs/op": 404782.0
+      }
+    }
+  ]
+}

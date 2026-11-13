@@ -9,8 +9,9 @@ See [intent](intent.md) and [spec](spec.md).
    contracts, allocator domains and realistic memory/lifetime limitations.
 5. Review evidence and commit the harness/results for parent publication.
 
-Steps 1–3 correctness checks pass. Initial Arrow ownership checks caught an
+Steps 1–5 complete. Correctness checks pass. Initial Arrow ownership checks caught an
 ExportRecordReader comment/Retain mismatch; the corrected full ownership chain
 passes checked-allocator and counted-reference race tests. The pinned go-redis
 parser fixture validates all values/replies plus oversized-payload alignment.
-No timing samples have been collected yet.
+All 84 timing samples are preserved in the sanitized results, with three samples per case.
+See [validation](validation.md) and the linked evidence report.
