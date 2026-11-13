@@ -96,13 +96,13 @@ def table(conn):
         cur.execute(f"DROP TABLE {TABLE}")
 
 
-@pytest.mark.parametrize("ordered", [False, True], ids=["unordered", "ordered"])
-def test_cancel_from_another_thread(conn, db_kwargs, table, ordered) -> None:
+@pytest.mark.parametrize("search", [False, True], ids=["directory", "search"])
+def test_cancel_from_another_thread(conn, db_kwargs, table, search) -> None:
     index = index_of(conn, table)
     before = open_cursors(db_kwargs, index)
-    # Unordered managed scans stream exact row directories; ordering by the
-    # physical row ID explicitly selects the Search path on RAM deployments.
-    query = f"SELECT id FROM {table}" + (" ORDER BY __rowid" if ordered else "")
+    # An unbounded managed scan streams its exact directory. An explicit LIMIT
+    # selects Search without requiring a global sort under small aggregate caps.
+    query = f"SELECT id FROM {table}" + (f" LIMIT {ROWS}" if search else "")
     with conn.cursor() as cur:
         cur.adbc_statement.set_options(**{"adbc.redis.stream_batch_rows": str(BATCH)})
         cur.execute(query)
@@ -126,7 +126,7 @@ def test_cancel_from_another_thread(conn, db_kwargs, table, ordered) -> None:
         try:
             assert started.wait(30)
             active = open_cursors(db_kwargs, index)
-            if not ordered or db_kwargs.get("adbc.redis.flex") == "true":
+            if not search or db_kwargs.get("adbc.redis.flex") == "true":
                 # Directory scans and Flex bounded reads allocate no cursor.
                 assert active == before
             else:

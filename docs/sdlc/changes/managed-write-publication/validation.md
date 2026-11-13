@@ -109,7 +109,7 @@ read change; it is independent of script caching.
 On owned three-shard Redis Software 8.8.0, started with `make -C go redis-up`
 and verified active/effective 4x QPF, the original test reproduces the same
 `0 == 0 + 1` assertion. The updated test explicitly covers unordered directory
-reads and `ORDER BY __rowid` Search reads. It retains cursor existence/deletion,
+reads and bounded Search reads selected with `LIMIT 25000`. It retains cursor existence/deletion,
 CANCELLED/57014, exactly one batch before cancellation, reader termination and
 statement-reuse assertions. It additionally verifies distinct valid partial
 rows and every value/multiplicity after statement reuse. The reader is always
@@ -135,3 +135,29 @@ Production code, workflow permissions and compatibility scope are unchanged.
 The follow-up fixture's active QPF/topology/TLS/noeviction settings were verified
 after native validation. Its task-owned server/network were removed and absence
 verified; its generated test environment was removed. Other fixtures remain.
+
+### Low-cap installed-wheel coverage
+
+The first explicit Search selector (`ORDER BY __rowid`) passes at the default
+cap but materializes under a real aggregate cap of 137. The macOS installed-wheel
+job in [run 43454657015](https://github.com/redis/redis-adbc-driver/actions/runs/43454657015)
+exposes that distinction: its row count is 25000 rather than the streamed -1.
+The final selector uses an explicit fixture-sized `LIMIT 25000`, which bypasses
+the exact-directory shortcut without requiring a global sort. It opens a real
+Search cursor at the default cap and remains streamed through bounded windows
+at the small cap. Cursor counts, cancellation status and full-value assertions
+are retained; no skip or production change is added.
+
+The final two cases pass at the default server cap (1.66 s) and after changing
+the owned Software database's actual `search-max-aggregate-results` to 137
+(5.58 s). Active/effective 4x QPF is verified after the management update.
+`REDIS_PARTITION_SCAN_CAP` is not used to infer the ordinary query cap; the
+existing test introspection and cursor assertions remain unchanged.
+
+The full final native suite also passes with the actual server cap of 137:
+568 passed, eight unchanged capability skips, three subtests passed, zero
+failures (81.84 s). The capped run uses verified three-shard Redis Software
+with active/effective 4x QPF and strict TLS/RESP3.
+
+The recreated capped fixture was removed after final configuration verification;
+its container/network absence and generated-environment cleanup were verified.
