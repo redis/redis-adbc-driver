@@ -82,7 +82,7 @@ unchanged. Security/ownership: no new public option, SQL construction or
 application-owned Redis mutation. Evidence: all completed timings are retained
 in sanitized form; operational endpoints, identifiers and raw logs stay private.
 No actionable findings from this agent review; human acceptance of the measured
-memory/latency tradeoff remains pending. Cleanup will be recorded before handoff.
+memory/latency tradeoff remains pending.
 
 ## Additive field-name preboxing
 
@@ -126,4 +126,45 @@ Final additive correctness checks:
   index proof/readiness and both SQL API projection cases pass: 29 test pass
   events, no skips/failures, package 30.88s. No timed work overlapped the checks.
 - `gofmt`, Python runner compilation and `git diff --check` pass. Native library
-  rebuild and matched combined-candidate comparison remain pending.
+  rebuild and matched combined-candidate comparison completed below.
+
+## Combined native candidate
+
+Source `04e0242d8fd7196b964cdce84de65cb0a21430f2` combines prompt outer reply
+release and preboxed field names. Native library build info confirms Go 1.27.3.
+The unchanged runner/source/validator, matrix, worker implementation, Software
+fixture and per-trial QPF gates were reused; full untimed native smoke passed
+before the warmups. There was one new invocation, 28 completed validated trials
+(24 measured +four warmups), zero failures/restarts/discards. Binary hash,
+versions and every timing/RSS/first-batch sample are appended to the trial file.
+Earlier baseline and clear-only trial values are retained.
+
+| Readers | Batch rows | Baseline elapsed | Combined elapsed | Observed change | Baseline RSS MiB | Combined RSS MiB | Observed change |
+|---|---|---|---|---|---|---|---|
+| 1 | 512 | 2.203 | 2.222 | +0.84% | 270.91 | 252.09 | −6.94% |
+| 4 | 512 | 1.463 | 1.472 | +0.57% | 271.66 | 252.72 | −6.97% |
+| 1 | 4096 | 2.241 | 2.260 | +0.88% | 268.78 | 253.43 | −5.71% |
+| 4 | 4096 | 1.416 | 1.388 | −1.98% | 276.07 | 257.05 | −6.89% |
+
+These are six-trial medians per cell, reusing the earlier baseline. The blocks
+were not interleaved: combined ran later after other agents’ serialized work.
+Every measurement block was exclusive; no unchanged baseline was rerun. Small
+elapsed differences and overlapping ranges do not establish a controlled
+speedup/regression or guarantee unchanged throughput. Combined peak worker RSS
+was lower in this measured workload; it still exceeds the separately measured
+historical pre-#408 level. This change keeps the original larger fetch/discovery
+bounds and one-page lookahead rather than trading them for smaller pages.
+
+All native attempts together: 84 complete validated trials, 72 measured and 12
+warmups, no discarded trials. No CPU/heap profiles or 100M ClickBench reruns.
+
+Final lifecycle/security/evidence review found no actionable defect: command
+construction preserves independent mutable slots and normal metadata/pipeline
+behavior, Arrow retention and cancellation pass, existing directory/index/pin
+proofs pass, and all completed measurements remain visible. No public option or
+storage semantics changed. Human review remains pending.
+
+Cleanup completed: removed only the owned Software container/network and its
+generated endpoint environment file. Inventories confirmed all previously
+present unowned container/network IDs remained; operational inventories/logs
+stay private. The implementation branch is ready for parent PR coordination.

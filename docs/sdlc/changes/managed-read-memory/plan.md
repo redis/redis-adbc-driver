@@ -15,8 +15,7 @@ regression fails on all six completion/error/cancel cases because consumed rows
 remain referenced. All 56 native comparison trials passed full output validation.
 Four-reader median peak worker RSS fell about 3.3%; elapsed increased 0.5–3.7%
 in this baseline-first run. See [validation](validation.md) for distributions,
-limitations and the pending human acceptance decision. Final adjacent checks
-and owned-fixture cleanup remain before handoff.
+limitations and the pending human acceptance decision.
 
 Additive follow-up: inspect per-row HMGET field boxing, prebox immutable field
 names once per batch, then verify full command metadata, independent args and
@@ -24,3 +23,11 @@ results, raw RESP bytes/replies and pipeline errors. Run a focused allocation
 comparison with the module-selected toolchain before requesting another native
 comparison slot. Preserve the clear-only comparison unchanged and label the
 combined candidate separately.
+
+Additive follow-up complete: constructor allocation comparison passed, focused
+race tests and 29 live Software test pass events have no failures/skips. Combined
+candidate native build/smoke and all 28 additional trials passed full validation.
+All 84 native trial samples and all ten construction samples are retained.
+Owned Software container/network and generated endpoint env were removed;
+other containers/networks remained present. Human review/PR coordination is
+with the parent task; no PR or issue was created by this agent.

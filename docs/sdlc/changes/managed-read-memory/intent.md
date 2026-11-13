@@ -7,6 +7,8 @@ Status: candidate measured; human acceptance of the memory/latency tradeoff pend
 Reduce retained memory from the larger 4096-row managed HASH pages introduced
 in PR #408 while preserving their round-trip/latency benefit. Release consumed
 raw reply references promptly without shrinking discovery or fetch pages.
+Reduce repeated HMGET field-name boxing while preserving independent command
+arguments, results and normal pipeline routing/hooks/errors.
 
 Preserve exact values/NULLs, complete results, Arrow ownership and cancellation,
 visibility/index/directory/pin proofs, and bounded prefetch. No storage, protocol,
