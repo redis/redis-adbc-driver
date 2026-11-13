@@ -214,18 +214,33 @@ elseif op == 'compact_start' then
     redis.call('ZREM',compactionqueue,job.queue_key);redis.call('HDEL',candidates,job.queue_key)
   end
   return 1
-elseif op == 'compact_acquire' then
+elseif op == 'compact_acquire' or op == 'compact_acquire_catalog' then
+  local catalog = op == 'compact_acquire_catalog'
+  local function unavailable() if catalog then return {'',''} else return '' end end
   local raw = redis.call('HGET', k, 'compaction')
-  if not raw then return '' end
+  if not raw then return unavailable() end
   local job = cjson.decode(raw)
   local wr = redis.call('HGET', k, 'w:'..job.id)
   if not wr then return redis.error_reply('compaction ownership record is missing') end
   local w = cjson.decode(wr)
   if w.state ~= 'compacting' then return redis.error_reply('invalid compaction state') end
-  if w.expires > now and w.token ~= token then return '' end
+  if w.expires > now and w.token ~= token then return unavailable() end
+  local root
+  if catalog then
+    -- A fresh read-only pin observes the same current root as a separate
+    -- acquire. Preserve the reader budget before changing either lease.
+    if not reader_hex(id,32) or redis.call('HGET',k,'p:'..id) then return redis.error_reply('invalid compaction catalog pin') end
+    if pins>=128 then return redis.error_reply('snapshot reader limit (128) reached') end
+    root=redis.call('HGET',k,'root')
+  end
   w.token, w.expires, job.token = token, expiry, token
   if job.phase == 'install' then w.publish_until = now + 5000 end
   local result = cjson.encode(job)
+  if catalog then
+    redis.call('HSET', k, 'w:'..job.id,cjson.encode(w),'compaction',result,
+      'p:'..id,cjson.encode({root=root,expires=expiry}))
+    return {result,root}
+  end
   redis.call('HSET', k, 'w:'..job.id,cjson.encode(w),'compaction',result)
   return result
 elseif op == 'compact_checkpoint' or op == 'compact_error' or op == 'compact_release' or op == 'compact_finish' then
