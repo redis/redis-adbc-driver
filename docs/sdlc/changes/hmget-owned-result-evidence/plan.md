@@ -13,3 +13,6 @@
    if successful; do not claim a production API or general application speedup.
 
 See [intent](intent.md) and [contract](spec.md).
+
+Status: checks and 36-sample comparison passed; reviewed public evidence is in
+the [validation record](validation.md).

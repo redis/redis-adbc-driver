@@ -42,6 +42,11 @@ def main():
     for sample in samples:
         groups[(sample["suite"], sample["name"])].append(sample)
     assert len(groups) == expected, len(groups)
+    if metadata.get("suite") == "redis-owned":
+        names = {("redis", f"BenchmarkUpstreamHMGETOwned/rows_{rows}/buffer_{buffer}/{mode}")
+                 for rows in (256, 1024, 4096) for buffer in (32768, 1048576)
+                 for mode in ("slice_cmd", "strings_owned")}
+        assert set(groups) == names, set(groups) ^ names
     count = metadata["count"]
     assert len(samples) == expected * count
     summary = []

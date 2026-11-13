@@ -6,4 +6,4 @@ with a typed consumer that owns fresh result slots, rather than relying on the
 prior reusable-slot prototype's changed result lifetime.
 
 No production driver or public go-redis command API is introduced. See
-[contract](spec.md), [plan](plan.md) and the eventual measured evidence.
+[contract](spec.md), [plan](plan.md) and [validation](validation.md).

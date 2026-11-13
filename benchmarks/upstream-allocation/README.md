@@ -142,6 +142,9 @@ GitHub's API did not detect a license. Before adapting/running it:
 
 ## Independently owned typed-result control
 
+[Measured owned-result evidence](owned-2026-11-13/report.md) retains all 36
+validated samples and the ownership/API limitations.
+
 The additional `--suite redis-owned` experiment compares actual SliceCmd with
 fresh owned string/null vectors for every array. Unlike `string_slice_reuse`,
 row-vector allocations are inside timing and old results remain valid after the
