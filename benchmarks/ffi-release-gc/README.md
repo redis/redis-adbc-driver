@@ -59,3 +59,45 @@ seven ownership scenario groups. Both race variants abort before those scenarios
 because checkptr rejects the existing integer-handle-to-pointer conversion in
 `createHandle`. This blocked gate is preserved; checkptr was not disabled, and no
 ASAN or complete lifetime safety is claimed.
+
+The [complete results](2026-11-13/report.md) include a separate native read
+control: all four experimental medians were slower, despite the isolated release
+cost reduction. Both negative native results and blocked safety gates keep the
+default unchanged.
+
+To reproduce the native control, create two private Git worktrees at
+`24f654b76b98f3d8960af94a3ca0230185d467a1`. Apply the supplied omission patch only
+to the candidate and commit that experimental change locally so its real clean
+source identity appears in Go build metadata. The original measured native
+candidate was private commit `b519284b`; a new local commit need not have the
+same hash. Do not copy the probe into either native tree. Build both before any
+timing, with the version flags preserved:
+
+```sh
+make -C /private/ffi-baseline/go build adbc-cli VERSION=v0.1.0-dev.next-four-base
+make -C /private/ffi-candidate/go build adbc-cli VERSION=v0.1.0-dev.ffi-gc-none
+```
+
+Record actual library/CLI SHA256 and `go version -m`, source/module/patch/harness
+hashes, host and environment settings in a private manifest. Use the independently
+typed IPC source matching `source_sha256` in results. Provision and verify an
+owned Redis Software fixture through `make -C go redis-up`; independently verify
+effective 4x QPF/six workers/mnp32, noeviction and container resources. Configure
+private `REDIS_BENCH_*`, `SSL_CERT_FILE` and retained-control policy only after
+verification. The data URI must use TLS with certificate/hostname verification
+and explicit `protocol=3`. Never use a shared application database.
+
+Run the unchanged existing helper once for each variant, baseline first, with
+fresh private output directories and matching explicit versions:
+
+```sh
+python benchmarks/table-modes/managed_read_memory.py --source /private/source.arrow --driver /private/ffi-baseline/go/build/libadbc_driver_redis.dylib --cli /private/ffi-baseline/go/build/redis-adbc --version v0.1.0-dev.next-four-base --work /private/baseline-results --dedicated-empty-server --read-repeats 6
+python benchmarks/table-modes/managed_read_memory.py --source /private/source.arrow --driver /private/ffi-candidate/go/build/libadbc_driver_redis.dylib --cli /private/ffi-candidate/go/build/redis-adbc --version v0.1.0-dev.ffi-gc-none --work /private/candidate-results --dedicated-empty-server --read-repeats 6
+```
+
+The helper completely validates every output and returns its owned database
+empty. Preserve every attempt and the declared order; do not repeat until a
+preferred outcome appears. Independently verify cleanup and remove only the
+fixture resources that the run owns. Operational manifests, endpoints, TLS keys,
+credentials and raw management output stay private. This reproduction is not an
+ASAN or passing race-gate procedure.

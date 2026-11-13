@@ -11,3 +11,7 @@
    and request root review before any publication or production adoption.
 
 See [intent](intent.md), [specification](spec.md), [validation](validation.md).
+
+Execution complete: all 56 C-ABI and 56 native observations retained; omission
+rejected for default adoption. Both race gates blocked and ASAN unrun. Final
+parent teardown proof and review/publication remain pending.
