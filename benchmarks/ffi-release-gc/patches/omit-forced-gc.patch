@@ -1,0 +1,46 @@
+--- a/go/pkg/driver.go
++++ b/go/pkg/driver.go
+@@ -62,7 +62,6 @@
+ 	"log/slog"
+ 	"math"
+ 	"os"
+-	"runtime"
+ 	"runtime/cgo"
+ 	"slices"
+ 	"strings"
+@@ -433,7 +432,7 @@
+ 		C.RediserrRelease(cStream.adbcErr)
+ 		C.free(unsafe.Pointer(cStream.adbcErr))
+ 	}
+-	runtime.GC()
++	// Experimental attribution only: forced GC omitted.
+ }
+ 
+ //export RedisErrorFromArrayStream
+@@ -655,7 +654,7 @@
+ 	//     triggering the GC we ensure the release callback gets called.
+ 	//  2. Creates deterministic GC behavior by all Release functions
+ 	//     triggering a garbage collection
+-	runtime.GC()
++	// Experimental attribution only: forced GC omitted.
+ 	return C.ADBC_STATUS_OK
+ }
+ 
+@@ -1025,7 +1024,7 @@
+ 		//     triggering the GC we ensure the release callback gets called.
+ 		//  2. Creates deterministic GC behavior by all Release functions
+ 		//     triggering a garbage collection
+-		runtime.GC()
++		// Experimental attribution only: forced GC omitted.
+ 	}()
+ 	if conn.cnxn == nil {
+ 		return C.ADBC_STATUS_OK
+@@ -1494,7 +1493,7 @@
+ 		//     triggering the GC we ensure the release callback gets called.
+ 		//  2. Creates deterministic GC behavior by all Release functions
+ 		//     triggering a garbage collection
+-		runtime.GC()
++		// Experimental attribution only: forced GC omitted.
+ 	}()
+ 	if st.stmt == nil {
+ 		return C.ADBC_STATUS_OK

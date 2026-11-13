@@ -1,0 +1,126 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// SPDX-License-Identifier: Apache-2.0
+//go:build driverlib && ffireleaseprobe
+
+package main
+
+/*
+#include "adbc.h"
+*/
+import "C"
+
+import (
+	"context"
+	"runtime"
+	"runtime/cgo"
+	"sync/atomic"
+
+	"github.com/adbc-drivers/driverbase-go/driverbase"
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+)
+
+// This fixture is overlaid only into experimental libraries. Embedding the
+// interfaces makes unimplemented operations fail rather than contact Redis.
+var probeClosed [3]atomic.Int64
+var probeAlloc = memory.NewCheckedAllocator(alloc)
+
+type probeDatabase struct{ driverbase.Database }
+
+func (*probeDatabase) Close(context.Context) error { probeClosed[0].Add(1); return nil }
+
+type probeConnection struct{ driverbase.Connection }
+
+func (*probeConnection) Close(context.Context) error { probeClosed[1].Add(1); return nil }
+
+type probeStatement struct {
+	adbc.StatementWithContext
+	input array.RecordReader
+	fail  bool
+}
+
+func (s *probeStatement) Close(context.Context) error {
+	probeClosed[2].Add(1)
+	if s.input != nil {
+		s.input.Release()
+		s.input = nil
+	}
+	if s.fail {
+		return adbc.Error{Code: adbc.StatusIO, Msg: "intentional fixture close error", SqlState: [5]byte{'H', 'Y', '0', '0', '0'}}
+	}
+	return nil
+}
+func (s *probeStatement) Bind(_ context.Context, batch arrow.RecordBatch) error {
+	if s.input != nil {
+		s.input.Release()
+	}
+	r, err := array.NewRecordReader(batch.Schema(), []arrow.RecordBatch{batch})
+	s.input = r
+	return err
+}
+func (s *probeStatement) BindStream(_ context.Context, r array.RecordReader) error {
+	if s.input != nil {
+		s.input.Release()
+	}
+	s.input = r
+	return nil
+}
+func (s *probeStatement) ExecuteQuery(context.Context) (array.RecordReader, int64, error) {
+	if s.input != nil {
+		s.input.Retain()
+		return s.input, -1, nil
+	}
+	b := array.NewInt64Builder(probeAlloc)
+	b.AppendValues([]int64{11, 23, 37}, []bool{true, false, true})
+	a := b.NewArray()
+	b.Release()
+	schema := arrow.NewSchema([]arrow.Field{{Name: "value", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+	batch := array.NewRecordBatch(schema, []arrow.Array{a}, 3)
+	a.Release()
+	r, err := array.NewRecordReader(schema, []arrow.RecordBatch{batch})
+	batch.Release()
+	if s.fail {
+		return &probeErrorReader{RecordReader: r}, 3, err
+	}
+	return r, 3, err
+}
+
+type probeErrorReader struct{ array.RecordReader }
+
+func (*probeErrorReader) Err() error {
+	return adbc.Error{Code: adbc.StatusInvalidData, Msg: "intentional fixture stream error", SqlState: [5]byte{'2', '2', '0', '0', '0'}}
+}
+
+//export RedisFFIProbeNew
+func RedisFFIProbeNew(kind C.int, out *C.struct_AdbcDatabase) {
+	var owner any
+	switch kind {
+	case 0:
+		owner = &cDatabase{db: &probeDatabase{}}
+	case 1:
+		owner = &cConn{cnxn: &probeConnection{}}
+	case 2, 3:
+		owner = &cStmt{stmt: &probeStatement{fail: kind == 3}}
+	default:
+		panic("invalid fixture kind")
+	}
+	out.private_data = createHandle(cgo.NewHandle(owner))
+}
+
+//export RedisFFIProbeStat
+func RedisFFIProbeStat(kind C.int) C.int64_t {
+	if kind >= 0 && kind < 3 {
+		return C.int64_t(probeClosed[kind].Load())
+	}
+	if kind == 3 {
+		return C.int64_t(probeAlloc.CurrentAlloc())
+	}
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	if kind == 4 {
+		return C.int64_t(m.NumGC)
+	}
+	return C.int64_t(m.NumForcedGC)
+}
