@@ -344,12 +344,7 @@ class Benchmark:
         write_worker((self.cfg,'redis_py',0,100000,1000));ready(self.cfg,100000)
         register(self.cfg,self.expected.schema,self.work/'read-registration-private.log')
         self.validate_sql('managed',self.expected);self.validate_sql('unmanaged',self.expected);self.validate_raw(self.expected)
-        with connect(self.cfg) as c,c.cursor() as q:
-            try:q.adbc_ingest('unmanaged',self.expected.slice(0,1),mode='append',db_schema_name='bench')
-            except Exception as e:
-                assert 'Arrow ingestion is not supported for unmanaged' in str(e),str(e)
-                self.results['unmanaged_arrow_ingestion']='NotImplemented (verified refusal)'
-            else:raise AssertionError('Unmanaged Arrow ingestion unexpectedly succeeded')
+        self.verify_unmanaged_arrow()
         cases=[(m,n,b) for b in [512,4096] for n in [1,4] for m in MODES]
         for rep in range(-1,self.args.read_repeats):
             for mode,readers,batch in (cases if rep%2 else reversed(cases)):
@@ -368,6 +363,14 @@ class Benchmark:
                      'tasks':tasks,'validated':True,'peak_worker_rss_bytes':max(w['peak_rss_bytes'] for w in workers)}
                 self.results['reads'].append(row);self.save();print('READ',json.dumps(row),flush=True)
         self.validate_raw(self.expected)
+
+    def verify_unmanaged_arrow(self):
+        with connect(self.cfg) as c,c.cursor() as q:
+            try:q.adbc_ingest('unmanaged',self.expected.slice(0,1),mode='append',db_schema_name='bench')
+            except Exception as e:
+                assert 'Arrow ingestion is not supported for unmanaged' in str(e),str(e)
+                self.results['unmanaged_arrow_ingestion']='NotImplemented (verified refusal)'
+            else:raise AssertionError('Unmanaged Arrow ingestion unexpectedly succeeded')
 
     def run_writes(self):
         expected=self.expected.slice(0,self.args.write_rows)
