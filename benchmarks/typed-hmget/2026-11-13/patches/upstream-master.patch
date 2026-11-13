@@ -1,0 +1,702 @@
+diff --git a/command.go b/command.go
+index 5f830d0..70257d0 100644
+--- a/command.go
++++ b/command.go
+@@ -170,6 +170,7 @@ const (
+ 	CmdTypeUintSlice
+ 	CmdTypeAREntrySlice
+ 	CmdTypeBackupStatus
++	CmdTypeNullableStringSlice
+ )
+ 
+ type (
+@@ -10420,6 +10421,13 @@ func ExtractCommandValue(cmd interface{}) (interface{}, error) {
+ 			}); ok {
+ 				return tsNRangePivotRowSliceCmd.Val(), tsNRangePivotRowSliceCmd.Err()
+ 			}
++		case CmdTypeNullableStringSlice:
++			if nullableCmd, ok := cmd.(interface {
++				Val() NullableStringSlice
++				Err() error
++			}); ok {
++				return nullableCmd.Val(), nullableCmd.Err()
++			}
+ 		case CmdTypeStringSlice:
+ 			if stringSliceCmd, ok := cmd.(interface {
+ 				Val() []string
+@@ -10850,3 +10858,98 @@ func (cmd *BackupStatusCmd) Clone() Cmder {
+ 		val:     val,
+ 	}
+ }
++
++// NullableStringSlice contains ordered strings and their validity. Values and
++// Valid have the same length. Valid[i] is false for a missing value; it is true
++// for a stored empty string. Decoded vectors and string payloads belong to the
++// result and are not reused by subsequent commands or reads.
++type NullableStringSlice struct {
++	Values []string
++	Valid  []bool
++}
++
++// NullableStringSliceCmd reads an array of nullable strings without boxing each
++// value into an interface. It does not expose borrowed connection buffers.
++type NullableStringSliceCmd struct {
++	baseCmd
++	val      NullableStringSlice
++	expected int
++}
++
++var _ Cmder = (*NullableStringSliceCmd)(nil)
++
++func NewNullableStringSliceCmd(ctx context.Context, args ...interface{}) *NullableStringSliceCmd {
++	cmd := &NullableStringSliceCmd{
++		baseCmd:  baseCmd{ctx: ctx, args: args, cmdType: CmdTypeNullableStringSlice},
++		expected: -1,
++	}
++	if len(args) >= 2 {
++		if name, ok := args[0].(string); ok && strings.EqualFold(name, "hmget") {
++			cmd.expected = len(args) - 2
++			cmd.SetFirstKeyPos(1)
++		}
++	}
++	return cmd
++}
++
++func (cmd *NullableStringSliceCmd) SetVal(val NullableStringSlice) { cmd.val = val }
++
++func (cmd *NullableStringSliceCmd) Val() NullableStringSlice {
++	cmd.await()
++	return cmd.val
++}
++
++func (cmd *NullableStringSliceCmd) Result() (NullableStringSlice, error) {
++	cmd.await()
++	return cmd.val, cmd.err
++}
++
++func (cmd *NullableStringSliceCmd) String() string {
++	cmd.await()
++	return cmdString(cmd, cmd.val)
++}
++
++func (cmd *NullableStringSliceCmd) readReply(rd *proto.Reader) error {
++	cmd.val = NullableStringSlice{}
++	n, err := rd.ReadArrayLen()
++	if err != nil {
++		return err
++	}
++	if cmd.expected >= 0 && n != cmd.expected {
++		return fmt.Errorf("redis: unexpected HMGET reply length %d, want %d", n, cmd.expected)
++	}
++	val := NullableStringSlice{Values: make([]string, n), Valid: make([]bool, n)}
++	for i := range n {
++		kind, err := rd.PeekReplyType()
++		if err != nil {
++			return err
++		}
++		if kind != proto.RespString && kind != proto.RespNil && kind != proto.RespStatus {
++			// An embedded error is not a complete command error: the rest of
++			// this array is unread, so the connection must not be reused.
++			return fmt.Errorf("%w: unexpected nullable string element type %q", errConnUnusable, kind)
++		}
++		value, err := rd.ReadString()
++		if err == Nil {
++			continue
++		}
++		if err != nil {
++			return err
++		}
++		val.Values[i], val.Valid[i] = value, true
++	}
++	// A failed read never publishes a partially decoded result.
++	cmd.val = val
++	return nil
++}
++
++func (cmd *NullableStringSliceCmd) Clone() Cmder {
++	val := NullableStringSlice{}
++	if cmd.val.Values != nil {
++		val.Values = append([]string{}, cmd.val.Values...)
++	}
++	if cmd.val.Valid != nil {
++		val.Valid = append([]bool{}, cmd.val.Valid...)
++	}
++	return &NullableStringSliceCmd{baseCmd: cmd.cloneBaseCmd(), val: val, expected: cmd.expected}
++}
+diff --git a/context_deadline_test.go b/context_deadline_test.go
+index 800cc06..7182e1e 100644
+--- a/context_deadline_test.go
++++ b/context_deadline_test.go
+@@ -42,7 +42,9 @@ func TestContextDeadlinePubSubKeepsTimeoutConnection(t *testing.T) {
+ 	p := &PubSub{
+ 		opt: &Options{Protocol: 2}, cn: cn,
+ 		closeConn: func(cn *pool.Conn) error { closes++; return cn.Close() },
+-		newConn:   func(ctx context.Context, _ string, _ []string) (*pool.Conn, error) { return nil, ctx.Err() },
++		newConn: func(ctx context.Context, _ string, _ []string, _ ...func(*pool.Conn)) (*pool.Conn, error) {
++			return nil, ctx.Err()
++		},
+ 	}
+ 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+ 	defer cancel()
+diff --git a/hash_commands.go b/hash_commands.go
+index 8ef6354..0d47ff6 100644
+--- a/hash_commands.go
++++ b/hash_commands.go
+@@ -18,6 +18,7 @@ type HashCmdable interface {
+ 	HKeys(ctx context.Context, key string) *StringSliceCmd
+ 	HLen(ctx context.Context, key string) *IntCmd
+ 	HMGet(ctx context.Context, key string, fields ...string) *SliceCmd
++	HMGetStrings(ctx context.Context, key string, fields ...string) *NullableStringSliceCmd
+ 	HSet(ctx context.Context, key string, values ...interface{}) *IntCmd
+ 	HMSet(ctx context.Context, key string, values ...interface{}) *BoolCmd
+ 	HSetEX(ctx context.Context, key string, fieldsAndValues ...string) *IntCmd
+@@ -124,6 +125,21 @@ func (c cmdable) HMGet(ctx context.Context, key string, fields ...string) *Slice
+ 	return cmd
+ }
+ 
++// HMGetStrings is HMGet with independently owned string values and a validity
++// vector. Missing fields have Valid[i] == false; an empty stored string has
++// Valid[i] == true. Field order and duplicates are preserved.
++// Redis 2.0.0+: https://redis.io/docs/latest/commands/hmget/
++func (c cmdable) HMGetStrings(ctx context.Context, key string, fields ...string) *NullableStringSliceCmd {
++	args := make([]interface{}, 2+len(fields))
++	args[0], args[1] = "hmget", key
++	for i, field := range fields {
++		args[2+i] = field
++	}
++	cmd := NewNullableStringSliceCmd(ctx, args...)
++	_ = c(ctx, cmd)
++	return cmd
++}
++
+ // HSet accepts values in following formats:
+ //
+ //   - HSet(ctx, "myhash", "key1", "value1", "key2", "value2")
+@@ -218,6 +234,7 @@ func (c cmdable) HStrLen(ctx context.Context, key, field string) *IntCmd {
+ 	_ = c(ctx, cmd)
+ 	return cmd
+ }
++
+ func (c cmdable) HScanNoValues(ctx context.Context, key string, cursor uint64, match string, count int64) *ScanCmd {
+ 	args := []interface{}{"hscan", key, cursor}
+ 	if match != "" {
+@@ -346,7 +363,6 @@ func (c cmdable) HPExpireWithArgs(ctx context.Context, key string, expiration ti
+ //
+ // [HExpireAt Documentation]: https://redis.io/commands/hexpireat/
+ func (c cmdable) HExpireAt(ctx context.Context, key string, tm time.Time, fields ...string) *IntSliceCmd {
+-
+ 	args := []interface{}{"HEXPIREAT", key, tm.Unix(), "FIELDS", len(fields)}
+ 
+ 	for _, field := range fields {
+diff --git a/hash_nullable_bench_test.go b/hash_nullable_bench_test.go
+new file mode 100644
+index 0000000..856914e
+--- /dev/null
++++ b/hash_nullable_bench_test.go
+@@ -0,0 +1,144 @@
++package redis
++
++import (
++	"bytes"
++	"context"
++	"fmt"
++	"strconv"
++	"testing"
++
++	"github.com/redis/go-redis/v9/internal/proto"
++)
++
++var nullableBenchmarkSink uint64
++
++func nullableBenchmarkValue(row, col int) (string, bool) {
++	if (row*105+col)%17 == 0 {
++		return "", false
++	}
++	if col%11 == 0 {
++		return "", true
++	}
++	if col == 1 {
++		return strconv.FormatInt(9007199254740993+int64(row), 10), true
++	}
++	if col == 2 {
++		return "x\x00雪\r\n", true
++	}
++	return "r" + strconv.Itoa(row) + "c" + strconv.Itoa(col), true
++}
++
++func BenchmarkHMGetStringsDecode(b *testing.B) {
++	for _, count := range []int{256, 1024, 4096} {
++		var wire bytes.Buffer
++		for row := 0; row < count; row++ {
++			fmt.Fprint(&wire, "*105\r\n")
++			for col := range 105 {
++				s, valid := nullableBenchmarkValue(row, col)
++				if !valid {
++					fmt.Fprint(&wire, "_\r\n")
++				} else {
++					fmt.Fprintf(&wire, "$%d\r\n%s\r\n", len(s), s)
++				}
++			}
++		}
++		payload := wire.Bytes()
++		args := make([]interface{}, 107)
++		args[0], args[1] = "hmget", "key"
++		for col := range 105 {
++			args[2+col] = "f" + strconv.Itoa(col)
++		}
++		for _, size := range []int{32 << 10, 1 << 20} {
++			for _, mode := range []string{"generic", "nullable"} {
++				b.Run(fmt.Sprintf("rows_%d/buffer_%d/%s", count, size, mode), func(b *testing.B) {
++					generic := make([]*SliceCmd, count)
++					typed := make([]*NullableStringSliceCmd, count)
++					for row := range count {
++						a := append([]interface{}(nil), args...)
++						if mode == "generic" {
++							generic[row] = NewSliceCmd(context.Background(), a...)
++						} else {
++							typed[row] = NewNullableStringSliceCmd(context.Background(), a...)
++						}
++					}
++					reader := bytes.NewReader(payload)
++					rd := proto.NewReaderSize(reader, size)
++					decode := func() error {
++						reader.Reset(payload)
++						rd.Reset(reader)
++						for row := range count {
++							var err error
++							if mode == "generic" {
++								err = generic[row].readReply(rd)
++							} else {
++								err = typed[row].readReply(rd)
++							}
++							if err != nil {
++								return err
++							}
++						}
++						return nil
++					}
++					consume := func() uint64 {
++						var sum uint64
++						for row := range count {
++							for col := range 105 {
++								var s string
++								var valid bool
++								if mode == "generic" {
++									s, valid = generic[row].val[col].(string)
++								} else {
++									s, valid = typed[row].val.Values[col], typed[row].val.Valid[col]
++								}
++								if valid {
++									sum += 1 + uint64(len(s))
++									if len(s) > 0 {
++										sum += uint64(s[0])
++									}
++								}
++							}
++						}
++						return sum
++					}
++					validate := func() {
++						for row := range count {
++							for col := range 105 {
++								want, valid := nullableBenchmarkValue(row, col)
++								if mode == "generic" {
++									got, ok := generic[row].val[col].(string)
++									if got != want || ok != valid {
++										b.Fatal("generic byte/null mismatch")
++									}
++								} else {
++									got := typed[row].val
++									if got.Values[col] != want || got.Valid[col] != valid {
++										b.Fatal("nullable byte/null mismatch")
++									}
++								}
++							}
++						}
++					}
++					if err := decode(); err != nil {
++						b.Fatal(err)
++					}
++					validate()
++					want := consume()
++					b.ReportAllocs()
++					b.SetBytes(int64(len(payload)))
++					b.ResetTimer()
++					for range b.N {
++						if err := decode(); err != nil {
++							b.Fatal(err)
++						}
++						nullableBenchmarkSink = consume()
++					}
++					b.StopTimer()
++					if nullableBenchmarkSink != want {
++						b.Fatal("consumption checksum changed")
++					}
++					validate()
++				})
++			}
++		}
++	}
++}
+diff --git a/hash_nullable_software_test.go b/hash_nullable_software_test.go
+new file mode 100644
+index 0000000..b7dc045
+--- /dev/null
++++ b/hash_nullable_software_test.go
+@@ -0,0 +1,188 @@
++package redis
++
++import (
++	"context"
++	"crypto/x509"
++	"errors"
++	"fmt"
++	"os"
++	"reflect"
++	"strings"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++type nullableResultHook struct {
++	observed atomic.Int64
++	before   atomic.Bool
++}
++
++func (h *nullableResultHook) DialHook(next DialHook) DialHook { return next }
++func (h *nullableResultHook) inspect(cmd Cmder) {
++	if cmd.GetCmdType() != CmdTypeNullableStringSlice {
++		return
++	}
++	_ = cmd.String()
++	if value, err := ExtractCommandValue(cmd); err == nil {
++		if _, ok := value.(NullableStringSlice); ok {
++			h.observed.Add(1)
++		}
++	}
++}
++
++func (h *nullableResultHook) ProcessHook(next ProcessHook) ProcessHook {
++	return func(ctx context.Context, cmd Cmder) error {
++		if h.before.Load() {
++			h.inspect(cmd)
++		}
++		err := next(ctx, cmd)
++		h.inspect(cmd)
++		return err
++	}
++}
++
++func (h *nullableResultHook) ProcessPipelineHook(next ProcessPipelineHook) ProcessPipelineHook {
++	return func(ctx context.Context, cmds []Cmder) error {
++		if h.before.Load() {
++			for _, cmd := range cmds {
++				h.inspect(cmd)
++			}
++		}
++		err := next(ctx, cmds)
++		for _, cmd := range cmds {
++			h.inspect(cmd)
++		}
++		return err
++	}
++}
++
++func nullableSoftwareClient(t *testing.T) (*Client, context.Context) {
++	t.Helper()
++	uri := os.Getenv("REDIS_TYPED_HMGET_URI")
++	if uri == "" {
++		t.Skip("set REDIS_TYPED_HMGET_URI to an owned verified Software TLS/RESP3 fixture")
++	}
++	opt, err := ParseURL(uri)
++	if err != nil || opt.TLSConfig == nil || opt.Protocol != 3 {
++		t.Fatal("strict TLS/RESP3 fixture required", err)
++	}
++	pem, err := os.ReadFile(os.Getenv("SSL_CERT_FILE"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	pool := x509.NewCertPool()
++	if !pool.AppendCertsFromPEM(pem) {
++		t.Fatal("invalid test CA")
++	}
++	opt.TLSConfig.RootCAs = pool
++	opt.ContextTimeoutEnabled = true
++	opt.MaxRetries = -1
++	c := NewClient(opt)
++	t.Cleanup(func() { _ = c.Close() })
++	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
++	t.Cleanup(cancel)
++	if err := c.Ping(ctx).Err(); err != nil {
++		t.Fatal(err)
++	}
++	return c, ctx
++}
++
++func TestHMGetStringsSoftware(t *testing.T) {
++	c, ctx := nullableSoftwareClient(t)
++	key := fmt.Sprintf("typed-hmget:{owned}:%d", time.Now().UnixNano())
++	wrong := key + ":wrong"
++	t.Cleanup(func() { _ = c.Del(context.Background(), key, wrong).Err() })
++	large := strings.Repeat("x\x00\r\n", 4096)
++	if err := c.HSet(ctx, key, "empty", "", "binary", large, "id", "9007199254740993", "utf8", "雪").Err(); err != nil {
++		t.Fatal(err)
++	}
++	if err := c.Set(ctx, wrong, "wrong-type", 0).Err(); err != nil {
++		t.Fatal(err)
++	}
++	fields := []string{"missing", "empty", "binary", "id", "utf8", "empty"}
++	want := NullableStringSlice{Values: []string{"", "", large, "9007199254740993", "雪", ""}, Valid: []bool{false, true, true, true, true, true}}
++	hook := &nullableResultHook{}
++	hook.before.Store(true)
++	c.AddHook(hook)
++	check := func(cmd *NullableStringSliceCmd) NullableStringSlice {
++		t.Helper()
++		got, err := cmd.Result()
++		if err != nil || !reflect.DeepEqual(got, want) {
++			t.Fatal("typed values/NULL/duplicate order", err)
++		}
++		return got
++	}
++	retained := check(c.HMGetStrings(ctx, key, fields...))
++	generic, err := c.HMGet(ctx, key, fields...).Result()
++	if err != nil {
++		t.Fatal(err)
++	}
++	for i, value := range generic {
++		if value == nil {
++			if retained.Valid[i] {
++				t.Fatal("NULL changed")
++			}
++			continue
++		}
++		if !retained.Valid[i] || value != retained.Values[i] {
++			t.Fatal("generic and typed differ")
++		}
++	}
++	for _, transactional := range []bool{false, true} {
++		var pipe Pipeliner
++		if transactional {
++			pipe = c.TxPipeline()
++		} else {
++			pipe = c.Pipeline()
++		}
++		good := pipe.HMGetStrings(ctx, key, fields...)
++		bad := pipe.HMGetStrings(ctx, wrong, "field")
++		missing := pipe.HMGetStrings(ctx, key+":absent", "x", "y")
++		ping := pipe.Ping(ctx)
++		_, err := pipe.Exec(ctx)
++		if err == nil || !isRedisError(err) || bad.Err() == nil {
++			t.Fatal("wrong-type error lost", err)
++		}
++		check(good)
++		m, err := missing.Result()
++		if err != nil || !reflect.DeepEqual(m.Valid, []bool{false, false}) || !reflect.DeepEqual(m.Values, []string{"", ""}) {
++			t.Fatal("missing HASH semantics", err)
++		}
++		if got, err := ping.Result(); err != nil || got != "PONG" {
++			t.Fatal("following command misaligned", got, err)
++		}
++	}
++	for _, fullDuplex := range []bool{false, true} {
++		// FullDuplex's documented hook contract forbids result reads before
++		// next: its reader can already be writing this command concurrently.
++		// Both observations remain covered on the ordinary/half-duplex faces.
++		hook.before.Store(!fullDuplex)
++		ap, err := c.AsyncAutoPipelineWithOptions(&AutoPipelineOptions{MaxBatchSize: 64, FullDuplex: fullDuplex})
++		if err != nil {
++			t.Fatal(err)
++		}
++		cmds := make([]*NullableStringSliceCmd, 96)
++		for i := range cmds {
++			cmds[i] = ap.HMGetStrings(ctx, key, fields...)
++		}
++		for _, cmd := range cmds {
++			check(cmd)
++		}
++		if err := ap.Close(); err != nil {
++			t.Fatal(err)
++		}
++	}
++	hook.before.Store(true)
++	if !reflect.DeepEqual(retained, want) || hook.observed.Load() == 0 {
++		t.Fatal("retained result or observing hooks changed")
++	}
++	cancelled, cancel := context.WithCancel(ctx)
++	cancel()
++	if _, err := c.HMGetStrings(cancelled, key, fields...).Result(); !errors.Is(err, context.Canceled) {
++		t.Fatal("cancellation lost", err)
++	}
++	if err := c.Ping(ctx).Err(); err != nil {
++		t.Fatal("client unusable after cancellation", err)
++	}
++}
+diff --git a/hash_nullable_unit_test.go b/hash_nullable_unit_test.go
+new file mode 100644
+index 0000000..a5a5339
+--- /dev/null
++++ b/hash_nullable_unit_test.go
+@@ -0,0 +1,144 @@
++package redis
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"reflect"
++	"sync"
++	"testing"
++
++	"github.com/redis/go-redis/v9/internal/proto"
++)
++
++func TestHMGetStringsCommand(t *testing.T) {
++	ctx := context.Background()
++	var seen Cmder
++	c := cmdable(func(_ context.Context, cmd Cmder) error { seen = cmd; return nil })
++	cmd := c.HMGetStrings(ctx, "key{slot}", "a", "", "a")
++	if cmd != seen || !reflect.DeepEqual(cmd.Args(), []interface{}{"hmget", "key{slot}", "a", "", "a"}) || cmdFirstKeyPosWithInfo(cmd, nil) != 1 {
++		t.Fatal("command shape or routing lost", cmd.Args())
++	}
++	want := NullableStringSlice{Values: []string{"", "x"}, Valid: []bool{true, false}}
++	cmd.SetVal(want)
++	v, err := ExtractCommandValue(cmd)
++	if err != nil || !reflect.DeepEqual(v, want) {
++		t.Fatal("hook extraction", v, err)
++	}
++	clone := cmd.Clone().(*NullableStringSliceCmd)
++	clone.val.Values[0], clone.val.Valid[0] = "changed", false
++	if cmd.val.Values[0] != "" || !cmd.val.Valid[0] || clone.expected != cmd.expected {
++		t.Fatal("clone shares slots or loses parse state")
++	}
++	factory := cmd.Clone()
++	if _, ok := factory.(*NullableStringSliceCmd); !ok {
++		t.Fatal("typed clone lost type")
++	}
++	if err := (&ClusterClient{}).setCommandValue(factory, want); err != nil {
++		t.Fatal(err)
++	}
++	if got, err := ExtractCommandValue(factory); err != nil || !reflect.DeepEqual(got, want) {
++		t.Fatal("routing result", got, err)
++	}
++}
++
++func TestHMGetStringsOwnedDecode(t *testing.T) {
++	large := bytes.Repeat([]byte{'a', 0, '\r', '\n'}, 4096)
++	wire := []byte(fmt.Sprintf("*5\r\n_\r\n$0\r\n\r\n$16\r\n9007199254740993\r\n$%d\r\n%s\r\n$5\r\nhello\r\n+next\r\n", len(large), large))
++	// The exact integer has sixteen decimal bytes and must never pass a float.
++	for _, size := range []int{32 << 10, 1 << 20} {
++		input := append([]byte(nil), wire...)
++		rd := proto.NewReaderSize(bytes.NewReader(input), size)
++		cmd := NewNullableStringSliceCmd(context.Background(), "hmget", "k", "missing", "empty", "id", "binary", "hello")
++		if err := cmd.readReply(rd); err != nil {
++			t.Fatal(err)
++		}
++		retained := cmd.Val()
++		want := NullableStringSlice{Values: []string{"", "", "9007199254740993", string(large), "hello"}, Valid: []bool{false, true, true, true, true}}
++		if !reflect.DeepEqual(retained, want) {
++			t.Fatal("bytes or NULL mask changed")
++		}
++		if next, err := rd.ReadString(); err != nil || next != "next" {
++			t.Fatal("reply misalignment", next, err)
++		}
++		for i := range input {
++			input[i] = 'x'
++		}
++		rd.Reset(bytes.NewBufferString("*5\r\n$1\r\nz\r\n_\r\n_\r\n_\r\n_\r\n"))
++		if err := cmd.readReply(rd); err != nil {
++			t.Fatal(err)
++		}
++		cmd.val.Values[0] = "mutated"
++		var wg sync.WaitGroup
++		for range 4 {
++			wg.Add(1)
++			go func() {
++				defer wg.Done()
++				if !reflect.DeepEqual(retained, want) {
++					t.Error("retained result changed after next decode")
++				}
++			}()
++		}
++		wg.Wait()
++	}
++}
++
++func TestHMGetStringsDecodeErrors(t *testing.T) {
++	for _, wire := range []string{"*1\r\n$4\r\na", "*2\r\n$1\r\na\r\n", "*1\r\n-ERR nested\r\n+unread\r\n", "*1\r\n#t\r\n", "*2\r\n_\r\n_\r\n", "_\r\n", "-WRONGTYPE fixture\r\n"} {
++		cmd := NewNullableStringSliceCmd(context.Background(), "hmget", "k", "field")
++		err := cmd.readReply(proto.NewReader(bytes.NewBufferString(wire)))
++		if err == nil || cmd.val.Values != nil || cmd.val.Valid != nil {
++			t.Fatalf("partial result/error lost for %q: %v", wire, err)
++		}
++		if wire == "-WRONGTYPE fixture\r\n" {
++			if !isRedisError(err) {
++				t.Fatal("whole command error lost its type")
++			}
++			continue
++		}
++		if wire == "_\r\n" {
++			if !errors.Is(err, Nil) {
++				t.Fatal(err)
++			}
++			continue
++		}
++		if !isBadConn(err, false, "") {
++			t.Fatal("malformed array permits socket reuse", err)
++		}
++		if errors.Is(err, io.EOF) {
++			continue
++		}
++	}
++}
++
++func TestHMGetStringsCachedReplyOwnership(t *testing.T) {
++	ctx := context.Background()
++	wire := []byte("*3\r\n_\r\n$0\r\n\r\n$3\r\nx\x00y\r\n")
++	generic := NewSliceCmd(ctx, "hmget", "k", "missing", "empty", "binary")
++	if err := applyCachedReply(generic, wire); err != nil {
++		t.Fatal(err)
++	}
++	cmd := NewNullableStringSliceCmd(ctx, generic.Args()...)
++	if err := applyCachedReply(cmd, wire); err != nil {
++		t.Fatal(err)
++	}
++	retained := cmd.Val()
++	want := NullableStringSlice{Values: []string{"", "", "x\x00y"}, Valid: []bool{false, true, true}}
++	if !reflect.DeepEqual(retained, want) {
++		t.Fatal("cached typed values differ")
++	}
++	second := NewNullableStringSliceCmd(ctx, generic.Args()...)
++	if err := applyCachedReply(second, wire); err != nil {
++		t.Fatal(err)
++	}
++	second.val.Values[2] = "changed"
++	second.val.Valid[1] = false
++	for i := range wire {
++		wire[i] = 'x'
++	}
++	if !reflect.DeepEqual(retained, want) {
++		t.Fatal("cached result aliases slots or raw cache bytes")
++	}
++}
+diff --git a/osscluster_router.go b/osscluster_router.go
+index 8a6c0c7..1e5e5e4 100644
+--- a/osscluster_router.go
++++ b/osscluster_router.go
+@@ -1134,6 +1134,13 @@ func (c *ClusterClient) setCommandValue(cmd Cmder, value interface{}) error {
+ 				return nil
+ 			}
+ 		}
++	case CmdTypeNullableStringSlice:
++		if c, ok := cmd.(interface{ SetVal(NullableStringSlice) }); ok {
++			if v, ok := value.(NullableStringSlice); ok {
++				c.SetVal(v)
++				return nil
++			}
++		}
+ 	case CmdTypeStringSlice:
+ 		if c, ok := cmd.(interface{ SetVal([]string) }); ok {
+ 			if v, ok := value.([]string); ok {
