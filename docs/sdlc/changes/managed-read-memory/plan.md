@@ -17,3 +17,10 @@ Four-reader median peak worker RSS fell about 3.3%; elapsed increased 0.5–3.7%
 in this baseline-first run. See [validation](validation.md) for distributions,
 limitations and the pending human acceptance decision. Final adjacent checks
 and owned-fixture cleanup remain before handoff.
+
+Additive follow-up: inspect per-row HMGET field boxing, prebox immutable field
+names once per batch, then verify full command metadata, independent args and
+results, raw RESP bytes/replies and pipeline errors. Run a focused allocation
+comparison with the module-selected toolchain before requesting another native
+comparison slot. Preserve the clear-only comparison unchanged and label the
+combined candidate separately.

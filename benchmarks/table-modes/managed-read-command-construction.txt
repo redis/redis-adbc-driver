@@ -1,0 +1,16 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M5 Max
+BenchmarkHashFetchCommandConstruction/preboxed_false-18         	    4173	    287182 ns/op	  941526 B/op	   27918 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_false-18         	    4242	    281267 ns/op	  941520 B/op	   27918 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_false-18         	    4298	    295976 ns/op	  941523 B/op	   27918 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_false-18         	    4179	    288359 ns/op	  941520 B/op	   27918 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_false-18         	    4207	    283978 ns/op	  941520 B/op	   27918 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_true-18          	   15436	     77891 ns/op	  510832 B/op	     889 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_true-18          	   15174	     80995 ns/op	  510832 B/op	     889 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_true-18          	   15102	     79228 ns/op	  510832 B/op	     889 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_true-18          	   15366	     77870 ns/op	  510832 B/op	     889 allocs/op
+BenchmarkHashFetchCommandConstruction/preboxed_true-18          	   15412	     77002 ns/op	  510832 B/op	     889 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	12.784s

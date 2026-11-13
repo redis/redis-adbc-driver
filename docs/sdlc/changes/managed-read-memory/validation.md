@@ -2,8 +2,8 @@
 
 2026-11-13. Agent implementation/review; human approval is pending. See
 [intent](intent.md), [contract](spec.md), [plan](plan.md), the
-[runner](../../../../../benchmarks/table-modes/managed_read_memory.py) and
-[every trial](../../../../../benchmarks/table-modes/managed-read-memory-results.json).
+[runner](../../../../benchmarks/table-modes/managed_read_memory.py) and
+[every trial](../../../../benchmarks/table-modes/managed-read-memory-results.json).
 
 The candidate drops consumed references from the driver-owned outer HASH reply
 page. Command reply slots, fetch sizes, candidate discovery and one-page
@@ -14,10 +14,11 @@ latency tradeoff in this run; it does not recover the pre-lookahead memory level
 
 Baseline: merged main `0359c0d6b602559ff80e461a6749854ca21f1f53`.
 Candidate production source: `d165099646742a69cdcf8685eace9dc4357c2b57`.
-Both native libraries built with Go 1.27.2; binary/source fixture hashes and
-exact dependency versions are in the trial file. No production changes were
-made after building the candidate. The runner reuses the existing read worker
-and independent canonical full-value/type/multiplicity validator.
+Both native libraries built with module-selected Go 1.27.3 (verified from both
+libraries’ build info); binary/source fixture hashes and exact dependency
+versions are in the trial file. This comparison uses the clear-only candidate;
+additive command preboxing is not measured here. The runner reuses the existing
+read worker and independent canonical full-value/type/multiplicity validator.
 
 Hardware: Apple M5 Max, 36 GiB RAM, macOS 26.7.3 arm64; Docker allocated 18 CPUs
 and 25,420,967,936 bytes. Redis Software 8.2.6-25 / Redis 8.8.0, Search 80808,
@@ -81,5 +82,48 @@ unchanged. Security/ownership: no new public option, SQL construction or
 application-owned Redis mutation. Evidence: all completed timings are retained
 in sanitized form; operational endpoints, identifiers and raw logs stay private.
 No actionable findings from this agent review; human acceptance of the measured
-memory/latency tradeoff remains pending. Broader affected checks and cleanup
-will be recorded before handoff.
+memory/latency tradeoff remains pending. Cleanup will be recorded before handoff.
+
+## Additive field-name preboxing
+
+Go-redis 9.23.0 HMGet builds fresh args and boxes every field string for every
+row. The additive candidate boxes the immutable field-name suffix once per
+fetch batch, copies those interface values into each command’s fresh args and
+queues a fresh NewSliceCmd through Pipeline.Process. The existing Exec/error
+handling remains. There is no shared mutable args slice, command or reply, and
+no fetch-size/protocol change. Full command equality against HMGet checks the
+private first-key/step metadata defaults as well as Args/Name/FullName.
+
+On the same exclusive host, module-selected Go 1.27.3, the
+[construction benchmark](../../../../benchmarks/table-modes/managed-read-command-construction.txt)
+measured five trials per implementation, one completed invocation, zero failed
+or discarded trials. Per operation: 256 commands ×106 fields, including field
+preboxing once per operation, fresh pipeline/commands/args and result-pointer
+slice. No server, wire serialization, parsing or Arrow work is measured.
+
+| Median | Original HMGet | Preboxed | Change |
+|---|---|---|---|
+| ns/op | 287,182 | 77,891 | −72.88% |
+| B/op | 941,520 | 510,832 | −45.74% |
+| allocs/op | 27,918 | 889 | −96.82% |
+
+Command: from `go/`, unset Redis endpoint variables, then
+`go test -run '^$' -bench '^BenchmarkHashFetchCommandConstruction$' -benchmem -benchtime=1s -count=5 .`.
+Original-first order and construction-only scope limit inference; no native
+elapsed/RSS improvement is claimed for preboxing until a matched native run.
+
+Final additive correctness checks:
+
+- Focused constructor/raw-wire/HASH/Arrow/prefetch race selection: pass, package
+  2.698s. The raw RESP peer checks exact NUL/Unicode keys, duplicate/empty/binary
+  fields and reply ordering, plus server errors; the pipeline hook error is
+  preserved. Source fields and another command’s args/results remain unchanged
+  when one command is mutated. This peer is a protocol fixture, not a substitute
+  Redis deployment or performance test.
+- Reused owned Software fixture through `make -C go redis-up`, verifying active
+  effective 4x QPF before the live race selection. Final retained-batch test and
+  adjacent directory-tail/old-pin, candidate filtering, corrupted native state,
+  index proof/readiness and both SQL API projection cases pass: 29 test pass
+  events, no skips/failures, package 30.88s. No timed work overlapped the checks.
+- `gofmt`, Python runner compilation and `git diff --check` pass. Native library
+  rebuild and matched combined-candidate comparison remain pending.

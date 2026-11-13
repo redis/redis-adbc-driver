@@ -22,7 +22,7 @@
     "routing": "mnp",
     "connections": 32,
     "database_memory_bytes": 4294967296,
-    "go": "go1.27.2 darwin/arm64",
+    "go": "go1.27.3 darwin/arm64 (verified from both native library build info)",
     "docker_memory_bytes": 25420967936
   },
   "timing_scope": "Fresh spawned native C-ABI workers, full read and IPC output; includes process/import/connect cost. Independent complete result validation outside timing. RSS is maximum per-process lifetime ru_maxrss among workers per trial, excluding parent; not total application memory.",
