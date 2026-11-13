@@ -45,6 +45,8 @@ func (c *compactionReleaseConn) Write(b []byte) (int, error) {
 type compactionReleaseHook struct {
 	io      *compactionReleaseIO
 	samples []map[string]any // release calls are serial; caller joins heartbeat
+	phase   func() string
+	client  *goredis.Client
 }
 
 func (*compactionReleaseHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
@@ -56,29 +58,39 @@ func (h *compactionReleaseHook) ProcessHook(next goredis.ProcessHook) goredis.Pr
 		if compactionProfileCategory(cmd) != "control_release" {
 			return next(ctx, cmd)
 		}
+		phase := ""
+		if h.phase != nil {
+			phase = h.phase()
+			if phase == "" {
+				return next(ctx, cmd)
+			}
+		}
+		var misses, timeouts uint32
+		if h.client != nil {
+			before := h.client.PoolStats()
+			misses, timeouts = before.Misses, before.Timeouts
+		}
 		reads, writes := h.io.reads.Load(), h.io.writes.Load()
 		readNS, writeNS := h.io.readNS.Load(), h.io.writeNS.Load()
 		start := time.Now()
 		err := next(ctx, cmd)
-		h.samples = append(h.samples, map[string]any{
+		row := map[string]any{
 			"hook_nanoseconds": time.Since(start).Nanoseconds(),
 			"read_nanoseconds": h.io.readNS.Load() - readNS, "write_nanoseconds": h.io.writeNS.Load() - writeNS,
 			"reads": h.io.reads.Load() - reads, "writes": h.io.writes.Load() - writes,
 			"success": err == nil,
-		})
+		}
+		if h.client != nil {
+			after := h.client.PoolStats()
+			row["phase"], row["pool_misses"], row["pool_timeouts"] = phase, after.Misses-misses, after.Timeouts-timeouts
+		}
+		h.samples = append(h.samples, row)
 		return err
 	}
 }
 
-// Separate attribution only. Never substitute these small empty-catalog probes
-// for the six unchanged dense profiles, or interpret socket reads as server CPU.
-func TestSnapshotCompactionReleaseProfile(t *testing.T) {
-	if os.Getenv("REDIS_SNAPSHOT_COMPACTION_RELEASE_PROFILE") == "" {
-		t.Skip("set REDIS_SNAPSHOT_COMPACTION_RELEASE_PROFILE for owned-fixture attribution")
-	}
-	h, raw, _ := newSnapshotHarnessMode(t, false, false)
-	h.exec("CREATE TABLE t(v BIGINT)")
-	io := &compactionReleaseIO{}
+func newCompactionReleaseProfileClient(t *testing.T, raw *goredis.Client, io *compactionReleaseIO) *goredis.Client {
+	t.Helper()
 	options := *raw.Options()
 	options.ContextTimeoutEnabled = true
 	dial := goredis.NewDialer(&options)
@@ -92,6 +104,19 @@ func TestSnapshotCompactionReleaseProfile(t *testing.T) {
 	client := goredis.NewClient(&options)
 	t.Cleanup(func() { _ = client.Close() })
 	client.AddHook(snapshotHook{})
+	return client
+}
+
+// Separate attribution only. Never substitute these small empty-catalog probes
+// for the six unchanged dense profiles, or interpret socket reads as server CPU.
+func TestSnapshotCompactionReleaseProfile(t *testing.T) {
+	if os.Getenv("REDIS_SNAPSHOT_COMPACTION_RELEASE_PROFILE") == "" {
+		t.Skip("set REDIS_SNAPSHOT_COMPACTION_RELEASE_PROFILE for owned-fixture attribution")
+	}
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	h.exec("CREATE TABLE t(v BIGINT)")
+	io := &compactionReleaseIO{}
+	client := newCompactionReleaseProfileClient(t, raw, io)
 	observer := &compactionReleaseHook{io: io}
 	client.AddHook(observer)
 	s := &store{client: client, snapshots: true}

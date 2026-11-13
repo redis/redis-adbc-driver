@@ -208,6 +208,13 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				}
 			}
 			s := snapshotTestStore(t, raw)
+			var releaseIO *compactionReleaseIO
+			var releaseClient *goredis.Client
+			if os.Getenv("REDIS_SNAPSHOT_COMPACTION_RELEASE_IO") != "" {
+				releaseIO = &compactionReleaseIO{}
+				releaseClient = newCompactionReleaseProfileClient(t, raw, releaseIO)
+				s.client = releaseClient
+			}
 			token := snapshotID()
 			if started, err := s.startSnapshotCompaction(h.ctx, token); err != nil || !started {
 				t.Fatal("compaction did not start", started, err)
@@ -220,6 +227,11 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				}
 			}
 			profile := &compactionPhaseProfile{phases: map[string]*compactionProfilePhase{}}
+			var releaseObserver *compactionReleaseHook
+			if releaseClient != nil {
+				releaseObserver = &compactionReleaseHook{io: releaseIO, phase: profile.current, client: releaseClient}
+				releaseClient.AddHook(releaseObserver)
+			}
 			s.client.AddHook(profile)
 			budget := time.Minute
 			if dense {
@@ -299,6 +311,13 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				t.Fatal("profile must not expose physical keys")
 			}
 			t.Logf("compaction_phase_profile %s", encoded)
+			if releaseObserver != nil {
+				encoded, err := json.Marshal(releaseObserver.samples)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Logf("compaction_dense_release_profile %s", encoded)
+			}
 		})
 	}
 }
