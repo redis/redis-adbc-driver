@@ -152,6 +152,9 @@ make -C go redis-down
 
 ## How tables and snapshots work
 
+The driver has two table modes: **managed** and **unmanaged**. A connection can
+use tables of both modes; each table's mode defines ownership and write guarantees.
+
 **Managed tables are the default for SQL and Arrow workflows.** Write through
 the driver using SQL or supported Arrow ingestion. Each statement reads one
 committed generation, including streamed results, and supported writes publish
@@ -169,6 +172,8 @@ Existing application HASHes remain application-owned. Adoption and foreign-index
 imports default to private managed copies; refresh explicitly to capture later
 source changes. Opt into [unmanaged tables](docs/unmanaged-tables.md) to read and
 write source HASHes directly without row snapshots or atomic multi-row writes.
+Registered unmanaged tables also accept Arrow `append` with explicit new `__key`
+values; errors report acknowledged rows and may leave partial source writes.
 Compare [managed and application-owned data](docs/managed-vs-unmanaged-tables.md#choose-by-use-case)
 for ownership, freshness and storage tradeoffs.
 

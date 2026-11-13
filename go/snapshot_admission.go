@@ -44,6 +44,9 @@ func (s *store) acquireWritableSnapshotMode(ctx context.Context, target func(con
 			pin.release()
 			return ctx, nil, err
 		}
+		if meta != nil && meta.Unmanaged {
+			return sctx, pin, nil // Catalog pin only; application writers coordinate themselves.
+		}
 		s.mu.Lock()
 		worker := s.compactor != nil
 		s.mu.Unlock()

@@ -85,6 +85,46 @@ DROP removes only the table registration. Source HASHes, TTLs and Search indexes
 remain application-owned and survive managed sweep/compaction. Foreign indexes
 can be registered again by a later discovery/refresh.
 
+## Append Arrow data to source HASHes
+
+Use ADBC ingestion in `append` mode against an existing unmanaged registration.
+Every row must include a non-NULL string `__key` under the registered source
+prefixes. Keys must be new: this is INSERT, not upsert. Logical column names,
+types and native/text encodings follow the registration, including renamed
+fields. A row must contain at least one non-NULL stored field.
+
+```python
+import pyarrow as pa
+
+# conn is an ADBC connection; public.users is already registered as unmanaged.
+rows = pa.table({"__key": ["app:user:43"], "name": ["Grace"], "age": [38]})
+with conn.cursor() as cursor:
+    written = cursor.adbc_ingest("users", rows, mode="append", db_schema_name="public")
+```
+
+Arrow input is converted in bounded slices and writes source HASHes directly.
+There is no unmanaged publication step: each accepted row becomes visible as it
+is written.
+It does not create managed generations, acquire the managed Arrow append gate,
+or freeze application data. Existing HASHes, unrelated fields and TTLs are not
+overwritten. Filtered foreign indexes, `create`, `replace` and `create_append`
+modes, shared read snapshots and retained/staged writes are unsupported.
+Schema-level refusals occur before consuming the stream; row values and keys
+are validated as each conversion slice is reached.
+
+Once an unmanaged append passes target/schema preflight, a conversion, stream,
+key-conflict, cancellation or Redis error leaves earlier successful rows in
+place. The ADBC error message and UTF-8 error detail
+`adbc.redis.ingest.acknowledged_rows` report the number of acknowledged rows;
+Go ExecuteUpdate/ExecuteQuery also return that count with the error. This is a
+**lower bound**, since a lost reply can hide an applied current row. The original
+ADBC status and SQLSTATE are retained. Failures before target resolution or
+unsupported-operation admission may have the usual unknown count instead of a
+progress detail; input has not been consumed. No input or uncertain mutation is
+replayed.
+Inspect source state before retrying; there is no rollback or whole-stream
+atomicity. This API does not require the managed snapshot `NativeClient` wrapper.
+
 ## Consistency and supported operations
 
 An unmanaged statement pins catalog metadata, **not source row values**. Scans,
@@ -94,15 +134,16 @@ A query mixing managed and unmanaged tables retains managed generations but
 does not acquire a common point-in-time view of all data.
 
 Source writes execute one HASH mutation at a time. Multi-row INSERT, UPDATE,
-DELETE and MERGE can partially succeed. There is no rollback or atomic
-publication for them; application and SQL writers must coordinate themselves.
+DELETE, MERGE and Arrow append can partially succeed. There is no rollback or
+atomic publication for them; application and SQL writers must coordinate
+themselves.
 The driver never automatically replays an uncertain source mutation. After an
 error, inspect source state before retrying a write.
 
 Unmanaged tables reject ALTER, TRUNCATE (including `truncate_adopted=true`),
-managed index changes, Arrow ingestion, retained write preparation, shared read
-snapshots, native row-ID reads and live partition reads. Data-changing WITH
-statements cannot stage unmanaged writes inside managed publication. The
+managed index changes, Arrow ingestion modes other than append, retained write
+preparation, shared read snapshots, native row-ID reads and live partition reads.
+Data-changing WITH statements cannot stage unmanaged writes inside managed publication. The
 always-on managed snapshot option applies to managed tables only.
 
 Choose a [managed copy](snapshots.md) when typed immutable generations,

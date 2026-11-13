@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -39,7 +40,7 @@ func metaFromArrow(schemaName, table string, schema *arrow.Schema) (*tableMeta, 
 }
 
 // executeIngest implements bulk ingestion: every Arrow row becomes a HASH.
-func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
+func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultErr error) {
 	ctx, transport := s.conn.executionContext(ctx, &s.streams, &s.conn.streams)
 	if transport != nil {
 		defer transport.finish()
@@ -50,13 +51,27 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	if s.conn.store.snapshots && snapshotOf(ctx) == nil {
 		ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 		defer cancel()
-		sctx, pin, err := s.conn.store.acquireIngestSnapshot(ctx, s.snapshotIngestTarget)
+		var target *tableMeta
+		sctx, pin, err := s.conn.store.acquireIngestSnapshot(ctx, func(c context.Context) (*tableMeta, error) {
+			var err error
+			target, err = s.snapshotIngestTarget(c)
+			return target, err
+		})
 		if err != nil {
 			return -1, err
 		}
 		defer pin.release()
 		if err := s.conn.store.refreshSnapshotTemp(sctx); err != nil {
 			return -1, err
+		}
+		if target != nil && target.Unmanaged {
+			if snapshotOperationRequestOf(sctx) != nil {
+				return -1, unmanagedUnsupported("retained operation preparation")
+			}
+			// Pin the registration only. Application HASH writes must not enter
+			// a managed workspace, publication or ingest admission gate.
+			sctx = context.WithValue(sctx, unmanagedWriteKey{}, metaKey(target.Schema, target.Name))
+			return s.executeIngest(sctx)
 		}
 		published := false
 		defer func() {
@@ -116,6 +131,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	case schemaName == "":
 		schemaName = s.conn.sess.currentSchema()
 	}
+	var total int64
 	if exists, err := st.tableExists(ctx, schemaName, opts.TableName); err != nil {
 		return -1, err
 	} else if exists {
@@ -124,7 +140,18 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			return -1, err
 		}
 		if meta.Unmanaged {
-			return -1, unmanagedUnsupported("Arrow ingestion")
+			if opts.Mode != adbc.OptionValueIngestModeAppend {
+				return -1, unmanagedUnsupported("Arrow ingestion modes other than append")
+			}
+			if !unmanagedWriteAllowed(ctx, meta) || snapshotOf(ctx) == nil || snapshotOf(ctx).write {
+				return -1, unmanagedUnsupported("nested or staged Arrow ingestion")
+			}
+			defer func() {
+				if resultErr != nil {
+					count = total
+					resultErr = unmanagedIngestError(total, resultErr)
+				}
+			}()
 		}
 	}
 	arrowSchema := s.params.Schema()
@@ -206,7 +233,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusInvalidArgument, "unknown ingest mode %q", opts.Mode)
 	}
 
-	if st.snapshots && !snapshotOwns(ctx, meta.prefix()) {
+	if st.snapshots && !meta.Unmanaged && !snapshotOwns(ctx, meta.prefix()) {
 		if err := st.prepareSnapshotTable(ctx, schemaName, opts.TableName); err != nil {
 			return -1, err
 		}
@@ -229,10 +256,30 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		if !ok {
 			return -1, errorf(adbc.StatusAlreadyExists, "column %q does not exist in table %q", f.Name, meta.Name)
 		}
+		if meta.Unmanaged {
+			if given[idx] {
+				return -1, errorf(adbc.StatusInvalidArgument, "duplicate Arrow input column %q", f.Name)
+			}
+			if meta.Columns[idx].Name == keyField && wanted.Columns[i].Type.Kind != KindString {
+				return -1, errorf(adbc.StatusInvalidArgument, "unmanaged Arrow __key must be a string")
+			}
+		}
 		if !storedRecordAppendCompatible(wanted.Columns[i].Type, meta.Columns[idx].Type) {
 			return -1, stateErrorf(stateDatatypeMismatch, "stored struct schema must match field names, types and nullability (column %q)", f.Name)
 		}
 		mapping[i], given[idx] = idx, true
+	}
+	if meta.Unmanaged {
+		ki, ok := meta.resolve(keyField)
+		if !ok || !given[ki] {
+			return -1, errorf(adbc.StatusInvalidArgument, "unmanaged Arrow append requires an explicit __key column")
+		}
+		if err := st.checkWritable(ctx, meta); err != nil {
+			return -1, err
+		}
+		if meta.UnmanagedForeign && meta.UnmanagedFilter != "" {
+			return -1, unmanagedUnsupported("INSERT through a filtered foreign index")
+		}
 	}
 	for i, yes := range given {
 		if yes && meta.Columns[i].Identity == "ALWAYS" {
@@ -278,21 +325,29 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		}
 		return st.insertRows(ctx, meta, rows)
 	}
-	var total int64
-	for s.params.Next() {
+	for {
+		if meta.Unmanaged && ctx.Err() != nil {
+			return -1, cancelled(ctx)
+		}
+		if !s.params.Next() {
+			break
+		}
 		rec := s.params.RecordBatch()
 		if err := validateInputRecord(rec); err != nil {
 			return -1, errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
 		}
-		if scope := snapshotOf(ctx); scope != nil && scope.write {
+		if meta.Unmanaged && !rec.Schema().Equal(arrowSchema) {
+			return -1, errorf(adbc.StatusInvalidArgument, "unmanaged Arrow stream schema changed between batches")
+		}
+		if scope := snapshotOf(ctx); meta.Unmanaged || scope != nil && scope.write {
 			for start := int64(0); start < rec.NumRows(); start += snapshotIngestConvertRows {
 				part := rec.NewSlice(start, min(start+snapshotIngestConvertRows, rec.NumRows()))
 				written, err := writeRecord(part)
 				part.Release()
+				total += max(written, 0)
 				if err != nil {
 					return -1, err
 				}
-				total += written
 			}
 		} else {
 			written, err := writeRecord(rec)
@@ -310,6 +365,19 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusIO, "failed to read ingest data: %v", err)
 	}
 	return total, nil
+}
+
+// Acknowledged rows are a lower bound: an unknown reply can hide an applied
+// current row. Preserve the original status/SQLSTATE; never replay that row.
+func unmanagedIngestError(acknowledged int64, err error) error {
+	var ae adbc.Error
+	if !errors.As(err, &ae) {
+		ae = adbc.Error{Code: adbc.StatusIO, Msg: err.Error()}
+	}
+	ae.Msg = "unmanaged Arrow append stopped after " + strconv.FormatInt(acknowledged, 10) +
+		" acknowledged rows; source writes may be partially applied; inspect source state before retrying: " + ae.Msg
+	ae.Details = append(ae.Details, &adbc.TextErrorDetail{Name: "adbc.redis.ingest.acknowledged_rows", Detail: strconv.FormatInt(acknowledged, 10)})
+	return ae
 }
 
 // ingestColumn resolves common Arrow array types once per column, rather than

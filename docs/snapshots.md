@@ -8,7 +8,9 @@ evaluation; its narrower feature and permission scope still applies.
 
 Explicit [unmanaged registrations](unmanaged-tables.md) expose live source
 HASHes without managed row snapshots. They own only catalog metadata, never
-source data/index generations. Their SQL writes affect source HASHes directly.
+source data/index generations. Their SQL writes and supported Arrow append
+change application HASHes one row at a time. These operations have no publication
+step and can partially succeed.
 
 **Write managed tables through the driver using SQL or supported Arrow
 ingestion. Read through SQL/ADBC or the experimental
@@ -179,7 +181,8 @@ an incompatible declared result schema change between executions returns an erro
 
 - Supported: permanent managed tables, schemas and views; SELECT, SQL DML,
   CREATE TABLE/CTAS, CREATE/DROP VIEW, DROP TABLE, TRUNCATE, COMMENT and schema
-  creation/removal. All Arrow ingest modes publish their complete input once.
+  creation/removal. All managed-table Arrow ingest modes publish their complete
+  input once.
 - Table schema discovery, parameter/schema planning and SQL catalog reads use
   pinned generations.
 - ALTER TABLE uses the existing SQL conversion/constraint rules. Definition-only
@@ -444,14 +447,16 @@ gate also waits before execution, with bounded polling and the statement's
 cancellation/deadline. Existing immutable-index proofs are shared with the private
 workspace. No SQL or Arrow input is replayed. Reads remain available.
 
-Append and create-append Arrow ingestion also wait for another participating
-ingest targeting the same logical table before consuming input. Waiting releases
+Managed-table append and create-append Arrow ingestion also wait for another
+participating ingest targeting the same logical table before consuming input. Waiting releases
 the provisional pin and reacquires a current generation. Independent targets
 remain concurrent. This admission uses the existing leased writer pin, including
 for a table first created by create-append; it introduces no storage version or
 ownership change. Cancellation and uncertain admission replies terminate before
 input consumption. SQL/DDL writers and clients without this admission can still
 cause a publication conflict; input is never automatically replayed.
+Unmanaged Arrow append bypasses this gate and writes application HASHes directly;
+see its [partial-write contract](unmanaged-tables.md#append-arrow-data-to-source-hashes).
 
 Direct/internal stores without a background worker retain explicit SQLSTATE
 `40001` backpressure at the hard segment limit. Concurrent publication conflicts
