@@ -5,7 +5,15 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
-[Latest merged-main comparison](merged-main-2026-11-13/report.md) reruns the full
+[Latest merged-main rerun](merged-main-2026-11-13-rerun/report.md) repeats all
+156 trials after PRs #415–418, source `5f759300`, built as
+`v0.1.0-dev.merged-perf-2`. Every trial completed and independently validated,
+with no conflicts or retries. Audit with
+`python3 benchmarks/table-modes/merged_perf_rerun_audit.py`. The one-reader
+unmanaged full scan used 17.8% less elapsed time and 41.3% less peak worker RSS
+than the previous full run; cross-revision/time limits remain explicit.
+
+[Previous merged-main comparison](merged-main-2026-11-13/report.md) reruns the full
 156-trial read/write/creation matrix after PRs #408 and #410–413, source
 `ba855f79`, built as `v0.1.0-dev.merged-perf`. Every trial completed and
 independently validated without conflicts or caller retries. Run

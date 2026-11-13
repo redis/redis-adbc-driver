@@ -10,10 +10,10 @@ COMMIT = 'ba855f7995b2685182ed1331bcf6703d73089c4a'
 VERSION = 'v0.1.0-dev.merged-perf'
 
 
-def summarize(data):
-    result = arrow_audit.summarize(data, commit=COMMIT, version=VERSION)
+def summarize(data, *, commit=COMMIT, version=VERSION):
+    result = arrow_audit.summarize(data, commit=commit, version=version)
     assert data['status'] == 'complete'
-    assert data['metadata']['scope'] == f'SQL/Arrow/native comparison; driver {VERSION}'
+    assert data['metadata']['scope'] == f'SQL/Arrow/native comparison; driver {version}'
     for suite in ('reads', 'writes', 'creation'):
         assert all(r['validated'] and not r.get('errors') for r in data[suite])
         for case in result[suite]:
