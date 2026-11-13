@@ -89,7 +89,24 @@ microbenchmark samples](benchmark.json) are checked in. Earlier failed test
 assertions and the excluded overlapping microbenchmark remain separate private
 logs. No 100M ClickBench rerun or alternate server was used.
 
-Raw logs, endpoint credentials, operational artifacts and infrastructure IDs
-remain private. Fixture cleanup will follow final verification.
+## Final broader checks and cleanup
+
+After native timing ended, sequential unit-only `go test -count=1 -p 1 -json
+./...` with both Redis endpoint variables cleared passed: 1,397 test/subtest
+pass events and 1,273 expected integration/opt-in skips, seven package passes
+and three no-test package skips, zero failures. This does not infer server
+compatibility from skipped integration cases.
+
+A fresh API/TLS/RESP3 gate preceded `go test -count=1 -race -p 1 -timeout=10m
+-run '^TestUnmanaged' -json .` on the same owned Software fixture. All 100 pass
+events completed without failure/race. The single skip was the explicitly
+opt-in `TestUnmanagedPerformanceSample`; validated native timing above covers
+this change separately. `GOMAXPROCS=4` applied to both final checks.
+
+The owned Compose container/network were removed; immediate before/after
+inventory confirmed every other container/network remained. Generated test.env,
+data TLS assets and generated credentials were removed/redacted. Sanitized
+[counts, commands, cleanup proof and private log hashes](final-checks.json) are
+checked in. Raw operational logs and infrastructure IDs remain private.
 
 See [intent](intent.md), [contract](spec.md) and [plan](plan.md).
