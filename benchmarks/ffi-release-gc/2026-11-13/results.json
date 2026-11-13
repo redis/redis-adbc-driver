@@ -1,0 +1,653 @@
+{
+  "status": "native_pending",
+  "date": "2026-11-13",
+  "decision": "evidence_only_default_unchanged",
+  "base_commit": "24f654b76b98f3d8960af94a3ca0230185d467a1",
+  "probe_archive_commit": "9d6fb1afa0735fe7a79de23d2a3a8e5e0f6dd733",
+  "corrected_experiment_patch_commit": "c84462f7071e8a9364091fb6e53e354c6cc666ab",
+  "source_sha256": "e6bb139b3f4e12516e230e2f560ced8b5467b8c53deb9471bfa63dc1e8aed881",
+  "candidate_driver_sha256": "674897886ce884fc0f5d15723e799755811ee36468d4bfd402557e56f208afe8",
+  "module_sha256": "441f8ce09d5fb870107af6de4d5dd4b0939ca6f14e9686cbd058d9de887be54a",
+  "sum_sha256": "71cd4040a7d8b07f36e0f77e29ce3900824ea6f70abf347a2da6db4bdf7530a2",
+  "fixture_sha256": "ec1519f60c58a7be7a2102484ff4e238651064f23d0fef0fded0f9d0683254db",
+  "runner_sha256": "e259cdc1f8c45e106d03dfb5fa01b128dc53d3a6c5f172f8de5baaf629caa38b",
+  "patch_sha256": "fa8d77deca871edb9f2467e3e2d568a12f6a3f36310a20ba786b293d5b488fb4",
+  "archive_sha256": "1d067a89226fe28eea078ca67671b8574e14b06b94b859961413ec826f94e43b",
+  "probe_builds": {
+    "baseline": "bd0f98f3faf8b80fe8d327db3035e517e4e2bf6de2b93a52db9db188d24434e3",
+    "candidate": "1554027eeb0ec918a485e17c6c3e1d749ae69ff3533323be22dacdba6280bf61",
+    "baseline-race": "a543dc3aa809a0317a51032ae4a523c531a110790965f8b336cc75a7a07848b3",
+    "candidate-race": "537fd86810c9a8f6f35ccaae5ee7b56c272262ddbf52fce71c0cfd4063ae3e2e"
+  },
+  "probe": {
+    "baseline": {
+      "library_sha256": "bd0f98f3faf8b80fe8d327db3035e517e4e2bf6de2b93a52db9db188d24434e3",
+      "checks": [
+        "kind_0_explicit_close_once_invalid_repeat",
+        "kind_1_explicit_close_once_invalid_repeat",
+        "kind_2_explicit_close_once_invalid_repeat",
+        "retained_exported_array_survives_stream_and_statement",
+        "bound_array_synchronous_producer_release",
+        "bound_stream_synchronous_producer_release",
+        "stream_and_close_errors_preserve_sqlstate_and_release"
+      ],
+      "samples": [
+        {
+          "case": "database",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 39920750,
+          "ns_per_release": 311880.859375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "database",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 38851458,
+          "ns_per_release": 303527.015625,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "database",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 37269459,
+          "ns_per_release": 291167.6484375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "database",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 41201000,
+          "ns_per_release": 321882.8125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "database",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 50882709,
+          "ns_per_release": 397521.1640625,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "database",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 46074625,
+          "ns_per_release": 359958.0078125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "database",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 42838958,
+          "ns_per_release": 334679.359375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "connection",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 38297417,
+          "ns_per_release": 299198.5703125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "connection",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 41450041,
+          "ns_per_release": 323828.4453125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "connection",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 38202625,
+          "ns_per_release": 298458.0078125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "connection",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 36702458,
+          "ns_per_release": 286737.953125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "connection",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 37722083,
+          "ns_per_release": 294703.7734375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "connection",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 37522708,
+          "ns_per_release": 293146.15625,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "connection",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 38061959,
+          "ns_per_release": 297359.0546875,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "statement",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 37575417,
+          "ns_per_release": 293557.9453125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "statement",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 36694334,
+          "ns_per_release": 286674.484375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "statement",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 37427209,
+          "ns_per_release": 292400.0703125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "statement",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 38882416,
+          "ns_per_release": 303768.875,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "statement",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 38133584,
+          "ns_per_release": 297918.625,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "statement",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 38646000,
+          "ns_per_release": 301921.875,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "statement",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 37851625,
+          "ns_per_release": 295715.8203125,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "stream",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 39693667,
+          "ns_per_release": 310106.7734375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "stream",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 69016500,
+          "ns_per_release": 539191.40625,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "stream",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 66003542,
+          "ns_per_release": 515652.671875,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "stream",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 66113875,
+          "ns_per_release": 516514.6484375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "stream",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 65553792,
+          "ns_per_release": 512139.0,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "stream",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 48650875,
+          "ns_per_release": 380084.9609375,
+          "forced_gc_delta": 128
+        },
+        {
+          "case": "stream",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 42033667,
+          "ns_per_release": 328388.0234375,
+          "forced_gc_delta": 128
+        }
+      ],
+      "checked_allocator_bytes": 0,
+      "summary": {
+        "stream": 513895.8359375,
+        "database": 328281.0859375,
+        "statement": 296817.22265625,
+        "connection": 296031.4140625
+      }
+    },
+    "candidate": {
+      "library_sha256": "1554027eeb0ec918a485e17c6c3e1d749ae69ff3533323be22dacdba6280bf61",
+      "checks": [
+        "kind_0_explicit_close_once_invalid_repeat",
+        "kind_1_explicit_close_once_invalid_repeat",
+        "kind_2_explicit_close_once_invalid_repeat",
+        "retained_exported_array_survives_stream_and_statement",
+        "bound_array_synchronous_producer_release",
+        "bound_stream_synchronous_producer_release",
+        "stream_and_close_errors_preserve_sqlstate_and_release"
+      ],
+      "samples": [
+        {
+          "case": "database",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 95208,
+          "ns_per_release": 743.8125,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "database",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 91792,
+          "ns_per_release": 717.125,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "database",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 90500,
+          "ns_per_release": 707.03125,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "database",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 88500,
+          "ns_per_release": 691.40625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "database",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 88500,
+          "ns_per_release": 691.40625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "database",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 93500,
+          "ns_per_release": 730.46875,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "database",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 97291,
+          "ns_per_release": 760.0859375,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "connection",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 94125,
+          "ns_per_release": 735.3515625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "connection",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 95125,
+          "ns_per_release": 743.1640625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "connection",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 97500,
+          "ns_per_release": 761.71875,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "connection",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 96542,
+          "ns_per_release": 754.234375,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "connection",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 98000,
+          "ns_per_release": 765.625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "connection",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 98666,
+          "ns_per_release": 770.828125,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "connection",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 94625,
+          "ns_per_release": 739.2578125,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "statement",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 96667,
+          "ns_per_release": 755.2109375,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "statement",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 94541,
+          "ns_per_release": 738.6015625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "statement",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 99542,
+          "ns_per_release": 777.671875,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "statement",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 93875,
+          "ns_per_release": 733.3984375,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "statement",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 97500,
+          "ns_per_release": 761.71875,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "statement",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 108167,
+          "ns_per_release": 845.0546875,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "statement",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 95791,
+          "ns_per_release": 748.3671875,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "stream",
+          "sample": 0,
+          "warmup": true,
+          "iterations": 128,
+          "elapsed_ns": 111458,
+          "ns_per_release": 870.765625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "stream",
+          "sample": 1,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 126792,
+          "ns_per_release": 990.5625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "stream",
+          "sample": 2,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 102167,
+          "ns_per_release": 798.1796875,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "stream",
+          "sample": 3,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 115500,
+          "ns_per_release": 902.34375,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "stream",
+          "sample": 4,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 98125,
+          "ns_per_release": 766.6015625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "stream",
+          "sample": 5,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 109000,
+          "ns_per_release": 851.5625,
+          "forced_gc_delta": 0
+        },
+        {
+          "case": "stream",
+          "sample": 6,
+          "warmup": false,
+          "iterations": 128,
+          "elapsed_ns": 172708,
+          "ns_per_release": 1349.28125,
+          "forced_gc_delta": 0
+        }
+      ],
+      "checked_allocator_bytes": 0,
+      "summary": {
+        "database": 712.078125,
+        "stream": 876.953125,
+        "statement": 755.04296875,
+        "connection": 757.9765625
+      }
+    }
+  },
+  "failed_attempts": [
+    {
+      "attempt": "virtual-cgo-overlay-baseline-build",
+      "exit_code": 1,
+      "stage": "build",
+      "reason": "clang could not find generated driver.cgo2.c/device.cgo2.c/ffi_release_probe.cgo2.c",
+      "resolution": "Use archived physical source trees; identical frozen probe source"
+    },
+    {
+      "attempt": "physical-controller-initial",
+      "exit_code": 1,
+      "stage": "controller-before-subprocess",
+      "reason": "NameError: variant was referenced in the go-version cwd before its loop",
+      "resolution": "Corrected controller cwd before any build"
+    },
+    {
+      "attempt": "physical-candidate-build-01",
+      "exit_code": 1,
+      "stage": "build",
+      "reason": "Removed runtime import remained needed by runtime.Caller at driver.go:203",
+      "resolution": "Corrected experimental patch to omit four GC calls only; retained runtime import; new frozen source before any measurements",
+      "failed_candidate_driver_sha256": "fcd770063287dfded3eeede17111c1e1020cb648f26545fdef9e00243ae7126e",
+      "failed_patch_sha256": "ae4234e3ccb216047fefbb6b05f53a896e284597388f4016bb30deef6fa07823"
+    },
+    {
+      "attempt": "baseline-race-controller-initial",
+      "exit_code": 1,
+      "stage": "controller-before-subprocess",
+      "reason": "NameError: time was unavailable to exec-defined function because distinct globals/locals were passed",
+      "resolution": "Use one exec namespace; no build/test started in this attempt"
+    },
+    {
+      "attempt": "candidate-race-check",
+      "exit_code": -6,
+      "stage": "checkptr-before-ownership",
+      "reason": "SIGABRT: checkptr rejected existing createHandle conversion from integer cgo.Handle to unsafe.Pointer",
+      "resolution": "Blocked gate retained; checkptr not disabled; unchanged baseline reproduced identical abort"
+    },
+    {
+      "attempt": "baseline-race-check",
+      "exit_code": -6,
+      "stage": "checkptr-before-ownership",
+      "reason": "SIGABRT: checkptr rejected existing createHandle conversion from integer cgo.Handle to unsafe.Pointer",
+      "resolution": "Blocked gate retained; checkptr not disabled; unchanged baseline reproduced identical abort"
+    }
+  ],
+  "race_gate": "blocked; both variants SIGABRT before ownership scenarios at existing createHandle integer-to-pointer conversion; checkptr not disabled",
+  "asan": "not run; no sanitizer safety claim",
+  "execution": {
+    "go": "go1.27.3 darwin/arm64",
+    "probe_timing_order": [
+      "baseline",
+      "candidate"
+    ],
+    "iterations_per_sample": 128,
+    "measured_samples_per_case_per_variant": 6,
+    "warmups_per_case_per_variant": 1,
+    "race_binaries_excluded_from_timing": true,
+    "probe_build_metadata": "physical archive + probe; no embedded Git revision",
+    "native_pending": true
+  },
+  "private_artifact_digests": {
+    "baseline-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline-build.exit.json": "4f2bb4da58b6efff4830750b440a772a028b0c0ee3122424aad40f6672bb1ef6",
+    "candidate-build-01.log": "20cb7b887bd249a780095abe8aa42c480c932794ea52d595b0ded383d75e8afe",
+    "candidate-build-01.exit.json": "12af3d72dd81b2ef500b338d61d5a1de201c9d882b6715d7a6ac88badebe2b26",
+    "candidate-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "candidate-build.exit.json": "687cb36a1ff59d1967b6d732df0ad585bfcccceaa8b20f3032b33d03e0b1453b",
+    "baseline-probe.log": "f9b70b4df608f9c030576e965159bef50eb4e03726eaef42c5f168eed8c6e504",
+    "baseline-probe.exit.json": "73aa64a78d8d26b17f5fb573dc7de651ea98ba73a32953fd08360df1202d4630",
+    "candidate-probe.log": "ddc6bdcb89c0c805c1b5ed8043563c71ec181ed3dd614bdb4ca59a11113bf689",
+    "candidate-probe.exit.json": "20b4d7a81e844ef47e0f55c7c80df68f0ee1259e7b9dbd20f5fda262c10a3c66",
+    "baseline-race-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline-race-build.exit.json": "01ed4f10471a6aac84f5c19451ab7d4755e04d0aa1f61b3e1b1a82f3186ed9e3",
+    "candidate-race-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "candidate-race-build.exit.json": "774d34053f69949cceed837fe06503a802a64f829562a69cf2c378c87fefba78",
+    "baseline-race-check.log": "f760d536fa1a78cdfd1034841bd63baea0019b9eb02847b3db36a99f8a3be63d",
+    "baseline-race-check.exit.json": "2259bc986d872f74592f8a91106fa4b572c12f3b8cd09afa2d6b5ec991b447e3",
+    "candidate-race-check.log": "340964fec55a50d440ab52d1b128d63af33d8ffa023059f939d855bf70d0afbf",
+    "candidate-race-check.exit.json": "6a015118f0484fa17df4dce0b69ba8f5f0eeb0ec92a06673fe785b264887fb2e",
+    "initial-virtual-overlay-baseline-build.log": "7c3804dfe7aabfe16806bb0afd894fa8922e1f491c443da3fbcefe9b34a72132",
+    "initial-virtual-overlay-baseline-build.exit.json": "c849b031b0ff879b6f51854dfb2889dbec5aa874ce5931b3a287d3c235334ddc"
+  }
+}

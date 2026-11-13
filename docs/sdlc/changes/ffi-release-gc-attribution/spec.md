@@ -8,8 +8,9 @@ The supplied patch is an attribution experiment, not an adopted optimization.
 Exercise the actual release wrappers, cgo handles, Arrow export/import ownership,
 foreign array and stream callbacks, retained output buffers, errors and SQLSTATEs.
 Double-release database/connection/statement calls must return invalid-state;
-Arrow stream release callbacks may be safely invoked again after clearing the
-release pointer. Do not treat these as interchangeable contracts.
+Arrow consumers must skip NULL release pointers on repeated cleanup. The fixture
+repeats that consumer helper, rather than calling a saved callback after release.
+Do not treat this as the handle-release contract.
 
 Measure each C release entrypoint separately with preparation and runtime counter
 reads outside timing. Check explicit owner closure once, cleared handles, checked
