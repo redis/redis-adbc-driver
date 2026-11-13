@@ -32,3 +32,5 @@ Review against `REVIEW.md`: test-only diff preserves cursor assertions and
 zero-read checks, verifies directory/pin cleanup and retained Arrow buffers, and
 changes no production ownership or security behavior. No actionable findings.
 GitHub CI pending. No maintainer approval or release claimed.
+
+Review: [PR #409](https://github.com/redis/redis-adbc-driver/pull/409).

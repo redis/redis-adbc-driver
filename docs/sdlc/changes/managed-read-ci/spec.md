@@ -16,3 +16,5 @@ See [intent](intent.md) and [plan](plan.md).
   storage protocol changes. No broader skips or relaxed cursor assertions.
 - Validate against disposable Redis Software with active verified 4x QPF;
   keep operational artifacts and credentials outside tracked files.
+
+Review: [PR #409](https://github.com/redis/redis-adbc-driver/pull/409).
