@@ -43,6 +43,11 @@
       "empty": true,
       "no_indexes": true,
       "clients_closed": true
+    },
+    "final_loan_return": {
+      "empty": true,
+      "no_indexes": true,
+      "clients_closed": true
     }
   },
   "source_sha256": {
@@ -55,6 +60,31 @@
     "baseline-regression.jsonl": "42dcce44102d41bb0fad763040021f5fd6b1cdd98eb71709918dfca62c90c338",
     "focused-race.jsonl": "f855879d1e00e522a1f786e0ae375bf731c5ce8ec08a4d8ffaedf3c8fadbcdd9",
     "live-race.jsonl": "e2ccfbc3b6ec9eff605b3972481f6dd349ee096144c03983059115c8339120e3",
-    "fixture-gate.log": "5ae727c1524c4d504d27add3eb84442a059b669c53aeb3c22d16fb735ef607d4"
+    "fixture-gate.log": "5ae727c1524c4d504d27add3eb84442a059b669c53aeb3c22d16fb735ef607d4",
+    "final-unit-all.jsonl": "e1f104a809a0da92805643c16227c0149c3da8ea26e1a1130972b57a5615cfdd",
+    "final-live-unmanaged-race.jsonl": "672632ac8bfd2948f7e70afbe3aff727f05c21b94b11e089b33e7641f9f9962b",
+    "final-fixture-gate.log": "5ae727c1524c4d504d27add3eb84442a059b669c53aeb3c22d16fb735ef607d4"
+  },
+  "final-unit-all": {
+    "name": "final-unit-all",
+    "exit_code": 0,
+    "passes": 1402,
+    "skips": 1278,
+    "failures": 0,
+    "package_passes": 7,
+    "package_skips": 3,
+    "skip_scope": "All Redis endpoints and explicit opt-in diagnostics unset; unit pass does not establish server compatibility."
+  },
+  "final-live-unmanaged-race": {
+    "name": "final-live-unmanaged-race",
+    "exit_code": 0,
+    "passes": 112,
+    "skips": 1,
+    "failures": 0,
+    "package_passes": 1,
+    "package_skips": 0,
+    "skipped_tests": [
+      "TestUnmanagedPerformanceSample"
+    ]
   }
 }
