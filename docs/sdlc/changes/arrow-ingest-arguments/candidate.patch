@@ -1,0 +1,437 @@
+diff --git a/go/ingest_args_test.go b/go/ingest_args_test.go
+new file mode 100644
+index 00000000..660f9bd4
+--- /dev/null
++++ b/go/ingest_args_test.go
+@@ -0,0 +1,206 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"fmt"
++	"math"
++	"reflect"
++	"strconv"
++	"testing"
++)
++
++func TestIngestArgumentsPreserveImages(t *testing.T) {
++	meta := &tableMeta{SnapshotSourceKey: true, Columns: []columnMeta{
++		{Name: "wide", Type: typeInt64}, {Name: "empty", Type: typeString},
++		{Name: "missing", Type: typeString}, {Name: "binary", Type: typeBinary},
++		{Name: "not_a_number", Type: typeFloat64}, {Name: "day", Type: typeDate},
++	}}
++	row := []Value{intValue(typeInt64, 9007199254740993), stringValue(""), nullValue(typeString),
++		binaryValue("a\x00é\r\n"), floatValue(typeFloat64, math.NaN()), intValue(typeDate, -1)}
++	fields := []any{"renamed_physical", "empty", "missing", "binary", "not_a_number", "day"}
++	a := rowAlloc{added: []any{"later", "default"}, sourceKeys: []Value{stringValue("app:\x00source")}}
++	want := []any{rowIDField, "9007199254740993", snapshotSourceKeyField, "app:\x00source",
++		"renamed_physical", "9007199254740993", "empty", "", "binary", "a\x00é\r\n",
++		"not_a_number", nanStored, "day", "-1", "later", "default"}
++	got := snapshotInsertFields(meta, a, row, fields, 0, "9007199254740993")
++	if !reflect.DeepEqual(got, want) {
++		t.Fatalf("snapshot image\ngot %#v\nwant %#v", got, want)
++	}
++	// Retained arguments keep independent slots when inputs are reused. The
++	// ingestion decoder still owns all input string payloads before this stage.
++	row[0], fields[0], a.added[1], a.sourceKeys[0] = intValue(typeInt64, 1), "changed", "changed", stringValue("changed")
++	if !reflect.DeepEqual(got, want) {
++		t.Fatal("retained snapshot arguments changed with input slots")
++	}
++	a.sourceKeys[0] = nullValue(typeString)
++	got = snapshotInsertFields(meta, a, nil, nil, 0, "2")
++	if !reflect.DeepEqual(got, []any{rowIDField, "2", "later", "changed"}) {
++		t.Fatalf("NULL provenance/empty image changed: %#v", got)
++	}
++}
++
++func TestIngestUnmanagedArgumentsPreserveSourceEncoding(t *testing.T) {
++	meta := &tableMeta{Columns: []columnMeta{
++		{Name: "flag", Field: "physical_flag", Type: typeBool, Encoding: "text", TextFormat: "YES"},
++		{Name: "missing", Type: typeString}, {Name: keyField, Type: typeString},
++		{Name: "payload", Type: typeString}, {Name: "exact", Type: typeInt64},
++	}}
++	row := []Value{boolValue(true), nullValue(typeString), stringValue("app:\x00é"), stringValue(""), intValue(typeInt64, 9007199254740993)}
++	fields := []any{"physical_flag", "missing", keyField, "payload", "exact"}
++	want := []any{"EVAL", keyRowInsertLua, 1, "app:\x00é", "physical_flag", "YES", "payload", "", "exact", "9007199254740993"}
++	got := unmanagedInsertArgs(meta, 2, row, fields)
++	if !reflect.DeepEqual(got, want) {
++		t.Fatalf("source arguments\ngot %#v\nwant %#v", got, want)
++	}
++	row[2], fields[0] = stringValue("changed"), "changed"
++	if !reflect.DeepEqual(got, want) {
++		t.Fatal("retained source arguments changed with input slots")
++	}
++}
++
++func TestIngestUnmanagedByteAccounting(t *testing.T) {
++	for _, command := range [][]any{
++		{"EVAL", keyRowInsertLua, 1, "app:\x00é", "field", "", "binary", "\x00\r\n"},
++		{"future controls", int64(-123), true, nil, []byte{0, 1, 255}},
++	} {
++		want := 32
++		for _, arg := range command {
++			want += len(fmt.Sprint(arg)) + 32
++		}
++		if got := unmanagedInsertCommandBytes(command); got != want {
++			t.Fatalf("command byte estimate %d, want established %d", got, want)
++		}
++	}
++}
++
++// These controls retain the exact argument assembly from baseline3213aa54.
++// They intentionally stay test-only, allowing the production builders to be
++// compared without modifying stored values, command count or native semantics.
++func ingestBaselineSnapshotFields(meta *tableMeta, a rowAlloc, row []Value, fieldNames []any, r int, id string) []any {
++	fields := []any{rowIDField, id}
++	if meta.SnapshotSourceKey && len(a.sourceKeys) > 0 && !a.sourceKeys[r].Null {
++		fields = append(fields, snapshotSourceKeyField, a.sourceKeys[r].S)
++	}
++	for i, value := range row {
++		if !value.Null {
++			fields = append(fields, fieldNames[i], encodeStored(value))
++		}
++	}
++	return append(fields, a.added...)
++}
++
++func ingestBaselineUnmanagedArgs(meta *tableMeta, ki int, row []Value) ([]any, int) {
++	command := []any{"EVAL", keyRowInsertLua, 1, row[ki].S}
++	for j, c := range meta.Columns {
++		if j != ki && !row[j].Null {
++			command = append(command, c.field(), c.encode(row[j], c.TextFormat))
++		}
++	}
++	size := 32
++	for _, arg := range command {
++		size += len(fmt.Sprint(arg)) + 32
++	}
++	return command, size
++}
++
++var ingestArgumentPage [][]any
++var ingestArgumentBytes int
++
++func BenchmarkIngestArgumentAssembly(b *testing.B) {
++	for _, columns := range []int{8, 105} {
++		for _, nullPercent := range []int{0, 50, 95} {
++			meta := &tableMeta{}
++			rows := make([][]Value, 256)
++			for c := range columns {
++				typ := typeInt64
++				if c%3 == 1 {
++					typ = typeString
++				}
++				meta.Columns = append(meta.Columns, columnMeta{Name: "c" + strconv.Itoa(c), Type: typ})
++			}
++			meta.Columns = append(meta.Columns, columnMeta{Name: keyField, Type: typeString})
++			ki := columns
++			for r := range rows {
++				rows[r] = make([]Value, columns+1)
++				for c := range columns {
++					if (c+r)%100 < nullPercent {
++						rows[r][c] = nullValue(meta.Columns[c].Type)
++					} else if meta.Columns[c].Type == typeString {
++						rows[r][c] = stringValue("payload\x00é:" + strconv.Itoa(r))
++					} else {
++						rows[r][c] = intValue(typeInt64, 9007199254740993+int64(r))
++					}
++				}
++				rows[r][ki] = stringValue("app:" + strconv.Itoa(r))
++			}
++			for _, mode := range []string{"managed", "unmanaged"} {
++				for _, variant := range []string{"baseline", "candidate"} {
++					b.Run(fmt.Sprintf("columns_%d/null_%d/%s/%s", columns, nullPercent, mode, variant), func(b *testing.B) {
++						page := make([][]any, len(rows))
++						build := func() int {
++							// Include per-conversion-slice field boxing in both paths.
++							var names []any
++							if mode == "managed" || variant == "candidate" {
++								columns := meta.Columns
++								if mode == "managed" {
++									columns = columns[:ki]
++								}
++								names = make([]any, len(columns))
++								for c, col := range columns {
++									names[c] = col.field()
++								}
++							}
++							bytes := 0
++							for r, row := range rows {
++								if mode == "managed" {
++									if variant == "baseline" {
++										page[r] = ingestBaselineSnapshotFields(meta, rowAlloc{}, row[:ki], names, r, "123")
++									} else {
++										page[r] = snapshotInsertFields(meta, rowAlloc{}, row[:ki], names, r, "123")
++									}
++								} else if variant == "baseline" {
++									var size int
++									page[r], size = ingestBaselineUnmanagedArgs(meta, ki, row)
++									bytes += size
++								} else {
++									page[r] = unmanagedInsertArgs(meta, ki, row, names)
++									bytes += unmanagedInsertCommandBytes(page[r])
++								}
++							}
++							return bytes
++						}
++						validate := func() {
++							names := make([]any, len(meta.Columns))
++							for i, c := range meta.Columns {
++								names[i] = c.field()
++							}
++							for r, row := range rows {
++								var want []any
++								if mode == "managed" {
++									want = ingestBaselineSnapshotFields(meta, rowAlloc{}, row[:ki], names, r, "123")
++								} else {
++									want, _ = ingestBaselineUnmanagedArgs(meta, ki, row)
++								}
++								if !reflect.DeepEqual(page[r], want) {
++									b.Fatal("argument image changed", r)
++								}
++							}
++						}
++						build()
++						validate()
++						b.ReportAllocs()
++						b.ResetTimer()
++						for range b.N {
++							ingestArgumentBytes = build()
++						}
++						b.StopTimer()
++						validate()
++						ingestArgumentPage = page
++					})
++				}
++			}
++		}
++	}
++}
+diff --git a/go/ingest_single_row_args_test.go b/go/ingest_single_row_args_test.go
+new file mode 100644
+index 00000000..d2b47315
+--- /dev/null
++++ b/go/ingest_single_row_args_test.go
+@@ -0,0 +1,97 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"fmt"
++	"reflect"
++	"strconv"
++	"testing"
++)
++
++func BenchmarkIngestSingleRowArguments(b *testing.B) {
++	for _, columns := range []int{8, 105} {
++		for _, shape := range []string{"dense", "one_nonnull"} {
++			meta := &tableMeta{}
++			row := make([]Value, columns+1)
++			for c := range columns {
++				typ := typeInt64
++				if c%3 == 1 {
++					typ = typeString
++				}
++				meta.Columns = append(meta.Columns, columnMeta{Name: "c" + strconv.Itoa(c), Type: typ, Nullable: true})
++				if shape == "one_nonnull" && c != columns-1 {
++					row[c] = nullValue(typ)
++				} else if typ == typeString {
++					row[c] = stringValue("payload\x00é")
++				} else {
++					row[c] = intValue(typeInt64, 9007199254740993)
++				}
++			}
++			ki := columns
++			meta.Columns = append(meta.Columns, columnMeta{Name: keyField, Type: typeString})
++			row[ki] = stringValue("app:single")
++			for _, mode := range []string{"managed", "unmanaged"} {
++				for _, variant := range []string{"baseline", "candidate"} {
++					b.Run(fmt.Sprintf("columns_%d/%s/%s/%s", columns, shape, mode, variant), func(b *testing.B) {
++						var result []any
++						build := func() int {
++							var names []any
++							if mode == "managed" || variant == "candidate" {
++								bound := meta.Columns
++								if mode == "managed" {
++									bound = bound[:ki]
++								}
++								names = make([]any, len(bound))
++								for i, c := range bound {
++									names[i] = c.field()
++								}
++							}
++							if mode == "managed" {
++								if variant == "baseline" {
++									result = ingestBaselineSnapshotFields(meta, rowAlloc{}, row[:ki], names, 0, "123")
++								} else {
++									result = snapshotInsertFields(meta, rowAlloc{}, row[:ki], names, 0, "123")
++								}
++								return 0
++							}
++							if variant == "baseline" {
++								var size int
++								result, size = ingestBaselineUnmanagedArgs(meta, ki, row)
++								return size
++							}
++							result = unmanagedInsertArgs(meta, ki, row, names)
++							return unmanagedInsertCommandBytes(result)
++						}
++						validate := func() {
++							names := make([]any, len(meta.Columns))
++							for i, c := range meta.Columns {
++								names[i] = c.field()
++							}
++							var want []any
++							if mode == "managed" {
++								want = ingestBaselineSnapshotFields(meta, rowAlloc{}, row[:ki], names, 0, "123")
++							} else {
++								want, _ = ingestBaselineUnmanagedArgs(meta, ki, row)
++							}
++							if !reflect.DeepEqual(result, want) {
++								b.Fatal("single-row argument image changed")
++							}
++						}
++						build()
++						validate()
++						b.ReportAllocs()
++						b.ResetTimer()
++						for range b.N {
++							ingestArgumentBytes = build()
++						}
++						b.StopTimer()
++						validate()
++						ingestArgumentPage = [][]any{result}
++					})
++				}
++			}
++		}
++	}
++}
+diff --git a/go/snapshot_write_batch.go b/go/snapshot_write_batch.go
+index 2aa6f4bf..5f3f3cfe 100644
+--- a/go/snapshot_write_batch.go
++++ b/go/snapshot_write_batch.go
+@@ -331,16 +331,7 @@ func (s *store) writeSnapshotRows(ctx context.Context, meta *tableMeta, a rowAll
+ 	for r, row := range rows {
+ 		id := strconv.FormatInt(a.first+int64(r), 10)
+ 		key := meta.prefix() + id
+-		fields := []any{rowIDField, id}
+-		if meta.SnapshotSourceKey && len(a.sourceKeys) > 0 && !a.sourceKeys[r].Null {
+-			fields = append(fields, snapshotSourceKeyField, a.sourceKeys[r].S)
+-		}
+-		for i, value := range row {
+-			if !value.Null {
+-				fields = append(fields, fieldNames[i], encodeStored(value))
+-			}
+-		}
+-		fields = append(fields, a.added...)
++		fields := snapshotInsertFields(meta, a, row, fieldNames, r, id)
+ 		// Include framing/control/directory bytes conservatively. A single wide
+ 		// row retains the previous 64 MiB command ceiling; ordinary pages target 1 MiB.
+ 		size := snapshotImageBytes(snapshotInsertRow{key: key, fields: fields})
+@@ -360,3 +351,28 @@ func (s *store) writeSnapshotRows(ctx context.Context, meta *tableMeta, a rowAll
+ 	}
+ 	return int64(written), nil
+ }
++
++func snapshotInsertFields(meta *tableMeta, a rowAlloc, row []Value, fieldNames []any, r int, id string) []any {
++	count := 0
++	for _, value := range row {
++		if !value.Null {
++			count++
++		}
++	}
++	provenance := meta.SnapshotSourceKey && len(a.sourceKeys) > 0 && !a.sourceKeys[r].Null
++	capacity := 2 + 2*count + len(a.added)
++	if provenance {
++		capacity += 2
++	}
++	fields := make([]any, 2, capacity)
++	fields[0], fields[1] = rowIDField, id
++	if provenance {
++		fields = append(fields, snapshotSourceKeyField, a.sourceKeys[r].S)
++	}
++	for i, value := range row {
++		if !value.Null {
++			fields = append(fields, fieldNames[i], encodeStored(value))
++		}
++	}
++	return append(fields, a.added...)
++}
+diff --git a/go/unmanaged_insert.go b/go/unmanaged_insert.go
+index 38462ae8..f1c405c4 100644
+--- a/go/unmanaged_insert.go
++++ b/go/unmanaged_insert.go
+@@ -21,6 +21,12 @@ const unmanagedInsertRowBytes = 64 << 20
+ // return the first failure, and never submit another pipeline or replay this one.
+ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows [][]Value) (int64, error) {
+ 	ki, _ := meta.resolve(keyField)
++	// Field names are stable for the whole checked conversion slice. Box once
++	// rather than allocating a string interface for every column of every row.
++	fieldNames := make([]any, len(meta.Columns))
++	for i, c := range meta.Columns {
++		fieldNames[i] = c.field()
++	}
+ 	var written int64
+ 	for start := 0; start < len(rows); {
+ 		var args [][]any
+@@ -28,16 +34,8 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
+ 		bytes := 0
+ 		for i := start; i < len(rows) && len(args) < unmanagedInsertPipelineRows; i++ {
+ 			row := rows[i]
+-			command := []any{"EVAL", keyRowInsertLua, 1, row[ki].S}
+-			for j, c := range meta.Columns {
+-				if j != ki && !row[j].Null {
+-					command = append(command, c.field(), c.encode(row[j], c.TextFormat))
+-				}
+-			}
+-			size := 32 // RESP array header and margin
+-			for _, arg := range command {
+-				size += len(fmt.Sprint(arg)) + 32
+-			}
++			command := unmanagedInsertArgs(meta, ki, row, fieldNames)
++			size := unmanagedInsertCommandBytes(command)
+ 			if size > unmanagedInsertRowBytes {
+ 				return written, errorf(adbc.StatusInvalidArgument, "unmanaged INSERT row exceeds 64 MiB")
+ 			}
+@@ -87,3 +85,34 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
+ 	}
+ 	return written, s.checkKeys(ctx, meta, true)
+ }
++
++func unmanagedInsertArgs(meta *tableMeta, ki int, row []Value, fieldNames []any) []any {
++	fields := 0
++	for i, value := range row {
++		if i != ki && !value.Null {
++			fields++
++		}
++	}
++	command := make([]any, 4, 4+2*fields)
++	command[0], command[1], command[2], command[3] = "EVAL", keyRowInsertLua, 1, row[ki].S
++	for i, c := range meta.Columns {
++		if i != ki && !row[i].Null {
++			command = append(command, fieldNames[i], c.encode(row[i], c.TextFormat))
++		}
++	}
++	return command
++}
++
++func unmanagedInsertCommandBytes(command []any) int {
++	size := 32 // RESP array header and margin
++	for _, arg := range command {
++		if value, ok := arg.(string); ok {
++			size += len(value) + 32
++		} else {
++			// Preserve accounting for non-string control arguments and future
++			// callers; ordinary field names and encoded values need no formatter.
++			size += len(fmt.Sprint(arg)) + 32
++		}
++	}
++	return size
++}
