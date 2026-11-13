@@ -186,9 +186,12 @@ func TestSQLStreamResults(t *testing.T) {
 	h.setupStreamTable(table, streamRows)
 	raw := h.rawClient()
 	small := map[string]string{OptionIntStreamBatchRows: "1000"}
+	// These checks exercise Search cursor ownership. An unordered managed
+	// scan uses exact directories; cover that lifecycle separately below.
+	cursorTable := table + " ORDER BY __rowid"
 
 	t.Run("streams in insertion order", func(t *testing.T) {
-		rdr, n := h.openStream(h.ctx, h.conn, "SELECT id, label FROM "+table, nil, small)
+		rdr, n := h.openStream(h.ctx, h.conn, "SELECT id, label FROM "+cursorTable, nil, small)
 		defer rdr.Release()
 		if n != -1 {
 			t.Errorf("row count %d, want -1 for a stream", n)
@@ -229,7 +232,7 @@ func TestSQLStreamResults(t *testing.T) {
 	})
 
 	t.Run("releasing early deletes the cursor", func(t *testing.T) {
-		rdr, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		rdr, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM "+cursorTable, nil, small)
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
 		}
@@ -243,7 +246,7 @@ func TestSQLStreamResults(t *testing.T) {
 	t.Run("cancelling the context ends the stream", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(h.ctx)
 		defer cancel()
-		rdr, _ := h.openStream(ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		rdr, _ := h.openStream(ctx, h.conn, "SELECT id FROM "+cursorTable, nil, small)
 		defer rdr.Release()
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
@@ -268,7 +271,7 @@ func TestSQLStreamResults(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		rdr, _ := h.openStream(h.ctx, conn, "SELECT id FROM "+table, nil, small)
+		rdr, _ := h.openStream(h.ctx, conn, "SELECT id FROM "+cursorTable, nil, small)
 		defer rdr.Release()
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
@@ -287,7 +290,7 @@ func TestSQLStreamResults(t *testing.T) {
 	})
 
 	t.Run("cancelling the statement ends the stream", func(t *testing.T) {
-		st, rdr, _ := h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		st, rdr, _ := h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+cursorTable, nil, small)
 		defer rdr.Release()
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
@@ -318,7 +321,7 @@ func TestSQLStreamResults(t *testing.T) {
 	})
 
 	t.Run("cancelling the statement while Next runs", func(t *testing.T) {
-		st, rdr, _ := h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		st, rdr, _ := h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+cursorTable, nil, small)
 		defer rdr.Release()
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
@@ -359,7 +362,7 @@ func TestSQLStreamResults(t *testing.T) {
 		if err := canceler(t, st).Cancel(h.ctx); !isStatus(err, adbc.StatusInvalidState) {
 			t.Errorf("after a whole result: err = %v, want InvalidState", err)
 		}
-		st, rdr, _ = h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		st, rdr, _ = h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+cursorTable, nil, small)
 		rdr.Release()
 		if err := canceler(t, st).Cancel(h.ctx); !isStatus(err, adbc.StatusInvalidState) {
 			t.Errorf("after Release: err = %v, want InvalidState", err)
@@ -388,7 +391,7 @@ func TestSQLStreamResults(t *testing.T) {
 	})
 
 	t.Run("an error on a later page", func(t *testing.T) {
-		rdr, n := h.openStream(h.ctx, h.conn, "SELECT 1000 / (id - 15000) FROM "+table, nil, small)
+		rdr, n := h.openStream(h.ctx, h.conn, "SELECT 1000 / (id - 15000) FROM "+cursorTable, nil, small)
 		defer rdr.Release()
 		id := cursorOf(rdr)
 		for rdr.Next() {
@@ -402,7 +405,7 @@ func TestSQLStreamResults(t *testing.T) {
 	})
 
 	t.Run("a cursor that expired", func(t *testing.T) {
-		rdr, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		rdr, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM "+cursorTable, nil, small)
 		defer rdr.Release()
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
@@ -661,5 +664,104 @@ func TestSQLStreamSnapshotLifetime(t *testing.T) {
 			}
 			h.expectRows("SELECT id,label,qty FROM "+table, "888888|replacement|8")
 		})
+	}
+}
+
+// Unordered managed reads own a directory iterator and a snapshot pin instead
+// of a Search cursor. Both single-table and UNION readers must release them.
+func TestSQLDirectoryStreamLifecycle(t *testing.T) {
+	h := newSQLHarness(t)
+	const table = "it_directory_stream"
+	h.setupStreamTable(table, streamRows)
+	defer h.dropTables(table)
+	raw := h.rawClient()
+	for _, union := range []bool{false, true} {
+		for _, action := range []string{"finish", "release", "context", "statement", "connection", "error"} {
+			t.Run(fmt.Sprintf("union=%t/%s", union, action), func(t *testing.T) {
+				reader := newSQLHarness(t)
+				ctx, cancel := context.WithCancel(reader.ctx)
+				defer cancel()
+				expr := "id"
+				if action == "error" {
+					expr = "1000 / (id - 15000)"
+				}
+				q := "SELECT " + expr + " FROM " + table
+				if union {
+					q += " UNION ALL SELECT id FROM " + table
+				}
+				st, r, n := reader.openStmtStream(ctx, reader.conn, q, nil, map[string]string{OptionIntStreamBatchRows: "1000"})
+				released := false
+				defer func() {
+					if !released {
+						r.Release()
+					}
+				}()
+				if n != -1 || !r.Next() {
+					t.Fatal("expected a live stream", n, r.Err())
+				}
+				root := inspectionReader(r).(*streamReader)
+				leaf := root
+				if union {
+					leaf = unionActiveLeaf(root.union)
+				}
+				if leaf == nil || leaf.it == nil || leaf.it.delta == nil || leaf.it.cur != nil {
+					t.Fatal("expected an exact-directory scan without a Search cursor")
+				}
+				it := leaf.it
+				token := root.snapshot.token
+				if !raw.HExists(ctx, snapshotCatalogKey, "p:"+token).Val() {
+					t.Fatal("live stream has no snapshot pin")
+				}
+				rec := r.RecordBatch()
+				rec.Retain()
+				defer rec.Release()
+				first := rec.Column(0).(*array.Int64).Value(0)
+				switch action {
+				case "finish":
+					ids, _, err := readInts(r)
+					want := sequence(1000, streamRows-1000, 1)
+					if union {
+						want = append(want, sequence(0, streamRows, 1)...)
+					}
+					if err != nil || !slices.Equal(ids, want) {
+						t.Fatal("incomplete/out-of-order directory stream", len(ids), err)
+					}
+				case "release":
+					r.Release()
+					released = true
+				case "context":
+					cancel()
+				case "statement":
+					if err := canceler(t, st).Cancel(ctx); err != nil {
+						t.Fatal(err)
+					}
+				case "connection":
+					if err := reader.conn.Close(ctx); err != nil {
+						t.Fatal(err)
+					}
+				case "error":
+					for r.Next() {
+					}
+					if r.Err() == nil || !strings.Contains(r.Err().Error(), "division by zero") {
+						t.Fatal("expected later-page division error", r.Err())
+					}
+				}
+				if action == "context" || action == "statement" || action == "connection" {
+					status := adbc.StatusCancelled
+					if action == "connection" {
+						status = adbc.StatusInvalidState
+					}
+					if r.Next() || !isStatus(r.Err(), status) {
+						t.Fatal("stream survived cancellation/close", r.Err())
+					}
+				}
+				if !root.closed || it.delta != nil || raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
+					t.Fatal("directory iterator or snapshot pin leaked")
+				}
+				if rec.Column(0).(*array.Int64).Value(0) != first {
+					t.Fatal("retained consumer batch changed")
+				}
+			})
+		}
 	}
 }

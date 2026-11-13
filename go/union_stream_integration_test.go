@@ -145,7 +145,9 @@ func TestUnionAllStreamLifecycle(t *testing.T) {
 	h.setupStreamTable(a, 25001)
 	h.setupStreamTable(b, 25001)
 	defer h.dropTables(a, b)
-	q := "SELECT id FROM " + a + " UNION ALL SELECT id FROM " + b
+	// Explicit branch limits select Search cursors while keeping UNION
+	// streamable (ordered branches materialize). Each limit covers the fixture.
+	q := "(SELECT id FROM " + a + " LIMIT 25001) UNION ALL (SELECT id FROM " + b + " LIMIT 25001)"
 	raw := h.rawClient()
 	opts := map[string]string{OptionIntStreamBatchRows: "37"}
 	for _, mode := range []string{"release", "context", "statement", "connection"} {
@@ -203,7 +205,7 @@ func TestUnionAllStreamLifecycle(t *testing.T) {
 	}
 
 	t.Run("release after child transition", func(t *testing.T) {
-		r, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM "+a+" WHERE id<3 UNION ALL SELECT id FROM "+b, nil, opts)
+		r, _ := h.openStream(h.ctx, h.conn, "(SELECT id FROM "+a+" WHERE id<3 LIMIT 25001) UNION ALL (SELECT id FROM "+b+" LIMIT 25001)", nil, opts)
 		root := inspectionReader(r).(*streamReader)
 		leaf := unionActiveLeaf(root.union)
 		id := cursorOf(leaf)

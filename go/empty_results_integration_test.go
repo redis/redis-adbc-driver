@@ -809,9 +809,12 @@ func TestSQLEmptyReadsNothing(t *testing.T) {
 	h.exec("INSERT INTO it_empty_w VALUES (1, 'one')")
 	h.exec("DROP VIEW IF EXISTS it_empty_rv")
 	t.Cleanup(func() { h.exec("DROP VIEW IF EXISTS it_empty_rv") })
-	// The check sees a query that reads.
-	if got := h.rowReads(func() { h.query("SELECT * FROM it_empty_t") }); got["ft.aggregate"] == 0 {
-		t.Fatalf("a full scan read %v, want FT.AGGREGATE", got)
+	// Positive controls cover both managed-directory HASH reads and Search.
+	if got := h.rowReads(func() { h.query("SELECT * FROM it_empty_t") }); got["hmget"] == 0 {
+		t.Fatalf("a directory scan read %v, want HMGET", got)
+	}
+	if got := h.rowReads(func() { h.query("SELECT * FROM it_empty_t ORDER BY __rowid") }); got["ft.aggregate"] == 0 {
+		t.Fatalf("an ordered scan read %v, want FT.AGGREGATE", got)
 	}
 	if got := h.rowReads(func() { h.query("SELECT * FROM it_empty_t WHERE __rowid = 1") }); got["hmget"] == 0 {
 		t.Fatalf("a row id lookup read %v, want HMGET", got)
