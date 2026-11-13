@@ -1,0 +1,642 @@
+{
+  "metadata": {
+    "suite": "redis-owned",
+    "expected_cases": 12,
+    "mode": "bench",
+    "workspace_commit": "12bb757d0b0ad40c37ce3bc27d8fd89baa36acdb",
+    "count": 3,
+    "benchtime": "200ms",
+    "server": "none; byte-reader parser and C Data/C Stream fixtures only",
+    "go_version": "go version go1.27.3 darwin/arm64",
+    "gomaxprocs": 1,
+    "redis": {
+      "Path": "github.com/redis/go-redis/v9",
+      "Version": "v9.23.0",
+      "Sum": "h1:/TTVdJa8BRNsybwwGGnmiYktHNlUXtbOQxlWpHBPL3s="
+    },
+    "arrow": {
+      "Path": "github.com/apache/arrow-go/v18",
+      "Version": "v18.8.0",
+      "Sum": "h1:BLOzbPv7bxMPgXPacAg6HQjnxupYsZzC4tf+FkqPU/M="
+    },
+    "sha256": {
+      "redis_command.go": "baaf5c2a74a6b3b0197400a6873b5adbb8a42ca16fc68ca352600e64bd3bde85",
+      "redis_reader.go": "644761c0fac02008231a24ea0437798588f8f8efee984659700bcc635248ecd9",
+      "redis_license": "a3a7dff87da3927db65cb4c87b1cfbc96ca2755704461a485d457be7ae300a86",
+      "fixture_license": "38f0ca9731b222987356ab19f71d838ede5d4a5057c30faa0249f03d81e16b52",
+      "redis_fixture": "23ce3af1d0728b6d90619e1035359a892a95fb2ac384f3d142aed047ee361d76",
+      "arrow_interface.go": "a0cde9306756d79015815dcaf2f1ff4a9bf71d341c2c667df6f62e9aaf0784a1",
+      "arrow_license": "ff2fe52b8dfd2574c6ea7f0c407948c857f62672c2a3a9a17083ee10af8067ef",
+      "arrow_exports.go": "824aa39b3b008a28717a0915ec851d0083417661ac1c2d4b4a2eac8dc9a05031",
+      "arrow_fixture": "5976f43654e307d1938b910f4fc414ed00b3dea061910a7a8ec8f300abc18966",
+      "arrow_bridge": "26d1f638b98d562c210135f792ef45ca2fe5e60313baa75aff90b126e69217e9",
+      "redis_owned_fixture": "30fcf57b0c3278d9071754793d1d7507ef1db3f5da4ecb59afe05aacfcad78c8"
+    },
+    "go_counters": "B/op and allocs/op exclude C malloc/calloc and shared prebuilt payloads",
+    "commands": [
+      {
+        "name": "redis-check",
+        "argv": [
+          "go",
+          "test",
+          "-count=1",
+          "-race",
+          "-p",
+          "1",
+          "-run",
+          "^TestUpstream(RESP3Fixture|OwnedHMGET)$",
+          "."
+        ],
+        "seconds": 11.305626042012591,
+        "exit_code": 0
+      },
+      {
+        "name": "redis-bench",
+        "argv": [
+          "go",
+          "test",
+          "-count=3",
+          "-benchtime=200ms",
+          "-benchmem",
+          "-run=^$",
+          "-bench=^BenchmarkUpstreamHMGETOwned$",
+          "."
+        ],
+        "seconds": 21.266119958017953,
+        "exit_code": 0
+      }
+    ]
+  },
+  "hardware": {
+    "goos": "darwin",
+    "goarch": "arm64",
+    "cpu": "Apple M5 Max"
+  },
+  "samples": [
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/slice_cmd",
+      "iterations": 216,
+      "metrics": {
+        "ns/op": 1016323.0,
+        "MB/s": 540.75,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/slice_cmd",
+      "iterations": 238,
+      "metrics": {
+        "ns/op": 996671.0,
+        "MB/s": 551.41,
+        "B/op": 1383572.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/slice_cmd",
+      "iterations": 241,
+      "metrics": {
+        "ns/op": 995481.0,
+        "MB/s": 552.07,
+        "B/op": 1383572.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/strings_owned",
+      "iterations": 320,
+      "metrics": {
+        "ns/op": 746839.0,
+        "MB/s": 735.87,
+        "B/op": 1038867.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/strings_owned",
+      "iterations": 327,
+      "metrics": {
+        "ns/op": 735453.0,
+        "MB/s": 747.26,
+        "B/op": 1038867.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/strings_owned",
+      "iterations": 324,
+      "metrics": {
+        "ns/op": 751245.0,
+        "MB/s": 731.55,
+        "B/op": 1038867.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/slice_cmd",
+      "iterations": 253,
+      "metrics": {
+        "ns/op": 951852.0,
+        "MB/s": 577.38,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/slice_cmd",
+      "iterations": 253,
+      "metrics": {
+        "ns/op": 960585.0,
+        "MB/s": 572.13,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/slice_cmd",
+      "iterations": 253,
+      "metrics": {
+        "ns/op": 946887.0,
+        "MB/s": 580.4,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/strings_owned",
+      "iterations": 337,
+      "metrics": {
+        "ns/op": 714590.0,
+        "MB/s": 769.08,
+        "B/op": 1038866.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/strings_owned",
+      "iterations": 326,
+      "metrics": {
+        "ns/op": 714057.0,
+        "MB/s": 769.65,
+        "B/op": 1038866.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/strings_owned",
+      "iterations": 340,
+      "metrics": {
+        "ns/op": 705778.0,
+        "MB/s": 778.68,
+        "B/op": 1038866.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/slice_cmd",
+      "iterations": 54,
+      "metrics": {
+        "ns/op": 3918289.0,
+        "MB/s": 562.32,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/slice_cmd",
+      "iterations": 54,
+      "metrics": {
+        "ns/op": 4064480.0,
+        "MB/s": 542.09,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/slice_cmd",
+      "iterations": 55,
+      "metrics": {
+        "ns/op": 3958640.0,
+        "MB/s": 556.58,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/strings_owned",
+      "iterations": 80,
+      "metrics": {
+        "ns/op": 2993623.0,
+        "MB/s": 736.0,
+        "B/op": 4183293.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/strings_owned",
+      "iterations": 80,
+      "metrics": {
+        "ns/op": 2970283.0,
+        "MB/s": 741.79,
+        "B/op": 4183293.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/strings_owned",
+      "iterations": 80,
+      "metrics": {
+        "ns/op": 2953770.0,
+        "MB/s": 745.93,
+        "B/op": 4183293.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/slice_cmd",
+      "iterations": 84,
+      "metrics": {
+        "ns/op": 4001657.0,
+        "MB/s": 550.6,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/slice_cmd",
+      "iterations": 58,
+      "metrics": {
+        "ns/op": 4166564.0,
+        "MB/s": 528.81,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/slice_cmd",
+      "iterations": 80,
+      "metrics": {
+        "ns/op": 3909551.0,
+        "MB/s": 563.57,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/strings_owned",
+      "iterations": 82,
+      "metrics": {
+        "ns/op": 2920480.0,
+        "MB/s": 754.44,
+        "B/op": 4183292.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/strings_owned",
+      "iterations": 80,
+      "metrics": {
+        "ns/op": 2931657.0,
+        "MB/s": 751.56,
+        "B/op": 4183292.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/strings_owned",
+      "iterations": 84,
+      "metrics": {
+        "ns/op": 2905066.0,
+        "MB/s": 758.44,
+        "B/op": 4183292.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/slice_cmd",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 16676965.0,
+        "MB/s": 531.19,
+        "B/op": 22323129.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/slice_cmd",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 16736800.0,
+        "MB/s": 529.29,
+        "B/op": 22323132.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/slice_cmd",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 16287857.0,
+        "MB/s": 543.88,
+        "B/op": 22323130.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/strings_owned",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 12361544.0,
+        "MB/s": 716.63,
+        "B/op": 16804441.0,
+        "allocs/op": 412974.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/strings_owned",
+      "iterations": 24,
+      "metrics": {
+        "ns/op": 11971821.0,
+        "MB/s": 739.96,
+        "B/op": 16804443.0,
+        "allocs/op": 412974.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/strings_owned",
+      "iterations": 25,
+      "metrics": {
+        "ns/op": 11809382.0,
+        "MB/s": 750.13,
+        "B/op": 16804441.0,
+        "allocs/op": 412974.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/slice_cmd",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 16463421.0,
+        "MB/s": 538.08,
+        "B/op": 22323131.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/slice_cmd",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 16010504.0,
+        "MB/s": 553.3,
+        "B/op": 22323131.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/slice_cmd",
+      "iterations": 14,
+      "metrics": {
+        "ns/op": 16429336.0,
+        "MB/s": 539.2,
+        "B/op": 22323131.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/strings_owned",
+      "iterations": 24,
+      "metrics": {
+        "ns/op": 11748481.0,
+        "MB/s": 754.02,
+        "B/op": 16804444.0,
+        "allocs/op": 412974.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/strings_owned",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 12156463.0,
+        "MB/s": 728.72,
+        "B/op": 16804442.0,
+        "allocs/op": 412974.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/strings_owned",
+      "iterations": 19,
+      "metrics": {
+        "ns/op": 11990800.0,
+        "MB/s": 738.79,
+        "B/op": 16804441.0,
+        "allocs/op": 412974.0
+      }
+    }
+  ],
+  "summary": [
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 4001657.0,
+        "MB/s": 550.6,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_1048576/strings_owned",
+      "samples": 3,
+      "median": {
+        "ns/op": 2920480.0,
+        "MB/s": 754.44,
+        "B/op": 4183292.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 3958640.0,
+        "MB/s": 556.58,
+        "B/op": 5562493.0,
+        "allocs/op": 195587.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_1024/buffer_32768/strings_owned",
+      "samples": 3,
+      "median": {
+        "ns/op": 2970283.0,
+        "MB/s": 741.79,
+        "B/op": 4183293.0,
+        "allocs/op": 103243.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 951852.0,
+        "MB/s": 577.38,
+        "B/op": 1383571.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_1048576/strings_owned",
+      "samples": 3,
+      "median": {
+        "ns/op": 714057.0,
+        "MB/s": 769.65,
+        "B/op": 1038866.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 996671.0,
+        "MB/s": 551.41,
+        "B/op": 1383572.0,
+        "allocs/op": 48890.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_256/buffer_32768/strings_owned",
+      "samples": 3,
+      "median": {
+        "ns/op": 746839.0,
+        "MB/s": 735.87,
+        "B/op": 1038867.0,
+        "allocs/op": 25810.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 16429336.0,
+        "MB/s": 539.2,
+        "B/op": 22323131.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_1048576/strings_owned",
+      "samples": 3,
+      "median": {
+        "ns/op": 11990800.0,
+        "MB/s": 738.79,
+        "B/op": 16804442.0,
+        "allocs/op": 412974.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/slice_cmd",
+      "samples": 3,
+      "median": {
+        "ns/op": 16676965.0,
+        "MB/s": 531.19,
+        "B/op": 22323130.0,
+        "allocs/op": 782468.0
+      }
+    },
+    {
+      "suite": "redis",
+      "name": "BenchmarkUpstreamHMGETOwned/rows_4096/buffer_32768/strings_owned",
+      "samples": 3,
+      "median": {
+        "ns/op": 11971821.0,
+        "MB/s": 739.96,
+        "B/op": 16804441.0,
+        "allocs/op": 412974.0
+      }
+    }
+  ],
+  "additional_checks": {
+    "gomaxprocs": 4,
+    "go_version": "go version go1.27.3 darwin/arm64",
+    "sha256": {
+      "redis_command.go": "baaf5c2a74a6b3b0197400a6873b5adbb8a42ca16fc68ca352600e64bd3bde85",
+      "redis_reader.go": "644761c0fac02008231a24ea0437798588f8f8efee984659700bcc635248ecd9",
+      "redis_license": "a3a7dff87da3927db65cb4c87b1cfbc96ca2755704461a485d457be7ae300a86",
+      "fixture_license": "38f0ca9731b222987356ab19f71d838ede5d4a5057c30faa0249f03d81e16b52",
+      "redis_fixture": "23ce3af1d0728b6d90619e1035359a892a95fb2ac384f3d142aed047ee361d76",
+      "arrow_interface.go": "a0cde9306756d79015815dcaf2f1ff4a9bf71d341c2c667df6f62e9aaf0784a1",
+      "arrow_license": "ff2fe52b8dfd2574c6ea7f0c407948c857f62672c2a3a9a17083ee10af8067ef",
+      "arrow_exports.go": "824aa39b3b008a28717a0915ec851d0083417661ac1c2d4b4a2eac8dc9a05031",
+      "arrow_fixture": "5976f43654e307d1938b910f4fc414ed00b3dea061910a7a8ec8f300abc18966",
+      "arrow_bridge": "26d1f638b98d562c210135f792ef45ca2fe5e60313baa75aff90b126e69217e9",
+      "redis_owned_fixture": "30fcf57b0c3278d9071754793d1d7507ef1db3f5da4ecb59afe05aacfcad78c8"
+    },
+    "commands": [
+      {
+        "name": "redis-check",
+        "argv": [
+          "go",
+          "test",
+          "-count=1",
+          "-race",
+          "-p",
+          "1",
+          "-run",
+          "^TestUpstream(RESP3Fixture|OwnedHMGET)$",
+          "."
+        ],
+        "seconds": 8.95221304098959,
+        "exit_code": 0
+      }
+    ]
+  }
+}

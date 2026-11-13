@@ -24,6 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", type=Path, required=True, help="new private artifact directory")
     parser.add_argument("--mode", choices=["check", "bench"], default="check")
+    parser.add_argument("--suite", choices=["all", "redis-owned"], default="all")
     parser.add_argument("--benchtime", default="200ms")
     parser.add_argument("--count", type=int, default=3)
     parser.add_argument("--gomaxprocs", type=int, default=1)
@@ -56,6 +57,9 @@ def main():
         old.unlink()
     fixture = ROOT / "benchmarks/upstream-allocation/goredis_decode_test.go"
     shutil.copyfile(fixture, copied / "upstream_decode_test.go")
+    owned_fixture = ROOT / "benchmarks/upstream-allocation/goredis_owned_test.go"
+    if args.suite == "redis-owned":
+        shutil.copyfile(owned_fixture, copied / "upstream_owned_test.go")
     shutil.copyfile(ROOT / "LICENSE", copied / "LICENSE.upstream-benchmark-APACHE2")
     files = {
         "redis_command.go": source / "command.go",
@@ -69,7 +73,11 @@ def main():
         "arrow_fixture": ROOT / "go/benchmarks/upstreamalloc/bridge_test.go",
         "arrow_bridge": ROOT / "go/benchmarks/upstreamalloc/bridge.go",
     }
+    if args.suite == "redis-owned":
+        files["redis_owned_fixture"] = owned_fixture
     metadata = {
+        "suite": args.suite,
+        "expected_cases": 12 if args.suite == "redis-owned" else 28,
         "mode": args.mode,
         "workspace_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "count": args.count,
@@ -95,12 +103,16 @@ def main():
             raise RuntimeError(f"{name} failed; inspect its private log")
         print(name + " passed", flush=True)
 
-    run("redis-check", ["go", "test", "-count=1", "-race", "-p", "1", "-run", "^TestUpstreamRESP3Fixture$", "."], copied)
-    run("arrow-check", ["go", "test", "-count=1", "-race", "-p", "1", "./benchmarks/upstreamalloc"], ROOT / "go")
+    check = "^TestUpstream(RESP3Fixture|OwnedHMGET)$" if args.suite == "redis-owned" else "^TestUpstreamRESP3Fixture$"
+    run("redis-check", ["go", "test", "-count=1", "-race", "-p", "1", "-run", check, "."], copied)
+    if args.suite == "all":
+        run("arrow-check", ["go", "test", "-count=1", "-race", "-p", "1", "./benchmarks/upstreamalloc"], ROOT / "go")
     if args.mode == "bench":
         flags = ["-count=" + str(args.count), "-benchtime=" + args.benchtime, "-benchmem", "-run=^$"]
-        run("redis-bench", ["go", "test", *flags, "-bench=^BenchmarkUpstreamHMGETDecode$", "."], copied)
-        run("arrow-bench", ["go", "test", *flags, "-bench=^BenchmarkArrowHandoff$", "./benchmarks/upstreamalloc"], ROOT / "go")
+        benchmark = "^BenchmarkUpstreamHMGETOwned$" if args.suite == "redis-owned" else "^BenchmarkUpstreamHMGETDecode$"
+        run("redis-bench", ["go", "test", *flags, "-bench=" + benchmark, "."], copied)
+        if args.suite == "all":
+            run("arrow-bench", ["go", "test", *flags, "-bench=^BenchmarkArrowHandoff$", "./benchmarks/upstreamalloc"], ROOT / "go")
 
 
 if __name__ == "__main__":

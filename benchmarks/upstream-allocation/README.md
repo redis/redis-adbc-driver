@@ -139,3 +139,32 @@ GitHub's API did not detect a license. Before adapting/running it:
 5. Validate all results, report errors/retries and compare transport profiles
    against these parser-only controls. Never extrapolate to complete managed
    publication, ADBC C Stream or Python conversion without measuring them.
+
+## Independently owned typed-result control
+
+[Measured owned-result evidence](owned-2026-11-13/report.md) retains all 36
+validated samples and the ownership/API limitations.
+
+The additional `--suite redis-owned` experiment compares actual SliceCmd with
+fresh owned string/null vectors for every array. Unlike `string_slice_reuse`,
+row-vector allocations are inside timing and old results remain valid after the
+parser, input and command slots are reused. This narrows the result-lifetime
+question without introducing a public command API. It has no fixed 64-byte
+payload ceiling. Result-inspecting hooks, cancellation/routing/retry behavior
+and pipeline/async API integration remain upstream design work.
+
+```sh
+python3 benchmarks/upstream-allocation/run.py --suite redis-owned --mode check \
+  --work /private/new-owned-check --gomaxprocs 4
+python3 benchmarks/upstream-allocation/run.py --suite redis-owned --mode bench \
+  --work /private/new-owned-bench --count 3 --benchtime 200ms --gomaxprocs 1
+python3 benchmarks/upstream-allocation/summarize.py /private/new-owned-bench \
+  --output /private/new-owned-bench/summary.json
+```
+
+The twelve cases are 256/1024/4096 rows ×105 fields, two reader sizes and two
+consumers. Complete value/null checks run before/after timing. Retained-result,
+parser-input reuse, independent result mutation, concurrent read-only retention,
+large binary payload and incomplete/server-error/NULL-array cases are checked
+separately. No server or C/Arrow tests are run by this opt-in suite; the original
+suite remains the default, with historical sample counts preserved.
