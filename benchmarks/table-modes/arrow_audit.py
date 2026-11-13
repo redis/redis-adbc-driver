@@ -8,15 +8,16 @@ import sys
 MODES = ('managed', 'unmanaged', 'redis_py')
 COMMIT = '426fdb88bbff8561baf5f8f3535edfe14f172985'
 SOURCE = 'a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2'
+VERSION = 'v0.0.26-dev.arrow-bench'
 
 
-def summarize(data):
+def summarize(data, *, commit=COMMIT, version=VERSION):
     assert data['status'] in ('complete', 'complete_with_write_conflicts')
     assert data['failures'] == []
     meta = data['metadata']
-    assert meta['driver_source_commit'] == COMMIT
+    assert meta['driver_source_commit'] == commit
     assert meta['source_sha256'] == SOURCE
-    assert meta['driver_version'] == 'v0.0.26-dev.arrow-bench'
+    assert meta['driver_version'] == version
     assert meta['read_rows'] == 100000 and meta['write_rows'] == 10000 and meta['columns'] == 105
     assert meta['read_repetitions'] == 6 and meta['write_repetitions'] == 3
     assert meta['automatic_retries'] == 0 and meta['protocol'] == 3 and meta['tls']

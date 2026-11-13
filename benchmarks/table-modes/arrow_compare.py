@@ -52,7 +52,7 @@ class Benchmark(base.Benchmark):
         super().__init__(args)
         self.results['creation'] = []
         self.results['metadata'].update(
-            scope='Unreleased PR #401 source; SQL/Arrow/native comparison',
+            scope=f'SQL/Arrow/native comparison; driver {args.version}',
             arrow_batch_rows=args.sql_batch_rows,
             write_paths=['managed_sql', 'unmanaged_sql', 'managed_arrow', 'unmanaged_arrow', 'redis_py'],
             automatic_retries=0)
