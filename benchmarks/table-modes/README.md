@@ -5,6 +5,14 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+The [managed follow-up](managed-followup-2026-11-12/report.md) compares pinned
+base/candidate binaries for managed reads and writes, including a separate larger
+Arrow-call control. `managed_followup.py` accepts the same private fixture/path
+arguments, defaults to six read and three write repetitions after warmup, and adds
+`--large-arrow-call-rows` (default 10000, versus normal 1000-row calls). Run each
+binary in a separate process with a fresh owned fixture/work directory.
+`managed_followup_audit.py` checks native coverage and diagnostic evidence.
+
 [Latest main comparison](main-perf-2026-11-12/report.md) repeats the complete
 read/write/creation matrix on source `f630e117` after PRs #403–405, built as
 `v0.0.26-dev.main-perf`. Run `arrow_compare.py --suite all` with that pinned

@@ -7,3 +7,8 @@
 5. Review, publish sanitized evidence/PR, and remove owned resources.
 
 See [intent](intent.md), [spec](spec.md).
+
+Steps 1–5 completed. See [validation](validation.md) for the reproduced excess
+work, changes, test coverage, native/diagnostic observations, memory tradeoff and
+cleanup. Fixed-call write throughput remains a limit; larger-call results are
+separate usage controls.

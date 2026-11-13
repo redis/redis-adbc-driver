@@ -467,6 +467,23 @@ and does not guarantee fairness or conflict-free arbitrary SQL.
 Unmanaged Arrow append bypasses this gate and writes application HASHes directly;
 see its [partial-write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes).
 
+For managed ingestion, the publication unit is an `adbc_ingest` call, not each
+Arrow record batch within its input. Multiple small record batches can share one
+call through a RecordBatchReader:
+
+```python
+# table contains the application's chosen publication unit; events already exists.
+reader = table.to_reader(max_chunksize=1000)
+cursor.adbc_ingest("events", reader, mode="append", db_schema_name="public")
+```
+
+Larger calls amortize publication/index setup and reduce segment churn. They also
+increase the atomic publication unit and the time competing same-table writers
+may wait. Internal conversion slices and atomic row batches retain their bounds;
+the driver does not automatically combine separate calls. See the
+[managed follow-up measurements](../benchmarks/table-modes/managed-followup-2026-11-12/report.md)
+for the separate fixed-call and larger-call observations.
+
 Direct/internal stores without a background worker retain explicit SQLSTATE
 `40001` backpressure at the hard segment limit. Concurrent publication conflicts
 can still return `40001`; independent metadata publication is ongoing work.
