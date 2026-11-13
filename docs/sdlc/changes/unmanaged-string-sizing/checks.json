@@ -1,0 +1,34 @@
+{
+  "unit-race-01": {
+    "exit_code": 0,
+    "pass_events": 59,
+    "skip_events": 0,
+    "fail_events": 0,
+    "skipped_tests": [],
+    "raw_sha256": "9aace379a2bdd03c59931516e390fb83eff58282a7b5041f573fcfe83bb81887"
+  },
+  "live-race-01": {
+    "exit_code": 0,
+    "pass_events": 101,
+    "skip_events": 1,
+    "fail_events": 0,
+    "skipped_tests": [
+      "TestUnmanagedPerformanceSample"
+    ],
+    "raw_sha256": "317e668b21fc987642efaee3498bfc1839ba2329cf0e590272b5ca83e8ef4a83"
+  },
+  "fixture": {
+    "software": true,
+    "active_effective_qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "noeviction": true,
+    "data_tls_certificate_verified": true,
+    "resp": 3,
+    "returned_empty": true,
+    "all_clients_and_processes_closed": true,
+    "compose_owner": "parent coordinator"
+  }
+}

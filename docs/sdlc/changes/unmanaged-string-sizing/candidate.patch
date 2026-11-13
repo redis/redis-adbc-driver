@@ -1,0 +1,259 @@
+diff --git a/benchmarks/table-modes/unmanaged_write_sizing.py b/benchmarks/table-modes/unmanaged_write_sizing.py
+new file mode 100644
+index 00000000..b0ee1be2
+--- /dev/null
++++ b/benchmarks/table-modes/unmanaged_write_sizing.py
+@@ -0,0 +1,39 @@
++"""Selected unmanaged SQL/Arrow/raw cases using the established write harness."""
++import argparse
++from pathlib import Path
++
++from arrow_compare import Benchmark
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    for name in ('source', 'driver', 'cli', 'work'):
++        parser.add_argument('--' + name, type=Path, required=True)
++    parser.add_argument('--version', required=True)
++    parser.add_argument('--dedicated-empty-server', action='store_true', required=True)
++    parser.add_argument('--write-repeats', type=int, default=3)
++    parser.add_argument('--sql-batch-rows', type=int, default=1000)
++    parser.add_argument('--write-rows', type=int, default=10000)
++    args = parser.parse_args()
++    if args.write_repeats <= 0 or args.sql_batch_rows <= 0 or not 4 <= args.write_rows <= 100000 or args.write_rows % 4:
++        parser.error('Invalid row/repetition/batch count')
++    args.read_repeats = 0
++    benchmark = Benchmark(args)
++    benchmark.results['metadata']['scope'] = 'Unmanaged SQL/Arrow/raw string-sizing comparison'
++    benchmark.results['metadata']['write_paths'] = ['unmanaged_sql', 'unmanaged_arrow', 'redis_py']
++    cases = [(mode, api, writers, 'append') for writers in (1, 4)
++             for mode, api in (('unmanaged', 'sql'), ('unmanaged', 'arrow'), ('redis_py', 'hset'))]
++    try:
++        benchmark.write_cases('writes', cases)
++        benchmark.results['final_qpf'] = benchmark.gate()
++        benchmark.results['status'] = 'complete'
++        benchmark.save()
++    except Exception as error:
++        benchmark.results['status'] = 'failed'
++        benchmark.results['failures'].append({'error_type': type(error).__name__})
++        benchmark.save()
++        raise
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/go/unmanaged_insert.go b/go/unmanaged_insert.go
+index 38462ae8..084e9553 100644
+--- a/go/unmanaged_insert.go
++++ b/go/unmanaged_insert.go
+@@ -34,10 +34,7 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
+ 					command = append(command, c.field(), c.encode(row[j], c.TextFormat))
+ 				}
+ 			}
+-			size := 32 // RESP array header and margin
+-			for _, arg := range command {
+-				size += len(fmt.Sprint(arg)) + 32
+-			}
++			size := unmanagedInsertCommandBytes(command)
+ 			if size > unmanagedInsertRowBytes {
+ 				return written, errorf(adbc.StatusInvalidArgument, "unmanaged INSERT row exceeds 64 MiB")
+ 			}
+@@ -87,3 +84,18 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
+ 	}
+ 	return written, s.checkKeys(ctx, meta, true)
+ }
++
++// Encoded fields and values are strings. Their formatter result is the string
++// itself, so avoid constructing an additional formatted copy for each cell.
++// Non-string controls keep the exact established formatter-based accounting.
++func unmanagedInsertCommandBytes(command []any) int {
++	size := 32 // RESP array header and margin
++	for _, arg := range command {
++		if value, ok := arg.(string); ok {
++			size += len(value) + 32
++		} else {
++			size += len(fmt.Sprint(arg)) + 32
++		}
++	}
++	return size
++}
+diff --git a/go/unmanaged_size_test.go b/go/unmanaged_size_test.go
+new file mode 100644
+index 00000000..144e6f5f
+--- /dev/null
++++ b/go/unmanaged_size_test.go
+@@ -0,0 +1,173 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"fmt"
++	"math/rand"
++	"reflect"
++	"strconv"
++	"strings"
++	"testing"
++)
++
++func unmanagedBaselineCommandBytes(command []any) int {
++	size := 32
++	for _, arg := range command {
++		size += len(fmt.Sprint(arg)) + 32
++	}
++	return size
++}
++
++type sizingString string
++
++func TestUnmanagedInsertCommandBytesEquivalent(t *testing.T) {
++	commands := [][]any{
++		nil, {"EVAL", keyRowInsertLua, 1, "app:\x00é", "empty", "", "bytes", "\x00\r\n\xff"},
++		{"future controls", int64(-123), true, nil, []byte{0, 1, 255}, sizingString("alias\x00é")},
++	}
++	random := rand.New(rand.NewSource(1))
++	for range 1000 {
++		command := []any{"EVAL", keyRowInsertLua, 1, "app:" + strconv.Itoa(random.Intn(100))}
++		for range random.Intn(16) {
++			payload := make([]byte, random.Intn(128))
++			_, _ = random.Read(payload)
++			command = append(command, "field", string(payload))
++		}
++		commands = append(commands, command)
++	}
++	commands = append(commands, []any{"EVAL", keyRowInsertLua, 1, "app:large", "payload", strings.Repeat("\x00é\r\n", 16384)})
++	for i, command := range commands {
++		if got, want := unmanagedInsertCommandBytes(command), unmanagedBaselineCommandBytes(command); got != want {
++			t.Fatalf("command %d byte-account changed: %d, want %d", i, got, want)
++		}
++	}
++}
++
++// The baseline builder reproduces the unchanged production argument loop.
++// Separating construction and accounting makes the measured phase explicit.
++func unmanagedBaselineArgs(meta *tableMeta, ki int, row []Value) []any {
++	command := []any{"EVAL", keyRowInsertLua, 1, row[ki].S}
++	for j, c := range meta.Columns {
++		if j != ki && !row[j].Null {
++			command = append(command, c.field(), c.encode(row[j], c.TextFormat))
++		}
++	}
++	return command
++}
++
++// This retained v1 control is intentionally unapplied to the production path.
++func unmanagedV1Args(meta *tableMeta, ki int, row []Value, names []any) []any {
++	fields := 0
++	for i, value := range row {
++		if i != ki && !value.Null {
++			fields++
++		}
++	}
++	command := make([]any, 4, 4+2*fields)
++	command[0], command[1], command[2], command[3] = "EVAL", keyRowInsertLua, 1, row[ki].S
++	for i, c := range meta.Columns {
++		if i != ki && !row[i].Null {
++			command = append(command, names[i], c.encode(row[i], c.TextFormat))
++		}
++	}
++	return command
++}
++
++var unmanagedSizingPage [][]any
++var unmanagedSizingBytes int
++
++func BenchmarkUnmanagedArgumentPhases(b *testing.B) {
++	for _, count := range []int{1, 256} {
++		for _, columns := range []int{8, 105} {
++			for _, shape := range []string{"dense", "half_null", "target95_null", "one_nonnull"} {
++				meta := &tableMeta{}
++				for c := range columns {
++					typ := typeInt64
++					if c%3 == 1 {
++						typ = typeString
++					}
++					meta.Columns = append(meta.Columns, columnMeta{Name: "c" + strconv.Itoa(c), Type: typ, Nullable: true})
++				}
++				ki := columns
++				meta.Columns = append(meta.Columns, columnMeta{Name: keyField, Type: typeString})
++				rows := make([][]Value, count)
++				for r := range rows {
++					rows[r] = make([]Value, columns+1)
++					for c := range columns {
++						null := shape == "one_nonnull" || shape == "half_null" && (r+c)%2 == 0 || shape == "target95_null" && (r+c)%100 < 95
++						// Every fixture passes source INSERT's nonempty HASH rule.
++						if null && c != columns-1 {
++							rows[r][c] = nullValue(meta.Columns[c].Type)
++						} else if meta.Columns[c].Type == typeString {
++							rows[r][c] = stringValue("payload\x00é:" + strconv.Itoa(r))
++						} else {
++							rows[r][c] = intValue(typeInt64, 9007199254740993+int64(r))
++						}
++					}
++					rows[r][ki] = stringValue("app:" + strconv.Itoa(r))
++				}
++				variants := []struct{ phase, variant string }{
++					{"combined", "baseline"}, {"combined", "sizing_only"}, {"combined", "v1"},
++					{"construction", "baseline_shared_v2"}, {"construction", "v1"},
++					{"sizing", "baseline"}, {"sizing", "fast_shared_v1_v2"},
++				}
++				for _, variant := range variants {
++					name := fmt.Sprintf("rows_%d/columns_%d/%s/%s/%s", count, columns, shape, variant.phase, variant.variant)
++					b.Run(name, func(b *testing.B) {
++						page := make([][]any, len(rows))
++						wanted := make([][]any, len(rows))
++						wantBytes := 0
++						for r, row := range rows {
++							wanted[r] = unmanagedBaselineArgs(meta, ki, row)
++							wantBytes += unmanagedBaselineCommandBytes(wanted[r])
++						}
++						build := func() int {
++							var names []any
++							if variant.variant == "v1" {
++								names = make([]any, len(meta.Columns))
++								for i, c := range meta.Columns {
++									names[i] = c.field()
++								}
++							}
++							bytes := 0
++							for r, row := range rows {
++								if variant.phase == "sizing" {
++									page[r] = wanted[r]
++								} else if variant.variant == "v1" {
++									page[r] = unmanagedV1Args(meta, ki, row, names)
++								} else {
++									page[r] = unmanagedBaselineArgs(meta, ki, row)
++								}
++								if variant.phase == "construction" {
++									continue
++								}
++								if variant.variant == "baseline" {
++									bytes += unmanagedBaselineCommandBytes(page[r])
++								} else {
++									bytes += unmanagedInsertCommandBytes(page[r])
++								}
++							}
++							return bytes
++						}
++						validate := func(bytes int) {
++							if !reflect.DeepEqual(page, wanted) || variant.phase != "construction" && bytes != wantBytes {
++								b.Fatal("argument bytes or established byte accounting changed")
++							}
++						}
++						validate(build())
++						b.ReportAllocs()
++						b.ResetTimer()
++						for range b.N {
++							unmanagedSizingBytes = build()
++						}
++						b.StopTimer()
++						validate(unmanagedSizingBytes)
++						unmanagedSizingPage = page
++					})
++				}
++			}
++		}
++	}
++}
