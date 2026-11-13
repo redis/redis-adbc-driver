@@ -7,11 +7,13 @@ import "github.com/apache/arrow-adbc/go/adbc"
 
 // scanProjection binds bare output columns to HASH fields once. The ordinary
 // scan still owns fetching, existence/readiness checks and cancellation. Only
-// its final decode/map/evaluate step is replaced, for managed row-local scans
-// with no residual, late materialization or tie sorting.
+// its final decode/map/evaluate step is replaced, for managed or explicit
+// unmanaged row-local scans with no residual, late materialization or tie sorting.
 type scanProjection struct {
 	columns []projectionColumn
 	rowID   []int
+	key     []int
+	keyRows bool // explicit unmanaged rows have application keys, never driver IDs
 	width   int
 	rows    [][]Value
 	// consume is installed while a stream fills Arrow builders or a scalar
@@ -34,16 +36,17 @@ type projectionColumn struct {
 }
 
 func newScanProjection(it *scanIter, items []planItem) *scanProjection {
-	if !managedRowIDTable(it.meta) || it.residual != nil || it.ties != nil || it.late != nil || len(items) == 0 {
+	unmanaged := unmanagedScanProjection(it)
+	if (!managedRowIDTable(it.meta) && !unmanaged) || it.residual != nil || it.ties != nil || it.late != nil || len(items) == 0 {
 		return nil
 	}
-	p := &scanProjection{width: len(items)}
+	p := &scanProjection{width: len(items), keyRows: unmanaged}
 	slots := make(map[string]int, len(it.need))
 	for _, c := range it.meta.scanColumns() {
 		if it.need[c.Name] {
 			slots[c.Name] = len(p.columns)
 			decode := c.decode
-			if len(items) >= 64 {
+			if len(items) >= 64 && !unmanaged {
 				decode = bindStoredDecode(c)
 			}
 			p.columns = append(p.columns, projectionColumn{column: c, field: c.field(), decode: decode})
@@ -54,7 +57,9 @@ func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 		if !ok || ref.Outer != 0 || ref.item != "" || ref.outerAgg != nil {
 			return nil
 		}
-		if ref.Name == rowIDField {
+		if unmanaged && ref.Name == keyField {
+			p.key = append(p.key, i)
+		} else if !unmanaged && ref.Name == rowIDField {
 			p.rowID = append(p.rowID, i)
 		} else if slot, ok := slots[ref.Name]; ok {
 			p.columns[slot].outputs = append(p.columns[slot].outputs, i)
@@ -66,6 +71,16 @@ func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 		return nil
 	}
 	return p
+}
+
+// Explicit unmanaged registrations retain their established live LOAD */
+// HGETALL retrieval and existence checks. They can bypass the decoded Value map
+// without assuming a managed row ID, NULL marker, source-key provenance or
+// immutable layout. Other application-owned layouts keep the ordinary path.
+func unmanagedScanProjection(it *scanIter) bool {
+	m := it.meta
+	return m != nil && m.Unmanaged && !m.isMem && m.join == nil && m.group == nil &&
+		!m.Rewriting && !it.hashFetch && it.flexUnmanaged == nil && validateUnmanagedDescriptor(m) == nil
 }
 
 // Bind only a complete authoritative fetch, including missing-value markers.
@@ -111,16 +126,26 @@ func (p *scanProjection) decodeInto(raw aggRow, row []Value) error {
 	// decodeRow always validates a present internal ID, even when it is not
 	// selected. Likewise decode every needed column, including sort inputs,
 	// in metadata order so malformed stored values retain the same errors.
-	id := nullValue(typeInt64)
-	if s, ok := raw[rowIDField]; ok {
-		var err error
-		id, err = decodeStored(s, typeInt64)
-		if err != nil {
-			return err
+	if p.keyRows {
+		key := raw[keyField]
+		if !unmanagedSourceKey(key) {
+			return errorf(adbc.StatusInvalidArgument, "unmanaged index contains a key overlapping driver storage")
 		}
-	}
-	for _, i := range p.rowID {
-		row[i] = id
+		for _, i := range p.key {
+			row[i] = stringValue(key)
+		}
+	} else {
+		id := nullValue(typeInt64)
+		if s, ok := raw[rowIDField]; ok {
+			var err error
+			id, err = decodeStored(s, typeInt64)
+			if err != nil {
+				return err
+			}
+		}
+		for _, i := range p.rowID {
+			row[i] = id
+		}
 	}
 	for i := range p.columns {
 		slot := &p.columns[i]
