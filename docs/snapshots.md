@@ -456,7 +456,7 @@ ownership change. Cancellation and uncertain admission replies terminate before
 input consumption. SQL/DDL writers and clients without this admission can still
 cause a publication conflict; input is never automatically replayed.
 Unmanaged Arrow append bypasses this gate and writes application HASHes directly;
-see its [partial-write contract](unmanaged-tables.md#append-arrow-data-to-source-hashes).
+see its [partial-write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes).
 
 Direct/internal stores without a background worker retain explicit SQLSTATE
 `40001` backpressure at the hard segment limit. Concurrent publication conflicts

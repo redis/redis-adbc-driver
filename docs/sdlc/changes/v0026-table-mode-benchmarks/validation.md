@@ -34,8 +34,8 @@ against computed results. All 35 pages rendered and inspected; zero issue-checke
 errors, two inherited typography warnings. Full-scale pages 27–29, including notes,
 remain unchanged. Supporting v0.0.25 results retain their actual release labels;
 shared benchmark footers use a neutral date/method label.
-Task-owned fixture retained for the separately requested unmanaged Arrow feature
-implementation/tests; it remains isolated from user databases.
+The task-owned fixture was reused for the separately requested unmanaged Arrow
+features and removed, including its volumes/network, after final validation.
 Operational identifiers, credentials, raw logs and slide payloads remain private.
 
 See [intent](intent.md), [spec](spec.md) and [plan](plan.md).

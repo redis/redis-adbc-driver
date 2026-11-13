@@ -172,8 +172,10 @@ Existing application HASHes remain application-owned. Adoption and foreign-index
 imports default to private managed copies; refresh explicitly to capture later
 source changes. Opt into [unmanaged tables](docs/unmanaged-tables.md) to read and
 write source HASHes directly without row snapshots or atomic multi-row writes.
-Registered unmanaged tables also accept Arrow `append` with explicit new `__key`
-values; errors report acknowledged rows and may leave partial source writes.
+Unmanaged Arrow writes require explicit new `__key` values. Use `append` or
+`create_append` for existing registrations, or explicit source configuration for
+`create`/`create_append` of a new application collection. Errors report acknowledged
+rows and may leave partial source writes.
 Compare [managed and application-owned data](docs/managed-vs-unmanaged-tables.md#choose-by-use-case)
 for ownership, freshness and storage tradeoffs.
 

@@ -97,6 +97,10 @@ func (s *store) loadUnmanagedIndex(ctx context.Context, meta *tableMeta) error {
 // Register metadata atomically, with no owned row/index edges. Re-registration
 // refreshes the schema only; it never converts a managed table or copies rows.
 func (s *store) registerUnmanaged(ctx context.Context, meta *tableMeta) error {
+	return s.registerUnmanagedMode(ctx, meta, false)
+}
+
+func (s *store) registerUnmanagedMode(ctx context.Context, meta *tableMeta, createOnly bool) error {
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 	defer cancel()
@@ -124,6 +128,9 @@ func (s *store) registerUnmanaged(ctx context.Context, meta *tableMeta) error {
 	if exists, err := s.tableExists(wctx, meta.Schema, meta.Name); err != nil {
 		return err
 	} else if exists {
+		if createOnly {
+			return stateErrorf(stateDuplicateTable, "table %q already exists", meta.Name)
+		}
 		old, err := s.getTableMetadata(wctx, meta.Schema, meta.Name)
 		if err != nil {
 			return err

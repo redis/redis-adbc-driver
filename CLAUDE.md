@@ -78,7 +78,13 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   source HASHes directly without managed row publication or replay. Keep those
   writes out of metadata-slot mutation fences and reject unmanaged staging,
   shared snapshots, native row-ID reads, ALTER, TRUNCATE and Arrow ingestion modes
-  other than append. Unmanaged Arrow append requires new explicit string __key
+  other than append/create/create_append. New unmanaged creation requires explicit
+  application prefix/index configuration, an empty prefix and unused index name.
+  Create a membership-only application index without hidden fields; never delete
+  it on failure or let create-only registration refresh an intervening table.
+  Coordinate registration metadata before consuming input, then release creation
+  admission before direct rows. Errors may leave application resources.
+  Unmanaged Arrow writes require new explicit string __key
   values, a catalog pin and the top-level source-write context; reuse checked
   source INSERT outside managed fences/publication/admission. Bound conversion
   slices, preserve status/SQLSTATE and acknowledged-row error details, and never

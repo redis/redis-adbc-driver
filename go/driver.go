@@ -45,9 +45,12 @@ const (
 	OptionIntDB = "adbc.redis.db"
 
 	// OptionStringIngestIndexColumns (statement) lists the columns that bulk
-	// ingest adds to the RediSearch index, comma-separated. "*" (the default)
+	// managed ingest adds to the RediSearch index, comma-separated. "*" (the default)
 	// indexes every numeric, temporal, boolean and string column.
 	OptionStringIngestIndexColumns = "adbc.redis.ingest.index_columns"
+	// OptionStringIngestUnmanagedSource (statement) selects application-owned
+	// creation with explicit JSON prefix, index and optional column encodings.
+	OptionStringIngestUnmanagedSource = "adbc.redis.ingest.unmanaged_source"
 	// OptionStringAggregatePushdown (database or statement) controls which
 	// aggregates run inside RediSearch (GROUPBY/REDUCE over SORTABLE fields):
 	//   - "exact" (default): only aggregates whose result RediSearch returns

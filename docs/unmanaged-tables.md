@@ -85,9 +85,12 @@ DROP removes only the table registration. Source HASHes, TTLs and Search indexes
 remain application-owned and survive managed sweep/compaction. Foreign indexes
 can be registered again by a later discovery/refresh.
 
-## Append Arrow data to source HASHes
+<a id="append-arrow-data-to-source-hashes"></a>
 
-Use ADBC ingestion in `append` mode against an existing unmanaged registration.
+## Write Arrow data to source HASHes
+
+Use ADBC ingestion in `append` or `create_append` mode against an existing
+unmanaged registration.
 Every row must include a non-NULL string `__key` under the registered source
 prefixes. Keys must be new: this is INSERT, not upsert. Logical column names,
 types and native/text encodings follow the registration, including renamed
@@ -107,12 +110,12 @@ There is no unmanaged publication step: each accepted row becomes visible as it
 is written.
 It does not create managed generations, acquire the managed Arrow append gate,
 or freeze application data. Existing HASHes, unrelated fields and TTLs are not
-overwritten. Filtered foreign indexes, `create`, `replace` and `create_append`
-modes, shared read snapshots and retained/staged writes are unsupported.
+overwritten. INSERT through filtered foreign indexes, Arrow `replace`, shared
+read snapshots and retained/staged writes are unsupported.
 Schema-level refusals occur before consuming the stream; row values and keys
 are validated as each conversion slice is reached.
 
-Once an unmanaged append passes target/schema preflight, a conversion, stream,
+Once an unmanaged Arrow write passes target/schema preflight, a conversion, stream,
 key-conflict, cancellation or Redis error leaves earlier successful rows in
 place. The ADBC error message and UTF-8 error detail
 `adbc.redis.ingest.acknowledged_rows` report the number of acknowledged rows;
@@ -124,6 +127,63 @@ progress detail; input has not been consumed. No input or uncertain mutation is
 replayed.
 Inspect source state before retrying; there is no rollback or whole-stream
 atomicity. This API does not require the managed snapshot `NativeClient` wrapper.
+
+### Create a new unmanaged collection
+
+Provide the statement option `adbc.redis.ingest.unmanaged_source` to select
+unmanaged creation. Its JSON requires an explicit application `prefix` and
+`index` name; optional `encodings` maps public column names to `native` or `text`.
+Native storage is the default. Text encoding is supported for boolean, date and
+time columns. All input rows still require explicit string `__key` values.
+
+```python
+import json
+
+with conn.cursor() as cursor:
+    cursor.adbc_statement.set_options(**{
+        "adbc.redis.ingest.unmanaged_source": json.dumps({
+            "prefix": "app:user:",
+            "index": "app_users_membership",
+            "encodings": {"enabled": "text"},
+        })
+    })
+    rows = pa.table({"__key": ["app:user:1"], "name": ["Ada"], "enabled": [True]})
+    cursor.adbc_ingest("users", rows, mode="create", db_schema_name="public")
+```
+
+`create` requires an unused table name, an empty prefix across all key types
+(including nested keys), and an unused index name. The Arrow schema defines the
+public fields and SQL types; `__key` is input-only. The driver creates a minimal
+application-owned Search index for row discovery: one `TAG NOINDEX` attribute,
+no hidden row-ID fields, and no field indexes for predicate pushdown. Creation
+uses `SKIPINITIALSCAN` and rechecks prefix emptiness after index creation, so a
+concurrent row that might have missed indexing causes refusal before registration
+or input consumption. SQL
+predicates continue to evaluate authoritative HASH values. The application can
+manage its Search indexes; the managed `ingest.index_columns` override is not
+supported for this creation path.
+
+`create_append` creates when the registration is missing and otherwise appends
+using its existing schema, index and encodings. An existing unmanaged target
+accepts `create_append` without the source option. When the option is supplied,
+its prefix/index and any explicitly supplied encodings must match the existing
+registration. A managed target cannot silently switch ownership modes.
+
+Creation coordinates **registration metadata** before consuming input. It commits
+the registration before writing rows, then releases creation admission. Data
+writes have no publication step. Failure can leave the new application index,
+registration and acknowledged partial rows; these resources are deliberately
+preserved, including after a lost creation reply or cancellation. Inspect them
+before retrying. To use an already existing source/index, explicitly register it
+with unmanaged adoption and then append. There is no automatic replay, rollback,
+index deletion or whole-call atomicity. Coordinate external writers during
+creation; the empty-prefix check does not freeze application activity.
+
+The statement option persists until cleared. Set it to the empty string before
+reusing the statement to create a managed table. With no source option, new Arrow
+tables use the managed default. Temporary/virtual targets, retained preparation
+and staged writes are unsupported. Arrow `replace` remains deferred in
+[issue #399](https://github.com/redis/redis-adbc-driver/issues/399).
 
 ## Consistency and supported operations
 
@@ -141,7 +201,7 @@ The driver never automatically replays an uncertain source mutation. After an
 error, inspect source state before retrying a write.
 
 Unmanaged tables reject ALTER, TRUNCATE (including `truncate_adopted=true`),
-managed index changes, Arrow ingestion modes other than append, retained write
+managed index changes, Arrow replace, retained write
 preparation, shared read snapshots, native row-ID reads and live partition reads.
 Data-changing WITH statements cannot stage unmanaged writes inside managed publication. The
 always-on managed snapshot option applies to managed tables only.
