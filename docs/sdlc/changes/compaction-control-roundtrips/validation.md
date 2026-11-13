@@ -1,6 +1,7 @@
 # Validation
 
-Date: November 13, 2026. Validation/evaluation complete; parent review pending.
+Date: November 13, 2026. Validation/evaluation complete. Parent source review
+found no blockers; this records agent review, not human approval.
 The demonstrated result is fewer control calls. Local native medians were lower,
 but diagnostic elapsed differences were small; no broad speedup is established.
 Measured source: `86a27f2ba772cde03765cefa1d963edbc24c3490`, production changes
@@ -60,8 +61,9 @@ shared fixture ownership changes were made.
 After all subprocesses and clients exited, the loaned database was reset only
 within the owner's authorization. DBSIZE zero and an empty FT._LIST were
 asserted; the owner verifier rechecked effective QPF/TLS/RESP3 and emptiness.
-The shared container/network/CA remain owned by the parent; this subagent did
-not tear them down. Endpoint identifiers, credentials and raw logs stay private.
+The shared container/network/CA remained owned by the parent through the loans;
+its completed final teardown is recorded below. Endpoint identifiers, credentials
+and raw logs stay private.
 
 ## Late-original ordering check
 
@@ -173,12 +175,17 @@ directory and retain warmups. Audit this evidence with
 
 The complete audit, artifact privacy/local-link checks and `git diff --check`
 passed. Both production files are byte-identical to measured `86a27f2b` after
-the test-only late-ordering addition. Parent source review and any GitHub CI
-remain separate from these local observations; no human approval is inferred.
+the test-only late-ordering addition. Parent source review found no blockers.
+GitHub CI remains separate from these local observations; no human approval is
+inferred.
 
-Shared fixture ownership remains with the parent. Every loan ended with clients
-closed, DBSIZE zero and FT._LIST empty; no shared container/network/CA was removed
-by this subagent. Raw events, operational identifiers and credentials stay
-private. No ClickBench, Flex or alternate provider was run.
+Every loan ended with clients closed, DBSIZE zero and FT._LIST empty. The parent
+completed final owner teardown after rechecking effective 4x QPF, strict data
+TLS/RESP3 and emptiness: the owned container and network were removed; the one
+preexisting container and 31 preexisting networks were preserved. Generated TLS,
+environment/settings and private credentials were removed. The sanitized owner
+cleanup proof is retained privately. This subagent did not tear down shared
+resources. Raw events, operational identifiers and credentials stay private.
+No ClickBench, Flex or alternate provider was run.
 
 See [intent](intent.md), [contract](spec.md) and [plan](plan.md).
