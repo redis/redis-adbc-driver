@@ -8,7 +8,9 @@ See [intent](intent.md) and [spec](spec.md).
 4. Compare matched baseline/candidate workloads and review correctness, ownership and evidence.
 5. Publish sanitized evidence and remove only task-owned resources.
 
-Steps 1–4 complete. The selected change reduces repeated script bodies, without
+Steps 1–5 complete. The selected change reduces repeated script bodies, without
 a demonstrated throughput improvement. See [validation](validation.md) and the
 [report](../../../../benchmarks/table-modes/managed-write-2026-11-12/report.md).
-Step 5: sanitized evidence prepared and task-owned resources removed; PR publication follows.
+Sanitized evidence published in PR #410 and task-owned resources removed.
+
+PR: [#410](https://github.com/redis/redis-adbc-driver/pull/410).

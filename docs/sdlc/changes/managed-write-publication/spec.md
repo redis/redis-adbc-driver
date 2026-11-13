@@ -20,3 +20,5 @@ publication proof or durable outcome changes. Cache loss is expected.
 
 Acceptance separates measured script-header bytes from total traffic and
 end-to-end throughput. Timing may remain unchanged; do not claim otherwise.
+
+PR: [#410](https://github.com/redis/redis-adbc-driver/pull/410).

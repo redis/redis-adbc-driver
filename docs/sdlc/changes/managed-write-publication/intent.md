@@ -8,3 +8,5 @@ Profile fixed 1K appends separately from the existing 10K-call usage option. No 
 
 The measured result is lower repeated Lua payloads, with no demonstrated local
 write-throughput improvement. See the [report](../../../../benchmarks/table-modes/managed-write-2026-11-12/report.md).
+
+PR: [#410](https://github.com/redis/redis-adbc-driver/pull/410).

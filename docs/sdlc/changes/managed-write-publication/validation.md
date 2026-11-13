@@ -94,3 +94,6 @@ Cleanup: effective Software 4x QPF/topology/TLS/noeviction reverified after all
 tests and measurements. Removed only the task-owned Compose project and its
 network; absence verified. Removed its generated test environment file. Other
 fixtures were left intact. Temporary ACL accounts were removed by their harness.
+
+Implementation source: `896c4bef6897cd28c015816ee1d6a31d659ac0c8`;
+[PR #410](https://github.com/redis/redis-adbc-driver/pull/410).
