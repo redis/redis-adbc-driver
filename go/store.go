@@ -2230,18 +2230,34 @@ func (s *store) fetchHashCommands(ctx context.Context, keys []string, fields []s
 		return nil, err
 	}
 	pipe := s.redis(ctx).Pipeline()
+	cmds := queueHashFetchCommands(ctx, pipe, keys, fields)
+	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+		return nil, wrapRedis(err, "failed to read rows")
+	}
+	return cmds, nil
+}
+
+func queueHashFetchCommands(ctx context.Context, pipe goredis.Pipeliner, keys, fields []string) []*goredis.SliceCmd {
+	// Box immutable field names once per batch. Each command still owns fresh
+	// argument slots so hooks, routing, retries and replies remain independent.
+	boxed := make([]any, len(fields))
+	for i, field := range fields {
+		boxed[i] = field
+	}
 	cmds := make([]*goredis.SliceCmd, 0, len(keys))
 	for _, key := range keys {
 		if key == "" {
 			cmds = append(cmds, nil)
 			continue
 		}
-		cmds = append(cmds, pipe.HMGet(ctx, key, fields...))
+		args := make([]any, 2+len(boxed))
+		args[0], args[1] = "hmget", key
+		copy(args[2:], boxed)
+		cmd := goredis.NewSliceCmd(ctx, args...)
+		_ = pipe.Process(ctx, cmd) // same queuing path used by HMGet
+		cmds = append(cmds, cmd)
 	}
-	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
-		return nil, wrapRedis(err, "failed to read rows")
-	}
-	return cmds, nil
+	return cmds
 }
 
 func (s *store) serverVersion(ctx context.Context) (string, error) {

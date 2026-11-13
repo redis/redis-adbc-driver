@@ -23,11 +23,15 @@ func (it *scanIter) nextSnapshotHashValues(ctx context.Context, logical, physica
 }
 
 func (it *scanIter) consumeSnapshotHashValues(ctx context.Context, logical []string, values [][]any) ([]string, []map[string]Value, error) {
+	// This outer page is driver-owned. Drop each consumed row promptly while
+	// lookahead fetches the next page; never mutate the command's reply slice.
+	defer clear(values)
 	if it.diagnostics != nil {
 		it.diagnostics.processed.Add(int64(len(values)))
 	}
 	kept := make([]string, 0, len(logical))
 	for i, row := range values {
+		values[i] = nil
 		if err := cancelled(it.env.ctx); err != nil {
 			return nil, nil, err
 		}
@@ -95,11 +99,13 @@ func (it *scanIter) nextHashValues(ctx context.Context, keys []string) ([]string
 }
 
 func (it *scanIter) consumeHashValues(keys []string, values [][]any) ([]string, []map[string]Value, error) {
+	defer clear(values)
 	if it.diagnostics != nil {
 		it.diagnostics.processed.Add(int64(len(values)))
 	}
 	kept := make([]string, 0, len(keys))
 	for i, row := range values {
+		values[i] = nil
 		if row == nil {
 			continue
 		}
