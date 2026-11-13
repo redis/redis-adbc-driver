@@ -8,7 +8,8 @@ import "github.com/apache/arrow-adbc/go/adbc"
 // scanProjection binds bare output columns to HASH fields once. The ordinary
 // scan still owns fetching, existence/readiness checks and cancellation. Only
 // its final decode/map/evaluate step is replaced, for managed or explicit
-// unmanaged row-local scans with no residual, late materialization or tie sorting.
+// unmanaged row-local scans with no late materialization or tie sorting.
+// Managed residuals stay generic; unmanaged scans may bind a small pure predicate.
 type scanProjection struct {
 	columns []projectionColumn
 	rowID   []int
@@ -16,6 +17,12 @@ type scanProjection struct {
 	keyRows bool // explicit unmanaged rows have application keys, never driver IDs
 	width   int
 	rows    [][]Value
+	// A filtered unmanaged projection keeps one reusable decoded output row and
+	// only the predicate's bound scalar inputs. Required columns still decode in
+	// metadata order before any predicate can reject a row.
+	predicate      *scanPredicate
+	predicateRow   []Value
+	consumeMatched func() error
 	// consume is installed while a stream fills Arrow builders or a scalar
 	// aggregate consumes an ephemeral decoded row. Other
 	// projection users retain the row-returning diagnostic path.
@@ -29,15 +36,16 @@ type scanProjection struct {
 }
 
 type projectionColumn struct {
-	column  columnMeta
-	field   string
-	outputs []int
-	decode  func(string) (Value, error)
+	column    columnMeta
+	field     string
+	outputs   []int
+	decode    func(string) (Value, error)
+	predicate int // bound predicate input, or -1
 }
 
 func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 	unmanaged := unmanagedScanProjection(it)
-	if (!managedRowIDTable(it.meta) && !unmanaged) || it.residual != nil || it.ties != nil || it.late != nil || len(items) == 0 {
+	if (!managedRowIDTable(it.meta) && !unmanaged) || it.residual != nil && !unmanaged || it.ties != nil || it.late != nil || len(items) == 0 {
 		return nil
 	}
 	p := &scanProjection{width: len(items), keyRows: unmanaged}
@@ -49,7 +57,7 @@ func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 			if len(items) >= 64 && !unmanaged {
 				decode = bindStoredDecode(c)
 			}
-			p.columns = append(p.columns, projectionColumn{column: c, field: c.field(), decode: decode})
+			p.columns = append(p.columns, projectionColumn{column: c, field: c.field(), decode: decode, predicate: -1})
 		}
 	}
 	for i, item := range items {
@@ -65,6 +73,22 @@ func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 			p.columns[slot].outputs = append(p.columns[slot].outputs, i)
 		} else {
 			return nil
+		}
+	}
+	if it.residual != nil {
+		if it.subBudget != nil || it.gpu != nil || it.env == nil || it.env.exec != nil && it.env.exec.retained != nil {
+			return nil
+		}
+		p.predicate = bindScanPredicate(it.residual, it.meta.types(), it.env.params, it.env.zone())
+		if p.predicate == nil {
+			return nil
+		}
+		for i, name := range p.predicate.fields {
+			at, ok := slots[name]
+			if !ok {
+				return nil
+			}
+			p.columns[at].predicate = i
 		}
 	}
 	if it.hashFetch && !p.bindHash(it.fetch) {
@@ -158,6 +182,9 @@ func (p *scanProjection) decodeInto(raw aggRow, row []Value) error {
 		}
 		if err != nil {
 			return errorf(adbc.StatusInternal, "column %q: %v", slot.column.Name, err)
+		}
+		if slot.predicate >= 0 {
+			p.predicate.values[slot.predicate] = v
 		}
 		for _, i := range slot.outputs {
 			row[i] = v

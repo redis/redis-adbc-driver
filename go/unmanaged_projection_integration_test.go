@@ -188,12 +188,13 @@ func TestUnmanagedProjectionKeyAndPredicateFallback(t *testing.T) {
 		t.Fatal("unexpected extra key row", r.Err())
 	}
 	r.Release()
-	// Every source predicate remains live-HASH rechecked on the established path.
+	// Simple integer predicates remain live-HASH rechecked while projecting
+	// accepted rows directly, rather than retaining decoded row maps.
 	r, _ = h.openStream(h.ctx, h.conn, "SELECT id FROM "+table+" WHERE id >= 2", nil, map[string]string{OptionIntStreamBatchRows: "7"})
 	stream, ok = inspectionReader(r).(*streamReader)
-	if !ok || stream.it.projection != nil || !stream.it.unmanagedHashFetch {
+	if !ok || stream.it.projection == nil || stream.it.projection.predicate == nil || stream.arrow == nil || !stream.it.unmanagedHashFetch {
 		r.Release()
-		t.Fatal("live residual escaped fallback")
+		t.Fatal("eligible live residual did not use filtered Arrow projection")
 	}
 	seen := make([]bool, 258)
 	for r.Next() {

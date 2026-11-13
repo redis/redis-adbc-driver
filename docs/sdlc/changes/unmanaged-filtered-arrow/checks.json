@@ -1,0 +1,60 @@
+{
+  "baseline-regression": {
+    "name": "baseline-regression",
+    "exit_code": 1,
+    "passes": 0,
+    "skips": 0,
+    "failures": 1,
+    "scope": "Candidate compiled with the baseline-equivalent residual factory refusal; expected selection regression, not an actual full baseline-source test run."
+  },
+  "focused-race": {
+    "name": "focused-race",
+    "exit_code": 0,
+    "passes": 15,
+    "skips": 6,
+    "failures": 0,
+    "skipped_tests": [
+      "TestUnmanagedFilteredProjectionLiveMutation/changed",
+      "TestUnmanagedFilteredProjectionLiveMutation/deleted",
+      "TestUnmanagedFilteredProjectionLiveMutation/wrongtype",
+      "TestUnmanagedFilteredArrowLifetime",
+      "TestUnmanagedWideProjectionArrowLifetime",
+      "TestUnmanagedProjectionKeyAndPredicateFallback"
+    ],
+    "skip_scope": "No Redis endpoints provided; integration skips are not server compatibility evidence."
+  },
+  "live-race": {
+    "name": "live-race",
+    "exit_code": 0,
+    "passes": 24,
+    "skips": 0,
+    "failures": 0
+  },
+  "fixture": {
+    "software": true,
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "tls_certificate_verified": true,
+    "resp": 3,
+    "loan_return": {
+      "empty": true,
+      "no_indexes": true,
+      "clients_closed": true
+    }
+  },
+  "source_sha256": {
+    "go/query.go": "74c250866900014a31b529a2c1f4df6b3136007e9cd43f975f56b3103b153546",
+    "go/scan_arrow.go": "7a003c158503e731766e3d0a54a4af2eabfb6da083f289da7b1bba08b4d745fe",
+    "go/scan_projection.go": "75a70b7ae94a993bca8cbf02e2cb4dde6223d659c252f8da24b2a1a60c3d6d50",
+    "go/scan_predicate.go": "c4f84877e5862b433e685e07d66841610e63730ee6228dccc89c229e3f157bda"
+  },
+  "private_log_sha256": {
+    "baseline-regression.jsonl": "42dcce44102d41bb0fad763040021f5fd6b1cdd98eb71709918dfca62c90c338",
+    "focused-race.jsonl": "f855879d1e00e522a1f786e0ae375bf731c5ce8ec08a4d8ffaedf3c8fadbcdd9",
+    "live-race.jsonl": "e2ccfbc3b6ec9eff605b3972481f6dd349ee096144c03983059115c8339120e3",
+    "fixture-gate.log": "5ae727c1524c4d504d27add3eb84442a059b669c53aeb3c22d16fb735ef607d4"
+  }
+}

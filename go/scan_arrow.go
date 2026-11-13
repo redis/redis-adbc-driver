@@ -43,10 +43,14 @@ func (r *streamReader) fillArrow() error {
 	}
 	p := r.it.projection
 	p.consume = r.appendArrow
+	if p.predicate != nil {
+		p.predicateRow = a.scratch
+		p.consumeMatched = r.appendDecodedArrow
+	}
 	if p.hashFields != nil {
 		p.consumeHash = r.appendArrowHash
 	}
-	defer func() { p.consume = nil; p.consumeHash = nil }()
+	defer func() { p.consume = nil; p.consumeHash = nil; p.consumeMatched = nil; p.predicateRow = nil }()
 	for !r.exhausted && len(a.ready) == 0 {
 		_, _, err := r.it.next(r.ctx)
 		if errors.Is(err, io.EOF) {
