@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -32,6 +33,15 @@ func (h *compactionDirectoryReads) observe(ctx context.Context, cmd goredis.Cmde
 		last, e2 := strconv.ParseInt(fmt.Sprint(args[3]), 10, 64)
 		if e1 == nil && e2 == nil {
 			h.max.Store(max(h.max.Load(), last-first+1))
+		}
+	}
+	if ctx.Value(compactionDirectoryObservation{}) == true && cmd.Name() == "zrangebylex" && len(args) == 7 && h.sources[fmt.Sprint(args[1])] && strings.EqualFold(fmt.Sprint(args[4]), "limit") {
+		offset, e1 := strconv.ParseInt(fmt.Sprint(args[5]), 10, 64)
+		count, e2 := strconv.ParseInt(fmt.Sprint(args[6]), 10, 64)
+		if e1 != nil || e2 != nil || offset != 0 || count <= 0 {
+			h.max.Store(snapshotCompactionBatchRows + 1)
+		} else {
+			h.max.Store(max(h.max.Load(), count))
 		}
 	}
 }
