@@ -695,7 +695,15 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		if req.where.keys != nil {
 			it.directKeys = req.where.keys
 		} else if indexed {
-			it.candidates = newSnapshotCandidateScan(ctx, e.store, req.meta, req.where.query, fields)
+			page := snapshotDeltaPage
+			// Match the existing single-directory HASH fetch ceiling for an
+			// eligible immutable single source. Multi-segment and private
+			// sources retain their smaller visibility-merge pages.
+			if snapshotHashFetch(req) && len(req.meta.snapshotSegments()) == 1 &&
+				!snapshotOwns(ctx, req.meta.prefix()) && req.meta.SnapshotRows != nil {
+				page = wideFetchChunk
+			}
+			it.candidates = newSnapshotCandidateScan(ctx, e.store, req.meta, req.where.query, fields, page)
 		} else {
 			it.delta = newSnapshotDeltaScan(e.store, req.meta, fields)
 			if req.ranges != nil {

@@ -53,9 +53,9 @@ func (e *executor) snapshotIndexable(ctx context.Context, m *tableMeta) bool {
 	n, err := e.store.redis(ctx).Get(ctx, seqKey(m.Schema, m.Name)).Int64()
 	return err == nil && n >= 0 && n < exactDoubleLimit
 }
-func newSnapshotCandidateScan(ctx context.Context, s *store, m *tableMeta, query string, fields []string) *snapshotCandidateScan {
+func newSnapshotCandidateScan(ctx context.Context, s *store, m *tableMeta, query string, fields []string, pageRows int) *snapshotCandidateScan {
 	cap := s.paginationCaps(ctx, snapshotSourceIndex(ctx, m))[0]
-	d := &snapshotCandidateScan{store: s, meta: m, query: query, fields: fields, page: int(min(int64(snapshotDeltaPage), cap))}
+	d := &snapshotCandidateScan{store: s, meta: m, query: query, fields: fields, page: int(min(int64(pageRows), cap))}
 	for _, seg := range m.snapshotSegments() {
 		d.sources = append(d.sources, snapshotCandidateSource{segment: seg, done: snapshotOwns(ctx, seg.Prefix)})
 	}
@@ -124,7 +124,11 @@ func (d *snapshotCandidateScan) nextKeys(ctx context.Context) ([]string, []strin
 	var winners []int
 	// Reuse merge scratch for the whole page, rather than allocating per row.
 	heads := make([]string, len(d.sources))
-	for len(ids) < snapshotDeltaPage {
+	limit := d.page
+	if limit == 0 { // Internal merge-only callers can supply prefetched heads.
+		limit = snapshotDeltaPage
+	}
+	for len(ids) < limit {
 		if err := cancelled(ctx); err != nil {
 			return nil, nil, err
 		}
