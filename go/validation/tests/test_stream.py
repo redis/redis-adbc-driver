@@ -24,7 +24,7 @@ import redis
 from .redis_client import raw_options
 
 TABLE = "it_cancel_t"
-ROWS = 25_000  # three cursor pages of 10,000 rows
+ROWS = 25_000  # multiple directory pages or three Search cursor pages
 BATCH = 1000
 
 
@@ -96,12 +96,16 @@ def table(conn):
         cur.execute(f"DROP TABLE {TABLE}")
 
 
-def test_cancel_from_another_thread(conn, db_kwargs, table) -> None:
+@pytest.mark.parametrize("search", [False, True], ids=["directory", "search"])
+def test_cancel_from_another_thread(conn, db_kwargs, table, search) -> None:
     index = index_of(conn, table)
     before = open_cursors(db_kwargs, index)
+    # An unbounded managed scan streams its exact directory. An explicit LIMIT
+    # selects Search without requiring a global sort under small aggregate caps.
+    query = f"SELECT id FROM {table}" + (f" LIMIT {ROWS}" if search else "")
     with conn.cursor() as cur:
         cur.adbc_statement.set_options(**{"adbc.redis.stream_batch_rows": str(BATCH)})
-        cur.execute(f"SELECT id FROM {table}")
+        cur.execute(query)
         assert cur.rowcount == -1, "the result wasn't streamed"
         started, cancelled = threading.Event(), threading.Event()
         rows, errors = [], []
@@ -119,27 +123,33 @@ def test_cancel_from_another_thread(conn, db_kwargs, table) -> None:
 
         reader = threading.Thread(target=read)
         reader.start()
-        assert started.wait(30)
-        # This single-column scan requests 10,000 rows per cursor page. A
-        # cap-bounded window smaller than that is already buffered; cancellation
-        # must still stop its logical reader and prevent opening later windows.
-        cap = aggregate_cap(db_kwargs, index)
-        active = open_cursors(db_kwargs, index)
-        if db_kwargs.get("adbc.redis.flex") == "true":
-            # Independent bounded reads must never allocate an aggregate cursor.
-            assert active == before
-        elif cap is not None and 0 < cap < 10_000:
-            assert active == before
-        elif cap == 10_000:  # exact page boundary may need one terminal READ
-            assert before <= active <= before + 1
-        else:
-            assert active == before + 1
-        cur.adbc_cancel()
-        cancelled.set()
-        reader.join(30)
+        try:
+            assert started.wait(30)
+            active = open_cursors(db_kwargs, index)
+            if not search or db_kwargs.get("adbc.redis.flex") == "true":
+                # Directory scans and Flex bounded reads allocate no cursor.
+                assert active == before
+            else:
+                # Search requests 10,000 rows per cursor page. A smaller
+                # cap-bounded window is already buffered, but cancellation must
+                # still stop the reader before it can open later windows.
+                cap = aggregate_cap(db_kwargs, index)
+                if cap is not None and 0 < cap < 10_000:
+                    assert active == before
+                elif cap == 10_000:  # boundary may need one terminal READ
+                    assert before <= active <= before + 1
+                else:
+                    assert active == before + 1
+            cur.adbc_cancel()
+        finally:
+            # Also release the worker if an assertion or cancellation fails.
+            cancelled.set()
+            reader.join(30)
         assert not reader.is_alive()
 
         assert len(rows) == BATCH
+        assert len(set(rows)) == BATCH
+        assert all(0 <= row[0] < ROWS for row in rows)
         assert len(errors) == 1, errors
         assert isinstance(errors[0], adbc_driver_manager.OperationalError), errors[0]
         assert errors[0].status_code == adbc_driver_manager.AdbcStatusCode.CANCELLED
@@ -152,5 +162,5 @@ def test_cancel_from_another_thread(conn, db_kwargs, table) -> None:
         assert e.value.status_code == adbc_driver_manager.AdbcStatusCode.INVALID_STATE
 
         # The statement runs again.
-        cur.execute(f"SELECT id FROM {table}")
-        assert len(cur.fetchall()) == ROWS
+        cur.execute(query)
+        assert sorted(cur.fetchall()) == [(i,) for i in range(ROWS)]

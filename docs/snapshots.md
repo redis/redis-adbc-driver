@@ -608,6 +608,13 @@ requires `ZADD` and `ZREM`.
 Lua fences invoke the underlying write commands, which also need ACL permission.
 Read-only SQL clients still need control-hash write permission for reader pins.
 
+Standalone control, row-image, index-notification and compaction-copy calls use
+`EVALSHA` to avoid repeatedly transmitting Lua bodies. A definite cache miss
+allows one full-body `EVAL`; an explicit command-permission denial retains
+`EVAL`-only compatibility. Script-cache loss does not require an application
+retry. Lost replies never trigger this fallback; the existing outcome checks
+and explicit errors still apply.
+
 ## Validation
 
 The snapshot suites **clear the selected snapshot database, including its

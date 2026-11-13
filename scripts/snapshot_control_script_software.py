@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify control-script compatibility with an EVAL-only Software operator.
+"""Verify standalone snapshot scripts with an EVAL-only Software operator.
 
 Destructive Go snapshot fixtures run only on an explicitly owned local test
 database. The temporary full operator excludes EVALSHA; this is not a restricted
@@ -68,7 +68,7 @@ def main():
                        REDIS_SCRIPT_POINT_LEASE_URI=principals.people[point_operator]["uri"],
                        REDIS_RETAINED_CONTROL_PERSISTENCE="guaranteed")
             subprocess.run(["go", "test", "-race", "-json", "-count=1", "-p", "1",
-                            "-timeout=2m", "-run", "^TestSnapshotControlScript(EvalOnly|PointLease)Software$", "."],
+                            "-timeout=2m", "-run", "^TestSnapshot(ControlScript(EvalOnly|PointLease)|BatchScriptEvalOnly)Software$", "."],
                            cwd=Path(__file__).resolve().parents[1] / "go", env=env, check=True)
         finally:
             principals.cleanup()

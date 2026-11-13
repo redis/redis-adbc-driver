@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 type snapshotCompactionCopyOutcome struct {
@@ -106,6 +107,8 @@ redis.call('HSET',catalog,'compaction',completed,'w:'..workspace,renewed)
 return #rows
 `
 
+var snapshotCompactionCopyDigest = goredis.NewScript(snapshotCompactionCopyLua).Hash()
+
 func (s *store) commitSnapshotCompactionCopy(ctx context.Context, j *snapshotCompactionJob, after string, rows []snapshotInsertRow) error {
 	operation := snapshotID()
 	args := []any{"EVAL", snapshotCompactionCopyLua, 3 + len(rows), snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(j.Data)}
@@ -117,7 +120,7 @@ func (s *store) commitSnapshotCompactionCopy(ctx context.Context, j *snapshotCom
 		args = append(args, row.member, len(row.fields))
 		args = append(args, row.fields...)
 	}
-	n, err := once(ctx, s.client, args...).Int64()
+	n, err := s.compactionScript.runScript(ctx, s.client, snapshotCompactionCopyDigest, args).Int64()
 	if err == nil {
 		if n != int64(len(rows)) {
 			return errorf(adbc.StatusIO, "invalid compaction copy outcome")

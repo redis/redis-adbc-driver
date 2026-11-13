@@ -19,19 +19,36 @@ import (
 // reaching Redis remain unchanged; raw-wire executor tests do not use this.
 func snapshotObservedControlArgs(cmd goredis.Cmder) []any {
 	args := cmd.Args()
-	if len(args) > 1 && strings.EqualFold(fmt.Sprint(args[0]), "EVALSHA") && args[1] == snapshotControlDigest {
+	if body := snapshotObservedScriptBody(cmd); body != "" {
 		logical := append([]any(nil), args...)
-		logical[0], logical[1] = "EVAL", snapshotControl
+		logical[0], logical[1] = "EVAL", body
 		return logical
 	}
 	return args
 }
 func snapshotObservedControlName(cmd goredis.Cmder) string {
-	args := cmd.Args()
-	if len(args) > 1 && cmd.Name() == "evalsha" && args[1] == snapshotControlDigest {
+	if snapshotObservedScriptBody(cmd) != "" {
 		return "eval"
 	}
 	return cmd.Name()
+}
+
+func snapshotObservedScriptBody(cmd goredis.Cmder) string {
+	args := cmd.Args()
+	if len(args) < 2 || !strings.EqualFold(fmt.Sprint(args[0]), "EVALSHA") {
+		return ""
+	}
+	switch args[1] {
+	case snapshotControlDigest:
+		return snapshotControl
+	case snapshotWriteBatchDigest:
+		return snapshotWriteBatchLua
+	case snapshotIndexNotifyDigest:
+		return snapshotIndexNotifyLua
+	case snapshotCompactionCopyDigest:
+		return snapshotCompactionCopyLua
+	}
+	return ""
 }
 
 func TestSnapshotControlScriptObservationPreservesWire(t *testing.T) {

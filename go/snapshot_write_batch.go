@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 const snapshotWriteBatchRows = 256
@@ -182,6 +183,8 @@ type snapshotInsertRow struct {
 	fields      []any
 }
 
+var snapshotWriteBatchDigest = goredis.NewScript(snapshotWriteBatchLua).Hash()
+
 func (s *store) insertSnapshotBatch(ctx context.Context, prefix string, rows []snapshotInsertRow) error {
 	return s.snapshotRowBatch(ctx, prefix, rows, false)
 }
@@ -227,7 +230,7 @@ func (s *store) snapshotRowBatch(ctx context.Context, prefix string, rows []snap
 		args = append(args, row.member, len(row.fields))
 		args = append(args, row.fields...)
 	}
-	n, err := once(ctx, s.client, args...).Int64()
+	n, err := s.rowBatchScript.runScript(ctx, s.client, snapshotWriteBatchDigest, args).Int64()
 	if err == nil {
 		if n != int64(len(rows)) {
 			return errorf(adbc.StatusIO, "invalid snapshot insert batch outcome")

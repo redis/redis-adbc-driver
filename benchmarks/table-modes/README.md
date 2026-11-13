@@ -74,3 +74,7 @@ only, while managed tables maintain their private indexed snapshot layout.
 Creation results therefore measure the respective workloads, not equal index
 semantics. Explicit keys and source conversion remain timed. Neither suite retries
 failed SQL/Arrow operations or reports incomplete loads as successful throughput.
+
+The [managed write attribution](managed-write-2026-11-12/report.md) is a separate
+Go diagnostic of repeated script traffic, publication and maintenance. It retains
+all timing trials and reports no demonstrated write-throughput improvement.
