@@ -39,3 +39,19 @@ Known managed SQLSTATE 40001 outcomes remain failed throughput trials. Complete
 outputs and visible partial rows are independently checked; no partial-result
 latency is reported. Other errors stop the run. Raw logs may contain private
 operational details; publish only reviewed, sanitized evidence.
+
+`arrow_compare.py` extends the same fixture/read/validation routines for the
+unreleased PR #401 snapshot. It adds matched Arrow append and separate creation
+workloads. Arguments match `run.py`; `--suite` additionally accepts `creation`
+and `write-all`. The default is all reads/writes/creation, six measured read and
+three measured write repetitions after warmup. Use `arrow_audit.py` for its
+separate evidence bundle; the historical v0.0.26 audit and measurements are retained.
+See the [post-Arrow results](post-arrow-2026-11-12/report.md) for that exact source
+snapshot, including the retained managed SQL conflicts.
+
+The existing-table write comparison excludes preparation for every client.
+Creation includes schema/index work: native/unmanaged indexes provide membership
+only, while managed tables maintain their private indexed snapshot layout.
+Creation results therefore measure the respective workloads, not equal index
+semantics. Explicit keys and source conversion remain timed. Neither suite retries
+failed SQL/Arrow operations or reports incomplete loads as successful throughput.
