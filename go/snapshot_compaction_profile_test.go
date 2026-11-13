@@ -27,6 +27,9 @@ type compactionProfilePhase struct {
 	Steps      int                                     `json:"steps"`
 	Millis     float64                                 `json:"step_milliseconds"`
 	RoundTrips map[string]*compactionProfileRoundTrips `json:"round_trips"`
+	// Supplemental counts distinguish dependent proof stages without changing
+	// the existing round-trip categories or retaining command arguments.
+	PipelineShapes map[string]int `json:"pipeline_shapes,omitempty"`
 }
 type compactionPhaseProfile struct {
 	mu     sync.Mutex
@@ -117,6 +120,23 @@ func compactionProfileScriptBytes(cmd goredis.Cmder) int64 {
 	return 0
 }
 func (*compactionPhaseProfile) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+
+func compactionProfilePipelineShape(categories []string) string {
+	var parts []string
+	for start := 0; start < len(categories); {
+		end := start + 1
+		for end < len(categories) && categories[end] == categories[start] {
+			end++
+		}
+		part := categories[start]
+		if end-start > 1 {
+			part += "*" + strconv.Itoa(end-start)
+		}
+		parts = append(parts, part)
+		start = end
+	}
+	return strings.Join(parts, ",")
+}
 func (p *compactionPhaseProfile) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		phase := p.current()
@@ -148,6 +168,16 @@ func (p *compactionPhaseProfile) ProcessPipelineHook(next goredis.ProcessPipelin
 		started := time.Now()
 		err := next(ctx, cmds)
 		p.record(phase, category, len(cmds), time.Since(started), scriptBytes)
+		if phase != "" {
+			shape := compactionProfilePipelineShape(categories)
+			p.mu.Lock()
+			stats := p.phases[phase]
+			if stats.PipelineShapes == nil {
+				stats.PipelineShapes = map[string]int{}
+			}
+			stats.PipelineShapes[shape]++
+			p.mu.Unlock()
+		}
 		return err
 	}
 }
