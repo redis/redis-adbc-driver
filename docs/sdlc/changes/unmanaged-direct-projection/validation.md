@@ -1,7 +1,7 @@
 # Validation and evidence
 
-Date: November 13, 2026. Baseline `ba855f79`. Native timing remains pending;
-no throughput or RSS improvement is claimed yet.
+Date: November 13, 2026. Baseline `ba855f79`, candidate `699cfebf`.
+All 56 planned native trials completed and passed complete independent validation.
 
 ## Regression and correctness
 
@@ -40,16 +40,54 @@ are retained separately; production code did not change for them.
 
 One conversion microbenchmark invocation overlapped this task's live correctness
 work. Its output remains a separately labeled diagnostic, and its timings are not
-used for performance claims. A clean measurement is pending the parent slot.
+used for performance claims. The separate clean run below followed native timing
+with no other heavy work active.
 
-## Native comparison plan
+## Native comparison
 
-The new `unmanaged_projection_read.py` reuses the existing independently typed
-source, read workers, owner/QPF gates and complete IPC/value/type/multiplicity
-validator. Compare baseline and candidate one/four-reader, 512/4096-row ceilings,
-six measured repetitions after warmup per cell. Full scans select the new direct
-projection; filtered range statements retain the live residual/HGETALL control.
-All attempts and source/binary hashes must remain visible, with no SQL replay.
+The committed `unmanaged_projection_read.py` reused the independently typed
+100,000×105 source, read workers, owner/QPF gates and complete IPC/value/type/
+multiplicity validator. Each baseline/candidate cell has one warmup plus six
+measured trials. All 56 trials validated, with zero failures, automatic retries
+or discarded native attempts. Untimed complete SQL/raw checks preceded each
+block; full raw checks, final QPF gates and owned app/index cleanup passed after.
+The baseline's archived library/CLI hashes and Go1.27.3 build information were
+verified, with runtime GetInfo checked for both variants.
+
+Median complete-read seconds and maximum individual worker RSS (MiB):
+
+| Readers | Batch ceiling | Strategy | Baseline seconds | Candidate seconds | Baseline RSS | Candidate RSS |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| 1 | 512 | full LOAD* | 6.250 | 5.270 | 339.0 | 256.5 |
+| 1 | 4096 | full LOAD* | 5.878 | 5.134 | 444.2 | 263.7 |
+| 4 | 512 | live residual/HGETALL | 2.206 | 2.216 | 482.6 | 486.7 |
+| 4 | 4096 | live residual/HGETALL | 2.093 | 2.173 | 492.7 | 495.6 |
+
+The target one-reader full scans took 15.7%/12.7% less median time and
+24.3%/40.6% less maximum-worker RSS. Four-reader filtered controls retain the
+existing residual/HGETALL path; their candidate medians were 0.5%/3.8% slower,
+with no improvement claimed. This does not measure all unmanaged queries.
+
+The machine was an Apple M5 Max, 18 logical CPUs/36GiB, macOS26.7.3 arm64.
+The dedicated Software8.2.6 fixture used Redis8.8.0/Search80808, one 4GiB
+shard, four CPU/eight GiB container limits and the verified settings above.
+Python3.15.2/PyArrow26.0.1/ADBC manager1.13.0/redis8.1.0/hiredis3.5.0
+ran both variants. Baseline completed first, then candidate on the same idle
+fixture; case order alternated within blocks. These blocks were not
+interleaved, so time/order effects remain. Timing includes worker startup and
+complete Arrow IPC writes; subsequent independent validation is untimed. RSS
+is maximum individual worker `ru_maxrss`, not total process-tree peak.
+
+The clean server-free conversion benchmark (`GOMAXPROCS=4`, three repetitions,
+200ms per sample) validated every value/type before and after timing. For a
+256×105 batch, median generic/direct conversion was 5.075/2.386ms,
+10,035,438/658,241 bytes and 30,050/1,487 allocations. This isolates conversion;
+it is not server throughput evidence.
+
+[All native samples, source/library/CLI/harness hashes, settings and clean
+microbenchmark samples](benchmark.json) are checked in. Earlier failed test
+assertions and the excluded overlapping microbenchmark remain separate private
+logs. No 100M ClickBench rerun or alternate server was used.
 
 Raw logs, endpoint credentials, operational artifacts and infrastructure IDs
 remain private. Fixture cleanup will follow final verification.
