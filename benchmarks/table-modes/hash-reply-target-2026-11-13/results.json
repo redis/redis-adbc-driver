@@ -1062,5 +1062,6 @@
     "adbc-driver-manager": "1.13.0",
     "redis": "8.1.0",
     "hiredis": "3.5.0"
-  }
+  },
+  "candidate_patch_sha256": "1579da1254dd44e8892b5e421a0db89a7fb95fe2157295032f12a6c5624bfa13"
 }

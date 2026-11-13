@@ -1,4 +1,5 @@
 """Audit every retained trial and recompute the published comparison."""
+import hashlib
 import itertools
 import json
 from pathlib import Path
@@ -7,6 +8,7 @@ import statistics
 
 p = Path(__file__).with_name('results.json')
 s = json.loads(p.read_text())
+assert hashlib.sha256(p.with_name('candidate.patch').read_bytes()).hexdigest() == s['candidate_patch_sha256']
 assert s['target_bytes'] == 16 << 20 and not s['target_is_hard_bound']
 assert s['execution_order'] == ['baseline', 'candidate']
 assert s['automatic_retries'] == s['attempts_discarded'] == 0

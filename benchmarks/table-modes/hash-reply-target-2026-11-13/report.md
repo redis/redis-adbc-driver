@@ -4,7 +4,8 @@ The first 16-MiB adaptive managed HASH reply target reduced median peak worker
 RSS by 8.9–10.8%, but single-reader elapsed time regressed by 32.7–34.0% in this
 matched local comparison. **Do not adopt this candidate as the default.** This
 evidence-only change leaves production fetch behavior unchanged. The candidate
-implementation remains on its separate experimental branch; no smaller-target
+implementation remains on its separate experimental branch and as the unapplied
+[candidate.patch](candidate.patch) artifact; no smaller-target
 retuning or selective sample removal followed this result.
 
 | Readers | Batch rows | Elapsed seconds, baseline → candidate | Elapsed change | Peak worker RSS MiB, baseline → candidate | RSS change |
@@ -92,7 +93,15 @@ private.
 
 Use separate clean baseline/candidate checkouts at the exact commits above, Go
 1.27.3 and explicit native versions; record `go version -m` plus driver/CLI/source
-SHA256. The candidate intentionally is not part of this evidence-only branch.
+SHA256. The candidate is intentionally not applied on this evidence-only branch.
+The text [candidate.patch](candidate.patch) contains its complete Go source/test
+diff against the exact baseline (its SHA256 is recorded/audited in the results).
+For a self-contained reproduction, apply it to a separate clean baseline checkout
+with `git apply candidate.patch`, then commit the experimental result before
+building. Compare every listed candidate source SHA256; a newly created commit
+will have a different revision/native-library hash than the original measured
+`b3afc723` build even though the production source matches. Do not apply the patch
+to production as part of this evidence change.
 Use the repository Software fixture workflow and verify its effective QPF,
 limits, TLS/RESP3 and empty dedicated database before each block. Configure the
 existing harness's `REDIS_BENCH_*` and `SSL_CERT_FILE` variables privately.
