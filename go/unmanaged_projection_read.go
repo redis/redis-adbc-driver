@@ -147,7 +147,10 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 			limit = 1
 		} // fail an extra command permission once, not 1000 times
 		for end < len(keys) && end-start < limit {
-			n := r.bytes + len(keys[end])
+			// Hot commands carry the digest, not the complete Lua source. Keep
+			// the full-body per-key eligibility check below, and independently
+			// bound any later NOSCRIPT repair's full-body pipelines.
+			n := r.bytes - len(unmanagedProjectionReadLua) + len(unmanagedProjectionReadDigest) + len(keys[end])
 			if n > unmanagedProjectionReadBytes {
 				if end == start {
 					end++
@@ -283,7 +286,7 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string, body
 		for i, n := range missing {
 			retry[i] = keys[n]
 		}
-		rows, deniedBody, err := r.batch(ctx, retry, true)
+		rows, deniedBody, err := r.body(ctx, retry)
 		if err != nil {
 			return nil, false, err
 		}
@@ -304,6 +307,45 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string, body
 		for i, n := range compatible {
 			out[n] = rows[i]
 		}
+	}
+	return out, fallback, nil
+}
+
+// body is reached only after every outer pipeline outcome has been accounted
+// for as a definite native NOSCRIPT refusal or another successful/known result.
+// A full body is larger than a digest; bound its requests independently rather
+// than pessimistically charging every hot command for a body it does not send.
+func (r *unmanagedProjectionRead) body(ctx context.Context, keys []string) ([]aggRow, bool, error) {
+	out := make([]aggRow, len(keys))
+	fallback := false
+	for start := 0; start < len(keys); {
+		end, bytes := start, 0
+		for end < len(keys) && end-start < pipelineChunk {
+			n := r.bytes + len(keys[end])
+			if n > unmanagedProjectionReadBytes || end > start && bytes+n > unmanagedProjectionReadBytes {
+				break
+			}
+			bytes += n
+			end++
+		}
+		if end == start {
+			// Normal callers already checked this bound before the digest. Keep
+			// direct repair callers on native reads for an oversized body/key.
+			rows, err := r.store.fetchKeyRows(ctx, keys[start:start+1], nil)
+			if err != nil {
+				return nil, false, err
+			}
+			out[start] = rows[0]
+			start++
+			continue
+		}
+		rows, denied, err := r.batch(ctx, keys[start:end], true)
+		if err != nil {
+			return nil, false, err
+		}
+		copy(out[start:end], rows)
+		fallback = fallback || denied
+		start = end
 	}
 	return out, fallback, nil
 }

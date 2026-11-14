@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -46,7 +47,11 @@ func projectionReadUnit(t *testing.T, fields ...string) (*unmanagedProjectionRea
 	c := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1", MaxRetries: -1})
 	c.AddHook(h)
 	t.Cleanup(func() { _ = c.Close() })
-	return &unmanagedProjectionRead{store: &store{client: c}, fields: fields, bytes: len(unmanagedProjectionReadLua) + 64}, h
+	bytes := len(unmanagedProjectionReadLua) + 64
+	for _, field := range fields {
+		bytes += len(field) + 16
+	}
+	return &unmanagedProjectionRead{store: &store{client: c}, fields: fields, bytes: bytes}, h
 }
 func setProjectionReply(cmd goredis.Cmder, value any, err error) {
 	cmd.(onceCmd).SetVal(value)
@@ -197,7 +202,7 @@ func TestUnmanagedProjectionReadBoundsAndZeroFields(t *testing.T) {
 func TestUnmanagedProjectionReadRequestByteBound(t *testing.T) {
 	r, h := projectionReadUnit(t, "n")
 	r.prepared = true
-	r.bytes = unmanagedProjectionReadBytes/2 + 1
+	r.bytes = unmanagedProjectionReadBytes/2 + 1 + len(unmanagedProjectionReadLua) - len(unmanagedProjectionReadDigest)
 	h.step = func(_ int, cmds []goredis.Cmder) error {
 		if len(cmds) != 1 {
 			t.Fatal("projection pipeline exceeded request byte bound", len(cmds))
@@ -451,5 +456,108 @@ func TestUnmanagedProjectionReadPrefixedTokenUnknownIsNotRetried(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// Count actual RESP request bytes independently of the reader's conservative
+// estimate, including every command, key, field, digest/body and framing byte.
+func unmanagedProjectionRequestBytes(cmd goredis.Cmder) int {
+	args := cmd.Args()
+	n := len(strconv.Itoa(len(args))) + 3
+	for _, arg := range args {
+		value := fmt.Sprint(arg)
+		n += len(value) + len(strconv.Itoa(len(value))) + 5
+	}
+	return n
+}
+
+func TestUnmanagedProjectionReadDigestAndBodyPipelineBudgets(t *testing.T) {
+	for _, cold := range []bool{false, true} {
+		t.Run(fmt.Sprint("cold=", cold), func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n")
+			r.prepared = true
+			keys := make([]string, pipelineChunk)
+			for i := range keys {
+				keys[i] = "app:" + strings.Repeat("k", 1200) + strconv.Itoa(i)
+			}
+			var digestCommands, bodyCommands, maxDigest, maxBody int
+			h.step = func(_ int, cmds []goredis.Cmder) error {
+				var pipelineErr error
+				bytes := 0
+				for _, cmd := range cmds {
+					bytes += unmanagedProjectionRequestBytes(cmd)
+					if cmd.Name() == "evalsha_ro" {
+						digestCommands++
+						maxDigest = max(maxDigest, len(cmds))
+						if cold {
+							err := controlScriptNativeError("NOSCRIPT missing")
+							setProjectionReply(cmd, nil, err)
+							pipelineErr = err
+							continue
+						}
+					} else if cmd.Name() == "eval_ro" {
+						bodyCommands++
+						maxBody = max(maxBody, len(cmds))
+					} else {
+						t.Fatal("unexpected fallback", cmd.Name())
+					}
+					setProjectionReply(cmd, []any{"7"}, nil)
+				}
+				if bytes > unmanagedProjectionReadBytes || len(cmds) > pipelineChunk {
+					t.Fatal("unbounded encoded requests", bytes, len(cmds))
+				}
+				return pipelineErr
+			}
+			got, err := r.read(context.Background(), keys)
+			if err != nil || len(got) != len(keys) || digestCommands != len(keys) || maxDigest < 700 {
+				t.Fatal("hot pipeline charged for unsent source", err, len(got), digestCommands, maxDigest)
+			}
+			for i, row := range got {
+				if row["n"] != "7" || row[keyField] != keys[i] {
+					t.Fatal("repair changed row order or values", i)
+				}
+			}
+			if cold && (bodyCommands != len(keys) || maxBody >= maxDigest || maxBody == 0) || !cold && bodyCommands != 0 {
+				t.Fatal("full bodies not independently bounded", bodyCommands, maxBody, maxDigest)
+			}
+		})
+	}
+}
+
+func TestUnmanagedProjectionReadLargeHotPipelineUnknownPreventsBodyRepair(t *testing.T) {
+	r, h := projectionReadUnit(t, "n")
+	r.prepared = true
+	keys := make([]string, pipelineChunk)
+	for i := range keys {
+		keys[i] = "app:" + strings.Repeat("k", 1200) + strconv.Itoa(i)
+	}
+	h.step = func(_ int, cmds []goredis.Cmder) error {
+		if len(cmds) < 700 {
+			t.Fatal("test did not cover the larger digest batch", len(cmds))
+		}
+		for _, cmd := range cmds {
+			setProjectionReply(cmd, nil, controlScriptNativeError("NOSCRIPT missing"))
+		}
+		cmds[len(cmds)-1].SetErr(io.ErrUnexpectedEOF)
+		return controlScriptNativeError("NOSCRIPT missing")
+	}
+	if _, err := r.read(context.Background(), keys); err == nil || h.calls != 1 {
+		t.Fatal("body repair preceded inspection of the whole outer pipeline", err, h.calls)
+	}
+}
+
+func TestUnmanagedProjectionReadOversizedBodyKeepsNativeFallback(t *testing.T) {
+	r, h := projectionReadUnit(t, "n")
+	key := "app:" + strings.Repeat("k", unmanagedProjectionReadBytes)
+	h.step = func(_ int, cmds []goredis.Cmder) error {
+		if len(cmds) != 1 || cmds[0].Name() != "hgetall" || cmds[0].Args()[1] != key {
+			t.Fatal("oversized request reached script", len(cmds), cmds[0].Name())
+		}
+		cmds[0].(*goredis.MapStringStringCmd).SetVal(map[string]string{"n": "7"})
+		return nil
+	}
+	got, err := r.read(context.Background(), []string{key})
+	if err != nil || len(got) != 1 || got[0]["n"] != "7" || h.calls != 1 {
+		t.Fatal("native oversized-key fallback differs", err, len(got), h.calls)
 	}
 }
