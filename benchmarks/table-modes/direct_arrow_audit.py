@@ -55,6 +55,7 @@ for variant, source, version in (('baseline', BASE, 'v0.1.0-dev.allocation-base'
     assert p['source'] == source and p['version'] == version
     assert p['driver_sha256'] == meta['driver_sha256'] and p['source_data_sha256'] == meta['source_sha256']
     assert p['native_gomaxprocs'] == 'unset'
+    assert hashlib.sha256((P / 'read_two_modes.py').read_bytes()).hexdigest() == p['wrapper_sha256']
     f = p['fixture']
     assert f['qpf'] == 4 and f['workers'] == 6 and f['routing'] == 'mnp' and f['connections'] == 32
     assert f['resp'] == 3 and f['tls_certificate_verified'] and f['empty']
