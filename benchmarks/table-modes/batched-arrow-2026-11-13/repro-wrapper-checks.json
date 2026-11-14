@@ -1,0 +1,30 @@
+{
+  "note": "Light mock-only checks of public reproduction wrapper cleanup/ownership/CLI; not an additional native or Redis run. Existing native workers unchanged.",
+  "cases": [
+    {
+      "case": "success_cleanup",
+      "passed": true,
+      "mock_only": true
+    },
+    {
+      "case": "failed_read_cleanup",
+      "passed": true,
+      "mock_only": true
+    },
+    {
+      "case": "foreign_owner_refusal",
+      "passed": true,
+      "mock_only": true
+    },
+    {
+      "case": "default_read_suite",
+      "passed": true,
+      "mock_only": true
+    },
+    {
+      "case": "reject_write_suite",
+      "passed": true,
+      "mock_only": true
+    }
+  ]
+}

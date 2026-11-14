@@ -103,3 +103,12 @@ fell 8.9–10.8%, but single-reader elapsed time rose 32.7–34.0%; the candidat
 rejected as the default and production policy is unchanged. This is negative
 evidence, with exact source/build hashes and reproduction controls. Audit the
 retained samples with `python3 benchmarks/table-modes/hash-reply-target-2026-11-13/audit.py`.
+
+## Rejected batched Arrow builders
+
+The [bounded bulk-append evaluation](batched-arrow-2026-11-13/README.md) preserves
+all 24 construction and 112 matched native samples. Several elapsed-time medians
+improved, but higher allocations and 4096-row RSS ranges above baseline failed
+the predeclared memory gate. The exact candidate/tests are an unapplied patch;
+production Go code is unchanged. Audit with
+`python3 benchmarks/table-modes/batched_arrow_audit.py`.
