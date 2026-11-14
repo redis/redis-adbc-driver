@@ -152,6 +152,7 @@ def operation_call(cfg, mode, operation, index, rows, rowids, q, r):
 
 
 def trial_worker(cfg, mode, operation, indices, rows, rowids, barriers, release):
+    latencies = []; outputs = []
     try:
         with ExitStack() as stack:
             r = stack.enter_context(base.client(cfg)) if mode == 'redis_py' else None
@@ -159,7 +160,6 @@ def trial_worker(cfg, mode, operation, indices, rows, rowids, barriers, release)
             q = stack.enter_context(c.cursor()) if c is not None else None
             barriers[0].wait(timeout=180)
             barriers[1].wait(timeout=180)
-            latencies = []; outputs = []
             for index in indices:
                 start = time.perf_counter_ns()
                 value = operation_call(cfg, mode, operation, index, rows, rowids, q, r)
@@ -171,7 +171,7 @@ def trial_worker(cfg, mode, operation, indices, rows, rowids, barriers, release)
     except Exception as error:
         for barrier in barriers: barrier.abort()
         release.set()
-        return {'error_type': type(error).__name__, 'sqlstate': getattr(error, 'sqlstate', None)}
+        return {'error_type': type(error).__name__, 'sqlstate': getattr(error, 'sqlstate', None), 'latency_ns': latencies}
 
 
 class ScenarioBenchmark(base.Benchmark):
@@ -273,8 +273,10 @@ class ScenarioBenchmark(base.Benchmark):
         row = {'suite': suite, 'operation': operation, 'mode': mode, 'clients': clients,
                'repeat': repeat, 'warmup': repeat < 0, 'fixture_rows': rows, 'columns': 4,
                'operations': count, 'validated': False, 'status': 'failed'}
+        row.update(seconds=elapsed, latency_ns=[v for w in workers for v in w.get('latency_ns',[])])
+        self.results['trials'].append(row); self.save()
         if errors or broken:
-            row['errors'] = errors; self.results['trials'].append(row); self.save()
+            row['errors'] = errors; self.save()
             raise RuntimeError('Scenario failed; original error types/SQLSTATE retained; no retries')
         for w in workers:
             for index, value in w['outputs']:
@@ -290,7 +292,7 @@ class ScenarioBenchmark(base.Benchmark):
         row.update(validated=True, status='validated', seconds=elapsed, latency_ns=latencies,
                    median_latency_ms=statistics.median(latencies)/1e6,
                    p95_latency_ms=percentile(latencies,.95)/1e6, operations_per_second=count/elapsed)
-        self.results['trials'].append(row); self.save()
+        self.save()
         print(suite, operation, mode, clients, repeat, 'validated', flush=True)
 
     def run(self):

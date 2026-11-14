@@ -1,0 +1,33 @@
+{
+  "software_version": "8.2.6-25",
+  "redis_version": "8.8.0",
+  "search_module_version": 80808,
+  "server_cpus": 4,
+  "container_memory_bytes": 8589934592,
+  "native_gomaxprocs": "unset",
+  "environment": {
+    "GOGC": "unset",
+    "GOMEMLIMIT": "unset",
+    "GODEBUG": "unset"
+  },
+  "measured_harness": {
+    "commit": "cebdc45f0a093fffb64ee7698b5d870fe2b7a11a",
+    "sha256": "7e0ef8ab173b264287d2644b1d0485eae91970b7c3cce92777a485c8331da36a"
+  },
+  "driver": {
+    "driver_source_commit": "ca6858065c4cf02418d55c3aa62eb583590fe252",
+    "driver_version": "v0.1.0-dev.merged-scoped-1",
+    "driver_sha256": "8d358ce5d2a9adbf06a6f1b0fe381e57563596b206e620ee368c4948254084f9"
+  },
+  "host": "Apple M5 Max; 18 logical CPUs; 36 GiB; macOS 26.7.3 arm64",
+  "full_run": {
+    "exit_code": 0,
+    "wall_seconds": 215.3585488340177
+  },
+  "pilot_records": 84,
+  "full_records": 168,
+  "data_tls_certificate_and_hostname_verified": true,
+  "protocol": 3,
+  "cli_sha256_after_run": "a492ed6c782652c3bc89def32eeaf63042168a7721369606108c248fcc985f36",
+  "exporter_sha256": "fe77c2b95bf2c4d1cd97a6239540aeee6f52791711d6d97167178b26d105d384"
+}

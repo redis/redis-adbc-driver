@@ -60,7 +60,10 @@ def table_summary(data):
     # Reuse the established independent full-matrix audit rather than silently
     # accepting a subset or a successful-looking summary file.
     from merged_scoped_audit import summarize
-    return summarize(data)
+    m=data['metadata']
+    assert len(m['driver_source_commit'])==40 and all(x in '0123456789abcdef' for x in m['driver_source_commit'])
+    assert m['driver_version'].startswith('v') and len(m['driver_sha256'])==64
+    return summarize(data,source_commit=m['driver_source_commit'],driver_version=m['driver_version'])
 
 
 def make_charts(table_data,scenario_data):
@@ -120,15 +123,38 @@ def add_historical(document,data):
     assert data['source']['source_rows']==99997497
     assert all(r['status']=='valid' for r in data['checks'])
     valid={(r['query'],r['trial']) for r in data['checks']}
+    assert len(valid)==len(data['checks'])==22 and len(data['comparisons'])==11
+    assert len({r['query'] for r in data['comparisons']})==11
     values=[]
     for r in data['comparisons']:
         assert (r['query'],2) in valid and (r['query'],3) in valid
+        assert math.isfinite(r['redis_seconds']) and r['redis_seconds']>0
         values.append({'query':r['query'],'product':'redis_adbc','seconds':r['redis_seconds']})
-        for product,b in r['baselines'].items():values.append({'query':r['query'],'product':product,'seconds':b['seconds']})
+        assert set(r['baselines'])=={'clickhouse','duckdb','postgresql'}
+        for product,b in r['baselines'].items():
+            assert math.isfinite(b['seconds']) and b['seconds']>0
+            assert math.isclose(b['redis_over_baseline'],r['redis_seconds']/b['seconds'],rel_tol=1e-12)
+            values.append({'query':r['query'],'product':product,'seconds':b['seconds']})
     document['historical_clickbench']={'historical':True,'observed_at':data['observed_at'],'scope':data['scope'],
         'rows':99997497,'distribution':'Redis Open Source cluster; not current Software 4x QPF',
         'hardware':'Redis: 48 c6a.4xlarge primaries + 1 client; each other product: one c6a.4xlarge. Unequal resources.',
         'metric':'minimum of two independently validated hot trials, not medians or a full-suite score','values':values}
+
+
+def add_historical_aggregates(document,data):
+    assert data['rows']==99997497 and data['valid_trials']==24
+    assert set(data['queries'])=={'2','4','9','10'}
+    rows=[]
+    for query,case in data['queries'].items():
+        for build in ('baseline','candidate'):
+            metric=case[build]['metrics']['seconds']
+            assert metric['n']==3 and 0<metric['min']<=metric['median']<=metric['max']
+            rows.append({'query':'Q'+query,'build':build,'seconds':metric['median'],
+                         'min_seconds':metric['min'],'max_seconds':metric['max'],'samples':3})
+    document['historical_aggregate_comparison']={'historical':True,'rows':99997497,
+        'scope':'Separate within-Redis paired driver builds; not the cross-product hot-minimum series or a current Software result.',
+        'source_commits':data['provenance']['source'],'build_sha256':data['builds'],
+        'metric':'Median of three complete validated trials per build/query','values':rows}
 
 
 def write_outputs(document,output):
@@ -138,17 +164,25 @@ def write_outputs(document,output):
     columns=list(dict.fromkeys(k for r in rows for k in r))
     with (output/'charts.csv').open('w',newline='') as f:
         writer=csv.DictWriter(f,fieldnames=columns);writer.writeheader();writer.writerows(rows)
+    for key,name in [('historical_clickbench','clickbench-historical.csv'),('historical_aggregate_comparison','aggregate-historical.csv')]:
+        if key in document:
+            values=document[key]['values'];fields=list(dict.fromkeys(k for r in values for k in r))
+            with (output/name).open('w',newline='') as f:
+                writer=csv.DictWriter(f,fieldnames=['historical',*fields]);writer.writeheader()
+                writer.writerows({'historical':True,**r} for r in values)
     return len(rows)
 
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--table-modes',type=Path,required=True);p.add_argument('--scenarios',type=Path,required=True)
-    p.add_argument('--historical-clickbench',type=Path);p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--historical-clickbench',type=Path);p.add_argument('--historical-aggregates',type=Path);p.add_argument('--out',type=Path,required=True)
     a=p.parse_args();paths={'table_modes':a.table_modes,'scenarios':a.scenarios}
     d=make_charts(json.loads(a.table_modes.read_text()),json.loads(a.scenarios.read_text()))
     if a.historical_clickbench:
         paths['historical_clickbench']=a.historical_clickbench;add_historical(d,json.loads(a.historical_clickbench.read_text()))
+    if a.historical_aggregates:
+        paths['historical_aggregates']=a.historical_aggregates;add_historical_aggregates(d,json.loads(a.historical_aggregates.read_text()))
     d['input_sha256']={k:hashlib.sha256(v.read_bytes()).hexdigest() for k,v in paths.items()}
     print('Generated',write_outputs(d,a.out),'validated chart rows')
 

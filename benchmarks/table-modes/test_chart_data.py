@@ -51,9 +51,24 @@ class ChartAudit(unittest.TestCase):
                 data=evidence();change(data)
                 with self.assertRaises(AssertionError):c.scenario_summary(data)
 
+    def test_matching_future_driver_identity_is_supported(self):
+        data=evidence();table=copy.deepcopy(TABLE)
+        for m in (data['metadata'],table['metadata']):
+            m['driver_source_commit']='a'*40;m['driver_sha256']='b'*64;m['driver_version']='v9.0.0'
+        self.assertEqual(c.make_charts(table,data)['driver']['driver_version'],'v9.0.0')
+
     def test_build_mismatch_rejected(self):
         data=evidence();data['metadata']['driver_sha256']='different'
         with self.assertRaises(AssertionError):c.make_charts(TABLE,data)
+
+    def test_historical_aggregate_series_has_separate_metric_and_csv(self):
+        d=json.loads((Path(__file__).parents[1]/'exact-aggregate-406/2026-10-21/full/summary.json').read_text())
+        doc=c.make_charts(TABLE,evidence());c.add_historical_aggregates(doc,d)
+        self.assertEqual(len(doc['historical_aggregate_comparison']['values']),8)
+        self.assertIn('Median',doc['historical_aggregate_comparison']['metric'])
+        with tempfile.TemporaryDirectory() as directory:
+            out=Path(directory)/'charts';c.write_outputs(doc,out)
+            with (out/'aggregate-historical.csv').open() as f:self.assertEqual(len(list(csv.DictReader(f))),8)
 
     def test_historical_product_data_is_separate(self):
         data=json.loads((Path(__file__).parents[1]/'clickbench/full-c6a-cluster-2026-10-21/early-comparison/comparison.json').read_text())

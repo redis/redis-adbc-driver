@@ -36,8 +36,25 @@ class ScenarioContracts(unittest.TestCase):
         with patch.object(s.base,'connect',side_effect=RuntimeError('private text')) as connect:
             result=s.trial_worker({},'managed','point_read',[0],64,{},barriers,release)
         connect.assert_called_once()
-        self.assertEqual(result,{'error_type':'RuntimeError','sqlstate':None})
+        self.assertEqual(result,{'error_type':'RuntimeError','sqlstate':None,'latency_ns':[]})
         self.assertTrue(all(b.broken for b in barriers));self.assertTrue(release.is_set())
+
+    def test_failed_output_validation_retains_original_timed_observations(self):
+        from types import SimpleNamespace
+        b=s.ScenarioBenchmark.__new__(s.ScenarioBenchmark)
+        b.args=SimpleNamespace(point_rows=64,operations=4)
+        b.cfg={};b.results={'trials':[]};b.gate=Mock();b.save=Mock()
+        def wrong_output(cfg,mode,operation,indices,rows,rowids,barriers,release):
+            barriers[0].wait();barriers[1].wait();barriers[2].wait();release.wait()
+            bad=s.pa.Table.from_pylist([s.record(999)],schema=s.SCHEMA)
+            return {'latency_ns':[1000]*4,'outputs':[(i,bad) for i in indices]}
+        with patch.object(s,'trial_worker',side_effect=wrong_output):
+            with self.assertRaises(AssertionError):b.run_trial('oltp','point_read','managed',1,0,{})
+        self.assertEqual(len(b.results['trials']),1)
+        row=b.results['trials'][0]
+        self.assertFalse(row['validated']);self.assertEqual(row['status'],'failed')
+        self.assertEqual(row['latency_ns'],[1000]*4);self.assertGreater(row['seconds'],0)
+        b.save.assert_called()
 
 
 if __name__=='__main__':unittest.main()

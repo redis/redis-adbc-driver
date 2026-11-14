@@ -7,11 +7,12 @@ import statistics
 import sys
 
 
-def summarize(data):
+def summarize(data, *, source_commit='ca6858065c4cf02418d55c3aa62eb583590fe252',
+              driver_version='v0.1.0-dev.merged-scoped-1'):
     assert data['status'] == 'complete' and not data['failures']
     meta = data['metadata']
-    assert meta['driver_source_commit'] == 'ca6858065c4cf02418d55c3aa62eb583590fe252'
-    assert meta['driver_version'] == 'v0.1.0-dev.merged-scoped-1'
+    assert meta['driver_source_commit'] == source_commit
+    assert meta['driver_version'] == driver_version
     assert meta['source_sha256'] == 'a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2'
     assert meta['automatic_retries'] == 0 and meta['tls'] and meta['protocol'] == 3
     assert meta['read_rows'] == 100000 and meta['write_rows'] == 10000 and meta['columns'] == 105
