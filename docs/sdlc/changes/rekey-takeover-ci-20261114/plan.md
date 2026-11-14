@@ -10,3 +10,5 @@
    Redis Software4xQPF, validate CI selection/packaging helpers, and open a PR.
 
 Implementation and local verification complete; remote CI/human review pending.
+
+Review: [PR #438](https://github.com/redis/redis-adbc-driver/pull/438). Human approval pending.
