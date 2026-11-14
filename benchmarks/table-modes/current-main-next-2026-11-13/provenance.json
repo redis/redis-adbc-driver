@@ -1,0 +1,29 @@
+{
+  "mode": "reference",
+  "baseline_source": "24f654b76b98f3d8960af94a3ca0230185d467a1",
+  "driver_version": "v0.1.0-dev.next-four-base",
+  "driver_sha256": "8ae32eaf20723d55a9bf108a33907e5a1db1e514598073385dd2d8499057cfb7",
+  "cli_sha256": "9162ae4368384b2af6dc2c3f409dd97d06626fd34bb29fa09cf7b0e0f46558ac",
+  "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+  "harness_sha256": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+  "base_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+  "cpus": 4,
+  "container_memory_bytes": 8589934592,
+  "native_gomaxprocs": "unset",
+  "platform": "macOS-26.7.3-arm64-arm-64bit-Mach-O",
+  "fixture": {
+    "qpf": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "tls_certificate_verified": true,
+    "resp": 3,
+    "empty": true
+  },
+  "software_version": "8.2.6-25",
+  "redis_version": "8.8.0",
+  "search_module_version": 80808,
+  "tag_digest_pinned": false,
+  "fixed_recorded_local_container_image": true
+}

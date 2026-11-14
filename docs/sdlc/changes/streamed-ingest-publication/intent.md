@@ -2,7 +2,8 @@
 
 November 13, 2026. Requested by the user: investigate the remaining performance
 areas with subagents and run benchmarks. This track measures an existing API
-choice; it does not change the driver or publication defaults.
+choice and reruns the complete same-source 156-trial managed/unmanaged/Redis-client
+reference. It does not change the driver or publication defaults.
 
 Determine whether one explicit Arrow input stream containing small batches can
 amortize managed publication work while retaining small input batches. Compare
