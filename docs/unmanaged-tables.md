@@ -264,13 +264,17 @@ exclusions.
 
 See [implementation and live validation](sdlc/changes/flex-unmanaged/validation.md).
 
-Filtered reads can fetch only required HASH fields after Search discovers keys.
-The driver uses a bounded, per-key read-only Lua TYPE/HMGET operation to preserve
-live existence and exact native values, including existing rows whose selected
-fields are all NULL. Full scans retain their established retrieval strategy.
-The additional `EVALSHA_RO`, `EVAL_RO`, `TYPE`, `HSTRLEN` and `HMGET` permissions
-enable this acceleration; a definite permission refusal retains the existing
-HGETALL path. Atomic length checks bound selected values materialized in Lua;
-larger rows use original HGETALL without rejecting or truncating their data.
-Unknown command outcomes fail without replay. No application HASH/index is
-modified, and permissions or values are not cached across statements.
+Filtered reads can fetch only required HASH fields with native HMGET after Search
+discovers keys. A non-NULL selected value, including an empty string, proves the
+HASH existed at that atomic native read. If every selected field is NULL, a
+fresh HGETALL supplies the complete later live image or omits a now missing or
+non-HASH key. This does not mix fields from two observations or provide a
+statement snapshot; SQL still rechecks its existing residual predicate.
+
+Full scans retain their established retrieval strategy. HMGET permission enables
+selected-field acceleration; an exact native command-permission refusal retains
+the existing HGETALL path. No TYPE/HSTRLEN or Lua permissions are needed, and
+large source values avoid an extra Lua copy. Requests retain bounded field and
+pipeline sizes. Unknown command/pipeline outcomes fail without replay; application
+HASHes/indexes are not modified, and permissions/values are not cached across
+statements. See [the current concurrency work](sdlc/changes/unmanaged-concurrency-20261114/validation.md).

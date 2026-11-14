@@ -33,10 +33,8 @@ func (h *unmanagedProjectionReadHook) ProcessPipelineHook(next goredis.ProcessPi
 		h.calls++
 		for _, cmd := range cmds {
 			h.names = append(h.names, cmd.Name())
-			if strings.HasPrefix(cmd.Name(), "eval") {
-				if n, ok := cmd.(interface{ NoRetry() bool }); !ok || !n.NoRetry() {
-					h.t.Fatal("projection read lost no-retry marker")
-				}
+			if n, ok := cmd.(interface{ NoRetry() bool }); !ok || !n.NoRetry() {
+				h.t.Fatal("read lost no-retry marker")
 			}
 		}
 		return h.step(h.calls, cmds)
@@ -47,54 +45,112 @@ func projectionReadUnit(t *testing.T, fields ...string) (*unmanagedProjectionRea
 	c := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1", MaxRetries: -1})
 	c.AddHook(h)
 	t.Cleanup(func() { _ = c.Close() })
-	bytes := len(unmanagedProjectionReadLua) + 64
+	bytes := 64
 	for _, field := range fields {
 		bytes += len(field) + 16
 	}
 	return &unmanagedProjectionRead{store: &store{client: c}, fields: fields, bytes: bytes}, h
 }
-func setProjectionReply(cmd goredis.Cmder, value any, err error) {
-	cmd.(onceCmd).SetVal(value)
+func setProjectionReply(cmd goredis.Cmder, value []any, err error) {
+	cmd.(unmanagedProjectionCmd).Cmder.(*goredis.SliceCmd).SetVal(value)
 	cmd.SetErr(err)
 }
-func TestUnmanagedProjectionReadExactAndColdCache(t *testing.T) {
+func setProjectionNative(cmd goredis.Cmder, value map[string]string, err error) {
+	cmd.(unmanagedProjectionCmd).Cmder.(*goredis.MapStringStringCmd).SetVal(value)
+	cmd.SetErr(err)
+}
+
+func TestUnmanagedProjectionReadExactNativeValuesAndAllNull(t *testing.T) {
 	r, h := projectionReadUnit(t, "n", "text")
+	r.prepared = true
+	nul := string([]byte{'a', 0, 'b'})
 	h.step = func(n int, cmds []goredis.Cmder) error {
+		var first error
 		for _, cmd := range cmds {
+			key := cmd.Args()[1].(string)
 			if n == 1 {
-				err := controlScriptNativeError("NOSCRIPT missing")
-				setProjectionReply(cmd, nil, err)
-				return err
-			}
-			want := "evalsha_ro"
-			if n == 2 {
-				want = "eval_ro"
-			}
-			if cmd.Name() != want {
-				t.Fatal(cmd.Name(), want)
-			}
-			if cmd.Args()[2] != 1 {
-				t.Fatal("multiple keys", cmd.Args())
-			}
-			key := cmd.Args()[3].(string)
-			if key == "app:null" {
-				setProjectionReply(cmd, []any{nil, nil}, nil)
-			} else if key == "app:gone" {
-				setProjectionReply(cmd, nil, goredis.Nil)
+				if cmd.Name() != "hmget" || !reflect.DeepEqual(cmd.Args(), []any{"HMGET", key, "n", "text"}) {
+					t.Fatal("not native projected command", cmd.Args())
+				}
+				switch key {
+				case "app:one":
+					setProjectionReply(cmd, []any{"9007199254740993", nul}, nil)
+				case "app:empty":
+					setProjectionReply(cmd, []any{"", nil}, nil)
+				case "app:wrong":
+					first = controlScriptNativeError("WRONGTYPE Operation against a key holding the wrong kind of value")
+					setProjectionReply(cmd, nil, first)
+				default:
+					setProjectionReply(cmd, []any{nil, nil}, nil)
+				}
 			} else {
-				setProjectionReply(cmd, []any{"9007199254740993", string([]byte{'a', 0, 'b'})}, nil)
+				if cmd.Name() != "hgetall" || key != "app:null" && key != "app:gone" {
+					t.Fatal("nonnull value reread", cmd.Args())
+				}
+				value := map[string]string{}
+				if key == "app:null" {
+					value["unselected"] = "still a HASH"
+				}
+				setProjectionNative(cmd, value, nil)
 			}
 		}
-		return nil
+		return first
 	}
-	got, err := r.read(context.Background(), []string{"app:one", "app:null", "app:gone"})
-	want := []aggRow{{keyField: "app:one", "n": "9007199254740993", "text": string([]byte{'a', 0, 'b'})}, {keyField: "app:null"}, nil}
-	if err != nil || !reflect.DeepEqual(got, want) || h.calls != 3 || r.fallback {
+	got, err := r.read(context.Background(), []string{"app:one", "app:empty", "app:null", "app:gone", "app:wrong"})
+	want := []aggRow{{keyField: "app:one", "n": "9007199254740993", "text": nul}, {keyField: "app:empty", "n": ""}, {keyField: "app:null", "unselected": "still a HASH"}, nil, nil}
+	if err != nil || !reflect.DeepEqual(got, want) || h.calls != 2 || r.fallback {
 		t.Fatal(got, err, h.calls)
 	}
 }
+func TestUnmanagedProjectionReadLaterWholeImage(t *testing.T) {
+	for _, mode := range []string{"updated", "deleted", "wrongtype", "still_null"} {
+		t.Run(mode, func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n", "text")
+			h.step = func(n int, cmds []goredis.Cmder) error {
+				if len(cmds) != 1 {
+					t.Fatal(len(cmds))
+				}
+				if n == 1 {
+					setProjectionReply(cmds[0], []any{nil, nil}, nil)
+					return nil
+				}
+				switch mode {
+				case "updated":
+					setProjectionNative(cmds[0], map[string]string{"n": "9223372036854775807", "text": "new image", "__key": "application data"}, nil)
+				case "deleted":
+					setProjectionNative(cmds[0], map[string]string{}, nil)
+				case "wrongtype":
+					err := controlScriptNativeError("WRONGTYPE changed after HMGET")
+					setProjectionNative(cmds[0], nil, err)
+					return err
+				case "still_null":
+					setProjectionNative(cmds[0], map[string]string{"other": "keeps HASH alive"}, nil)
+				}
+				return nil
+			}
+			got, err := r.read(context.Background(), []string{"app:row"})
+			if err != nil || len(got) != 1 || h.calls != 2 {
+				t.Fatal(got, err, h.calls)
+			}
+			switch mode {
+			case "updated":
+				if !reflect.DeepEqual(got[0], aggRow{keyField: "app:row", "n": "9223372036854775807", "text": "new image"}) {
+					t.Fatal("mixed temporal row image", got)
+				}
+			case "deleted", "wrongtype":
+				if got[0] != nil {
+					t.Fatal(got)
+				}
+			case "still_null":
+				if !reflect.DeepEqual(got[0], aggRow{keyField: "app:row", "other": "keeps HASH alive"}) {
+					t.Fatal(got)
+				}
+			}
+		})
+	}
+}
 func TestUnmanagedProjectionReadPermissionCompatibility(t *testing.T) {
-	for _, message := range []string{"ERR ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "NOPERM this user has no permissions to run the 'evalsha_ro' command"} {
+	for _, message := range []string{"NOPERM this user has no permissions to run the 'hmget' command", "NOPERM User reader has no permissions to run the 'hmget' command"} {
 		t.Run(message, func(t *testing.T) {
 			r, h := projectionReadUnit(t, "n")
 			h.step = func(n int, cmds []goredis.Cmder) error {
@@ -105,9 +161,9 @@ func TestUnmanagedProjectionReadPermissionCompatibility(t *testing.T) {
 				}
 				for _, cmd := range cmds {
 					if cmd.Name() != "hgetall" {
-						t.Fatal("retried denied script", cmd.Name())
+						t.Fatal("retried denied HMGET", cmd.Name())
 					}
-					cmd.(*goredis.MapStringStringCmd).SetVal(map[string]string{"n": "7"})
+					setProjectionNative(cmd, map[string]string{"n": "7"}, nil)
 				}
 				return nil
 			}
@@ -118,74 +174,39 @@ func TestUnmanagedProjectionReadPermissionCompatibility(t *testing.T) {
 		})
 	}
 }
-func TestUnmanagedProjectionReadUnknownDoesNotFallback(t *testing.T) {
-	for _, kind := range []string{"unknown", "mixed_unknown_and_noscript", "pipeline_error_after_replies", "unaccounted_native_pipeline_error", "untyped_permission", "ordinary_server_error", "malformed", "body_missing_script"} {
-		t.Run(kind, func(t *testing.T) {
-			r, h := projectionReadUnit(t, "n")
-			r.prepared = true
-			h.step = func(n int, cmds []goredis.Cmder) error {
-				for _, cmd := range cmds {
-					setProjectionReply(cmd, []any{"7"}, nil)
-				}
-				var err error
-				switch kind {
-				case "unknown":
-					err = io.ErrUnexpectedEOF
-					cmds[0].SetErr(err)
-				case "mixed_unknown_and_noscript":
-					setProjectionReply(cmds[0], nil, controlScriptNativeError("NOSCRIPT missing"))
-					err = io.ErrUnexpectedEOF
-					cmds[1].SetErr(err)
-				case "pipeline_error_after_replies":
-					err = io.ErrUnexpectedEOF
-				case "unaccounted_native_pipeline_error":
-					setProjectionReply(cmds[0], nil, goredis.Nil)
-					err = controlScriptNativeError("NOSCRIPT unaccounted pipeline error")
-				case "untyped_permission":
-					err = errors.New("ADBC_UNMANAGED_PROJECTION_TYPE_DENIED")
-					cmds[0].SetErr(err)
-				case "ordinary_server_error":
-					err = controlScriptNativeError("ERR unexpected script failure")
-					cmds[0].SetErr(err)
-				case "malformed":
-					setProjectionReply(cmds[0], []any{int64(7)}, nil)
-				case "body_missing_script":
-					err = controlScriptNativeError("NOSCRIPT missing")
-					cmds[0].SetErr(err)
-				}
-				return err
-			}
-			var err error
-			if kind == "body_missing_script" {
-				_, _, err = r.batch(context.Background(), []string{"app:1", "app:2"}, true)
-			} else {
-				_, err = r.read(context.Background(), []string{"app:1", "app:2"})
-			}
-			if err == nil || h.calls != 1 || r.fallback {
-				t.Fatal("unknown result replayed or accepted", kind, err, h.calls)
-			}
-		})
+func TestUnmanagedProjectionReadSourceAddressWins(t *testing.T) {
+	r, h := projectionReadUnit(t, keyField)
+	h.step = func(_ int, cmds []goredis.Cmder) error {
+		setProjectionReply(cmds[0], []any{"application data"}, nil)
+		return nil
+	}
+	got, err := r.read(context.Background(), []string{"app:actual"})
+	if err != nil || got[0][keyField] != "app:actual" {
+		t.Fatal(got, err)
 	}
 }
 func TestUnmanagedProjectionReadBoundsAndZeroFields(t *testing.T) {
 	r, h := projectionReadUnit(t)
 	h.step = func(_ int, cmds []goredis.Cmder) error {
 		for _, cmd := range cmds {
-			setProjectionReply(cmd, []any{}, nil)
+			if cmd.Name() != "hgetall" {
+				t.Fatal("zero-field HMGET", cmd.Name())
+			}
+			setProjectionNative(cmd, map[string]string{"other": "present"}, nil)
 		}
 		return nil
 	}
-	rows, err := r.read(context.Background(), []string{"app:empty-projection"})
-	if err != nil || len(rows) != 1 || rows[0][keyField] != "app:empty-projection" {
-		t.Fatal(rows, err)
+	got, err := r.read(context.Background(), []string{"app:row"})
+	if err != nil || len(got) != 1 || got[0][keyField] != "app:row" {
+		t.Fatal(got, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err = r.read(ctx, []string{"app:1"}); err == nil || h.calls != 1 {
+	if _, err = r.read(ctx, []string{"app:row"}); err == nil || h.calls != 1 {
 		t.Fatal("canceled read reached transport")
 	}
 	if _, err = r.read(context.Background(), []string{metaKey("public", "secret")}); err == nil || h.calls != 1 {
-		t.Fatal("driver storage reached source script")
+		t.Fatal("driver storage reached source reader")
 	}
 	it, _ := unmanagedProjectionFixture()
 	need := map[string]bool{}
@@ -198,269 +219,89 @@ func TestUnmanagedProjectionReadBoundsAndZeroFields(t *testing.T) {
 		t.Fatal("unbounded field list optimized")
 	}
 }
-
-func TestUnmanagedProjectionReadRequestByteBound(t *testing.T) {
-	r, h := projectionReadUnit(t, "n")
-	r.prepared = true
-	r.bytes = unmanagedProjectionReadBytes/2 + 1 + len(unmanagedProjectionReadLua) - len(unmanagedProjectionReadDigest)
-	h.step = func(_ int, cmds []goredis.Cmder) error {
-		if len(cmds) != 1 {
-			t.Fatal("projection pipeline exceeded request byte bound", len(cmds))
-		}
-		setProjectionReply(cmds[0], []any{"7"}, nil)
-		return nil
-	}
-	got, err := r.read(context.Background(), []string{"app:1", "app:2", "app:3"})
-	if err != nil || len(got) != 3 || h.calls != 3 {
-		t.Fatal(got, err, h.calls)
-	}
-}
-
-func TestUnmanagedProjectionReadColdBodyPermissionFallback(t *testing.T) {
-	r, h := projectionReadUnit(t, "n")
-	h.step = func(n int, cmds []goredis.Cmder) error {
-		switch n {
-		case 1:
-			err := controlScriptNativeError("NOSCRIPT missing")
-			setProjectionReply(cmds[0], nil, err)
-			return err
-		case 2:
-			if cmds[0].Name() != "eval_ro" {
-				t.Fatal("cold fallback did not use read-only full body")
-			}
-			err := controlScriptNativeError("NOPERM this user has no permissions to run the 'eval_ro' command")
-			setProjectionReply(cmds[0], nil, err)
-			return err
-		default:
-			cmds[0].(*goredis.MapStringStringCmd).SetVal(map[string]string{"n": "7"})
-			return nil
+func TestUnmanagedProjectionReadUnknownDoesNotFallback(t *testing.T) {
+	nativePermission := controlScriptNativeError("NOPERM this user has no permissions to run the 'hmget' command")
+	nativeWrong := controlScriptNativeError("WRONGTYPE changed")
+	cases := map[string]error{"lost_reply": io.ErrUnexpectedEOF, "whole_nil": goredis.Nil, "joined_nil": errors.Join(goredis.Nil, io.EOF), "wrapped_nil": fmt.Errorf("unknown: %w", goredis.Nil), "joined_permission": errors.Join(nativePermission, io.EOF), "wrapped_permission": fmt.Errorf("unknown: %w", nativePermission), "joined_wrongtype": errors.Join(nativeWrong, io.EOF), "wrapped_wrongtype": fmt.Errorf("unknown: %w", nativeWrong), "untyped_permission": errors.New(nativePermission.Error()), "untyped_wrongtype": errors.New(nativeWrong.Error()), "other_command_permission": controlScriptNativeError("NOPERM this user has no permissions to run the 'hget' command"), "ordinary_server_error": controlScriptNativeError("ERR failure")}
+	for name, unknown := range cases {
+		for _, pipelineOnly := range []bool{false, true} {
+			t.Run(fmt.Sprint(name, "/pipeline=", pipelineOnly), func(t *testing.T) {
+				r, h := projectionReadUnit(t, "n")
+				r.prepared = true
+				h.step = func(_ int, cmds []goredis.Cmder) error {
+					for _, cmd := range cmds {
+						setProjectionReply(cmd, []any{nil}, nil)
+					}
+					if !pipelineOnly {
+						cmds[len(cmds)-1].SetErr(unknown)
+					}
+					return unknown
+				}
+				got, err := r.read(context.Background(), []string{"app:one", "app:two"})
+				if err == nil || got != nil || h.calls != 1 || r.fallback {
+					t.Fatal("unknown accepted or replayed", got, err, h.calls)
+				}
+				if !strings.Contains(err.Error(), unknown.Error()) {
+					t.Fatal("unknown diagnostic lost", err, unknown)
+				}
+			})
 		}
 	}
-	got, err := r.read(context.Background(), []string{"app:one"})
-	if err != nil || len(got) != 1 || got[0]["n"] != "7" || !r.fallback || h.calls != 3 {
-		t.Fatal(got, err, h.calls, r.fallback)
-	}
 }
-func TestUnmanagedProjectionReadSourceAddressWins(t *testing.T) {
-	r, h := projectionReadUnit(t, keyField)
-	h.step = func(_ int, cmds []goredis.Cmder) error {
-		setProjectionReply(cmds[0], []any{"application owned"}, nil)
-		return nil
-	}
-	got, err := r.read(context.Background(), []string{"app:real"})
-	if err != nil || got[0][keyField] != "app:real" {
-		t.Fatal("application field shadowed source address", got, err)
-	}
-}
-
-func TestUnmanagedProjectionReadWrappedAbsenceIsUnknown(t *testing.T) {
-	for _, kind := range []string{"command_joined_nil", "command_wrapped_nil", "pipeline_joined_nil", "pipeline_wrapped_nil", "noscript_then_joined_nil", "permission_then_joined_nil", "wrapped_native_permission", "joined_native_noscript", "pipeline_joined_native_noscript", "pipeline_wrapped_native_permission"} {
-		t.Run(kind, func(t *testing.T) {
+func TestUnmanagedProjectionReadKnownRefusalDoesNotHideLaterUnknown(t *testing.T) {
+	for _, known := range []error{controlScriptNativeError("WRONGTYPE changed"), controlScriptNativeError("NOPERM this user has no permissions to run the 'hmget' command")} {
+		t.Run(known.Error(), func(t *testing.T) {
 			r, h := projectionReadUnit(t, "n")
 			r.prepared = true
-			unknown := error(errors.Join(goredis.Nil, io.EOF))
-			if strings.Contains(kind, "wrapped_nil") {
-				unknown = fmt.Errorf("wrapped missing marker: %w", goredis.Nil)
+			h.step = func(_ int, cmds []goredis.Cmder) error {
+				setProjectionReply(cmds[0], nil, known)
+				setProjectionReply(cmds[1], nil, errors.Join(goredis.Nil, io.ErrUnexpectedEOF))
+				return known
 			}
-			h.step = func(n int, cmds []goredis.Cmder) error {
-				if n > 1 {
-					for _, cmd := range cmds {
-						cmd.SetErr(io.ErrUnexpectedEOF)
-					}
-					return io.ErrUnexpectedEOF
-				}
-				for _, cmd := range cmds {
-					setProjectionReply(cmd, []any{"7"}, nil)
-				}
-				switch kind {
-				case "command_joined_nil", "command_wrapped_nil":
-					cmds[0].SetErr(unknown)
-					return unknown
-				case "pipeline_joined_nil", "pipeline_wrapped_nil":
-					cmds[0].SetErr(goredis.Nil)
-					return unknown
-				case "noscript_then_joined_nil":
-					known := controlScriptNativeError("NOSCRIPT known refusal")
-					cmds[0].SetErr(known)
-					cmds[1].SetErr(unknown)
-					return known
-				case "permission_then_joined_nil":
-					known := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TYPE_DENIED")
-					cmds[0].SetErr(known)
-					cmds[1].SetErr(unknown)
-					return known
-				case "pipeline_joined_native_noscript":
-					known := controlScriptNativeError("NOSCRIPT known refusal")
-					cmds[0].SetErr(known)
-					unknown = errors.Join(known, io.EOF)
-					return unknown
-				case "pipeline_wrapped_native_permission":
-					known := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TYPE_DENIED")
-					cmds[0].SetErr(known)
-					unknown = fmt.Errorf("unknown result wrapping native permission: %w", known)
-					return unknown
-				case "wrapped_native_permission":
-					unknown = fmt.Errorf("unknown result wrapping native permission: %w", controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TYPE_DENIED"))
-					cmds[0].SetErr(unknown)
-					return unknown
-				case "joined_native_noscript":
-					unknown = errors.Join(controlScriptNativeError("NOSCRIPT known refusal"), io.EOF)
-					cmds[0].SetErr(unknown)
-					return unknown
-				}
-				t.Fatal("missing unknown outcome fixture")
-				return nil
-			}
-			rows, err := r.read(context.Background(), []string{"app:one", "app:two"})
-			if err == nil || h.calls != 1 || r.fallback || rows != nil {
-				t.Fatalf("unknown outcome accepted/replayed: rows=%v error=%v calls=%d fallback=%v", rows, err, h.calls, r.fallback)
-			}
-			if !strings.Contains(err.Error(), unknown.Error()) {
-				t.Fatalf("original unknown diagnostic lost: got=%v want=%v", err, unknown)
+			if got, err := r.read(context.Background(), []string{"app:one", "app:two"}); err == nil || got != nil || h.calls != 1 {
+				t.Fatal("known refusal hid later loss", got, err, h.calls)
 			}
 		})
 	}
 }
-
-func TestUnmanagedProjectionReadTooLargeUsesPerRowCompatibility(t *testing.T) {
-	r, h := projectionReadUnit(t, "value")
-	r.prepared = true
-	large := strings.Repeat("x", unmanagedProjectionReadBytes+1)
-	h.step = func(n int, cmds []goredis.Cmder) error {
-		switch n {
-		case 1:
-			if len(cmds) != 3 {
-				t.Fatal("fixture did not test a mixed pipeline")
-			}
-			setProjectionReply(cmds[0], []any{"small"}, nil)
-			refusal := controlScriptNativeError("ERR ADBC_UNMANAGED_PROJECTION_TOO_LARGE")
-			setProjectionReply(cmds[1], nil, refusal)
-			setProjectionReply(cmds[2], []any{nil}, nil)
-			return refusal
-		case 2:
-			if len(cmds) != 1 || cmds[0].Name() != "hgetall" || cmds[0].Args()[1] != "app:large" {
-				t.Fatal("size fallback replayed another row", cmds)
-			}
-			cmds[0].(*goredis.MapStringStringCmd).SetVal(map[string]string{"value": large})
-		case 3:
-			if len(cmds) != 1 || cmds[0].Name() != "evalsha_ro" {
-				t.Fatal("one large row disabled later fast reads")
-			}
-			setProjectionReply(cmds[0], []any{"later"}, nil)
-		default:
-			t.Fatal("unexpected read replay")
-		}
-		return nil
-	}
-	got, err := r.read(context.Background(), []string{"app:small", "app:large", "app:null"})
-	if err != nil || len(got) != 3 || got[0]["value"] != "small" || got[1]["value"] != large || got[2][keyField] != "app:null" || r.fallback {
-		t.Fatal("size compatibility changed values/existence", err, r.fallback)
-	}
-	got, err = r.read(context.Background(), []string{"app:later"})
-	if err != nil || got[0]["value"] != "later" || h.calls != 3 {
-		t.Fatal(got, err, h.calls)
-	}
-}
-
-func TestUnmanagedProjectionReadSizeRefusalDoesNotHideUnknown(t *testing.T) {
-	for _, kind := range []string{"wrapped_large", "joined_large", "pipeline_joined_large", "large_then_unknown", "strlen_denied_then_unknown", "unaccounted_large"} {
-		t.Run(kind, func(t *testing.T) {
-			r, h := projectionReadUnit(t, "value")
+func TestUnmanagedProjectionReadMalformedDoesNotFallback(t *testing.T) {
+	for _, values := range [][]any{nil, {}, {int64(7)}, {[]byte("7")}, {nil, nil}} {
+		t.Run(fmt.Sprintf("%#v", values), func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n")
 			r.prepared = true
-			large := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TOO_LARGE")
-			unknown := errors.Join(large, io.EOF)
-			h.step = func(n int, cmds []goredis.Cmder) error {
-				if n != 1 {
-					t.Fatal("unknown outcome selected size/permission fallback")
-				}
-				for _, cmd := range cmds {
-					setProjectionReply(cmd, []any{"small"}, nil)
-				}
-				switch kind {
-				case "wrapped_large":
-					unknown = fmt.Errorf("unknown size reply: %w", large)
-					cmds[0].SetErr(unknown)
-					return unknown
-				case "joined_large":
-					cmds[0].SetErr(unknown)
-					return unknown
-				case "pipeline_joined_large":
-					cmds[0].SetErr(large)
-					return unknown
-				case "large_then_unknown":
-					cmds[0].SetErr(large)
-					unknown = errors.Join(goredis.Nil, io.EOF)
-					cmds[1].SetErr(unknown)
-					return large
-				case "strlen_denied_then_unknown":
-					denied := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED")
-					cmds[0].SetErr(denied)
-					cmds[1].SetErr(unknown)
-					return denied
-				case "unaccounted_large":
-					cmds[0].SetErr(goredis.Nil)
-					unknown = large
-					return large
-				}
+			h.step = func(_ int, cmds []goredis.Cmder) error {
+				setProjectionReply(cmds[0], []any{nil}, nil)
+				setProjectionReply(cmds[1], values, nil)
 				return nil
 			}
-			got, err := r.read(context.Background(), []string{"app:one", "app:two"})
-			if err == nil || got != nil || h.calls != 1 || r.fallback || !strings.Contains(err.Error(), unknown.Error()) {
-				t.Fatal("unknown size result accepted/replayed or diagnostic lost", got, err, h.calls)
+			if got, err := r.read(context.Background(), []string{"app:one", "app:two"}); err == nil || got != nil || h.calls != 1 {
+				t.Fatal("malformed reply accepted or triggered all-null fallback", got, err, h.calls)
 			}
 		})
 	}
 }
-
-func TestUnmanagedProjectionReadExactNativeTokenSpellings(t *testing.T) {
-	for _, token := range []string{"ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "ADBC_UNMANAGED_PROJECTION_TOO_LARGE"} {
-		for _, prefix := range []string{"", "ERR "} {
-			wire := prefix + token
-			t.Run(wire, func(t *testing.T) {
-				native := controlScriptNativeError(wire)
-				permission := token != "ADBC_UNMANAGED_PROJECTION_TOO_LARGE"
-				if unmanagedProjectionPermission(native) != permission || unmanagedProjectionTooLarge(native) == permission {
-					t.Fatal("exact native wire token lost", wire)
+func TestUnmanagedProjectionReadNativeFallbackUnknownDoesNotReplay(t *testing.T) {
+	for _, pipelineOnly := range []bool{false, true} {
+		t.Run(fmt.Sprint(pipelineOnly), func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n")
+			unknown := errors.Join(controlScriptNativeError("WRONGTYPE changed"), io.ErrUnexpectedEOF)
+			h.step = func(n int, cmds []goredis.Cmder) error {
+				if n == 1 {
+					setProjectionReply(cmds[0], []any{nil}, nil)
+					return nil
 				}
-				for _, unknown := range []error{fmt.Errorf("unknown reply: %w", native), errors.Join(native, io.EOF), errors.New(wire), controlScriptNativeError("ERR " + wire + " suffix"), controlScriptNativeError("ERR ERR " + token), controlScriptNativeError("ERR prefix " + token), controlScriptNativeError("prefix ERR " + token), controlScriptNativeError("ERRprefix " + token), controlScriptNativeError(wire + "suffix")} {
-					if unmanagedProjectionPermission(unknown) || unmanagedProjectionTooLarge(unknown) {
-						t.Fatal("composed/nonexact wire token accepted", unknown)
-					}
-				}
-			})
-		}
-	}
-}
-func TestUnmanagedProjectionReadPrefixedTokenUnknownIsNotRetried(t *testing.T) {
-	for _, token := range []string{"ERR ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_TOO_LARGE"} {
-		for _, wrapped := range []bool{false, true} {
-			t.Run(fmt.Sprint(token, wrapped), func(t *testing.T) {
-				r, h := projectionReadUnit(t, "value")
-				r.prepared = true
-				native := controlScriptNativeError(token)
-				var unknown error = errors.Join(native, io.EOF)
-				if wrapped {
-					unknown = fmt.Errorf("unknown prefixed refusal: %w", native)
-				}
-				h.step = func(n int, cmds []goredis.Cmder) error {
-					if n != 1 {
-						t.Fatal("composed prefixed token triggered fallback")
-					}
-					setProjectionReply(cmds[0], []any{"small"}, nil)
+				setProjectionNative(cmds[0], map[string]string{"n": "new"}, nil)
+				if !pipelineOnly {
 					cmds[0].SetErr(unknown)
-					return unknown
 				}
-				got, err := r.read(context.Background(), []string{"app:one"})
-				if err == nil || got != nil || h.calls != 1 || r.fallback || !strings.Contains(err.Error(), unknown.Error()) {
-					t.Fatal("unknown prefixed token accepted/replayed", got, err, h.calls)
-				}
-			})
-		}
+				return unknown
+			}
+			if got, err := r.read(context.Background(), []string{"app:row"}); err == nil || got != nil || h.calls != 2 {
+				t.Fatal("fallback unknown ignored/replayed", got, err, h.calls)
+			}
+		})
 	}
 }
-
-// Count actual RESP request bytes independently of the reader's conservative
-// estimate, including every command, key, field, digest/body and framing byte.
 func unmanagedProjectionRequestBytes(cmd goredis.Cmder) int {
 	args := cmd.Args()
 	n := len(strconv.Itoa(len(args))) + 3
@@ -470,61 +311,7 @@ func unmanagedProjectionRequestBytes(cmd goredis.Cmder) int {
 	}
 	return n
 }
-
-func TestUnmanagedProjectionReadDigestAndBodyPipelineBudgets(t *testing.T) {
-	for _, cold := range []bool{false, true} {
-		t.Run(fmt.Sprint("cold=", cold), func(t *testing.T) {
-			r, h := projectionReadUnit(t, "n")
-			r.prepared = true
-			keys := make([]string, pipelineChunk)
-			for i := range keys {
-				keys[i] = "app:" + strings.Repeat("k", 1200) + strconv.Itoa(i)
-			}
-			var digestCommands, bodyCommands, maxDigest, maxBody int
-			h.step = func(_ int, cmds []goredis.Cmder) error {
-				var pipelineErr error
-				bytes := 0
-				for _, cmd := range cmds {
-					bytes += unmanagedProjectionRequestBytes(cmd)
-					if cmd.Name() == "evalsha_ro" {
-						digestCommands++
-						maxDigest = max(maxDigest, len(cmds))
-						if cold {
-							err := controlScriptNativeError("NOSCRIPT missing")
-							setProjectionReply(cmd, nil, err)
-							pipelineErr = err
-							continue
-						}
-					} else if cmd.Name() == "eval_ro" {
-						bodyCommands++
-						maxBody = max(maxBody, len(cmds))
-					} else {
-						t.Fatal("unexpected fallback", cmd.Name())
-					}
-					setProjectionReply(cmd, []any{"7"}, nil)
-				}
-				if bytes > unmanagedProjectionReadBytes || len(cmds) > pipelineChunk {
-					t.Fatal("unbounded encoded requests", bytes, len(cmds))
-				}
-				return pipelineErr
-			}
-			got, err := r.read(context.Background(), keys)
-			if err != nil || len(got) != len(keys) || digestCommands != len(keys) || maxDigest < 700 {
-				t.Fatal("hot pipeline charged for unsent source", err, len(got), digestCommands, maxDigest)
-			}
-			for i, row := range got {
-				if row["n"] != "7" || row[keyField] != keys[i] {
-					t.Fatal("repair changed row order or values", i)
-				}
-			}
-			if cold && (bodyCommands != len(keys) || maxBody >= maxDigest || maxBody == 0) || !cold && bodyCommands != 0 {
-				t.Fatal("full bodies not independently bounded", bodyCommands, maxBody, maxDigest)
-			}
-		})
-	}
-}
-
-func TestUnmanagedProjectionReadLargeHotPipelineUnknownPreventsBodyRepair(t *testing.T) {
+func TestUnmanagedProjectionReadRequestByteBound(t *testing.T) {
 	r, h := projectionReadUnit(t, "n")
 	r.prepared = true
 	keys := make([]string, pipelineChunk)
@@ -532,32 +319,33 @@ func TestUnmanagedProjectionReadLargeHotPipelineUnknownPreventsBodyRepair(t *tes
 		keys[i] = "app:" + strings.Repeat("k", 1200) + strconv.Itoa(i)
 	}
 	h.step = func(_ int, cmds []goredis.Cmder) error {
-		if len(cmds) < 700 {
-			t.Fatal("test did not cover the larger digest batch", len(cmds))
-		}
+		bytes := 0
 		for _, cmd := range cmds {
-			setProjectionReply(cmd, nil, controlScriptNativeError("NOSCRIPT missing"))
+			bytes += unmanagedProjectionRequestBytes(cmd)
+			setProjectionReply(cmd, []any{"7"}, nil)
 		}
-		cmds[len(cmds)-1].SetErr(io.ErrUnexpectedEOF)
-		return controlScriptNativeError("NOSCRIPT missing")
+		if bytes > unmanagedProjectionReadBytes || len(cmds) > pipelineChunk {
+			t.Fatal("unbounded request", bytes, len(cmds))
+		}
+		return nil
 	}
-	if _, err := r.read(context.Background(), keys); err == nil || h.calls != 1 {
-		t.Fatal("body repair preceded inspection of the whole outer pipeline", err, h.calls)
+	got, err := r.read(context.Background(), keys)
+	if err != nil || len(got) != len(keys) || h.calls != 2 {
+		t.Fatal(got, err, h.calls)
 	}
 }
-
-func TestUnmanagedProjectionReadOversizedBodyKeepsNativeFallback(t *testing.T) {
+func TestUnmanagedProjectionReadOversizedRequestKeepsNativeFallback(t *testing.T) {
 	r, h := projectionReadUnit(t, "n")
 	key := "app:" + strings.Repeat("k", unmanagedProjectionReadBytes)
 	h.step = func(_ int, cmds []goredis.Cmder) error {
 		if len(cmds) != 1 || cmds[0].Name() != "hgetall" || cmds[0].Args()[1] != key {
-			t.Fatal("oversized request reached script", len(cmds), cmds[0].Name())
+			t.Fatal("oversized key reached projection", cmds[0].Name())
 		}
-		cmds[0].(*goredis.MapStringStringCmd).SetVal(map[string]string{"n": "7"})
+		setProjectionNative(cmds[0], map[string]string{"n": "7"}, nil)
 		return nil
 	}
 	got, err := r.read(context.Background(), []string{key})
 	if err != nil || len(got) != 1 || got[0]["n"] != "7" || h.calls != 1 {
-		t.Fatal("native oversized-key fallback differs", err, len(got), h.calls)
+		t.Fatal(got, err, h.calls)
 	}
 }
