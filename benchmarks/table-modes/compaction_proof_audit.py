@@ -74,6 +74,10 @@ def audit(directory):
     assert summary['dense_all']['read_nanoseconds']/summary['dense_all']['hook_nanoseconds']>0.998
     for run in (d,empty,dense):
         assert run['loan_return']=={'empty':True,'no_indexes':True,'clients_closed':True}
+    assert all(d['owner_cleanup'][key] for key in ('owned_container_and_network_removed','preexisting_containers_preserved','preexisting_networks_preserved','generated_tls_and_environment_removed','private_generated_credentials_removed'))
+    assert (d['owner_cleanup']['preexisting_container_count'],d['owner_cleanup']['preexisting_network_count'])==(1,31)
+    assert d['owner_reported_privacy']=={'secret_scan_matches':0,'raw_artifact_hashes_changed':False}
+    assert not d['review']['human_approval_inferred']
     print('PASS: six unchanged dense profiles, supplemental count accounting and 64 empty/317 dense release observations; all attempts retained')
 
 if __name__=='__main__':

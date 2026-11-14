@@ -7246,5 +7246,26 @@
       "read_nanoseconds": 6223718214,
       "write_nanoseconds": 2625493
     }
+  },
+  "owner_cleanup": {
+    "owned_container_and_network_removed": true,
+    "preexisting_containers_preserved": true,
+    "preexisting_networks_preserved": true,
+    "preexisting_container_count": 1,
+    "preexisting_network_count": 31,
+    "generated_tls_and_environment_removed": true,
+    "private_generated_credentials_removed": true
+  },
+  "owner_cleanup_proof_sha256": "73603b253c9ba9865d6613df06d6c00545211a433d3f819355687e28e8d86353",
+  "owner_reported_privacy": {
+    "secret_scan_matches": 0,
+    "raw_artifact_hashes_changed": false
+  },
+  "review": {
+    "reviewed_commit": "248e92751c5e13010ecbc6a7b83410410fb3cd2a",
+    "reviewer": "parent agent",
+    "source_findings": "no blockers",
+    "independent_arithmetic_audit": "passed",
+    "human_approval_inferred": false
   }
 }
