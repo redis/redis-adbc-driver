@@ -5,6 +5,15 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+[Current main reference](current-main-next-2026-11-13/report.md) records all 156
+validated read/write/creation trials on source `24f654b7`, with no conflicts or
+retries. [Explicit streamed managed ingestion](streamed-publication-2026-11-13/report.md)
+compares separate calls, one Arrow stream and one larger batch using that same
+binary: all 24 trials validated. One stream reduced median elapsed time by
+76–84% against separate small calls; it deliberately changes the managed
+publication unit. The reports retain every sample, settings and limitations.
+Audit with `current_main_next_audit.py` and `streamed_publication_audit.py`.
+
 [Latest merged-main rerun](merged-main-2026-11-13-rerun/report.md) repeats all
 156 trials after PRs #415–418, source `5f759300`, built as
 `v0.1.0-dev.merged-perf-2`. Every trial completed and independently validated,

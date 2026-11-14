@@ -372,8 +372,44 @@ compatibility rules after extension validation; named Struct schemas must match
 even for empty/all-NULL input. Unknown/malformed extensions reject in ordinary
 binding, ingestion, schema discovery and partition bindings. Changing the policy
 after schema discovery re-checks the original binding schema. Invalid JSON ends
-the input reader before writes from that batch; earlier batches and table
-creation keep existing autocommit behavior. UUID SQL support remains separate.
+the input reader before writes from that batch. Managed ingestion remains
+private until the complete operation publishes successfully; explicit unmanaged
+writes can retain earlier acknowledged rows/batches and created application
+resources. UUID SQL support remains separate.
+
+## Choose an explicit managed ingestion unit
+
+When several Arrow batches belong to one managed write operation, pass a finite
+`RecordBatchReader` to one `adbc_ingest` call. The input batches can stay small
+while the driver publishes the complete operation once:
+
+```python
+import pyarrow as pa
+
+reader = pa.RecordBatchReader.from_batches(schema, batches)
+try:
+    written = cursor.adbc_ingest(
+        "events", reader, mode="append", db_schema_name="public"
+    )
+finally:
+    reader.close()
+```
+
+Here `schema` and `batches` describe the application's finite input and `cursor`
+is an open ADBC cursor targeting an existing managed table. Each separate
+`adbc_ingest` call remains a separate publication operation. Choose a stream's
+size within the driver's input/workspace limits: one stream changes when data
+becomes visible and the write's failure boundary. The driver does not combine
+separate calls automatically. Explicit unmanaged ingestion has per-row source
+mutations and partial-write semantics instead of managed publication.
+
+The [matched native comparison](../benchmarks/table-modes/streamed-publication-2026-11-13/report.md)
+measured many 1K calls, one stream of 1K batches, and one large batch for the same
+10K mixed typed rows with one/four callers. Streaming reduced elapsed time in
+that workload. These results are not a bound on application RSS: the benchmark
+materialized its complete source and batch objects, and the driver retains
+operation metadata until publication. Small input batches alone are not a
+constant-memory guarantee.
 
 ## Verification and remaining acceptance
 
