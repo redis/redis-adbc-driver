@@ -1,6 +1,6 @@
 # FFI release collection attribution
 
-Date: 2026-11-13. Status: evidence and cleanup complete; default unchanged; publication pending. Requestor:
+Date: 2026-11-13. Status: evidence and cleanup complete; default unchanged; PR open for review. Requestor:
 repository user, asking for the four next performance investigations with
 subagents. Base: `24f654b76b98f3d8960af94a3ca0230185d467a1`.
 
@@ -11,3 +11,6 @@ ownership, and measure a full-read control. Preserve the default behavior until
 ownership and sanitizer evidence justify a separate production proposal.
 
 See [specification](spec.md), [plan](plan.md), and [validation](validation.md).
+
+Published for review in [PR #425](https://github.com/redis/redis-adbc-driver/pull/425);
+not merged.

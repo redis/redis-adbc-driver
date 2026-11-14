@@ -14,4 +14,7 @@ See [intent](intent.md), [specification](spec.md), [validation](validation.md).
 
 Execution complete: all 56 C-ABI and 56 native observations retained; omission
 rejected for default adoption. Both race gates blocked and ASAN unrun. Final
-parent teardown proof and agent review are complete; publication remains pending.
+parent teardown proof and agent review are complete; publication is complete; human review remains pending.
+
+Published for review in [PR #425](https://github.com/redis/redis-adbc-driver/pull/425);
+not merged.

@@ -24,3 +24,6 @@ verified owned Redis Software TLS/RESP3 fixture with active/effective 4x QPF. Ke
 all samples, warmups, failed attempts and order/host/RSS caveats. No ClickBench.
 
 See [intent](intent.md) and [plan](plan.md).
+
+Published for review in [PR #425](https://github.com/redis/redis-adbc-driver/pull/425);
+not merged.
