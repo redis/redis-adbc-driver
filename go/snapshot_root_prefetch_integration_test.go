@@ -52,25 +52,34 @@ func TestSnapshotRootPrefetchNativeBounds(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			var original map[string]string
+			if kind != "wrongtype" {
+				var err error
+				original, err = raw.HGetAll(h.ctx, key).Result()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 			cmd := once(h.ctx, raw, "EVAL_RO", snapshotRootPrefetchLua, 1, key)
 			switch kind {
 			case "too_many", "large_field", "large_value", "large_tail_value":
 				if !snapshotRootPrefetchDeclined(cmd.Err()) {
 					t.Fatal("unbounded root reached Lua HGETALL", kind, cmd.Err())
 				}
-				// The fixed refusal is read-only. The original native path remains intact.
-				n, err := raw.HLen(h.ctx, key).Result()
-				if err != nil || n == 0 {
-					t.Fatal("decline changed original root", kind, n, err)
+				// The fixed refusal is read-only. The full original native
+				// path returns every exact field/value, without truncation.
+				after, err := raw.HGetAll(h.ctx, key).Result()
+				if err != nil || !reflect.DeepEqual(after, original) {
+					t.Fatal("decline changed original root", kind, err)
 				}
 			case "wrongtype":
 				if cmd.Err() == nil || snapshotRootPrefetchDeclined(cmd.Err()) || !strings.Contains(cmd.Err().Error(), "WRONGTYPE") {
 					t.Fatal("wrong type silently selected compatibility", cmd.Err())
 				}
 			case "full_count_bound":
-				values, err := cmd.Slice()
-				if err != nil || len(values) != 512 {
-					t.Fatal("legitimate bounded root refused", len(values), err)
+				roots, err := readSnapshotRootPrefetch(cmd, 256)
+				if err != nil || !reflect.DeepEqual(roots, original) {
+					t.Fatal("legitimate bounded root reply changed", len(roots), err)
 				}
 			default:
 				values, err := cmd.Slice()

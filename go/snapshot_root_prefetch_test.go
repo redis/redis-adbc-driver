@@ -210,3 +210,28 @@ func TestSnapshotRootPrefetchSkipsSharedAndUnrelatedScopes(t *testing.T) {
 		})
 	}
 }
+
+func TestSnapshotRootPrefetchRetainsExactNonemptyMap(t *testing.T) {
+	s, ctx, pin, h := snapshotLeaseProofFixture(t, false)
+	ownerA, ownerB := strings.Repeat("a", 32), strings.Repeat("c", 32)
+	h.manifest = `{"state":"committed","metadata_keys":0,"metadata_buckets":2}`
+	h.rootCount = 2
+	h.rootReply = []any{"ab", ownerA, "cd", ownerB}
+	if err := s.validateSnapshotRead(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"ab": ownerA, "cd": ownerB}
+	if !reflect.DeepEqual(snapshotOf(ctx).metadata.prefetchedRoots, want) {
+		t.Fatal("root reply changed")
+	}
+	// Choose an absent bucket: resolving absence must consume the exact map
+	// without a second HGETALL, and retain it in the existing resolver state.
+	suffix := "absent"
+	for snapshotMetadataSlot(suffix) == "ab" || snapshotMetadataSlot(suffix) == "cd" {
+		suffix += "x"
+	}
+	got, err := resolveSnapshotMetadata(ctx, suffix, false)
+	if err != nil || got != snapshotPrefix+"absent:"+pin.root+":"+suffix || h.nativeRootReads != 0 || !reflect.DeepEqual(snapshotOf(ctx).metadata.roots, want) {
+		t.Fatal("prefetched map not consumed exactly", got, err, h.nativeRootReads)
+	}
+}
