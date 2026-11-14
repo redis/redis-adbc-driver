@@ -26,3 +26,10 @@ observations, warmups, complete post-states, hashes and cleanup retained.
 Publication batching is explicitly NOT SELECTED: native four-client DELETE p50
 regressed 30.3%, despite throughput/p95 gains and gains in other cases. Integrated
 code keeps the correctness improvement only. No new performance gain is claimed.
+
+## Final integrated verification
+
+The [combined follow-up validation](../performance-followup-20261114/validation.md)
+records final guarded source 3f9cf6a8, integrated race/unit/snapshot outcomes, all 42
+final native comparisons and ownership cleanup. Earlier pilot/diagnostic sources
+and limits above remain unchanged; they are not relabeled as the integrated build.

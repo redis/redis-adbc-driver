@@ -50,5 +50,6 @@
     }
   ],
   "harness_change": "Only POINT tuple is narrowed to point_read; run.py unchanged. Same frozen copies for every window.",
-  "cleanup": "All child processes and clients exited; exact original harness ownership marker checked before clearing owned data/indexes after every matrix. Final owned data/indexes empty; shared Software fixture teardown belongs to coordinating root after other agents finish."
+  "cleanup": "All child processes and clients exited; exact original harness ownership marker checked before clearing owned data/indexes after every matrix. Final owned data/indexes empty; shared Software fixture teardown belongs to coordinating root after other agents finish.",
+  "selection_status": "Root-map prefetch not selected; frozen experiment measurements remain unchanged. Later selected source restores original metadata path."
 }

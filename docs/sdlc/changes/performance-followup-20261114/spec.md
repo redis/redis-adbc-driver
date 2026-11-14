@@ -10,12 +10,9 @@ reply before fallback; only exact direct native permission/type refusals qualify
 and both native reads retain NoRetry. Live scans remain live; sparse/wide-row
 performance is not established by dense fixture results.
 
-Queue bounded immutable root-map reads with existing acquisition proofs; inspect
-HLEN before full MEMORY USAGE SAMPLES 0 and limit copied metadata. Keep native
-command/key ACL checks, per-pin scope, original proof/error precedence, unknown
-reply handling and restricted/shared-reader compatibility. Discard local queue
-failures before executing any queued proof. No cross-statement permission, lease
-or live-value cache; protocol 17 remains.
+Root-map prefetch is an archived experiment, not selected after mixed-workload
+and tail regressions. Restore the original metadata proof/read path exactly; no
+new prefetch memory checks, ACL probes, caches or protocol changes remain.
 
 Managed index-proof compatibility requires direct native permission refusals. A
 joined/wrapped permission plus lost reply cannot rebuild an index. Publication

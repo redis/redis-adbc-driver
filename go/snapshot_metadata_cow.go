@@ -35,18 +35,17 @@ func snapshotMetadataID(id string) bool {
 }
 
 type snapshotMetadataState struct {
-	prefetchedRoots map[string]string // unchanged immutable root map, owned by this pin only
-	building        map[string]string
-	roots           map[string]string
-	buckets         map[string]map[string]string
-	checked         map[string]bool
-	loaded          map[string]bool
-	bucketChecked   map[string]bool
-	ready           map[string]bool
-	dirty           map[string]bool
-	prune           map[string]bool
-	reads           map[string]string // logical key -> original immutable value owner (empty means absent)
-	changed         map[string]bool
+	building      map[string]string
+	roots         map[string]string
+	buckets       map[string]map[string]string
+	checked       map[string]bool
+	loaded        map[string]bool
+	bucketChecked map[string]bool
+	ready         map[string]bool
+	dirty         map[string]bool
+	prune         map[string]bool
+	reads         map[string]string // logical key -> original immutable value owner (empty means absent)
+	changed       map[string]bool
 }
 
 // Both maps contain only references. Copying a root touches at most 256 slots;
@@ -159,15 +158,10 @@ func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing boo
 	defer scope.metadataMu.Unlock()
 	m := &scope.metadata
 	if m.roots == nil {
-		roots := m.prefetchedRoots
-		if roots == nil {
-			var err error
-			roots, err = s.redis(ctx).HGetAll(ctx, snapshotMetadataMap(scope.id)).Result()
-			if err != nil {
-				return "", err
-			}
+		roots, err := s.redis(ctx).HGetAll(ctx, snapshotMetadataMap(scope.id)).Result()
+		if err != nil {
+			return "", err
 		}
-		m.prefetchedRoots = nil
 		if len(roots) > 256 {
 			return "", errorf(adbc.StatusIO, "invalid snapshot metadata root")
 		}

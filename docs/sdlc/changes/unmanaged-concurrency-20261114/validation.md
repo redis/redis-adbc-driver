@@ -80,3 +80,10 @@ key denial and adds a first-key-boundary regression: HGETALL-only key B falls
 back once; following HMGET-only key A still uses HMGET and must never issue
 HGETALL. Generic and verbose native key-refusal forms are covered. This source/
 unit-only follow-up awaits parent checks and does not relabel frozen859 timings.
+
+## Final integrated verification
+
+The [combined follow-up validation](../performance-followup-20261114/validation.md)
+records final guarded source 3f9cf6a8, integrated race/unit/snapshot outcomes, all 42
+final native comparisons and ownership cleanup. Earlier pilot/diagnostic sources
+and limits above remain unchanged; they are not relabeled as the integrated build.

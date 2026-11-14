@@ -1,0 +1,13 @@
+{
+  "baseline.json": "d5c3bc863a2b1881e11f085b9718bf6bf5cf9a9c216a146bf5113c37c4441642",
+  "candidate.json": "d0eec37fce60e55134b5a8057f3cf9da62d73b8922787f84eba80ab7f0e5d055",
+  "checks.json": "cf35bbf85c310846eefaf3390872f807e77b8dbfa9c38c7d045be999da02f0fb",
+  "cleanup.json": "ef8899effc4dc7c920f2d91a701f81a34f966b30e84c2113c52c99e2298f2794",
+  "comparison.csv": "601fa16a8a6fbbcc2b2f4d28350b2de809b2a0eaa57068b9be1d789a8b62c252",
+  "comparison.json": "3bf62341d253de202cbf15e724e27c9ad0272838e3e3d28433080a494f370b93",
+  "environment.json": "3b56599ef95d84060be19331aada559986a64a53b6a545d395036d0dbc81b73e",
+  "harness/run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+  "harness/scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+  "provenance.json": "0e359fed065bd1a3ef5192ba95fcb3fbc75961add0cff4a50cedeca45a21510f",
+  "report.md": "3c82af28fe4966f4831e936e50d15ea8f7b2ede5316002d4b10b7639b1429a54"
+}

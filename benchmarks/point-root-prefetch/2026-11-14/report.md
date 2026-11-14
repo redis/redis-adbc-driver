@@ -1,5 +1,7 @@
 # Bounded root-map prefetch — native point-only pilot
 
+**NOT SELECTED for root-map prefetch.** These are frozen experimental-source measurements. The broader matrix shows material tail/mixed-workload regressions and drifting controls, so the final selected tree omits prefetch. This does not prove prefetch caused every regression. All measurements remain unchanged; a fresh final comparison is recorded separately.
+
 Date: November 14, 2026. Follow-up to [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).
 
 A read-only bounded root-map fetch shares the existing acquisition proof pipeline,

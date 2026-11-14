@@ -1,0 +1,669 @@
+diff --git a/go/snapshot_metadata.go b/go/snapshot_metadata.go
+index 3a78675f..cc3b7fec 100644
+--- a/go/snapshot_metadata.go
++++ b/go/snapshot_metadata.go
+@@ -53,6 +53,11 @@ func (s *store) validateSnapshotMetadataAndPin(ctx context.Context, root string,
+ 	if pin != nil {
+ 		lease = pin.queueValid(ctx, pipe)
+ 	}
++	prefetched, err := s.queueSnapshotRootPrefetch(ctx, root, pin, pipe)
++	if err != nil {
++		pipe.Discard()
++		return wrapRedis(err, "failed to queue snapshot metadata root")
++	}
+ 	_, pipelineErr := pipe.Exec(ctx)
+ 	// Preserve proof/error precedence instead of consuming a failed command's
+ 	// zero value or letting a later pipeline error hide the manifest failure.
+@@ -87,8 +92,46 @@ func (s *store) validateSnapshotMetadataAndPin(ctx context.Context, root string,
+ 	}
+ 	// Hooks/transports can fail the pipeline even when individual replies are
+ 	// populated. A proof never succeeds after an unaccounted-for pipeline error.
++	var roots map[string]string
++	if prefetched != nil {
++		rootErr, leaseErr := prefetched.Err(), lease.command.Err()
++		// Unknown pipeline failures retain precedence even with populated
++		// replies. An exact native reply accounts only for that command.
++		if pipelineErr != nil && !snapshotSameNativeReply(pipelineErr, rootErr) && !snapshotSameNativeReply(pipelineErr, leaseErr) {
++			return wrapRedis(pipelineErr, "failed to validate statement snapshot")
++		}
++		if leaseErr != nil {
++			missing, denied := snapshotControlScriptRefusal(leaseErr)
++			if !missing && !denied {
++				return lease.resolve(ctx, leaseErr)
++			}
++		} else {
++			// Preserve original lease/expiry precedence without repairing a
++			// digest before all new prefetch outcomes have been inspected.
++			if err := pin.validLocal(ctx); err != nil {
++				return err
++			}
++			if err := pin.validReply(lease.command); err != nil {
++				return err
++			}
++		}
++		if rootErr != nil && !snapshotRootPrefetchDeclined(rootErr) {
++			return wrapRedis(rootErr, "failed to prefetch snapshot metadata root")
++		}
++		var err error
++		roots, err = readSnapshotRootPrefetch(prefetched, *work.Buckets)
++		if err != nil {
++			return err
++		}
++		if snapshotRootPrefetchDeclined(rootErr) && snapshotSameNativeReply(pipelineErr, rootErr) {
++			pipelineErr = nil
++		}
++	}
+ 	if lease != nil {
+-		return lease.resolve(ctx, pipelineErr)
++		if err := lease.resolve(ctx, pipelineErr); err != nil {
++			return err
++		}
++		return rememberSnapshotRootPrefetch(ctx, root, pin, roots)
+ 	}
+ 	return pipelineErr
+ }
+diff --git a/go/snapshot_metadata_cow.go b/go/snapshot_metadata_cow.go
+index 42ea9723..a5a12849 100644
+--- a/go/snapshot_metadata_cow.go
++++ b/go/snapshot_metadata_cow.go
+@@ -35,17 +35,18 @@ func snapshotMetadataID(id string) bool {
+ }
+ 
+ type snapshotMetadataState struct {
+-	building      map[string]string
+-	roots         map[string]string
+-	buckets       map[string]map[string]string
+-	checked       map[string]bool
+-	loaded        map[string]bool
+-	bucketChecked map[string]bool
+-	ready         map[string]bool
+-	dirty         map[string]bool
+-	prune         map[string]bool
+-	reads         map[string]string // logical key -> original immutable value owner (empty means absent)
+-	changed       map[string]bool
++	prefetchedRoots map[string]string // unchanged immutable root map, owned by this pin only
++	building        map[string]string
++	roots           map[string]string
++	buckets         map[string]map[string]string
++	checked         map[string]bool
++	loaded          map[string]bool
++	bucketChecked   map[string]bool
++	ready           map[string]bool
++	dirty           map[string]bool
++	prune           map[string]bool
++	reads           map[string]string // logical key -> original immutable value owner (empty means absent)
++	changed         map[string]bool
+ }
+ 
+ // Both maps contain only references. Copying a root touches at most 256 slots;
+@@ -158,10 +159,15 @@ func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing boo
+ 	defer scope.metadataMu.Unlock()
+ 	m := &scope.metadata
+ 	if m.roots == nil {
+-		roots, err := s.redis(ctx).HGetAll(ctx, snapshotMetadataMap(scope.id)).Result()
+-		if err != nil {
+-			return "", err
++		roots := m.prefetchedRoots
++		if roots == nil {
++			var err error
++			roots, err = s.redis(ctx).HGetAll(ctx, snapshotMetadataMap(scope.id)).Result()
++			if err != nil {
++				return "", err
++			}
+ 		}
++		m.prefetchedRoots = nil
+ 		if len(roots) > 256 {
+ 			return "", errorf(adbc.StatusIO, "invalid snapshot metadata root")
+ 		}
+diff --git a/go/snapshot_root_prefetch.go b/go/snapshot_root_prefetch.go
+new file mode 100644
+index 00000000..6d87b20f
+--- /dev/null
++++ b/go/snapshot_root_prefetch.go
+@@ -0,0 +1,115 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"strings"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++// A root is bounded before enumeration, atomically with its read. MEMORY USAGE
++// must inspect every nested value: the default sample is not a size bound.
++// Native command/key ACL checks still apply. A definite decline leaves the
++// original separate HGETALL path in place after all acquisition proofs succeed.
++const snapshotRootPrefetchLua = `
++if not redis.acl_check_cmd('HLEN',KEYS[1]) or
++ not redis.acl_check_cmd('HGETALL',KEYS[1]) or
++ not redis.acl_check_cmd('MEMORY','USAGE',KEYS[1],'SAMPLES','0') then
++ return redis.error_reply('ADBC_ROOT_PREFETCH_DECLINED')
++end
++local count=redis.call('HLEN',KEYS[1])
++if count>256 then return redis.error_reply('ADBC_ROOT_PREFETCH_DECLINED') end
++if count==0 then return {} end
++local bytes=redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES','0')
++if not bytes or bytes>65536 then return redis.error_reply('ADBC_ROOT_PREFETCH_DECLINED') end
++return redis.call('HGETALL',KEYS[1])
++`
++
++func snapshotRootPrefetchDeclined(err error) bool {
++	native, ok := err.(interface {
++		error
++		RedisError()
++	})
++	if !ok {
++		return false
++	}
++	message := native.Error()
++	if message == "ADBC_ROOT_PREFETCH_DECLINED" || message == "ERR ADBC_ROOT_PREFETCH_DECLINED" {
++		return true
++	}
++	return message == "NOPERM this user has no permissions to run the 'eval_ro' command" || strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to run the 'eval_ro' command")
++}
++
++func snapshotSameNativeReply(a, b error) bool {
++	if a == nil || b == nil {
++		return a == nil && b == nil
++	}
++	left, ok := a.(interface {
++		error
++		RedisError()
++	})
++	right, native := b.(interface {
++		error
++		RedisError()
++	})
++	return ok && native && left.Error() == right.Error()
++}
++
++func (s *store) queueSnapshotRootPrefetch(ctx context.Context, root string, pin *snapshotPin, pipe goredis.Pipeliner) (*goredis.Cmd, error) {
++	scope := snapshotOf(ctx)
++	if pin == nil || pin.shared != nil || pin.reader || s.restrictedReader || scope == nil || scope.store != s || scope.pin != pin || scope.id != root || scope.write {
++		return nil, nil
++	}
++	command := goredis.NewCmd(ctx, "EVAL_RO", snapshotRootPrefetchLua, 1, snapshotMetadataMap(root))
++	if err := pipe.Process(ctx, onceCmd{command}); err != nil {
++		return nil, err
++	}
++	return command, nil
++}
++
++func readSnapshotRootPrefetch(command *goredis.Cmd, expected int64) (map[string]string, error) {
++	if command == nil || snapshotRootPrefetchDeclined(command.Err()) {
++		return nil, nil
++	}
++	if err := command.Err(); err != nil {
++		return nil, wrapRedis(err, "failed to prefetch snapshot metadata root")
++	}
++	values, err := command.Slice()
++	if err != nil {
++		return nil, wrapRedis(err, "invalid snapshot metadata root reply")
++	}
++	if len(values)%2 != 0 || len(values) > 512 || int64(len(values)/2) != expected {
++		return nil, errorf(adbc.StatusIO, "invalid snapshot metadata root reply")
++	}
++	roots := make(map[string]string, len(values)/2)
++	for i := 0; i < len(values); i += 2 {
++		field, fieldOK := values[i].(string)
++		owner, ownerOK := values[i+1].(string)
++		if !fieldOK || !ownerOK {
++			return nil, errorf(adbc.StatusIO, "invalid snapshot metadata root reply")
++		}
++		if _, duplicate := roots[field]; duplicate {
++			return nil, errorf(adbc.StatusIO, "invalid snapshot metadata root reply")
++		}
++		roots[field] = owner
++	}
++	return roots, nil
++}
++
++func rememberSnapshotRootPrefetch(ctx context.Context, root string, pin *snapshotPin, roots map[string]string) error {
++	if roots == nil {
++		return nil
++	}
++	scope := snapshotOf(ctx)
++	if scope == nil || scope.id != root || scope.pin != pin {
++		return errorf(adbc.StatusInvalidState, "snapshot root prefetch scope changed")
++	}
++	scope.metadataMu.Lock()
++	scope.metadata.prefetchedRoots = roots
++	scope.metadataMu.Unlock()
++	return nil
++}
+diff --git a/go/snapshot_root_prefetch_integration_test.go b/go/snapshot_root_prefetch_integration_test.go
+new file mode 100644
+index 00000000..6aaae599
+--- /dev/null
++++ b/go/snapshot_root_prefetch_integration_test.go
+@@ -0,0 +1,95 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"fmt"
++	"reflect"
++	"strings"
++	"testing"
++)
++
++func TestSnapshotRootPrefetchNativeBounds(t *testing.T) {
++	h, raw, _ := newSnapshotHarness(t)
++	key := snapshotMetadataMap(snapshotID())
++	for _, kind := range []string{"absent", "small", "full_count_bound", "too_many", "large_field", "large_value", "large_tail_value", "wrongtype"} {
++		t.Run(kind, func(t *testing.T) {
++			if err := raw.Del(h.ctx, key).Err(); err != nil {
++				t.Fatal(err)
++			}
++			want := []any{}
++			switch kind {
++			case "small":
++				want = []any{"00", strings.Repeat("a", 32)}
++				if err := raw.HSet(h.ctx, key, want...).Err(); err != nil {
++					t.Fatal(err)
++				}
++			case "full_count_bound", "too_many", "large_tail_value":
++				n := 256
++				if kind == "too_many" {
++					n = 257
++				}
++				for i := 0; i < n; i++ {
++					value := strings.Repeat("a", 32)
++					if kind == "large_tail_value" && i == n-1 {
++						value = strings.Repeat("z", 128<<10)
++					}
++					if err := raw.HSet(h.ctx, key, fmt.Sprintf("%02x", i), value).Err(); err != nil {
++						t.Fatal(err)
++					}
++				}
++			case "large_field":
++				if err := raw.HSet(h.ctx, key, strings.Repeat("f", 128<<10), strings.Repeat("a", 32)).Err(); err != nil {
++					t.Fatal(err)
++				}
++			case "large_value":
++				if err := raw.HSet(h.ctx, key, "00", strings.Repeat("v", 128<<10)).Err(); err != nil {
++					t.Fatal(err)
++				}
++			case "wrongtype":
++				if err := raw.Set(h.ctx, key, "string", 0).Err(); err != nil {
++					t.Fatal(err)
++				}
++			}
++			var original map[string]string
++			if kind != "wrongtype" {
++				var err error
++				original, err = raw.HGetAll(h.ctx, key).Result()
++				if err != nil {
++					t.Fatal(err)
++				}
++			}
++			cmd := once(h.ctx, raw, "EVAL_RO", snapshotRootPrefetchLua, 1, key)
++			switch kind {
++			case "too_many", "large_field", "large_value", "large_tail_value":
++				if !snapshotRootPrefetchDeclined(cmd.Err()) {
++					t.Fatal("unbounded root reached Lua HGETALL", kind, cmd.Err())
++				}
++				// The fixed refusal is read-only. The full original native
++				// path returns every exact field/value, without truncation.
++				after, err := raw.HGetAll(h.ctx, key).Result()
++				if err != nil || !reflect.DeepEqual(after, original) {
++					t.Fatal("decline changed original root", kind, err)
++				}
++			case "wrongtype":
++				if cmd.Err() == nil || snapshotRootPrefetchDeclined(cmd.Err()) || !strings.Contains(cmd.Err().Error(), "WRONGTYPE") {
++					t.Fatal("wrong type silently selected compatibility", cmd.Err())
++				}
++			case "full_count_bound":
++				roots, err := readSnapshotRootPrefetch(cmd, 256)
++				if err != nil || !reflect.DeepEqual(roots, original) {
++					t.Fatal("legitimate bounded root reply changed", len(roots), err)
++				}
++			default:
++				values, err := cmd.Slice()
++				if err != nil || !reflect.DeepEqual(values, want) {
++					t.Fatal("native map reply changed", values, err)
++				}
++			}
++		})
++	}
++	if err := raw.Del(h.ctx, key).Err(); err != nil {
++		t.Fatal(err)
++	}
++}
+diff --git a/go/snapshot_root_prefetch_test.go b/go/snapshot_root_prefetch_test.go
+new file mode 100644
+index 00000000..cda5104c
+--- /dev/null
++++ b/go/snapshot_root_prefetch_test.go
+@@ -0,0 +1,275 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"reflect"
++	"strings"
++	"testing"
++
++	goredis "github.com/redis/go-redis/v9"
++)
++
++func TestSnapshotRootPrefetchSharesProofAndStaysPinLocal(t *testing.T) {
++	s, ctx, pin, h := snapshotLeaseProofFixture(t, false)
++	if err := s.validateSnapshotRead(ctx); err != nil {
++		t.Fatal(err)
++	}
++	want := []any{"EVAL_RO", snapshotRootPrefetchLua, 1, snapshotMetadataMap(pin.root)}
++	if h.batches != 1 || h.direct != 0 || len(h.rootWires) != 1 || !reflect.DeepEqual(h.rootWires[0], want) {
++		t.Fatal("prefetch not bounded same-slot native pipeline", h.batches, h.direct, h.rootWires)
++	}
++	if snapshotOf(ctx).metadata.prefetchedRoots == nil {
++		t.Fatal("successful empty root not retained")
++	}
++	got, err := resolveSnapshotMetadata(ctx, "absent", false)
++	if err != nil || got != snapshotPrefix+"absent:"+pin.root+":absent" || h.nativeRootReads != 0 {
++		t.Fatal("resolver did not consume existing pin map", got, err, h.nativeRootReads)
++	}
++	fresh := context.WithValue(context.Background(), snapshotContextKey{}, &snapshotScope{id: pin.root, store: s, pin: pin})
++	if _, err := resolveSnapshotMetadata(fresh, "absent", false); err != nil {
++		t.Fatal(err)
++	}
++	if h.nativeRootReads != 1 {
++		t.Fatal("another scope reused prefetch", h.nativeRootReads)
++	}
++}
++
++func TestSnapshotRootPrefetchDeclinePreservesNativeRead(t *testing.T) {
++	for _, message := range []string{"ADBC_ROOT_PREFETCH_DECLINED", "ERR ADBC_ROOT_PREFETCH_DECLINED", "NOPERM this user has no permissions to run the 'eval_ro' command", "NOPERM User guest has no permissions to run the 'eval_ro' command"} {
++		t.Run(message, func(t *testing.T) {
++			s, ctx, _, h := snapshotLeaseProofFixture(t, false)
++			h.rootErr = controlScriptNativeError(message)
++			if err := s.validateSnapshotRead(ctx); err != nil {
++				t.Fatal(err)
++			}
++			if snapshotOf(ctx).metadata.prefetchedRoots != nil || h.direct != 0 {
++				t.Fatal("decline installed/replayed prefetch")
++			}
++			if _, err := resolveSnapshotMetadata(ctx, "absent", false); err != nil {
++				t.Fatal(err)
++			}
++			if h.nativeRootReads != 1 {
++				t.Fatal("decline bypassed original HGETALL", h.nativeRootReads)
++			}
++		})
++	}
++}
++
++func TestSnapshotRootPrefetchRejectsUnknownBeforeLeaseRepair(t *testing.T) {
++	decline := controlScriptNativeError("ERR ADBC_ROOT_PREFETCH_DECLINED")
++	missing := controlScriptNativeError("NOSCRIPT missing lease digest")
++	for _, kind := range []string{"root_loss", "decline_plus_pipeline_loss", "joined_decline", "wrapped_decline", "digest_then_root_loss", "digest_then_malformed", "expired", "manifest_before_root_loss", "unaccounted_refusal", "lease_unknown", "expired_malformed", "expired_native_root", "expired_pipeline_loss", "terminal_lease_malformed", "unknown_lease_decline_first", "composed_lease_decline_first"} {
++		t.Run(kind, func(t *testing.T) {
++			s, ctx, _, h := snapshotLeaseProofFixture(t, false)
++			want := "unexpected EOF"
++			switch kind {
++			case "root_loss":
++				h.rootErr = io.ErrUnexpectedEOF
++			case "decline_plus_pipeline_loss":
++				h.rootErr = decline
++				h.pipelineErr = io.ErrUnexpectedEOF
++			case "joined_decline":
++				h.rootErr = errors.Join(decline, io.ErrUnexpectedEOF)
++			case "wrapped_decline":
++				h.rootErr = fmt.Errorf("wrapped: %w", decline)
++				want = "wrapped:"
++			case "digest_then_root_loss":
++				h.validErr = missing
++				h.rootErr = io.ErrUnexpectedEOF
++			case "digest_then_malformed":
++				h.validErr = missing
++				h.rootReply = int64(42)
++				want = "invalid snapshot metadata root reply"
++			case "expired":
++				h.valid = 0
++				want = "statement snapshot expired"
++			case "manifest_before_root_loss":
++				h.manifest = "{"
++				h.rootErr = io.ErrUnexpectedEOF
++				want = "invalid snapshot metadata manifest"
++			case "unaccounted_refusal":
++				h.pipelineErr = decline
++				want = "ADBC_ROOT_PREFETCH_DECLINED"
++			case "lease_unknown":
++				h.validErr = io.ErrUnexpectedEOF
++				h.rootErr = decline
++			case "expired_malformed":
++				h.valid = 0
++				h.rootReply = int64(42)
++				want = "statement snapshot expired"
++			case "expired_native_root":
++				h.valid = 0
++				h.rootErr = controlScriptNativeError("ERR root command unavailable")
++				want = "statement snapshot expired"
++			case "expired_pipeline_loss":
++				h.valid = 0
++				h.pipelineErr = io.ErrUnexpectedEOF
++			case "terminal_lease_malformed":
++				h.validErr = controlScriptNativeError("ERR lease unavailable")
++				h.rootReply = int64(42)
++				want = "ERR lease unavailable"
++			case "unknown_lease_decline_first":
++				h.validErr = io.ErrUnexpectedEOF
++				h.rootErr = decline
++				h.pipelineErr = decline
++			case "composed_lease_decline_first":
++				h.validErr = errors.Join(missing, io.ErrUnexpectedEOF)
++				h.rootErr = decline
++				h.pipelineErr = decline
++			}
++			err := s.validateSnapshotRead(ctx)
++			if err == nil || !strings.Contains(err.Error(), want) {
++				t.Fatal("unknown/invalid acquisition accepted or wrong diagnostic", kind, want, err)
++			}
++			if h.direct != 0 || snapshotOf(ctx).metadata.prefetchedRoots != nil {
++				t.Fatal("failed proof repaired or installed root map", h.direct)
++			}
++		})
++	}
++}
++
++func TestSnapshotRootPrefetchAllowsOnlyExactNativeDecline(t *testing.T) {
++	for _, message := range []string{"ERR ADBC_ROOT_PREFETCH_DECLINED suffix", "prefix ERR ADBC_ROOT_PREFETCH_DECLINED", "ERR ERR ADBC_ROOT_PREFETCH_DECLINED", "NOPERM HMGET denied", "NOSCRIPT missing digest"} {
++		if snapshotRootPrefetchDeclined(controlScriptNativeError(message)) {
++			t.Fatal("unrelated native error selected fallback", message)
++		}
++	}
++	if snapshotRootPrefetchDeclined(errors.New("ERR ADBC_ROOT_PREFETCH_DECLINED")) {
++		t.Fatal("untyped error selected fallback")
++	}
++}
++
++func TestSnapshotRootPrefetchShapeAndOriginalProofPrecedence(t *testing.T) {
++	for _, kind := range []string{"odd", "duplicate", "nonstring", "count", "missing_map", "too_many", "map_before_lease"} {
++		t.Run(kind, func(t *testing.T) {
++			s, ctx, _, h := snapshotLeaseProofFixture(t, false)
++			want := "invalid snapshot metadata root reply"
++			switch kind {
++			case "odd":
++				h.rootReply = []any{"aa"}
++			case "duplicate":
++				h.manifest = `{"state":"committed","metadata_keys":0,"metadata_buckets":2}`
++				h.rootCount = 2
++				h.rootReply = []any{"aa", "owner", "aa", "owner"}
++			case "nonstring":
++				h.manifest = `{"state":"committed","metadata_keys":0,"metadata_buckets":1}`
++				h.rootCount = 1
++				h.rootReply = []any{"aa", int64(1)}
++			case "count":
++				h.rootReply = []any{"aa", "owner"}
++			case "missing_map":
++				h.manifest = `{"state":"committed","metadata_keys":0,"metadata_buckets":1}`
++				h.rootReply = []any{}
++				want = "snapshot metadata map is incomplete"
++			case "too_many":
++				h.rootReply = make([]any, 514)
++			case "map_before_lease":
++				h.manifest = `{"state":"committed","metadata_keys":0,"metadata_buckets":1}`
++				h.valid = 0
++				want = "snapshot metadata map is incomplete"
++			}
++			err := s.validateSnapshotRead(ctx)
++			if err == nil || !strings.Contains(err.Error(), want) || h.direct != 0 || snapshotOf(ctx).metadata.prefetchedRoots != nil {
++				t.Fatal("invalid metadata was used", kind, err, h.direct)
++			}
++		})
++	}
++}
++
++func TestSnapshotRootPrefetchSkipsSharedAndUnrelatedScopes(t *testing.T) {
++	for _, kind := range []string{"shared", "no_pin", "no_scope", "other_root", "other_store", "writing", "reader_pin", "restricted_store"} {
++		t.Run(kind, func(t *testing.T) {
++			s, ctx, pin, h := snapshotLeaseProofFixture(t, false)
++			scope := snapshotOf(ctx)
++			switch kind {
++			case "shared":
++				pin.shared = &sharedReadView{}
++			case "no_pin":
++				pin = nil
++			case "no_scope":
++				ctx = context.Background()
++			case "other_root":
++				scope.id = strings.Repeat("c", 32)
++			case "other_store":
++				scope.store = &store{}
++			case "writing":
++				scope.write = true
++			case "reader_pin":
++				pin.reader = true
++			case "restricted_store":
++				s.restrictedReader = true
++			}
++			pipe := s.client.Pipeline()
++			queued, err := s.queueSnapshotRootPrefetch(ctx, strings.Repeat("b", 32), pin, pipe)
++			if err != nil || queued != nil || pipe.Len() != 0 || h.batches != 0 || h.direct != 0 {
++				t.Fatal("prefetch entered unsupported scope", kind)
++			}
++		})
++	}
++}
++
++func TestSnapshotRootPrefetchRetainsExactNonemptyMap(t *testing.T) {
++	s, ctx, pin, h := snapshotLeaseProofFixture(t, false)
++	ownerA, ownerB := strings.Repeat("a", 32), strings.Repeat("c", 32)
++	h.manifest = `{"state":"committed","metadata_keys":0,"metadata_buckets":2}`
++	h.rootCount = 2
++	h.rootReply = []any{"ab", ownerA, "cd", ownerB}
++	if err := s.validateSnapshotRead(ctx); err != nil {
++		t.Fatal(err)
++	}
++	want := map[string]string{"ab": ownerA, "cd": ownerB}
++	if !reflect.DeepEqual(snapshotOf(ctx).metadata.prefetchedRoots, want) {
++		t.Fatal("root reply changed")
++	}
++	// Choose an absent bucket: resolving absence must consume the exact map
++	// without a second HGETALL, and retain it in the existing resolver state.
++	suffix := "absent"
++	for snapshotMetadataSlot(suffix) == "ab" || snapshotMetadataSlot(suffix) == "cd" {
++		suffix += "x"
++	}
++	got, err := resolveSnapshotMetadata(ctx, suffix, false)
++	if err != nil || got != snapshotPrefix+"absent:"+pin.root+":"+suffix || h.nativeRootReads != 0 || !reflect.DeepEqual(snapshotOf(ctx).metadata.roots, want) {
++		t.Fatal("prefetched map not consumed exactly", got, err, h.nativeRootReads)
++	}
++}
++
++// A real pipeline queues commands without sending them. Preserve a local queue
++// failure even if it did not populate the Cmd's error, and discard earlier work.
++type snapshotRootQueueFailureClient struct {
++	goredis.UniversalClient
++	pipe *snapshotRootQueueFailurePipeline
++}
++
++func (c *snapshotRootQueueFailureClient) Pipeline() goredis.Pipeliner { return c.pipe }
++
++type snapshotRootQueueFailurePipeline struct {
++	goredis.Pipeliner
++	execs, discards int
++}
++
++func (p *snapshotRootQueueFailurePipeline) Process(ctx context.Context, cmd goredis.Cmder) error {
++	if len(cmd.Args()) > 1 && cmd.Args()[1] == snapshotRootPrefetchLua {
++		return io.ErrUnexpectedEOF
++	}
++	return p.Pipeliner.Process(ctx, cmd)
++}
++func (p *snapshotRootQueueFailurePipeline) Exec(ctx context.Context) ([]goredis.Cmder, error) {
++	p.execs++
++	return p.Pipeliner.Exec(ctx)
++}
++func (p *snapshotRootQueueFailurePipeline) Discard() { p.discards++; p.Pipeliner.Discard() }
++func TestSnapshotRootPrefetchQueueFailureStopsBeforeExec(t *testing.T) {
++	s, ctx, _, h := snapshotLeaseProofFixture(t, false)
++	pipe := &snapshotRootQueueFailurePipeline{Pipeliner: s.client.Pipeline()}
++	s.client = &snapshotRootQueueFailureClient{UniversalClient: s.client, pipe: pipe}
++	err := s.validateSnapshotRead(ctx)
++	if err == nil || !strings.Contains(err.Error(), "unexpected EOF") || pipe.execs != 0 || pipe.discards != 1 || pipe.Len() != 0 || h.batches != 0 || h.direct != 0 || snapshotOf(ctx).metadata.prefetchedRoots != nil {
++		t.Fatal("queue failure executed/lost or installed data", err, pipe.execs, pipe.discards, h.batches, h.direct)
++	}
++}
+diff --git a/go/snapshot_valid_pipeline_test.go b/go/snapshot_valid_pipeline_test.go
+index d4e1b59b..53952000 100644
+--- a/go/snapshot_valid_pipeline_test.go
++++ b/go/snapshot_valid_pipeline_test.go
+@@ -19,6 +19,11 @@ type snapshotLeaseProofReplies struct {
+ 	valid                 int64
+ 	validErr, pipelineErr error
+ 	manifest              string
++	rootErr               error
++	rootReply             any
++	rootCount             int64
++	rootWires             [][]any
++	nativeRootReads       int
+ }
+ 
+ func (h *snapshotLeaseProofReplies) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+@@ -27,11 +32,31 @@ func (h *snapshotLeaseProofReplies) reply(cmd goredis.Cmder) error {
+ 	case *goredis.StringCmd:
+ 		c.SetVal(h.manifest)
+ 	case *goredis.IntCmd:
+-		c.SetVal(0)
++		if c.Name() == "hlen" {
++			c.SetVal(h.rootCount)
++		} else {
++			c.SetVal(0)
++		}
++	case *goredis.MapStringStringCmd:
++		h.nativeRootReads++
++		c.SetVal(map[string]string{})
+ 	case onceCmd:
+ 		if !c.NoRetry() {
+ 			panic("lease can retry")
+ 		}
++		if c.Args()[1] == snapshotRootPrefetchLua {
++			h.rootWires = append(h.rootWires, append([]any(nil), c.Args()...))
++			if h.rootErr != nil {
++				c.SetErr(h.rootErr)
++				return h.rootErr
++			}
++			if h.rootReply != nil {
++				c.SetVal(h.rootReply)
++			} else {
++				c.SetVal([]any{})
++			}
++			return nil
++		}
+ 		h.wires = append(h.wires, append([]any(nil), c.Args()...))
+ 		if c.Args()[0] == "EVALSHA" && h.validErr != nil {
+ 			c.SetErr(h.validErr)

@@ -94,3 +94,19 @@ queue refusal could lose its original EOF diagnostic. A custom-pipeline regressi
 asserts zero Exec/direct calls, one discard and no installed map. This is separate
 unmeasured guard source; the successful measured wire path is unchanged. It awaits
 the coordinating root's integrated guard checks, not a relabeled earlier pass.
+
+## Final integrated verification
+
+The [combined follow-up validation](../performance-followup-20261114/validation.md)
+records final guarded source 3f9cf6a8, integrated race/unit/snapshot outcomes, all 42
+final native comparisons and ownership cleanup. Earlier pilot/diagnostic sources
+and limits above remain unchanged; they are not relabeled as the integrated build.
+
+## Selection follow-up
+
+Root-map prefetch is not selected after broader native evidence showed material
+tail and mixed-workload regressions plus control drift. This is a conservative
+selection decision, not proof of causality. Metadata proof/read Go files restore
+31426 exactly; the six-file experiment patch applies cleanly to that baseline.
+Earlier measurements retain their actual sources. A fresh selected-source native
+comparison and final checks supersede experimental-source performance claims.
