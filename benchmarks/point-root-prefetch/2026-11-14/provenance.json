@@ -43,6 +43,10 @@
     {
       "commit": "a623a94f",
       "scope": "Skip prefetch for known restricted reader modes; unmeasured follow-up. Ordinary privileged fixture eligibility is unchanged. Final integrated guarded source must retain distinct measurements."
+    },
+    {
+      "commit": "ddb443a06104899392124c49a088ae15b5bc5afe",
+      "scope": "Propagate local root-prefetch Process queue errors, Discard alreadyqueued proof/lease commands before Exec. Unmeasured failure-path guard; normal successful native wire is unchanged."
     }
   ],
   "harness_change": "Only POINT tuple is narrowed to point_read; run.py unchanged. Same frozen copies for every window.",

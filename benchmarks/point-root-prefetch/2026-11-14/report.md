@@ -56,7 +56,10 @@ reader pins/stores, avoiding predictable rejected-command/ACL cost. It is not a
 capability cache and does not affect eligibility of these ordinary privileged
 fixture connections. These samples retain their original candidate source;
 they are **not** measurements or full compatibility proof of that later guard.
-The root's final integrated matrix must record its own frozen source.
+A later separate failure-path guard `ddb443a0` propagates local pipeline queue
+errors and discards alreadyqueued proofs before Exec; the normal successful wire
+is unchanged. It also awaits integrated guard checks. The root's final integrated
+matrix must record its own frozen source.
 
 Owned Redis Software RAM with active/effective 4× QPF, six Search workers,
 mnp/32, one 4-GiB noeviction shard, four-CPU/eight-GiB container and strict
