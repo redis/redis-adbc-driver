@@ -1,0 +1,1046 @@
+{
+  "native": [
+    {
+      "mode": "managed",
+      "shape": "one_batch",
+      "writers": 1,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            1.7043079580180347,
+            1.5911178750102408,
+            1.5775560830079485
+          ],
+          "median": 1.5911178750102408,
+          "minimum": 1.5775560830079485,
+          "maximum": 1.7043079580180347
+        },
+        "candidate": {
+          "samples": [
+            1.5848802920081653,
+            1.594305416016141,
+            1.5582665000110865
+          ],
+          "median": 1.5848802920081653,
+          "minimum": 1.5582665000110865,
+          "maximum": 1.594305416016141
+        },
+        "change_fraction": -0.003920251981353262,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            400048128,
+            398819328,
+            400097280
+          ],
+          "median": 400048128,
+          "minimum": 398819328,
+          "maximum": 400097280
+        },
+        "candidate": {
+          "samples": [
+            400982016,
+            400867328,
+            399572992
+          ],
+          "median": 400867328,
+          "minimum": 399572992,
+          "maximum": 400982016
+        },
+        "change_fraction": 0.0020477536142851083,
+        "gate_failed": false
+      }
+    },
+    {
+      "mode": "managed",
+      "shape": "one_batch",
+      "writers": 4,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            2.6418128329969477,
+            2.431781375024002,
+            2.390978958021151
+          ],
+          "median": 2.431781375024002,
+          "minimum": 2.390978958021151,
+          "maximum": 2.6418128329969477
+        },
+        "candidate": {
+          "samples": [
+            2.4242292500275653,
+            2.4154595420113765,
+            2.266867041005753
+          ],
+          "median": 2.4154595420113765,
+          "minimum": 2.266867041005753,
+          "maximum": 2.4242292500275653
+        },
+        "change_fraction": -0.006711883387323203,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            283377664,
+            283443200,
+            283557888
+          ],
+          "median": 283443200,
+          "minimum": 283377664,
+          "maximum": 283557888
+        },
+        "candidate": {
+          "samples": [
+            281198592,
+            283721728,
+            283557888
+          ],
+          "median": 283557888,
+          "minimum": 281198592,
+          "maximum": 283721728
+        },
+        "change_fraction": 0.00040462427745668883,
+        "gate_failed": false
+      }
+    },
+    {
+      "mode": "managed",
+      "shape": "one_stream",
+      "writers": 1,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            1.8448652079969179,
+            1.8237305419752374,
+            1.8335748340177815
+          ],
+          "median": 1.8335748340177815,
+          "minimum": 1.8237305419752374,
+          "maximum": 1.8448652079969179
+        },
+        "candidate": {
+          "samples": [
+            1.872422458982328,
+            1.8181029169936664,
+            1.7541520000086166
+          ],
+          "median": 1.8181029169936664,
+          "minimum": 1.7541520000086166,
+          "maximum": 1.872422458982328
+        },
+        "change_fraction": -0.008438115934549906,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            265224192,
+            266354688,
+            266076160
+          ],
+          "median": 266076160,
+          "minimum": 265224192,
+          "maximum": 266354688
+        },
+        "candidate": {
+          "samples": [
+            266174464,
+            266272768,
+            266387456
+          ],
+          "median": 266272768,
+          "minimum": 266174464,
+          "maximum": 266387456
+        },
+        "change_fraction": 0.00073891625615774,
+        "gate_failed": false
+      }
+    },
+    {
+      "mode": "managed",
+      "shape": "one_stream",
+      "writers": 4,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            2.65780604199972,
+            2.5739207500009798,
+            2.65823279201868
+          ],
+          "median": 2.65780604199972,
+          "minimum": 2.5739207500009798,
+          "maximum": 2.65823279201868
+        },
+        "candidate": {
+          "samples": [
+            2.6526858339784667,
+            2.6363432910002302,
+            2.344239500002004
+          ],
+          "median": 2.6363432910002302,
+          "minimum": 2.344239500002004,
+          "maximum": 2.6526858339784667
+        },
+        "change_fraction": -0.008075363913064626,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            256851968,
+            258375680,
+            257736704
+          ],
+          "median": 257736704,
+          "minimum": 256851968,
+          "maximum": 258375680
+        },
+        "candidate": {
+          "samples": [
+            257818624,
+            257359872,
+            256720896
+          ],
+          "median": 257359872,
+          "minimum": 256720896,
+          "maximum": 257818624
+        },
+        "change_fraction": -0.001462081240862001,
+        "gate_failed": false
+      }
+    },
+    {
+      "mode": "unmanaged",
+      "shape": "one_batch",
+      "writers": 1,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            1.2537447079957929,
+            1.2520546249870677,
+            1.2576810419850517
+          ],
+          "median": 1.2537447079957929,
+          "minimum": 1.2520546249870677,
+          "maximum": 1.2576810419850517
+        },
+        "candidate": {
+          "samples": [
+            1.2614945409877691,
+            1.2670177500112914,
+            1.2723318749922328
+          ],
+          "median": 1.2670177500112914,
+          "minimum": 1.2614945409877691,
+          "maximum": 1.2723318749922328
+        },
+        "change_fraction": 0.010586718277532325,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            397918208,
+            397819904,
+            398655488
+          ],
+          "median": 397918208,
+          "minimum": 397819904,
+          "maximum": 398655488
+        },
+        "candidate": {
+          "samples": [
+            396771328,
+            400375808,
+            400343040
+          ],
+          "median": 400343040,
+          "minimum": 396771328,
+          "maximum": 400375808
+        },
+        "change_fraction": 0.006093795034380456,
+        "gate_failed": false
+      }
+    },
+    {
+      "mode": "unmanaged",
+      "shape": "one_batch",
+      "writers": 4,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            1.0663947499997448,
+            1.1171901669877116,
+            1.1442160420119762
+          ],
+          "median": 1.1171901669877116,
+          "minimum": 1.0663947499997448,
+          "maximum": 1.1442160420119762
+        },
+        "candidate": {
+          "samples": [
+            1.0698442500142846,
+            1.063689834001707,
+            1.009748665994266
+          ],
+          "median": 1.063689834001707,
+          "minimum": 1.009748665994266,
+          "maximum": 1.0698442500142846
+        },
+        "change_fraction": -0.04788829562495878,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            280592384,
+            280985600,
+            280854528
+          ],
+          "median": 280854528,
+          "minimum": 280592384,
+          "maximum": 280985600
+        },
+        "candidate": {
+          "samples": [
+            280002560,
+            280870912,
+            278872064
+          ],
+          "median": 280002560,
+          "minimum": 278872064,
+          "maximum": 280870912
+        },
+        "change_fraction": -0.003033485007583714,
+        "gate_failed": false
+      }
+    },
+    {
+      "mode": "unmanaged",
+      "shape": "one_stream",
+      "writers": 1,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            1.3770129579934292,
+            1.2819332089857198,
+            1.2477344590006396
+          ],
+          "median": 1.2819332089857198,
+          "minimum": 1.2477344590006396,
+          "maximum": 1.3770129579934292
+        },
+        "candidate": {
+          "samples": [
+            1.2343954999814741,
+            1.2655577500117943,
+            1.2323142499953974
+          ],
+          "median": 1.2343954999814741,
+          "minimum": 1.2323142499953974,
+          "maximum": 1.2655577500117943
+        },
+        "change_fraction": -0.03708282824021547,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            264699904,
+            266354688,
+            265125888
+          ],
+          "median": 265125888,
+          "minimum": 264699904,
+          "maximum": 266354688
+        },
+        "candidate": {
+          "samples": [
+            264585216,
+            265240576,
+            264929280
+          ],
+          "median": 264929280,
+          "minimum": 264585216,
+          "maximum": 265240576
+        },
+        "change_fraction": -0.0007415647015202032,
+        "gate_failed": false
+      }
+    },
+    {
+      "mode": "unmanaged",
+      "shape": "one_stream",
+      "writers": 4,
+      "seconds": {
+        "baseline": {
+          "samples": [
+            1.061938500002725,
+            1.0759506249742117,
+            1.1202743330213707
+          ],
+          "median": 1.0759506249742117,
+          "minimum": 1.061938500002725,
+          "maximum": 1.1202743330213707
+        },
+        "candidate": {
+          "samples": [
+            1.0985619999992196,
+            1.0323450419818982,
+            1.0673059170076158
+          ],
+          "median": 1.0673059170076158,
+          "minimum": 1.0323450419818982,
+          "maximum": 1.0985619999992196
+        },
+        "change_fraction": -0.00803448389353656,
+        "gate_failed": false
+      },
+      "peak_worker_rss_bytes": {
+        "baseline": {
+          "samples": [
+            255557632,
+            256376832,
+            256344064
+          ],
+          "median": 256344064,
+          "minimum": 255557632,
+          "maximum": 256376832
+        },
+        "candidate": {
+          "samples": [
+            256049152,
+            256376832,
+            256311296
+          ],
+          "median": 256311296,
+          "minimum": 256049152,
+          "maximum": 256376832
+        },
+        "change_fraction": -0.0001278281989006702,
+        "gate_failed": false
+      }
+    }
+  ],
+  "construction": [
+    {
+      "mixed": false,
+      "columns": 8,
+      "rows": 63,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            14594.0,
+            14607.0,
+            14115.0
+          ],
+          "median": 14594.0,
+          "minimum": 14115.0,
+          "maximum": 14607.0
+        },
+        "arena": {
+          "samples": [
+            14039.0,
+            14217.0,
+            14259.0
+          ],
+          "median": 14217.0,
+          "minimum": 14039.0,
+          "maximum": 14259.0
+        },
+        "change_fraction": -0.025832533918048517,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            84224,
+            84224,
+            84224
+          ],
+          "median": 84224,
+          "minimum": 84224,
+          "maximum": 84224
+        },
+        "arena": {
+          "samples": [
+            84224,
+            84224,
+            84224
+          ],
+          "median": 84224,
+          "minimum": 84224,
+          "maximum": 84224
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            26,
+            26,
+            26
+          ],
+          "median": 26,
+          "minimum": 26,
+          "maximum": 26
+        },
+        "arena": {
+          "samples": [
+            26,
+            26,
+            26
+          ],
+          "median": 26,
+          "minimum": 26,
+          "maximum": 26
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      }
+    },
+    {
+      "mixed": false,
+      "columns": 8,
+      "rows": 1024,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            209913.0,
+            215599.0,
+            211703.0
+          ],
+          "median": 211703.0,
+          "minimum": 209913.0,
+          "maximum": 215599.0
+        },
+        "arena": {
+          "samples": [
+            212358.0,
+            213483.0,
+            208302.0
+          ],
+          "median": 212358.0,
+          "minimum": 208302.0,
+          "maximum": 213483.0
+        },
+        "change_fraction": 0.003093957100277267,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            1273216,
+            1273216,
+            1273216
+          ],
+          "median": 1273216,
+          "minimum": 1273216,
+          "maximum": 1273216
+        },
+        "arena": {
+          "samples": [
+            1273216,
+            1273216,
+            1273216
+          ],
+          "median": 1273216,
+          "minimum": 1273216,
+          "maximum": 1273216
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            26,
+            26,
+            26
+          ],
+          "median": 26,
+          "minimum": 26,
+          "maximum": 26
+        },
+        "arena": {
+          "samples": [
+            26,
+            26,
+            26
+          ],
+          "median": 26,
+          "minimum": 26,
+          "maximum": 26
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      }
+    },
+    {
+      "mixed": false,
+      "columns": 105,
+      "rows": 63,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            174828.0,
+            179633.0,
+            170886.0
+          ],
+          "median": 174828.0,
+          "minimum": 170886.0,
+          "maximum": 179633.0
+        },
+        "arena": {
+          "samples": [
+            175202.0,
+            172631.0,
+            169755.0
+          ],
+          "median": 172631.0,
+          "minimum": 169755.0,
+          "maximum": 175202.0
+        },
+        "change_fraction": -0.0125666369231473,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            1019232,
+            1019232,
+            1019232
+          ],
+          "median": 1019232,
+          "minimum": 1019232,
+          "maximum": 1019232
+        },
+        "arena": {
+          "samples": [
+            1019232,
+            1019232,
+            1019232
+          ],
+          "median": 1019232,
+          "minimum": 1019232,
+          "maximum": 1019232
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            317,
+            317,
+            317
+          ],
+          "median": 317,
+          "minimum": 317,
+          "maximum": 317
+        },
+        "arena": {
+          "samples": [
+            317,
+            317,
+            317
+          ],
+          "median": 317,
+          "minimum": 317,
+          "maximum": 317
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      }
+    },
+    {
+      "mixed": false,
+      "columns": 105,
+      "rows": 1024,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            1816092.0,
+            1837464.0,
+            1808909.0
+          ],
+          "median": 1816092.0,
+          "minimum": 1808909.0,
+          "maximum": 1837464.0
+        },
+        "arena": {
+          "samples": [
+            1810033.0,
+            1837821.0,
+            1849709.0
+          ],
+          "median": 1837821.0,
+          "minimum": 1810033.0,
+          "maximum": 1849709.0
+        },
+        "change_fraction": 0.011964702228741686,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            16380384,
+            16380385,
+            16380384
+          ],
+          "median": 16380384,
+          "minimum": 16380384,
+          "maximum": 16380385
+        },
+        "arena": {
+          "samples": [
+            16380384,
+            16380384,
+            16380384
+          ],
+          "median": 16380384,
+          "minimum": 16380384,
+          "maximum": 16380384
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            317,
+            317,
+            317
+          ],
+          "median": 317,
+          "minimum": 317,
+          "maximum": 317
+        },
+        "arena": {
+          "samples": [
+            317,
+            317,
+            317
+          ],
+          "median": 317,
+          "minimum": 317,
+          "maximum": 317
+        },
+        "change_fraction": 0.0,
+        "gate_failed": false
+      }
+    },
+    {
+      "mixed": true,
+      "columns": 8,
+      "rows": 63,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            20573.0,
+            20703.0,
+            21881.0
+          ],
+          "median": 20703.0,
+          "minimum": 20573.0,
+          "maximum": 21881.0
+        },
+        "arena": {
+          "samples": [
+            15534.0,
+            15816.0,
+            15984.0
+          ],
+          "median": 15816.0,
+          "minimum": 15534.0,
+          "maximum": 15984.0
+        },
+        "change_fraction": -0.23605274597884363,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            86768,
+            86768,
+            86768
+          ],
+          "median": 86768,
+          "minimum": 86768,
+          "maximum": 86768
+        },
+        "arena": {
+          "samples": [
+            87008,
+            87008,
+            87008
+          ],
+          "median": 87008,
+          "minimum": 87008,
+          "maximum": 87008
+        },
+        "change_fraction": 0.002765996680804017,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            194,
+            194,
+            194
+          ],
+          "median": 194,
+          "minimum": 194,
+          "maximum": 194
+        },
+        "arena": {
+          "samples": [
+            20,
+            20,
+            20
+          ],
+          "median": 20,
+          "minimum": 20,
+          "maximum": 20
+        },
+        "change_fraction": -0.8969072164948454,
+        "gate_failed": false
+      }
+    },
+    {
+      "mixed": true,
+      "columns": 8,
+      "rows": 1024,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            304205.0,
+            303600.0,
+            301966.0
+          ],
+          "median": 303600.0,
+          "minimum": 301966.0,
+          "maximum": 304205.0
+        },
+        "arena": {
+          "samples": [
+            232268.0,
+            234521.0,
+            230344.0
+          ],
+          "median": 232268.0,
+          "minimum": 230344.0,
+          "maximum": 234521.0
+        },
+        "change_fraction": -0.2349538866930171,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            1340008,
+            1340008,
+            1340008
+          ],
+          "median": 1340008,
+          "minimum": 1340008,
+          "maximum": 1340008
+        },
+        "arena": {
+          "samples": [
+            1322081,
+            1322081,
+            1322081
+          ],
+          "median": 1322081,
+          "minimum": 1322081,
+          "maximum": 1322081
+        },
+        "change_fraction": -0.013378278338636806,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            2906,
+            2906,
+            2906
+          ],
+          "median": 2906,
+          "minimum": 2906,
+          "maximum": 2906
+        },
+        "arena": {
+          "samples": [
+            20,
+            20,
+            20
+          ],
+          "median": 20,
+          "minimum": 20,
+          "maximum": 20
+        },
+        "change_fraction": -0.9931176875430144,
+        "gate_failed": false
+      }
+    },
+    {
+      "mixed": true,
+      "columns": 105,
+      "rows": 63,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            246011.0,
+            238513.0,
+            235578.0
+          ],
+          "median": 238513.0,
+          "minimum": 235578.0,
+          "maximum": 246011.0
+        },
+        "arena": {
+          "samples": [
+            183547.0,
+            182344.0,
+            184577.0
+          ],
+          "median": 183547.0,
+          "minimum": 182344.0,
+          "maximum": 184577.0
+        },
+        "change_fraction": -0.2304528474338925,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            1061384,
+            1061384,
+            1061384
+          ],
+          "median": 1061384,
+          "minimum": 1061384,
+          "maximum": 1061384
+        },
+        "arena": {
+          "samples": [
+            1051840,
+            1051840,
+            1051840
+          ],
+          "median": 1051840,
+          "minimum": 1051840,
+          "maximum": 1051840
+        },
+        "change_fraction": -0.008992033043648706,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            2277,
+            2277,
+            2277
+          ],
+          "median": 2277,
+          "minimum": 2277,
+          "maximum": 2277
+        },
+        "arena": {
+          "samples": [
+            247,
+            247,
+            247
+          ],
+          "median": 247,
+          "minimum": 247,
+          "maximum": 247
+        },
+        "change_fraction": -0.8915239350021958,
+        "gate_failed": false
+      }
+    },
+    {
+      "mixed": true,
+      "columns": 105,
+      "rows": 1024,
+      "nanoseconds": {
+        "clone": {
+          "samples": [
+            3079545.0,
+            3081416.0,
+            3149813.0
+          ],
+          "median": 3081416.0,
+          "minimum": 3079545.0,
+          "maximum": 3149813.0
+        },
+        "arena": {
+          "samples": [
+            2087994.0,
+            2046014.0,
+            2081780.0
+          ],
+          "median": 2081780.0,
+          "minimum": 2046014.0,
+          "maximum": 2087994.0
+        },
+        "change_fraction": -0.32440799943921883,
+        "gate_failed": false
+      },
+      "bytes": {
+        "clone": {
+          "samples": [
+            17180776,
+            17180776,
+            17180776
+          ],
+          "median": 17180776,
+          "minimum": 17180776,
+          "maximum": 17180776
+        },
+        "arena": {
+          "samples": [
+            17013952,
+            17013952,
+            17013952
+          ],
+          "median": 17013952,
+          "minimum": 17013952,
+          "maximum": 17013952
+        },
+        "change_fraction": -0.009709922299202312,
+        "gate_failed": false
+      },
+      "allocations": {
+        "clone": {
+          "samples": [
+            33917,
+            33917,
+            33917
+          ],
+          "median": 33917,
+          "minimum": 33917,
+          "maximum": 33917
+        },
+        "arena": {
+          "samples": [
+            247,
+            247,
+            247
+          ],
+          "median": 247,
+          "minimum": 247,
+          "maximum": 247
+        },
+        "change_fraction": -0.9927175162897662,
+        "gate_failed": false
+      }
+    }
+  ]
+}

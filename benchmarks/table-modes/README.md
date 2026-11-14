@@ -42,6 +42,12 @@ independently validated without conflicts or caller retries. Run
 source/version/QPF, validation, timings and worker-RSS arithmetic. Historical
 observations remain unchanged and labeled by their actual source/settings.
 
+[Owned string-column ingestion](ingest-strings-2026-11-13/report.md) proposes a
+bounded owned buffer for exact String/LargeString-to-text conversion. All 64
+native and 48 construction samples pass the original allocation/time/RSS gates;
+mixed allocation medians fell 89.2–99.3%, with small native timing tradeoffs
+retained. Audit with `ingest_string_audit.py`.
+
 The [managed follow-up](managed-followup-2026-11-12/report.md) compares pinned
 base/candidate binaries for managed reads and writes, including a separate larger
 Arrow-call control. `managed_followup.py` accepts the same private fixture/path
