@@ -155,3 +155,5 @@ native cells and the 4.220% geometric-mean gate. This is agent review, not human
 maintainer approval; no merge is claimed.
 
 Read-only audit: `python3 benchmarks/table-modes/unmanaged_arrow_input_audit.py`.
+
+[PR #435](https://github.com/redis/redis-adbc-driver/pull/435) proposes this scoped implementation; it is open and unmerged.

@@ -14,3 +14,5 @@
    implementation or evidence-only PR with the actual cleanup proof; no merge.
 
 See [intent](intent.md) and [contract](spec.md).
+
+Review: [PR #435](https://github.com/redis/redis-adbc-driver/pull/435) is open for maintainer review. No merge or human approval is claimed.

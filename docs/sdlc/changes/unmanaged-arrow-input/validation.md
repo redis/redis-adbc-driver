@@ -34,3 +34,5 @@ Parent artifact review of `28fa7d99` found no blockers after the complete audit,
 checks. It independently recomputed all eight native cells and the fixed gate.
 This is agent review, not human approval. No merge is claimed.
 See [intent](intent.md), [contract](spec.md) and [plan](plan.md).
+
+Review: [PR #435](https://github.com/redis/redis-adbc-driver/pull/435) is open for maintainer review. No merge or human approval is claimed.

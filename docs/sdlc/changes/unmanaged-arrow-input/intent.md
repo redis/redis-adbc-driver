@@ -10,3 +10,5 @@ bindings and their per-column hot loop unchanged. Preserve consistency, input
 error order, NULL/type behavior, bounded ownership and all fallback paths.
 
 See [contract](spec.md) and [plan](plan.md). No speedup or human approval is claimed.
+
+Review: [PR #435](https://github.com/redis/redis-adbc-driver/pull/435) is open for maintainer review. No merge or human approval is claimed.
