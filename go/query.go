@@ -2042,6 +2042,18 @@ var indexReducers = map[string]string{
 	"BOOL_OR": "MAX", "BOOL_AND": "MIN", "EVERY": "MIN",
 }
 
+// Immutable managed BIGINT values may use the existing runtime exactness proofs:
+// every returned group/MIN/MAX must lie strictly inside (-2^53,2^53), and SUM
+// also requires non-NULL count times maximum magnitude below 2^53. Rounded groups
+// and sums fall back before any result escapes. Keep the general pushableType
+// contract unchanged: other callers lack these complete result checks, and live
+// unmanaged/application indexes have no immutable reducer proof.
+func runtimeExactBigIntAggregate(meta *tableMeta, col columnMeta, mode string) bool {
+	return mode == PushdownExact && managedRowIDTable(meta) && !meta.Unmanaged &&
+		col.Type.Kind == KindInt64 && col.Indexed && col.MissingThrough == 0 &&
+		!col.NaNs && col.inPipeline()
+}
+
 // indexAggregate computes GROUP BY / aggregates with FT.AGGREGATE over the
 // SORTABLE index fields. ok is false when the query cannot be answered
 // exactly by the index; the caller then aggregates in the driver.
@@ -2053,6 +2065,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 	if e.store.flexEnabled() || e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || wp.residual != nil || wp.keys != nil || wp.none || meta.SnapshotOverlay || meta.isMem || len(plan.extraNeed) > 0 {
 		return nil, false, nil
 	}
+	runtimeBigIntProof := false
 	groupCols := make([]columnMeta, 0, len(plan.sel.GroupBy))
 	groupNames := map[string]bool{}
 	for _, g := range plan.sel.GroupBy {
@@ -2068,7 +2081,10 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 			return nil, false, nil
 		}
 		if !col.groupable(e.pushdown) {
-			return nil, false, nil
+			if !runtimeExactBigIntAggregate(meta, col, e.pushdown) {
+				return nil, false, nil
+			}
+			runtimeBigIntProof = true
 		}
 		// Postgres treats a repeated GROUP BY expression as one grouping key.
 		// SELECT DISTINCT is planned as GROUP BY its output expressions, so this
@@ -2133,7 +2149,10 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 			return nil, false, nil
 		}
 		if f.Name != "COUNT" && !col.pushable(e.pushdown) {
-			return nil, false, nil
+			if !runtimeExactBigIntAggregate(meta, col, e.pushdown) {
+				return nil, false, nil
+			}
+			runtimeBigIntProof = true
 		}
 		if (f.Name == "BOOL_OR" || f.Name == "BOOL_AND" || f.Name == "EVERY") && col.Type.Kind != KindBool {
 			return nil, false, nil
@@ -2190,6 +2209,12 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 	}
 	raw, err := e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, rowFilter: meta.rowFilter(), groupBy: pipeline(false)})
 	if err != nil {
+		// This optional BIGINT path used to aggregate in the driver. A server
+		// group cap must not turn an otherwise supported query into an error,
+		// including output casts outside the bounded tuple-plan subset.
+		if runtimeBigIntProof && aggregateGroupLimit(err) {
+			return nil, false, nil
+		}
 		return nil, false, err
 	}
 	// On a cluster, a shard whose rows of a group all lack the value sends
@@ -2212,7 +2237,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 	if lost {
 		raw, err = e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, rowFilter: meta.rowFilter(), groupBy: pipeline(true)})
 		if err != nil {
-			if strings.Contains(err.Error(), "Unknown function name 'case'") {
+			if runtimeBigIntProof && aggregateGroupLimit(err) || strings.Contains(err.Error(), "Unknown function name 'case'") {
 				return nil, false, nil
 			}
 			return nil, false, err
@@ -2397,6 +2422,29 @@ func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, 
 			}
 			for i, acc := range groups[""].accs {
 				acc.add(values[i])
+			}
+			return nil
+		})
+	}
+	if !handled && len(plan.sel.GroupBy) > 0 {
+		handled, err = e.scanGroupedAggregateValues(ctx, req, params, plan.sel.GroupBy, aggs, repNeed, func(values []Value) error {
+			if err := cancelled(ctx); err != nil {
+				return err
+			}
+			n := len(plan.sel.GroupBy)
+			key := rowKey(values[:n])
+			g := groups[key]
+			if g == nil {
+				rep := make(map[string]Value, n)
+				for i, expr := range plan.sel.GroupBy {
+					rep[expr.(*ColumnRef).Name] = values[i]
+				}
+				g = newGroup(rep)
+				groups[key] = g
+				order = append(order, key)
+			}
+			for i, acc := range g.accs {
+				acc.add(values[n+i])
 			}
 			return nil
 		})
