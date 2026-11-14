@@ -444,9 +444,14 @@ func (s *statementImpl) SetSqlQuery(ctx context.Context, query string) error {
 		return err
 	}
 	s.partitionExecution = nil
+	// DBAPI clients may set the same SQL text before every execution. Reuse
+	// only its syntax tree; catalog binding, types and plans are still resolved
+	// under the execution's fresh snapshot. Parameters must still be cleared.
+	if s.query != query || s.substrait != nil {
+		s.parsed = nil
+	}
 	s.query = query
 	s.substrait = nil
-	s.parsed = nil
 	s.ingest.TableName = ""
 	s.clearParams()
 	return nil
