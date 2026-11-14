@@ -104,6 +104,13 @@ The [managed write attribution](managed-write-2026-11-12/report.md) is a separat
 Go diagnostic of repeated script traffic, publication and maintenance. It retains
 all timing trials and reports no demonstrated write-throughput improvement.
 
+The [ingestion conversion reuse evaluation](ingest-buffer-2026-11-13/report.md)
+retains all 24 conversion and 64 matched native samples. Reusing bounded storage
+reduced wide conversion allocation bytes 65–67% and native RSS 6–15% in reuse
+cases, but mixed elapsed results did not meet the adoption gate. Production Go
+is unchanged; the exact candidate/tests remain unapplied. Audit with
+`python3 benchmarks/table-modes/ingest_buffer_audit.py`.
+
 ## Rejected adaptive managed reply target
 
 The [November 13 evaluation](hash-reply-target-2026-11-13/report.md) retains all
