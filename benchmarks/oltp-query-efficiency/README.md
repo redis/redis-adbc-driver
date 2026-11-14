@@ -34,3 +34,33 @@ paths use `REDIS_UNMANAGED_AGG_PROFILE_DIR` and `REDIS_UNMANAGED_AGG_CPU_PROFILE
 These clear their disposable snapshot fixture. Run them in a separate verified
 Software slot, never concurrently with native timing. Raw diagnostics/CPU profiles
 may expose operational paths or input data and should remain private.
+
+## Audit another complete paired run
+
+The original `audit.py` default and November 13 artifacts stay unchanged. New
+full 168-record/build bundles use:
+
+```sh
+python3 benchmarks/oltp-query-efficiency/audit_pair.py --bundle PATH_TO_BUNDLE \
+  --require-check ordinary-software --require-check snapshot-software
+```
+
+The default bundle path is `2026-11-14`. The audit exactly recalculates all 42
+JSON/CSV comparisons, source metadata, settings and input hashes with `compare.py`.
+It requires baseline/candidate raw records, comparison JSON/CSV, `provenance.json`,
+`checks.json`, `environment.json`, `cleanup.json`, `report.md`, frozen copies at
+`harness/run.py` and `harness/scenarios.py`, and a complete `sha256.json` manifest
+of every bundle file except the manifest itself. Extra diagnostic files are
+hash-checked; their specialized statistical audits remain separate.
+
+Provenance retains `driver_builds` (both commit/library/CLI/harness identities),
+`build_artifacts_after_run` with both builds' `library_sha256`/`cli_sha256`,
+`compare_source_sha256`, `post_measurement_production_changes=false`, and zero
+`automatic_retries`, `failed_native_trial_records` and
+`discarded_native_trial_records`. Each recorded checkpoint retains its actual
+`source_commit`, exit code, passed/failed/skipped top-level counts and complete
+`skipped_tests`; checkpoints may legitimately come from different commits.
+Use repeated `--require-check` arguments to enforce the intended check inventory.
+Environment and cleanup use the documented bundle field names; cleanup must
+record whether TLS was generated and prove its removal or preexisting preservation.
+This command is offline and never loads a driver, invokes a harness or starts Redis.
