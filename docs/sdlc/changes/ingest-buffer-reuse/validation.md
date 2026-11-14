@@ -38,8 +38,12 @@ Actual Software API 8.2.6-25 / Redis 8.8.0 / Search 80808 were verified. Shared 
 fixture used effective 4x QPF, six Search workers, mnp/32, 4 GiB noeviction, verified
 strict data TLS/RESP3 and 4 CPU / 8 GiB container limits. The loan returned empty/index-
 free with all processes/clients closed and settings reverified. Parent final
-infrastructure/credential teardown remains pending while siblings complete.
-Operational artifacts/identifiers and credentials remain private. No ClickBench.
+teardown removed the owned container/network and generated TLS/test.env/settings/
+fixture-env credentials while preserving the pre-existing container and all 31
+networks. The [sanitized proof](../../../../benchmarks/table-modes/ingest-buffer-2026-11-13/cleanup-proof.json)
+records completed cleanup. Zero generated-credential matches required redaction;
+raw log hashes are unchanged. Operational artifacts/identifiers and credentials
+remain private. No ClickBench.
 
 [Complete report, distributions, attempts and reproduction](../../../../benchmarks/table-modes/ingest-buffer-2026-11-13/report.md).
 Audit with `python3 benchmarks/table-modes/ingest_buffer_audit.py`.
@@ -49,4 +53,7 @@ Evidence audits, Python syntax, relative links, exact generated-credential scan
 (zero matches), patch applicability and scoped whitespace checks passed. The
 frozen candidate.patch contains original diff context with leading spaces before
 Go tabs; preserve its exact bytes/hash rather than normalize a source artifact.
-Parent final evidence review and shared-fixture teardown proof remain pending.
+Parent final evidence review passed at f5e773bb (plus the README-only follow-up
+04fd4b26); no blocker was found in distributions, attempt disclosure, lifecycle,
+source identity or unchanged production scope. This is agent review, not human
+maintainer approval. Final shared-fixture cleanup proof is now attached.

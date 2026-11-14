@@ -65,6 +65,15 @@ def audit():
     assert len(micro) == 24
     assert Counter((r['columns'], r['kind'], r['variant']) for r in micro) == Counter({(width, kind, variant): 3 for width in (8, 105) for kind in ('integer', 'mixed') for variant in ('fresh', 'reuse')})
     assert all(r['iterations'] > 0 and r['ns_per_op'] > 0 and r['bytes_per_op'] > 0 and r['allocs_per_op'] > 0 for r in micro)
+    assert load('cleanup-proof.json') == {
+        'owned_container_and_network_removed': True,
+        'preexisting_containers_preserved': True,
+        'preexisting_networks_preserved': True,
+        'preexisting_container_count': 1,
+        'preexisting_network_count': 31,
+        'generated_tls_and_environment_removed': True,
+        'private_generated_credentials_removed': True,
+    }
     checks = load('checks.json')
     for stage, total, top in [('unit', 59, 3), ('race', 59, 3), ('live', 14, 8)]:
         c = checks[stage]

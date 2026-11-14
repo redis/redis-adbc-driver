@@ -156,10 +156,14 @@ Run the frozen source's BenchmarkIngestBufferConversion with -benchmem,
 -benchtime=200ms -count=3 and GOMAXPROCS=4. Do not relabel new runs with these hashes.
 
 The loan ended empty/index-free; every process/client exited and effective
-QPF/TLS/RESP3 was reverified. Parent owns final shared-fixture infrastructure and
-credential teardown, which is pending. Raw operational artifacts, endpoint and
-resource identifiers, credentials and license files stay private. No ClickBench
-or alternative Redis distribution/provider was run.
+QPF/TLS/RESP3 was reverified. Final parent teardown removed the owned container
+and network plus generated TLS/test.env/settings/fixture-env credentials,
+preserving the pre-existing container and all 31 pre-existing networks. The
+[sanitized cleanup proof](cleanup-proof.json) records the completed outcome.
+Generated-credential scans found zero matches requiring redaction, so retained
+raw log hashes are unchanged. Raw operational artifacts, endpoint/resource
+identifiers, credentials and license files stay private. No ClickBench or
+alternative Redis distribution/provider was run.
 
 Audit without Redis or Go:
 
