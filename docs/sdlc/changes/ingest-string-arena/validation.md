@@ -35,7 +35,9 @@ agent reviews, not human approval. The [full report](../../../../benchmarks/tabl
 retains all distributions, ownership/retention limits, build/helper/input hashes,
 raw private log digests, reproduction and shared-host/ordered-block limitations.
 Read-only data/hash audit, syntax, relative links and exact patch application
-checks accompany artifact review; source code is proposed, not merged/released.
+checks passed. Parent final artifact review at `246b65fe` found no blockers and
+independently recomputed the quantitative gates. This is agent review; source
+code remains proposed, not merged/released.
 
 Every loan ended with all subprocesses/clients closed, empty/index-free DB and
 effective 4x QPF / strict TLS / RESP3 reverified. Root final shared infrastructure

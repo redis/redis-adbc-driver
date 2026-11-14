@@ -11,7 +11,7 @@ constraints and encoded layouts retain the original Clone/coerce path.
 This is owned copying, not Arrow borrowing, zero-copy or row-matrix reuse.
 A retained scalar can retain the whole owned column buffer; the 1 MiB logical
 payload cap limits that retention, not allocator or process RSS. Full validation
-still precedes copying, and every pass stops at the actual conversion-row count.
+still precedes copying, and every arena pass stops at the actual conversion-row count.
 NULL/empty values, sliced offsets and byte-for-byte NUL/Unicode are preserved.
 Defaults, column conversion, full-slice constraints, managed whole-operation
 publication, unmanaged partial acknowledgments, cancellation and no-replay rules
@@ -53,7 +53,7 @@ Both variants use the identical existing [helper](../ingest_buffer_compare.py),
 archived verbatim as [helper.py.txt](helper.py.txt). Its metadata retains the
 historical "conversion reuse" scope label; this candidate changes string copying
 alone and does not apply the earlier matrix reuse experiment. Each worker loads the full
-100K×105 source, selects its 10K-row share, adds an ordinal and, for unmanaged,
+100K×105 source, selects its share of the 10K rows, adds an ordinal and, for unmanaged,
 explicit application __key values. Input tables/batches are materialized. One
 stream supplies 1K batches (ten for one writer, 1000/1000/500 per four-writer
 share); one batch supplies 10000 or 2500 rows. Every worker makes one public call.
@@ -154,7 +154,8 @@ The helper never provisions or tears down infrastructure. These local TLS result
 do not establish remote-latency or every possible input-size performance.
 
 Root and sibling agents reviewed source before execution, no blockers; this is
-agent review, not human maintainer approval. Final evidence review is pending.
+agent review, not human maintainer approval. Final parent agent artifact review at `246b65fe` found no blockers and independently
+recomputed the native gates; this is not human maintainer approval.
 All clients/subprocesses ended and each loan returned empty/index-free with QPF,
 TLS and RESP3 reverified. Root owns final shared infrastructure/credential cleanup; that teardown is pending. No child teardown is claimed.
 Operational artifacts, identifiers, credentials and license material remain private.
