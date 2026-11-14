@@ -1,6 +1,6 @@
 # Validation record
 
-Date: 2026-11-13. Status: evidence complete; final shared fixture teardown pending.
+Date: 2026-11-13. Status: evidence and shared fixture teardown complete.
 Default production Go files and module dependencies remain identical to base
 `24f654b76b98f3d8960af94a3ca0230185d467a1`.
 
@@ -58,8 +58,18 @@ were run after native END.
 The parent-owned Software fixture was independently reverified for active/effective
 4x QPF, six workers/mnp32, one 4-GiB noeviction shard, strict data TLS/RESP3 and
 actual four-CPU/eight-GiB limits. Both native blocks returned DBSIZE0/FT._LIST[]
-with clients/processes closed. Parent owns final shared infrastructure/TLS/
-credential teardown after sibling tracks finish; cleanup remains pending.
+with clients/processes closed. Parent reverified effective configuration/empty
+state, removed its owned container/network and generated TLS/environment/settings/
+credentials, and preserved the one preexisting container and 31 networks. The
+[cleanup proof](../../../../benchmarks/ffi-release-gc/2026-11-13/cleanup.json)
+contains no operational identifiers. No raw-log credential redactions were needed;
+all recorded raw digests were independently rechecked unchanged.
 No ClickBench or alternate provider was used.
 
 See [intent](intent.md), [contract](spec.md) and [plan](plan.md).
+
+Parent agent `/root` reviewed source scope, report and arithmetic audit with no
+findings. This is agent review, not human maintainer approval. No merge was
+performed. Management API node version 8.2.6-25 was independently checked against
+the owner fixture record; the measured container-label observation 8.2.6 remains
+retained and distinguished in the results.

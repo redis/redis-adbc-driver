@@ -14,4 +14,4 @@ See [intent](intent.md), [specification](spec.md), [validation](validation.md).
 
 Execution complete: all 56 C-ABI and 56 native observations retained; omission
 rejected for default adoption. Both race gates blocked and ASAN unrun. Final
-parent teardown proof and review/publication remain pending.
+parent teardown proof and agent review are complete; publication remains pending.

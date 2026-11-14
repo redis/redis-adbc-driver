@@ -84,7 +84,8 @@ Default production code/modules remain identical to
   `vcs.revision`/`vcs.modified=false` build metadata were verified.
 
 Go 1.27.3, macOS 26.7.3 arm64, Apple M5 Max/18 logical CPUs/36 GiB. Owned Redis
-Software (container version label 8.2.6), Redis 8.8.0, Search 80808; one 4-GiB
+Software 8.2.6-25 (management API node version; container label 8.2.6),
+Redis 8.8.0, Search 80808; one 4-GiB
 noeviction RAM shard, active/effective 4x QPF, six Search workers, mnp/32
 connections. Actual 4-CPU/8-GiB container limits, strict certificate/hostname
 verified data TLS and RESP3 were rechecked before native execution. Management
@@ -110,8 +111,11 @@ result is claimed. Default removal is rejected on performance evidence and the
 unresolved safety gates.
 
 The owned DB was returned empty/index-free after each block with clients/processes
-closed. Parent owns final shared container/network/TLS/credential teardown after
-sibling tracks finish; final cleanup remains pending. No ClickBench was run.
+closed. Parent then reverified effective QPF/TLS/RESP3 and empty state before final
+teardown. The [cleanup proof](cleanup.json) records owned container/network removal,
+preservation of the one preexisting container and 31 networks, and removal of
+generated TLS/environment/settings/credentials. No actual secret matches required
+raw-log redaction; all recorded raw digests remain unchanged. No ClickBench was run.
 
 See the [reproducer and scope](../README.md) and
 [change validation](../../../docs/sdlc/changes/ffi-release-gc-attribution/validation.md).

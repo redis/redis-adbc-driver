@@ -95,6 +95,10 @@ def main():
             assert summary['elapsed_percent_change'] > 0
         assert len(data['native_summary']) == 4
         assert all(command['exit_code'] == 0 for command in data['native_commands'].values())
+    if 'cleanup' in data:
+        assert data['cleanup'] == json.loads((HERE / '2026-11-13/cleanup.json').read_text())
+        assert all(data['cleanup'][key] for key in ('owned_container_and_network_removed', 'preexisting_containers_preserved', 'preexisting_networks_preserved', 'generated_tls_and_environment_removed', 'private_generated_credentials_removed'))
+        assert data['raw_log_credential_redaction_count'] == 0
     print(f"PASS: all 56 C-ABI observations, both blocked race gates, source/module/patch provenance; native {'56 complete' if native else 'pending'}")
 
 

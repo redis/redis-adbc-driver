@@ -1538,7 +1538,9 @@
     "cpus": 4,
     "container_memory_bytes": 8589934592,
     "tls_certificate_verified": true,
-    "resp": 3
+    "resp": 3,
+    "software_version_source": "container image label",
+    "software_version_management_api": "8.2.6-25"
   },
   "native_freeze": {
     "base_commit": "24f654b76b98f3d8960af94a3ca0230185d467a1",
@@ -1640,7 +1642,7 @@
     "no_indexes": true,
     "clients_closed": true
   },
-  "final_fixture_cleanup": "pending parent teardown after all sibling tracks",
+  "final_fixture_cleanup": "complete; owner verified fixture empty/effective settings before removing owned resources",
   "probe_build_settings": {
     "baseline": [
       "-buildmode=c-shared",
@@ -1833,5 +1835,15 @@
       "seconds": 73.8075659275055,
       "log_sha256": "c3054afb8fb08c3a7d4db6379576f6eab9d3b4a026235d0a4c6a90f0480f4004"
     }
-  }
+  },
+  "cleanup": {
+    "owned_container_and_network_removed": true,
+    "preexisting_containers_preserved": true,
+    "preexisting_networks_preserved": true,
+    "preexisting_container_count": 1,
+    "preexisting_network_count": 31,
+    "generated_tls_and_environment_removed": true,
+    "private_generated_credentials_removed": true
+  },
+  "raw_log_credential_redaction_count": 0
 }
