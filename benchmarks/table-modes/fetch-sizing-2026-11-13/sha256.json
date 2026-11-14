@@ -1,0 +1,10 @@
+{
+  "native-results.json": "1830ef36695b91a93bd1be27bfcef70721172af6974a4f133609a1c673667365",
+  "summary.json": "d207f53c41e7d69d5457d9fe912c6e65414224599126ab39fa44a051ee91cc78",
+  "provenance.json": "b0365ab568ad9c9d50225cf9288d30cec3edd1d5a2f2d1d7b9b9bc5c9f8bf708",
+  "checks.json": "fcc3415ff08196fd8f3fbba108e2404197639cbcefb2f38ac2b180d2d1c405c3",
+  "environment.json": "d2a7b312a04c1f81168514c48e1e243cbc193e07a675bb7bff36a39f75d3a6b1",
+  "cleanup.json": "73603b253c9ba9865d6613df06d6c00545211a433d3f819355687e28e8d86353",
+  "candidate.patch": "c7d35cca7bd8dbd1badfadb60c1dd5b1e57dda79cccc56be5a187bd6a0b9f2ee",
+  "../fetch_sizing_compare.py": "f064767b726905ce746d597f4b93a068b158a0affd0356147c67157d54861f9f"
+}
