@@ -1,0 +1,12 @@
+{
+  "native-results.json": "b72dc24d880652be47196e31d53566877a0b089382994cce7b694b304a508b8a",
+  "construction-results.json": "01580d7dac2ad23e04b25867dcaf9ac84eba8957c84ecbefbfe6e288f66fc6fa",
+  "construction.txt": "10cb0733c018fddd28d4e54d739dddff26d73f85b3eadeb25b3fe3c77e59dc8b",
+  "checks.json": "19881372eb22fe4b3a24db4bb72b53f9d6d52b8196f00795dc1de2e905a4b697",
+  "production-identity.json": "e79a71389b9821e9607284bbbfa5f6fb6f09dcf4bc5bef15711b1f64913b49c5",
+  "provenance.json": "a8fff3b2ac7ff3a1eb8b7cab871b5051240294f55e63864062b61ddb72f3256e",
+  "read_two_modes.py": "3458251177b2fabbb779f5e4112577e961cf406500a3474eb6da1a629796d215",
+  "environment.json": "5f346917b296d78f51f6e8746aace268601566e110a8382aeb584bacb9539141",
+  "loan-return.json": "7017cc2a467176b99eec493498f46158880bdd384392508409e3451aae87d355",
+  "cleanup-proof.json": "73603b253c9ba9865d6613df06d6c00545211a433d3f819355687e28e8d86353"
+}

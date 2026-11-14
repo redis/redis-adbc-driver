@@ -35,3 +35,10 @@ See the [complete report](../../../../benchmarks/table-modes/direct-arrow-2026-1
 Root reviewed evidence4832ca45 and exact-wrapper2253744b with no blockers; all136 samples audited and production Go diff empty. This is agent review, not human approval.
 
 Review: [PR #431](https://github.com/redis/redis-adbc-driver/pull/431) is open and unmerged; no human approval or release is claimed.
+
+Coverage precision correction, November 13, 2026: the old report's NUL wording
+was inaccurate because the selected string fixtures contain printable
+backslash-x00 text. NULL semantics and all source/results/attempt records remain
+unchanged. The [later explicit-zero-byte tests](../../../../go/scan_unmanaged_arrow_nul_test.go)
+are a separately labeled follow-up on the unmanaged-only candidate, not proof
+for this historical binary.

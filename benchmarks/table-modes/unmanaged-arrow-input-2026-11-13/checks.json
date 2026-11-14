@@ -1,0 +1,906 @@
+{
+  "measured_source": "67264020f524f62a431ef00585a218c6a63660f5",
+  "supplement_source": "1e112158028d60757c2555f11d8376d206da9332",
+  "checks": {
+    "unit": {
+      "stage": "unit-01",
+      "exit_code": 0,
+      "controller_seconds": 11.756304833019385,
+      "log_sha256": "b9716702d0522f1ab502084932a042926394b0a3636e9d24da6a79c6d1a3973e",
+      "source": "67264020f524f62a431ef00585a218c6a63660f5",
+      "cases": [
+        {
+          "test": "TestScanArrowValuesAndOwnership",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors/offset",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors/limit",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors/partial",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowPartialBuilderError",
+          "action": "pass"
+        },
+        {
+          "test": "TestHashSliceProjectionCompatibility",
+          "action": "pass"
+        },
+        {
+          "test": "TestHashSliceExistenceDiagnosticsAndCancellation",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanProjectionValuesAndErrors",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanProjectionFallbacks",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanProjectionKeepCancellationAndDiagnostics",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/SMALLINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/INTEGER",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/BIGINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/BOOLEAN",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/REAL",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/DOUBLE_PRECISION",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/VARCHAR",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/CHAR(5)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/VARBINARY",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/DATE",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIME(6)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIME(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/INTERVAL",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/NUMERIC(12,3)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedProjectionWideDefaultsAndAliases",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedWideArrowLifetimeAndErrorOrder/0",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedWideArrowLifetimeAndErrorOrder/256",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedWideArrowLifetimeAndErrorOrder",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/SMALLINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/INTEGER",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/BIGINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/VARCHAR",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/BOOLEAN",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/DOUBLE_PRECISION",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/DATE",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/TIMESTAMP(6)",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/TIMESTAMP(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/TIME(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/VARBINARY",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/CHAR(5)",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/NUMERIC(12,3)",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=false/bytes=0",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=false/bytes=1024",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=true/bytes=0",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=true/bytes=1024",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/unmanaged",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/managed",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/narrow",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/byte_budget",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/no_iterator",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/no_metadata",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputPartialErrorOrder",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionParity",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionTypedParams",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionFallbacks",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredArrowAccountingAndTail",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionValues/wide=false",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionValues/wide=true",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionValues",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionFallbacks",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedProjectionKeepCancellationAndNilRows",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedWideProjectionExternalErrorParity",
+          "action": "pass"
+        }
+      ],
+      "skip": 0,
+      "fail": 0,
+      "pass": 70,
+      "top_level_passed": [
+        "TestHashSliceExistenceDiagnosticsAndCancellation",
+        "TestHashSliceProjectionCompatibility",
+        "TestScanArrowPartialBuilderError",
+        "TestScanArrowSkippedAndPartialErrors",
+        "TestScanArrowValuesAndOwnership",
+        "TestScanProjectionFallbacks",
+        "TestScanProjectionKeepCancellationAndDiagnostics",
+        "TestScanProjectionValuesAndErrors",
+        "TestTypedArrowAgainstGeneric",
+        "TestTypedProjectionWideDefaultsAndAliases",
+        "TestTypedWideArrowLifetimeAndErrorOrder",
+        "TestUnmanagedArrowInputAgainstExistingBinding",
+        "TestUnmanagedArrowInputCompleteRecords",
+        "TestUnmanagedArrowInputEligibility",
+        "TestUnmanagedArrowInputPartialErrorOrder",
+        "TestUnmanagedFilteredArrowAccountingAndTail",
+        "TestUnmanagedFilteredProjectionFallbacks",
+        "TestUnmanagedFilteredProjectionParity",
+        "TestUnmanagedFilteredProjectionTypedParams",
+        "TestUnmanagedProjectionKeepCancellationAndNilRows",
+        "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+        "TestUnmanagedScanProjectionFallbacks",
+        "TestUnmanagedScanProjectionValues",
+        "TestUnmanagedWideProjectionExternalErrorParity"
+      ],
+      "expected_top_level": [
+        "TestHashSliceExistenceDiagnosticsAndCancellation",
+        "TestHashSliceProjectionCompatibility",
+        "TestScanArrowPartialBuilderError",
+        "TestScanArrowSkippedAndPartialErrors",
+        "TestScanArrowValuesAndOwnership",
+        "TestScanProjectionFallbacks",
+        "TestScanProjectionKeepCancellationAndDiagnostics",
+        "TestScanProjectionValuesAndErrors",
+        "TestTypedArrowAgainstGeneric",
+        "TestTypedProjectionWideDefaultsAndAliases",
+        "TestTypedWideArrowLifetimeAndErrorOrder",
+        "TestUnmanagedArrowInputAgainstExistingBinding",
+        "TestUnmanagedArrowInputCompleteRecords",
+        "TestUnmanagedArrowInputEligibility",
+        "TestUnmanagedArrowInputPartialErrorOrder",
+        "TestUnmanagedFilteredArrowAccountingAndTail",
+        "TestUnmanagedFilteredProjectionFallbacks",
+        "TestUnmanagedFilteredProjectionParity",
+        "TestUnmanagedFilteredProjectionTypedParams",
+        "TestUnmanagedProjectionKeepCancellationAndNilRows",
+        "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+        "TestUnmanagedScanProjectionFallbacks",
+        "TestUnmanagedScanProjectionValues",
+        "TestUnmanagedWideProjectionExternalErrorParity"
+      ]
+    },
+    "race": {
+      "stage": "race-01",
+      "exit_code": 0,
+      "controller_seconds": 21.2823300420132,
+      "log_sha256": "249ba97c1341b1e6cde84c469c593f1a9d0bf88122fae5e4196a491e3f88e3e0",
+      "source": "67264020f524f62a431ef00585a218c6a63660f5",
+      "cases": [
+        {
+          "test": "TestScanArrowValuesAndOwnership",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors/offset",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors/limit",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors/partial",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowSkippedAndPartialErrors",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanArrowPartialBuilderError",
+          "action": "pass"
+        },
+        {
+          "test": "TestHashSliceProjectionCompatibility",
+          "action": "pass"
+        },
+        {
+          "test": "TestHashSliceExistenceDiagnosticsAndCancellation",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanProjectionValuesAndErrors",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanProjectionFallbacks",
+          "action": "pass"
+        },
+        {
+          "test": "TestScanProjectionKeepCancellationAndDiagnostics",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/SMALLINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/INTEGER",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/BIGINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/BOOLEAN",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/REAL",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/DOUBLE_PRECISION",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/VARCHAR",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/CHAR(5)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/VARBINARY",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/DATE",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIME(6)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/TIME(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/INTERVAL",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric/NUMERIC(12,3)",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedArrowAgainstGeneric",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedProjectionWideDefaultsAndAliases",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedWideArrowLifetimeAndErrorOrder/0",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedWideArrowLifetimeAndErrorOrder/256",
+          "action": "pass"
+        },
+        {
+          "test": "TestTypedWideArrowLifetimeAndErrorOrder",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/SMALLINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/INTEGER",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/BIGINT",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/VARCHAR",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/BOOLEAN",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/DOUBLE_PRECISION",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/DATE",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/TIMESTAMP(6)",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/TIMESTAMP(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/TIME(6)_WITH_TIME_ZONE",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/VARBINARY",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/CHAR(5)",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding/NUMERIC(12,3)",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputAgainstExistingBinding",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=false/bytes=0",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=false/bytes=1024",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=true/bytes=0",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords/hash=true/bytes=1024",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputCompleteRecords",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/unmanaged",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/managed",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/narrow",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/byte_budget",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/no_iterator",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility/no_metadata",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputEligibility",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedArrowInputPartialErrorOrder",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionParity",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionTypedParams",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionFallbacks",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredArrowAccountingAndTail",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionValues/wide=false",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionValues/wide=true",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionValues",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionFallbacks",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedProjectionKeepCancellationAndNilRows",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedWideProjectionExternalErrorParity",
+          "action": "pass"
+        }
+      ],
+      "skip": 0,
+      "fail": 0,
+      "pass": 70,
+      "top_level_passed": [
+        "TestHashSliceExistenceDiagnosticsAndCancellation",
+        "TestHashSliceProjectionCompatibility",
+        "TestScanArrowPartialBuilderError",
+        "TestScanArrowSkippedAndPartialErrors",
+        "TestScanArrowValuesAndOwnership",
+        "TestScanProjectionFallbacks",
+        "TestScanProjectionKeepCancellationAndDiagnostics",
+        "TestScanProjectionValuesAndErrors",
+        "TestTypedArrowAgainstGeneric",
+        "TestTypedProjectionWideDefaultsAndAliases",
+        "TestTypedWideArrowLifetimeAndErrorOrder",
+        "TestUnmanagedArrowInputAgainstExistingBinding",
+        "TestUnmanagedArrowInputCompleteRecords",
+        "TestUnmanagedArrowInputEligibility",
+        "TestUnmanagedArrowInputPartialErrorOrder",
+        "TestUnmanagedFilteredArrowAccountingAndTail",
+        "TestUnmanagedFilteredProjectionFallbacks",
+        "TestUnmanagedFilteredProjectionParity",
+        "TestUnmanagedFilteredProjectionTypedParams",
+        "TestUnmanagedProjectionKeepCancellationAndNilRows",
+        "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+        "TestUnmanagedScanProjectionFallbacks",
+        "TestUnmanagedScanProjectionValues",
+        "TestUnmanagedWideProjectionExternalErrorParity"
+      ],
+      "expected_top_level": [
+        "TestHashSliceExistenceDiagnosticsAndCancellation",
+        "TestHashSliceProjectionCompatibility",
+        "TestScanArrowPartialBuilderError",
+        "TestScanArrowSkippedAndPartialErrors",
+        "TestScanArrowValuesAndOwnership",
+        "TestScanProjectionFallbacks",
+        "TestScanProjectionKeepCancellationAndDiagnostics",
+        "TestScanProjectionValuesAndErrors",
+        "TestTypedArrowAgainstGeneric",
+        "TestTypedProjectionWideDefaultsAndAliases",
+        "TestTypedWideArrowLifetimeAndErrorOrder",
+        "TestUnmanagedArrowInputAgainstExistingBinding",
+        "TestUnmanagedArrowInputCompleteRecords",
+        "TestUnmanagedArrowInputEligibility",
+        "TestUnmanagedArrowInputPartialErrorOrder",
+        "TestUnmanagedFilteredArrowAccountingAndTail",
+        "TestUnmanagedFilteredProjectionFallbacks",
+        "TestUnmanagedFilteredProjectionParity",
+        "TestUnmanagedFilteredProjectionTypedParams",
+        "TestUnmanagedProjectionKeepCancellationAndNilRows",
+        "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+        "TestUnmanagedScanProjectionFallbacks",
+        "TestUnmanagedScanProjectionValues",
+        "TestUnmanagedWideProjectionExternalErrorParity"
+      ]
+    },
+    "software": {
+      "stage": "software-01",
+      "exit_code": 0,
+      "controller_seconds": 38.9407170409977,
+      "log_sha256": "05cad8255fd6589fa7b4bb43c521335c0aa5acb335141c3c75a8269f5b1c6b0a",
+      "source": "67264020f524f62a431ef00585a218c6a63660f5",
+      "cases": [
+        {
+          "test": "TestSnapshotHashSliceVisibilityAndIntegrity",
+          "action": "pass"
+        },
+        {
+          "test": "TestPrefetchUpdateDeleteAfterDiscovery",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanProjectionBothAPIs/SELECT_label_AS_alias,_id,_id_AS_duplicate,_qty,_stamp,___rowid_FROM_it_scan_projection",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanProjectionBothAPIs/SELECT_label_FROM_it_scan_projection_LIMIT_100_OFFSET_10",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanProjectionBothAPIs",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanArrowEarlyReleaseBothAPIs/regular/bytes=0",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanArrowEarlyReleaseBothAPIs/regular/bytes=1100",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanArrowEarlyReleaseBothAPIs/partition/bytes=0",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanArrowEarlyReleaseBothAPIs/partition/bytes=1100",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLScanArrowEarlyReleaseBothAPIs",
+          "action": "pass"
+        },
+        {
+          "test": "TestSnapshotPrefetchUpdateDeleteAfterDiscovery/candidates_false",
+          "action": "pass"
+        },
+        {
+          "test": "TestSnapshotPrefetchUpdateDeleteAfterDiscovery/candidates_true",
+          "action": "pass"
+        },
+        {
+          "test": "TestSnapshotPrefetchUpdateDeleteAfterDiscovery",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionLiveMutation/changed",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionLiveMutation/deleted",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionLiveMutation/wrongtype",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredProjectionLiveMutation",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredArrowLifetime/finish",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredArrowLifetime/release",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredArrowLifetime/cancel",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedFilteredArrowLifetime",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedWideProjectionArrowLifetime/finish",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedWideProjectionArrowLifetime/release",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedWideProjectionArrowLifetime/cancel",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedWideProjectionArrowLifetime",
+          "action": "pass"
+        },
+        {
+          "test": "TestUnmanagedProjectionKeyAndPredicateFallback",
+          "action": "pass"
+        },
+        {
+          "test": "TestSQLWideHashFetchBothAPIs",
+          "action": "pass"
+        }
+      ],
+      "skip": 0,
+      "fail": 0,
+      "pass": 27,
+      "top_level_passed": [
+        "TestPrefetchUpdateDeleteAfterDiscovery",
+        "TestSQLScanArrowEarlyReleaseBothAPIs",
+        "TestSQLScanProjectionBothAPIs",
+        "TestSQLWideHashFetchBothAPIs",
+        "TestSnapshotHashSliceVisibilityAndIntegrity",
+        "TestSnapshotPrefetchUpdateDeleteAfterDiscovery",
+        "TestUnmanagedFilteredArrowLifetime",
+        "TestUnmanagedFilteredProjectionLiveMutation",
+        "TestUnmanagedProjectionKeyAndPredicateFallback",
+        "TestUnmanagedWideProjectionArrowLifetime"
+      ],
+      "expected_top_level": [
+        "TestPrefetchUpdateDeleteAfterDiscovery",
+        "TestSQLScanArrowEarlyReleaseBothAPIs",
+        "TestSQLScanProjectionBothAPIs",
+        "TestSQLWideHashFetchBothAPIs",
+        "TestSnapshotHashSliceVisibilityAndIntegrity",
+        "TestSnapshotPrefetchUpdateDeleteAfterDiscovery",
+        "TestUnmanagedFilteredArrowLifetime",
+        "TestUnmanagedFilteredProjectionLiveMutation",
+        "TestUnmanagedProjectionKeyAndPredicateFallback",
+        "TestUnmanagedWideProjectionArrowLifetime"
+      ]
+    },
+    "micro": {
+      "stage": "micro-01",
+      "exit_code": 0,
+      "controller_seconds": 9.280101833021035,
+      "log_sha256": "10cb0733c018fddd28d4e54d739dddff26d73f85b3eadeb25b3fe3c77e59dc8b",
+      "source": "67264020f524f62a431ef00585a218c6a63660f5"
+    },
+    "build": {
+      "stage": "build-01",
+      "exit_code": 0,
+      "controller_seconds": 10.169518667011289,
+      "log_sha256": "53b35faeaa8e334fd0b5c5cc4213fc59a19e0cdcdad36eb966c7c2bc0f344eb3",
+      "source": "67264020f524f62a431ef00585a218c6a63660f5"
+    },
+    "actual_nul_unit": {
+      "name": "nul-unit-01",
+      "source": "1e112158028d60757c2555f11d8376d206da9332",
+      "production_identical_to": "67264020f524f62a431ef00585a218c6a63660f5",
+      "production_file_count": 270,
+      "exit_code": 0,
+      "controller_seconds": 11.893578332994366,
+      "raw_log_sha256": "65a391fac8d4517697ea8aed8040b18d9382109f1ea355b0e28af982e9863a08",
+      "cases": [
+        {
+          "test": "TestUnmanagedArrowInputActualNUL",
+          "action": "pass"
+        }
+      ],
+      "pass": 1,
+      "skip": 0,
+      "fail": 0
+    },
+    "actual_nul_race": {
+      "name": "nul-race-01",
+      "source": "1e112158028d60757c2555f11d8376d206da9332",
+      "production_identical_to": "67264020f524f62a431ef00585a218c6a63660f5",
+      "production_file_count": 270,
+      "exit_code": 0,
+      "controller_seconds": 19.879561874986393,
+      "raw_log_sha256": "b6ec19a734ca9c57e8d147ebd438e38502226162412da700ba9a7f2e1ba8e817",
+      "cases": [
+        {
+          "test": "TestUnmanagedArrowInputActualNUL",
+          "action": "pass"
+        }
+      ],
+      "pass": 1,
+      "skip": 0,
+      "fail": 0
+    },
+    "actual_nul_software": {
+      "name": "nul-software-01",
+      "source": "1e112158028d60757c2555f11d8376d206da9332",
+      "production_identical_to": "67264020f524f62a431ef00585a218c6a63660f5",
+      "production_file_count": 270,
+      "exit_code": 0,
+      "controller_seconds": 4.414345791999949,
+      "raw_log_sha256": "274253a2d62900a1ef261aaa9758f0e987127141f7d551b52ab02c73165b2bda",
+      "cases": [
+        {
+          "test": "TestUnmanagedArrowInputActualNULSoftware",
+          "action": "pass"
+        }
+      ],
+      "pass": 1,
+      "skip": 0,
+      "fail": 0
+    }
+  }
+}
