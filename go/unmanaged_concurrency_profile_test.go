@@ -53,7 +53,7 @@ func TestUnmanagedProjectionConcurrencyProfile(t *testing.T) {
 		Validated                                                                    bool
 	}
 	for repeat := -1; repeat < 3; repeat++ {
-		modes := []string{"native_hgetall", "guarded_projection"}
+		modes := []string{"native_hgetall", "projected_fields"}
 		if repeat%2 == 0 {
 			modes[0], modes[1] = modes[1], modes[0]
 		}
