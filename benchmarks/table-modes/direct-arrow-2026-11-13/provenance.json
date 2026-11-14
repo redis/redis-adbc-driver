@@ -1,0 +1,105 @@
+{
+  "baseline_source": "88774f10cf16fc4260e6ad5077097f4de8828406",
+  "candidate_source": "255e58919e7ad2327752a07cd30380968aad6798",
+  "native": {
+    "baseline": {
+      "source": "88774f10cf16fc4260e6ad5077097f4de8828406",
+      "version": "v0.1.0-dev.allocation-base",
+      "driver_sha256": "aad4ed9177b0cc761ee4d05da90dd8f5fb97bc88b448cf0e3f60f40e56166696",
+      "cli_sha256": "6b5dcecb1d737af3e36bab8fa4c63a59d646cd82936a4f6c7b29493b4444d767",
+      "source_data_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+      "wrapper_sha256": "3458251177b2fabbb779f5e4112577e961cf406500a3474eb6da1a629796d215",
+      "worker_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+      "arrow_harness_sha256": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+      "fixture": {
+        "qpf": 4,
+        "workers": 6,
+        "routing": "mnp",
+        "connections": 32,
+        "memory_bytes": 4294967296,
+        "tls_certificate_verified": true,
+        "resp": 3,
+        "empty": true
+      },
+      "native_gomaxprocs": "unset",
+      "inherited_runtime": {
+        "GOGC": null,
+        "GOMEMLIMIT": null,
+        "GODEBUG": null,
+        "GOMAXPROCS": null,
+        "GOFLAGS": null,
+        "GOWORK": null
+      }
+    },
+    "candidate": {
+      "source": "255e58919e7ad2327752a07cd30380968aad6798",
+      "version": "v0.1.0-dev.direct-arrow-1",
+      "driver_sha256": "de77d077c8c33b06aec05bcba332486da77dc15db804a2fbee023833e0a94d84",
+      "cli_sha256": "3bcfb4147ed100a9b0e9d814373266500e72a3106ef67c7dc0d563cb93392579",
+      "source_data_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+      "wrapper_sha256": "3458251177b2fabbb779f5e4112577e961cf406500a3474eb6da1a629796d215",
+      "worker_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+      "arrow_harness_sha256": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+      "fixture": {
+        "qpf": 4,
+        "workers": 6,
+        "routing": "mnp",
+        "connections": 32,
+        "memory_bytes": 4294967296,
+        "tls_certificate_verified": true,
+        "resp": 3,
+        "empty": true
+      },
+      "native_gomaxprocs": "unset",
+      "inherited_runtime": {
+        "GOGC": null,
+        "GOMEMLIMIT": null,
+        "GODEBUG": null,
+        "GOMAXPROCS": null,
+        "GOFLAGS": null,
+        "GOWORK": null
+      }
+    }
+  },
+  "environment": {
+    "software_api_versions": [
+      "8.2.6-25"
+    ],
+    "redis_version": "8.8.0",
+    "modules": {
+      "search": 80808,
+      "ReJSON": 80802,
+      "timeseries": 80808,
+      "vectorset": 1,
+      "bf": 80801
+    },
+    "host": {
+      "cpu": "Apple M5 Max",
+      "logical_cpus": "18",
+      "host_memory_bytes": "38654705664",
+      "macos": "26.7.3",
+      "arch": "arm64"
+    },
+    "container_cpus": 4,
+    "container_memory_bytes": 8589934592,
+    "image": "Explicit recorded local image ID used throughout, no tag resolution; identity retained privately",
+    "fixture": {
+      "qpf": 4,
+      "workers": 6,
+      "routing": "mnp",
+      "connections": 32,
+      "memory_bytes": 4294967296,
+      "tls_certificate_verified": true,
+      "resp": 3,
+      "empty": true
+    }
+  },
+  "source_data_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+  "candidate_go_patch_sha256": "21977007303fc93c67e339b5ae26d751014df9da0267fb9c9dc4bac702123bb8",
+  "build_clean": true,
+  "go_toolchain": "go1.27.3",
+  "candidate_version": "v0.1.0-dev.direct-arrow-1",
+  "baseline_version": "v0.1.0-dev.allocation-base",
+  "native_order": "complete baseline block followed by complete candidate block; no discarded trials/repeats",
+  "candidate_binding_setup": "Adds fixed per-column input bindings. No extra row staging/per-cell allocation intended; native baseline is actual clean binary. Construction control shares candidate setup."
+}

@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M5 Max
+BenchmarkArrowInputConstruction/columns=8/rows=63/fused=false-4         	    3946	     60295 ns/op	   19728 B/op	     142 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=63/fused=false-4         	    4179	     57536 ns/op	   19728 B/op	     142 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=63/fused=false-4         	    4219	     57546 ns/op	   19728 B/op	     142 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=63/fused=true-4          	    4060	     57709 ns/op	   19728 B/op	     142 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=63/fused=true-4          	    4063	     57494 ns/op	   19728 B/op	     142 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=63/fused=true-4          	    4074	     57956 ns/op	   19728 B/op	     142 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=1024/fused=false-4       	     265	    904935 ns/op	  200208 B/op	     158 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=1024/fused=false-4       	     264	    899962 ns/op	  200208 B/op	     158 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=1024/fused=false-4       	     266	    912307 ns/op	  200208 B/op	     158 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=1024/fused=true-4        	     262	    909604 ns/op	  200208 B/op	     158 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=1024/fused=true-4        	     264	    901184 ns/op	  200208 B/op	     158 allocs/op
+BenchmarkArrowInputConstruction/columns=8/rows=1024/fused=true-4        	     265	    907821 ns/op	  200208 B/op	     158 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=63/fused=false-4       	     516	    456957 ns/op	  291408 B/op	    2216 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=63/fused=false-4       	     530	    452412 ns/op	  291408 B/op	    2216 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=63/fused=false-4       	     531	    453424 ns/op	  291410 B/op	    2216 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=63/fused=true-4        	     825	    291006 ns/op	  291409 B/op	    2216 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=63/fused=true-4        	     822	    292325 ns/op	  291409 B/op	    2216 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=63/fused=true-4        	     793	    293087 ns/op	  291410 B/op	    2216 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=1024/fused=false-4     	      34	   6657044 ns/op	 2655703 B/op	    2424 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=1024/fused=false-4     	      34	   6779591 ns/op	 2655699 B/op	    2424 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=1024/fused=false-4     	      34	   6788205 ns/op	 2655703 B/op	    2424 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=1024/fused=true-4      	      57	   4293880 ns/op	 2655699 B/op	    2424 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=1024/fused=true-4      	      56	   4067070 ns/op	 2655701 B/op	    2424 allocs/op
+BenchmarkArrowInputConstruction/columns=105/rows=1024/fused=true-4      	      58	   4492930 ns/op	 2655699 B/op	    2424 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	6.556s

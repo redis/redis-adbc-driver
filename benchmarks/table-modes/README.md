@@ -135,3 +135,8 @@ improved, but higher allocations and 4096-row RSS ranges above baseline failed
 the predeclared memory gate. The exact candidate/tests are an unapplied patch;
 production Go code is unchanged. Audit with
 `python3 benchmarks/table-modes/batched_arrow_audit.py`.
+
+The [fused pointer-input follow-up](direct-arrow-2026-11-13/README.md) preserves a
+separate unapplied experiment without extra row staging: all 24 construction and
+112 native trials validated, but managed timings did not meet the predeclared
+both-mode benefit gate. Audit with `python3 benchmarks/table-modes/direct_arrow_audit.py`.
