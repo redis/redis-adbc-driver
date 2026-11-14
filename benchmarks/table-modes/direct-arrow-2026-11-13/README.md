@@ -6,7 +6,14 @@ Keep this candidate **unapplied**. The exact source/tests from `255e5891` are pr
 
 The candidate adds fused coercion/append functions for already compatible integer and variable-width string outputs in the existing ≥64-column path. They read pointers into the same one-row scratch, avoiding intermediate Value returns/copies and nested append dispatch. Required metadata decoding for the full row, timezone fitting, output-column order, skips/limits and terminal error cleanup remain unchanged. Other conversions and byte-budget mode use existing coercion/append. This is copying into owned Arrow buffers, not zero-copy or a direct RESP decoder. New fixed per-column bindings can add setup allocations; no 64-row staging block is added.
 
-Corrected focused unit and race selections each passed 21 top-level / 65 including subtests, zero skips/failures. Verified Software passed all ten requested top-level / 33 including subtests, zero skips/failures. Coverage includes exact integers above 2^53, NULLs, defaults, Unicode/NUL strings, NaN, overflow/aliases/temporal fallback, map/HMGET inputs, OFFSET 3 LIMIT 67 with 65-row records, required metadata errors after LIMIT, malformed width, retained record buffers and managed/unmanaged finish/release/cancel. Native input itself has no NULLs.
+Corrected focused unit and race selections each passed 21 top-level / 65 including subtests, zero skips/failures. Verified Software passed all ten requested top-level / 33 including subtests, zero skips/failures. Coverage includes exact integers above 2^53, NULLs, defaults, Unicode and literal backslash-x00 strings, NaN, overflow/aliases/temporal fallback, map/HMGET inputs, OFFSET 3 LIMIT 67 with 65-row records, required metadata errors after LIMIT, malformed width, retained record buffers and managed/unmanaged finish/release/cancel. Native input itself has no NULLs.
+
+Coverage precision correction, November 13, 2026: the selected string fixtures
+used a printable backslash-x00 sequence, so they did not establish actual NUL
+coverage. This corrects the earlier wording without changing the frozen source,
+measurements or attempts. A later, separately labeled
+[explicit-zero-byte regression](../../../go/scan_unmanaged_arrow_nul_test.go)
+checks the new unmanaged-only candidate; it is not coverage of this old binary.
 
 Two initial endpoint-free controller selections accidentally included live filtered integration cases. Both Go runs exited zero, with four endpoint-missing skips; the strict controllers exited one. Those attempts and the exact skipped cases are retained in [checks.json](checks.json). The regex was corrected to exact pure test names and both runs repeated with source/assertions unchanged. A separate unsupported CLI `version` probe exited two; embedded Go build metadata and the native driver GetInfo supplied the version checks. No Go assertion or native trial failed.
 
