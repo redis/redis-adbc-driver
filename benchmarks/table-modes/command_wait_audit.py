@@ -91,6 +91,12 @@ def audit():
                                    'effective_qpf_tls_resp3_reverified_each_job': True,
                                    'container_identity_limits_unchanged_at_loan_boundaries': True,
                                    'all_seven_jobs_valid': True, 'release_observations': 2219}
+    cleanup = json.loads((folder/'cleanup.json').read_text())
+    assert cleanup == {'owned_container_and_network_removed': True,
+                       'preexisting_containers_preserved': True, 'preexisting_networks_preserved': True,
+                       'preexisting_container_count': 1, 'preexisting_network_count': 31,
+                       'generated_tls_and_environment_removed': True,
+                       'private_generated_credentials_removed': True}
     trace = json.loads((folder/'trace-capability.json').read_text())
     assert trace['capture_performed'] is False and trace['workload_rerun'] is False
     assert trace['clock_calibration_performed'] is False and trace['packet_timestamp_delivery_observed'] is False

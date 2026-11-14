@@ -16,12 +16,16 @@ production/default tests unchanged; exact diagnostics are archived unapplied.
 Parent reviewed initial `0408724` source and `dc6` timer extension before timing;
 no blockers. Agent review is not human approval. All loans ended with clients closed,
 empty/index-free and effective 4x QPF / strict TLS / RESP3 verified; the same four-CPU /
-eight-GiB container/image was observed at loan boundaries. Final parent teardown
-is pending sibling benchmarks.
+eight-GiB container/image was observed at loan boundaries. Parent final teardown
+removed owned infrastructure and generated TLS/environment/settings/fixture secrets;
+the prior container and 31 networks were preserved. The report links sanitized
+cleanup proof. Exact generated-credential scans found zero matches, leaving raw
+measurement hashes unchanged.
 
 See [report](../../../../benchmarks/table-modes/command-wait-2026-11-13/report.md),
-[intent](intent.md), [contract](spec.md) and [plan](plan.md). Final artifact review
-precedes publication; no merge or human approval is claimed.
+[intent](intent.md), [contract](spec.md) and [plan](plan.md). Parent final artifact reviews at `6366fbd3` and `80da7b28` found no blockers,
+including full audit, bounded conclusions and default-Go identity. These remain
+agent reviews; no merge or human approval is claimed.
 
 Read-only seven-job/2,219-observation audit, Python syntax, relative file links,
 scoped path/URI and exact generated-credential scans passed (zero matches).

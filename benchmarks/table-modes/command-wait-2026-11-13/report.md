@@ -139,7 +139,11 @@ python3 benchmarks/table-modes/command_wait_audit.py
 ```
 
 All subprocesses/clients ended and final loan return was empty/index-free with
-configuration verified. Parent owns final shared infrastructure/TLS/credential
-teardown, pending sibling benchmarks. Raw operational data/IDs, credentials and
-license files stay private. No ClickBench was run. Parent source review found no
-blockers; that is agent review, not human approval. Final evidence review pending.
+configuration verified. The parent completed final shared teardown: owned
+container/network and generated TLS/test environment/settings/fixture credentials
+removed, pre-existing container and 31 networks preserved. See the
+[sanitized proof](cleanup.json). Generated-credential scans found zero matches;
+raw log hashes remain unchanged. Raw operational data/IDs, credentials and license
+files stay private. No ClickBench was run. Parent source and final artifact reviews
+at `6366fbd3` / `80da7b28` found no blockers; these are agent reviews, not human
+approval. The trace follow-up stopped before capture as explicitly approved.
