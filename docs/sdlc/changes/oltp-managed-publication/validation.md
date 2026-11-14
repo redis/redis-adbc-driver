@@ -73,3 +73,5 @@ pre-HGETALL bound was explicitly reviewed; no source-text assertion was added.
 ## Coordinator integration evidence
 
 The final measured production source, combined verification, complete native comparison (including flat/slower cases), actual diagnostic attribution, skipped checks and ownership cleanup are recorded in [coordinator validation](../oltp-query-efficiency/validation.md) and its linked evidence bundle. Earlier scoped observations above retain their actual sources and timing scopes. Human maintainer review remains pending.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

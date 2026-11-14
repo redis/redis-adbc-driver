@@ -38,3 +38,5 @@ remain the end-to-end performance evidence.
   RESET cleanup cannot reuse a pool even when their errors are complete native
   replies. Queued cleanup is not a cleanup acknowledgment. State is discarded
   by closing the pool, never by replaying a transaction or mutation.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

@@ -13,3 +13,5 @@
    validate all result values/types before performance claims. Record actual
    commands, source settings and profile evidence, with private operational data
    excluded. No performance claim follows from source inspection alone.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

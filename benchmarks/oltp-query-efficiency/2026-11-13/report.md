@@ -1,5 +1,7 @@
 # OLTP and selective-query efficiency — November 13, 2026
 
+[PR #437](https://github.com/redis/redis-adbc-driver/pull/437).
+
 The complete baseline and candidate matrices each validated **168 records**: 42 warmups and 126 measured trials, with no failed results, serialization conflicts, retries or discarded native records. Together these contain 5,472 measured operation observations. Each point case has 96 observations per build (3×32); each query case has 24 (3×8).
 
 ## What changed

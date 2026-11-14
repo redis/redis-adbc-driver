@@ -17,3 +17,5 @@ Date: November 13, 2026. Author: Codex. Status: implementation.
 
 Validation and review results will be appended after execution. No human approval
 is inferred from implementation or agent review.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

@@ -9,3 +9,5 @@
 5. Integrate isolated commits, review interacting paths, run focused then appropriate broader Software tests, repeat the full scenario matrix with independent output validation, publish sanitized distributions and ownership cleanup proof, and create a reviewable PR. No merging without user instruction.
 
 Completed: three isolated implementation branches integrated, independent cross-review findings fixed, 336 native trial records validated, 42 chart comparisons exported, broad ordinary and separate snapshot Software/race checks passed with explicit skips, and owner cleanup completed. See [validation](validation.md).
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

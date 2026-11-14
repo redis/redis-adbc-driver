@@ -12,3 +12,5 @@ and query-planning improvements; it does not change snapshot guarantees or
 introduce multi-statement transactions.
 
 [Validation and review](validation.md).
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

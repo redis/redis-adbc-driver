@@ -20,3 +20,5 @@ Date: November 13, 2026. Author: Codex. Source: ca685806. Status: implemented an
   verified Software 4x QPF; Go helper attribution alone is not native timing.
 
 [Validation and review](validation.md).
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

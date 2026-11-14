@@ -1,7 +1,7 @@
 # Intent: reuse drained SQL execution pools
 
 Date: November 13, 2026 (America/Los_Angeles). Author: Codex. Requestor:
-repository user. Base: ca685806. Status: focused validation complete; integration review pending.
+repository user. Base: ca685806. Status: implemented and integrated validation complete; human review pending.
 [Specification](spec.md), [plan](plan.md). Human review pending.
 
 The measured managed/unmanaged known-address point reads take about 8–9 ms while
@@ -22,3 +22,5 @@ No new API, storage format, supported server, snapshot weakening or claim that
 these changes eliminate all OLTP overhead is intended. Known-key SQL already has
 a direct row path; preserve newest-version/tombstone and unmanaged membership
 checks rather than introduce a second bypass.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

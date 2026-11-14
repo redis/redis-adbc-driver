@@ -86,3 +86,5 @@ verified before removing owned fixture/network and generated credentials/environ
 Preexisting container/networks and TLS material were preserved. Public evidence
 contains no endpoints, operational identities, credentials/licenses or private
 logs/CPU profiles. The cleanup proof and selected provenance are retained.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

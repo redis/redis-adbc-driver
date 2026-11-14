@@ -21,3 +21,5 @@ validation. COUNT(*) uses an application key for unmanaged rows, never an
 internal ID. Expression, FILTER, DISTINCT, ordered-set and unsupported predicate
 shapes retain established whole-page evaluation/error order. Representative maps
 retain only group keys and established dependencies, not every input row.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.

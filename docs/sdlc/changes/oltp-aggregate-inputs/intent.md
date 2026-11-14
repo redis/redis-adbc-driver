@@ -15,3 +15,5 @@ Enable runtime-proven immutable BIGINT reductions without weakening precision,
 and reduce per-row map/allocation work for direct scalar/grouped aggregates.
 No unsupported Redis distributions, storage format changes, weaker snapshot
 semantics, new 100M load or implicit query/mutation replay are in scope.
+
+Review: [PR #437](https://github.com/redis/redis-adbc-driver/pull/437). Human maintainer approval remains pending.
