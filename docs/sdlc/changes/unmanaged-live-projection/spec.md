@@ -21,6 +21,9 @@ Use EVALSHA_RO and EVAL_RO with NoRetry markers. Only a native NOSCRIPT refusal
 permits one full-body attempt. Only native fixed TYPE/HMGET ACL-preflight denial
 tokens or exact top-level read-only-script command permission refusals permit
 HGETALL compatibility fallback. Inspect every command and the pipeline outcome
-before repair/fallback; unknown replies, cancellation, malformed data, unrelated
-server errors and unaccounted pipeline errors terminate without replay. Capability
+before repair/fallback. Only direct goredis.Nil equality proves absence, and
+only direct native refusals can be accounted pipeline outcomes; never unwrap a
+joined/wrapped failure to extract such a proof. Unknown replies, cancellation,
+malformed data, unrelated server errors and unaccounted pipeline errors terminate
+without replay. Capability
 state belongs only to this scan, not a later catalog pin or changed application ACL.

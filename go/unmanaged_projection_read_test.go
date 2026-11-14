@@ -247,3 +247,72 @@ func TestUnmanagedProjectionReadSourceAddressWins(t *testing.T) {
 		t.Fatal("application field shadowed source address", got, err)
 	}
 }
+
+func TestUnmanagedProjectionReadWrappedAbsenceIsUnknown(t *testing.T) {
+	for _, kind := range []string{"command_joined_nil", "command_wrapped_nil", "pipeline_joined_nil", "pipeline_wrapped_nil", "noscript_then_joined_nil", "permission_then_joined_nil", "wrapped_native_permission", "joined_native_noscript", "pipeline_joined_native_noscript", "pipeline_wrapped_native_permission"} {
+		t.Run(kind, func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n")
+			r.prepared = true
+			unknown := error(errors.Join(goredis.Nil, io.EOF))
+			if strings.Contains(kind, "wrapped_nil") {
+				unknown = fmt.Errorf("wrapped missing marker: %w", goredis.Nil)
+			}
+			h.step = func(n int, cmds []goredis.Cmder) error {
+				if n > 1 {
+					for _, cmd := range cmds {
+						cmd.SetErr(io.ErrUnexpectedEOF)
+					}
+					return io.ErrUnexpectedEOF
+				}
+				for _, cmd := range cmds {
+					setProjectionReply(cmd, []any{"7"}, nil)
+				}
+				switch kind {
+				case "command_joined_nil", "command_wrapped_nil":
+					cmds[0].SetErr(unknown)
+					return unknown
+				case "pipeline_joined_nil", "pipeline_wrapped_nil":
+					cmds[0].SetErr(goredis.Nil)
+					return unknown
+				case "noscript_then_joined_nil":
+					known := controlScriptNativeError("NOSCRIPT known refusal")
+					cmds[0].SetErr(known)
+					cmds[1].SetErr(unknown)
+					return known
+				case "permission_then_joined_nil":
+					known := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TYPE_DENIED")
+					cmds[0].SetErr(known)
+					cmds[1].SetErr(unknown)
+					return known
+				case "pipeline_joined_native_noscript":
+					known := controlScriptNativeError("NOSCRIPT known refusal")
+					cmds[0].SetErr(known)
+					unknown = errors.Join(known, io.EOF)
+					return unknown
+				case "pipeline_wrapped_native_permission":
+					known := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TYPE_DENIED")
+					cmds[0].SetErr(known)
+					unknown = fmt.Errorf("unknown result wrapping native permission: %w", known)
+					return unknown
+				case "wrapped_native_permission":
+					unknown = fmt.Errorf("unknown result wrapping native permission: %w", controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TYPE_DENIED"))
+					cmds[0].SetErr(unknown)
+					return unknown
+				case "joined_native_noscript":
+					unknown = errors.Join(controlScriptNativeError("NOSCRIPT known refusal"), io.EOF)
+					cmds[0].SetErr(unknown)
+					return unknown
+				}
+				t.Fatal("missing unknown outcome fixture")
+				return nil
+			}
+			rows, err := r.read(context.Background(), []string{"app:one", "app:two"})
+			if err == nil || h.calls != 1 || r.fallback || rows != nil {
+				t.Fatalf("unknown outcome accepted/replayed: rows=%v error=%v calls=%d fallback=%v", rows, err, h.calls, r.fallback)
+			}
+			if !strings.Contains(err.Error(), unknown.Error()) {
+				t.Fatalf("original unknown diagnostic lost: got=%v want=%v", err, unknown)
+			}
+		})
+	}
+}

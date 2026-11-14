@@ -48,8 +48,20 @@ Date: November 14, 2026 (America/Los_Angeles). Author/reviewer: Codex.
 - gofmt and git diff --check pass. Parent integration records full native
   one/four-client before/after timing, final combined-source validation and PR.
 
+Cross-review found that errors.Is(err, goredis.Nil) could hide a lost transport
+reply joined with a nil marker. Six new cases reproduced acceptance or replay on
+84745e2d before the fix. Absence now requires direct equality with goredis.Nil;
+pipeline accounting compares only direct nil/native outcomes and never unwraps
+joined/wrapped failures. Ten new scenarios cover command/pipeline joined or
+wrapped nil, known NOSCRIPT/NOPERM preceding a later unknown, and composed native
+refusals. Focused `go test -race -count=1 -p 1 -run
+'^TestUnmanagedProjectionRead' .` passes with Redis environments unset. Original
+unknown diagnostics remain present and all these cases issue only one pipeline,
+with no repair or compatibility fallback. This is a correctness follow-up;
+earlier timed sources and live evidence are not relabeled.
+
 Review checked atomic existence/value semantics, exact raw values, bounded
 one-key routing, permission fallback proof, source isolation, malformed/unknown
-outcomes, cancellation and retained Arrow/cursor ownership. No actionable finding
-remains in this scoped agent review. Agent review is not human approval. No new
+outcomes, cancellation and retained Arrow/cursor ownership. The cross-review
+finding is fixed; no actionable finding remains in this scoped agent review. Agent review is not human approval. No new
 100M ClickBench, Flex or Flight SQL benchmark ran.

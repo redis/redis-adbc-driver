@@ -4,7 +4,6 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -78,6 +77,26 @@ func unmanagedProjectionMissingScript(err error) bool {
 		RedisError()
 	})
 	return ok && strings.HasPrefix(native.Error(), "NOSCRIPT ")
+}
+
+// A pipeline error is accounted for only by the same direct native outcome.
+// errors.Is/As would accept joined/wrapped absence or a refusal carrying a lost
+// transport reply. Such results are indeterminate, never proof of a missing row
+// or permission/script-cache refusal. Compare native messages only after direct
+// native assertions; unrelated command failures are rejected by batch below.
+func unmanagedProjectionSameNativeError(a, b error) bool {
+	if a == goredis.Nil || b == goredis.Nil {
+		return a == goredis.Nil && b == goredis.Nil
+	}
+	left, leftOK := a.(interface {
+		error
+		RedisError()
+	})
+	right, rightOK := b.(interface {
+		error
+		RedisError()
+	})
+	return leftOK && rightOK && left.Error() == right.Error()
 }
 
 func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]aggRow, error) {
@@ -183,13 +202,13 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string, body
 		if err == nil {
 			continue
 		}
-		accountedPipelineError = accountedPipelineError || errors.Is(pipelineErr, err)
-		if errors.Is(err, goredis.Nil) || unmanagedProjectionPermission(err) || !body && unmanagedProjectionMissingScript(err) {
+		accountedPipelineError = accountedPipelineError || unmanagedProjectionSameNativeError(pipelineErr, err)
+		if err == goredis.Nil || unmanagedProjectionPermission(err) || !body && unmanagedProjectionMissingScript(err) {
 			continue
 		}
 		return nil, false, wrapRedis(transportContextError(ctx, err), "failed to read unmanaged projection")
 	}
-	if pipelineErr != nil && (!accountedPipelineError || !(errors.Is(pipelineErr, goredis.Nil) || unmanagedProjectionPermission(pipelineErr) || !body && unmanagedProjectionMissingScript(pipelineErr))) {
+	if pipelineErr != nil && (!accountedPipelineError || !(pipelineErr == goredis.Nil || unmanagedProjectionPermission(pipelineErr) || !body && unmanagedProjectionMissingScript(pipelineErr))) {
 		return nil, false, wrapRedis(transportContextError(ctx, pipelineErr), "failed to read unmanaged projection pipeline")
 	}
 	out := make([]aggRow, len(keys))
@@ -204,7 +223,7 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string, body
 			missing = append(missing, i)
 			continue
 		}
-		if errors.Is(err, goredis.Nil) {
+		if err == goredis.Nil {
 			continue
 		}
 		values, ok := cmd.Val().([]any)
