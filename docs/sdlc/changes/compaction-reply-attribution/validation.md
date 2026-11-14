@@ -6,7 +6,8 @@ byte-identical to baseline `88774f10`. No production performance change is propo
 
 Focused race tests: 17 passed on `549cbd4a`; 18 passed on corrected `d2abe735`,
 zero failures/skips. Both dense diagnostic jobs and the unchanged dense control
-finished full independent 20K+20K row checks. The initial instrumented Go pass
+finished the complete 20K target-row fetch/value checks plus unrelated-table
+COUNT/MIN(id)/MAX(id) checks (20,000 / 1 / 20,000). The initial instrumented Go pass
 was rejected by complete-sample audit: all 634 flags invalid, with observer-induced
 existing bounded release retries. A separately frozen correction records errors
 without changing release outcomes and fails only the final attribution assertion.

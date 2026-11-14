@@ -12,7 +12,8 @@ normal release/job cleanup and complete output validation, without skips or
 weakened assertions. Observation errors never become release command failures. Fresh pins and normal bounded cleanup remain mandatory.
 
 A new untouched dense I/O control and separately labeled instrumented dense job
-retain their complete source workload and independent 20K+20K result checks.
+retain their complete source workload and independent 20K target-row value checks
+plus unrelated-table count/min/max checks.
 INFO adds requests and pacing: compare entire distributions and retain every
 attempt. Script commandstats time is server-reported command execution, not a
 precise CPU measurement; TLS residual includes dispatch/queue/network/TLS and

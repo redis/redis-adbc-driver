@@ -17,8 +17,9 @@ remain unchanged from `88774f10`.
 | Initial INFO monitor | `549cbd4a` | 0 | 634 | Invalid: all 634 commandstats flags false; observer failures changed release outcomes and triggered existing bounded cleanup retries |
 | Corrected record-only monitor | `d2abe735` | 1 | 317 | Invalid: strict final assertion rejected all 317 per-release deltas after complete job/output validation |
 
-Every job independently fetched and checked all 20K exact BIGINT/payload rows and
-the unrelated 20K-row table. The first Go exit0 did **not** establish a valid
+Every job independently fetched and checked all 20K exact BIGINT/payload target
+rows. It separately checked the unrelated table's COUNT/MIN(id)/MAX(id) as
+20,000 / 1 / 20,000; that aggregate check is not a full unrelated-table fetch. The first Go exit0 did **not** establish a valid
 attribution measurement: a subsequent full-sample audit found its observer errors.
 The correction preserves the original release outcome, records fixed before/after
 counter totals and request durations, and asserts diagnostic validity only after
