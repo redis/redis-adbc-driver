@@ -1,0 +1,41 @@
+{
+  "mode": "reference",
+  "baseline_source": "ca6858065c4cf02418d55c3aa62eb583590fe252",
+  "driver_version": "v0.1.0-dev.merged-scoped-1",
+  "driver_sha256": "8d358ce5d2a9adbf06a6f1b0fe381e57563596b206e620ee368c4948254084f9",
+  "cli_sha256": "a492ed6c782652c3bc89def32eeaf63042168a7721369606108c248fcc985f36",
+  "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+  "harness_sha256": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+  "base_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+  "cpus": 4,
+  "container_memory_bytes": 8589934592,
+  "native_gomaxprocs": "unset",
+  "platform": "macOS-26.7.3-arm64-arm-64bit-Mach-O",
+  "fixture": {
+    "qpf": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "tls_certificate_verified": true,
+    "resp": 3,
+    "empty": true
+  },
+  "software_version": "8.2.6-25",
+  "redis_version": "8.8.0",
+  "search_module_version": 80808,
+  "environment": {
+    "GOGC": "unset",
+    "GOMEMLIMIT": "unset",
+    "GODEBUG": "unset"
+  },
+  "tag_digest_pinned": false,
+  "fixed_recorded_local_container_image": true,
+  "source_clean_before_timing": true,
+  "hardware": {
+    "cpu": "Apple M5 Max",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664,
+    "os": "macOS 26.7.3 arm64"
+  }
+}

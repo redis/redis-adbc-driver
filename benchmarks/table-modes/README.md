@@ -5,6 +5,12 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+[Merged-main full comparison](merged-scoped-2026-11-13/report.md) records all 156
+validated read/SQL/Arrow/native append and creation trials on clean source
+`ca685806`, after PRs #433–435. No conflicts or retries. Managed admitted
+mutations serialize; these observations do not attribute a gain to one change.
+Audit with `python3 benchmarks/table-modes/merged_scoped_audit.py`.
+
 [Scoped unmanaged Arrow input](unmanaged-arrow-input-2026-11-13/README.md) records
 a fresh 112-trial matched comparison. All unmanaged medians decreased 0.27–7.47%
 (4.22% geometric-mean speedup); the weakest case is flat and one managed control
