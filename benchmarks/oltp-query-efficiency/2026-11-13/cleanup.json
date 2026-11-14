@@ -1,0 +1,11 @@
+{
+  "owned_container_and_network_removed": true,
+  "preexisting_containers_preserved": true,
+  "preexisting_networks_preserved": true,
+  "preexisting_container_count": 1,
+  "preexisting_network_count": 31,
+  "generated_environment_removed": true,
+  "tls_generated_by_this_task": false,
+  "preexisting_tls_preserved": true,
+  "private_generated_credentials_removed": true
+}

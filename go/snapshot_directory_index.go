@@ -111,20 +111,30 @@ func (s *store) populateSnapshotIndex(ctx context.Context, meta *tableMeta) erro
 		return errorf(adbc.StatusInvalidState, "snapshot index output is not owned")
 	}
 	directory := snapshotMembers(data)
-	expected, err := s.redis(ctx).ZCard(ctx, directory).Result()
+	// Both reads inspect the same private directory after execution finished.
+	// Batch independent discovery reads; the final count below still detects
+	// changes, including after the last notification. Do not treat a pipeline
+	// error as success even when a transport populated individual replies.
+	p := s.redis(ctx).Pipeline()
+	count := p.ZCard(ctx, directory)
+	page := p.ZRangeByLex(ctx, directory, &goredis.ZRangeBy{Min: "-", Max: "+", Count: 256})
+	_, pipelineErr := p.Exec(ctx)
+	expected, err := count.Result()
 	if err != nil {
 		return wrapRedis(err, "failed to count final index directory")
 	}
+	members, err := page.Result()
+	if err != nil {
+		return wrapRedis(err, "failed to read final index directory")
+	}
+	if pipelineErr != nil {
+		return wrapRedis(pipelineErr, "failed to read final index directory")
+	}
 	var total int64
-	min := "-"
 	baseBytes := len(snapshotCatalogKey) + len(snapshotMetadataGraph) + len(directory) + len(scope.id) + len(scope.pin.token) + len(data)
 	for {
 		if err := cancelled(ctx); err != nil {
 			return err
-		}
-		members, err := s.redis(ctx).ZRangeByLex(ctx, directory, &goredis.ZRangeBy{Min: min, Max: "+", Count: 256}).Result()
-		if err != nil {
-			return wrapRedis(err, "failed to read final index directory")
 		}
 		if len(members) == 0 {
 			break
@@ -148,7 +158,15 @@ func (s *store) populateSnapshotIndex(ctx context.Context, meta *tableMeta) erro
 			start = end
 		}
 		total += int64(len(members))
-		min = "(" + members[len(members)-1]
+		// Cardinality bounds this walk exactly; do not issue an otherwise
+		// redundant empty terminal page for a one-row (or full-page) output.
+		if total == expected {
+			break
+		}
+		members, err = s.redis(ctx).ZRangeByLex(ctx, directory, &goredis.ZRangeBy{Min: "(" + members[len(members)-1], Max: "+", Count: 256}).Result()
+		if err != nil {
+			return wrapRedis(err, "failed to read final index directory")
+		}
 	}
 	actual, err := s.redis(ctx).ZCard(ctx, directory).Result()
 	if err != nil {

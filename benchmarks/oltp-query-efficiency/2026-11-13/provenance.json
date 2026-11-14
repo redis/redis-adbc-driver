@@ -1,0 +1,36 @@
+{
+  "observed_local_date": "2026-11-13",
+  "timezone": "America/Los_Angeles",
+  "driver_builds": {
+    "baseline": {
+      "commit": "ca6858065c4cf02418d55c3aa62eb583590fe252",
+      "library_sha256": "8d358ce5d2a9adbf06a6f1b0fe381e57563596b206e620ee368c4948254084f9",
+      "cli_sha256": "a492ed6c782652c3bc89def32eeaf63042168a7721369606108c248fcc985f36",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6"
+      }
+    },
+    "candidate": {
+      "commit": "45e0ef69297ecc536b88f690ef5a781218e3cf80",
+      "library_sha256": "4bf88c99f8c2d6c714dc7b3e11fadf19b17bd7e3d8d2a8c57682c120d1798b7c",
+      "cli_sha256": "37618820225d97907c9b12a360da51206e0f20f293663011ad4ae38bead3b4b0",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6"
+      }
+    }
+  },
+  "benchmark_harness_source": "PR #436 companion scenarios.py; unchanged frozen copy used for both builds and included here under benchmarks/table-modes.",
+  "post_measurement_diagnostic_test_commit": "44e9c1e2ee244b5b01192e888f40c475c4fa76e1",
+  "post_measurement_production_changes": false,
+  "automatic_retries": 0,
+  "failed_native_trial_records": 0,
+  "discarded_native_trial_records": 0,
+  "application_connection_setup": "Outside timed operations; internal execution-pool/TLS setup remains inside timed operations.",
+  "profile_scope": "Separate instrumented Go ADBC profiles, not Python/C-boundary native samples or Redis server CPU. Read-pool profile uses -race; unmanaged profile uses the no-background-worker protocol fixture.",
+  "compare_source_sha256": "76f37462431d0e2730fde323047cdbec779b66c1e4dfdf026691f73ff39ef84c",
+  "library_sha256_after_run": "4bf88c99f8c2d6c714dc7b3e11fadf19b17bd7e3d8d2a8c57682c120d1798b7c",
+  "cli_sha256_after_run": "37618820225d97907c9b12a360da51206e0f20f293663011ad4ae38bead3b4b0",
+  "cleanup": "Owned Software fixture/network and generated environment/credentials removed. Preexisting container/networks and TLS material preserved. Operational identities, credentials, raw logs and CPU profile remain private."
+}

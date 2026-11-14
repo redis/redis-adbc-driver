@@ -211,7 +211,11 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 	if err == nil && meta.Adopted && !meta.KeyRows {
 		return nil, errAdoptedByRowID(meta)
 	}
-	if err == nil && meta.AppIndex {
+	if err == nil && meta.AppIndex && !(meta.Unmanaged && snapshotOf(ctx) != nil) {
+		// getTable just checked the live unmanaged index definition and applied
+		// its attributes under this catalog pin. Do not repeat that same
+		// FT.INFO before execution. Every new statement still validates it;
+		// no application-owned definition or values are cached across pins.
 		if err := e.store.loadAppIndex(ctx, meta); err != nil {
 			return nil, err
 		}

@@ -654,7 +654,12 @@ func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...b
 	if s == nil || !s.snapshots || snapshotOf(ctx) != nil {
 		return ctx, nil, nil
 	}
-	if reap && !s.restrictedReader {
+	if reap && !s.restrictedReader && !s.snapshotReaperRunning() {
+		// Production connections already collect retired generations on their
+		// separate maintenance worker. Never make a point query synchronously
+		// collect unrelated row/index garbage. Worker-less protocol stores keep
+		// the existing fallback; explicit sweep and capacity reclamation are
+		// unchanged and still use the same durable ownership checks.
 		s.reapSnapshot(ctx)
 	}
 	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{})}
@@ -1283,13 +1288,20 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 	if err := pin.valid(ctx); err != nil {
 		return err
 	}
+	// Execution is complete. Carry the exact authorized private descriptors
+	// through final indexing and readiness instead of fetching them twice.
+	// The final metadata SET and atomic publication fences remain unchanged.
+	tables, err := s.snapshotDirtyTables(ctx)
+	if err != nil {
+		return err
+	}
 	// Document counts alone cannot establish that incremental updates have
 	// settled. Populate a fresh index from the final registered row images and
 	// require both readiness metadata and a native indexed-row proof.
-	if err := s.rebuildSnapshotIndexes(ctx); err != nil {
+	if err := s.rebuildSnapshotTableIndexes(ctx, tables); err != nil {
 		return err
 	}
-	if err := s.validateSnapshot(ctx); err != nil {
+	if err := s.validateSnapshotTables(ctx, tables); err != nil {
 		return err
 	}
 	if err := s.pruneSnapshotMetadata(ctx); err != nil {
@@ -1419,6 +1431,10 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	return s.rebuildSnapshotTableIndexes(ctx, tables)
+}
+
+func (s *store) rebuildSnapshotTableIndexes(ctx context.Context, tables []*tableMeta) error {
 	for _, meta := range tables {
 		if !snapshotOwns(ctx, meta.prefix()) {
 			continue
@@ -1458,6 +1474,10 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	return s.validateSnapshotTables(ctx, tables)
+}
+
+func (s *store) validateSnapshotTables(ctx context.Context, tables []*tableMeta) error {
 	for _, meta := range tables {
 		if !snapshotOwns(ctx, meta.prefix()) {
 			continue
@@ -1641,6 +1661,23 @@ func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) erro
 		}
 	}
 	return nil
+}
+
+// Presence is checked under the same mutex as worker start/stop. A completed
+// worker is not a collector; use foreground maintenance until another starts.
+func (s *store) snapshotReaperRunning() bool {
+	s.mu.Lock()
+	c := s.compactor
+	s.mu.Unlock()
+	if c == nil {
+		return false
+	}
+	select {
+	case <-c.done:
+		return false
+	default:
+		return true
+	}
 }
 
 func (s *store) reapSnapshot(parent context.Context) {
@@ -1873,7 +1910,14 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 		if err != nil {
 			return execResult{}, err
 		}
-		defer e.store.abortSnapshot(pin, id)
+		defer func(writePin *snapshotPin, workID string) {
+			// A confirmed commit already retired private ownership. Abort is a
+			// server no-op for committed work, so reserve it for unsuccessful
+			// statements (including no-op DML and uncertain outcomes).
+			if !published {
+				e.store.abortSnapshot(writePin, workID)
+			}
+		}(pin, id)
 
 		if target != nil {
 			schema, table, err := e.resolveTable(*target)
