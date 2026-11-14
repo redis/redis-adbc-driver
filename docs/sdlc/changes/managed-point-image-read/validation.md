@@ -25,3 +25,25 @@ ACL fallback, terminal inner failures/unknown replies, argument bounds and
 unchanged strict/multi-row paths. Unknown replies use the existing no-retry
 wrapper. Additional relevant regressions, candidate profile and coordinator
 integration evidence will be attached before final claims.
+
+## Candidate evidence
+
+Production candidate `6af289dd5edd205d4d69fe65a5839a4b1109ee72` completes the
+identical 96-mutation diagnostic with all final states valid. Sanitized complete
+[before/after evidence](../../../../benchmarks/managed-point-images/2026-11-14/report.md)
+retains the slower INSERT case and actual source/harness hashes. Client exchange
+counts are distinct from server commands executed inside Lua. These observations
+remain diagnostic until the coordinator's isolated paired native measurements.
+
+A further relevant Software selection passes 33 top-level tests, zero skips or
+failures, 8.983s: versioned DML/row-directory corruption, private index notification
+and unknown outcomes, independent publication/concurrent writers, Arrow atomicity
+and modes, strict direct partitions and the new point proof/permission cases.
+All processes and clients exited before the shared live slot was released.
+
+Unit-only `env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=4 go test -count=1
+-p 1 ./...`: PASS in all Go packages; native integration cases skip without
+endpoints. `python3 benchmarks/managed-point-images/audit.py`: PASS, covering
+96+96 retained diagnostic observations, exact coverage, source/input hashes and
+comparison arithmetic. `gofmt` and `git diff --check`: PASS. No new live Redis
+work ran during these offline checks.

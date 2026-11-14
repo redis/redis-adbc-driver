@@ -1,0 +1,22 @@
+{
+  "baseline_production_source": "0b21647831d13b0c10e652b7095515b0f5a74069",
+  "candidate_production_source": "6af289dd5edd205d4d69fe65a5839a4b1109ee72",
+  "diagnostic_source_sha256": "fbbf79512e4308f479bd812bc9645a11ad7c4c67909d77bfd99b8da781b207ed",
+  "diagnostic_source_note": "The same opt-in Go test was added without changing baseline production source; timer/query/value-validation body is identical for both runs.",
+  "go_toolchain": "go1.27.3",
+  "gomaxprocs": 4,
+  "server": "Redis Software; verified active/effective 4x QPF, six Search workers, mnp/32, noeviction, strict data TLS/RESP3",
+  "fixture_rows": 1000,
+  "public_columns": 4,
+  "control_columns": 1,
+  "operations_per_case": 32,
+  "background_worker": true,
+  "automatic_retries": 0,
+  "independent_complete_final_states_validated": true,
+  "source_hashes": {
+    "baseline.json": "35220c0e3981fb054f7df21810a8d4f1d3569896fbc9c8e9ff8b30ab394b182a",
+    "candidate.json": "c0d578d920f639f9772960044353525628d1225af20659ae1012c212493e45c2",
+    "comparison.json": "9f614d853c01aeeddabd4cb9e37b9dd609649f91df129e0f55b0a125d4bb21ef"
+  },
+  "wall_time_limits": "Instrumented sequential Go diagnostics, one sample sequence per build, background maintenance active. Other agents could compile concurrently. No randomized/interleaved AB, confidence interval, native client comparison or server CPU attribution."
+}
