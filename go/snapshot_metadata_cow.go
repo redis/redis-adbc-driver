@@ -112,10 +112,11 @@ if owner~='' and redis.call('HINCRBY',KEYS[6],'v:'..KEYS[4],-1)==0 then redis.ca
 return 1
 `
 
-func (s *store) cloneSnapshotMetadata(baseCtx, ctx context.Context, base, id string) error {
-	if err := s.validateSnapshotMetadata(baseCtx, base); err != nil {
-		return err
-	}
+func (s *store) cloneSnapshotMetadata(_ context.Context, ctx context.Context, base, id string) error {
+	// The clone script checks the committed base's manifest, exact map and
+	// directory cardinalities, references and live pin before its first write.
+	// Repeating the weaker client-side manifest pipeline cannot strengthen
+	// that atomic proof, and adds a round trip to every managed mutation.
 	return wrapRedis(once(ctx, s.client, "EVAL", snapshotMetadataCloneRoot, 5, snapshotCatalogKey, snapshotMetadataMap(base), snapshotMetadataMap(id), snapshotMetadataGraph, snapshotMetadataKeys(base), id, snapshotOf(ctx).pin.token, base).Err(), "failed to share snapshot metadata root")
 }
 

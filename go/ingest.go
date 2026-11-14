@@ -90,7 +90,11 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 		if err != nil {
 			return -1, err
 		}
-		defer s.conn.store.abortSnapshot(pin, id)
+		defer func() {
+			if !published {
+				s.conn.store.abortSnapshot(pin, id)
+			}
+		}()
 		n, err := s.executeIngest(wctx)
 		if err != nil {
 			return -1, err
