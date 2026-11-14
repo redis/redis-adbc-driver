@@ -26,6 +26,7 @@ type executionTransport struct {
 	mu          sync.Mutex
 	pool        *executionPool
 	failed      bool
+	commands    int
 	interrupted bool
 	finishing   bool
 	background  map[<-chan struct{}]struct{}
@@ -110,7 +111,7 @@ func (t *executionTransport) closeClient(allowReuse bool) {
 		for done := range t.background {
 			pending = append(pending, done)
 		}
-		reuse := allowReuse && t.pool != nil && !t.interrupted && !t.failed && t.ctx.Err() == nil && len(pending) == 0
+		reuse := allowReuse && t.pool != nil && !t.interrupted && !t.failed && t.ctx.Err() == nil && len(pending) == 0 && t.commands == 0
 		t.mu.Unlock()
 		t.cancel(nil)
 		if !reuse {
@@ -222,16 +223,48 @@ func executionPoolUncertain(err error) bool {
 	return !native
 }
 
+// A stale execution context must not submit work to a pool that now belongs
+// to another execution. Count admitted commands under the completion mutex so
+// finish cannot lend an execution pool while its machinery is still in flight.
+func (p *executionPool) beginCommand(ctx context.Context) (*executionTransport, error) {
+	t, _ := ctx.Value(transportContextKey{}).(*executionTransport)
+	if t == nil || t.pool != p {
+		return nil, nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if p.active != t || t.finishing {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return nil, net.ErrClosed
+	}
+	t.commands++
+	return t, nil
+}
+func (t *executionTransport) endCommand() {
+	t.mu.Lock()
+	t.commands--
+	t.mu.Unlock()
+}
+
 func (p *executionPool) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func (p *executionPool) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		t, _ := ctx.Value(transportContextKey{}).(*executionTransport)
-		if t == nil || t.pool != p {
+		t, err := p.beginCommand(ctx)
+		if err != nil {
+			cmd.SetErr(err)
+			return err
+		}
+		if t == nil {
 			return next(ctx, cmd)
 		}
+		defer t.endCommand()
 		stop := t.arm(ctx)
 		defer stop()
-		err := next(ctx, cmd)
+		err = next(ctx, cmd)
 		if executionPoolUncertain(err) || executionPoolUncertain(cmd.Err()) {
 			t.mu.Lock()
 			t.failed = true
@@ -242,13 +275,20 @@ func (p *executionPool) ProcessHook(next goredis.ProcessHook) goredis.ProcessHoo
 }
 func (p *executionPool) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
-		t, _ := ctx.Value(transportContextKey{}).(*executionTransport)
-		if t == nil || t.pool != p {
+		t, err := p.beginCommand(ctx)
+		if err != nil {
+			for _, cmd := range cmds {
+				cmd.SetErr(err)
+			}
+			return err
+		}
+		if t == nil {
 			return next(ctx, cmds)
 		}
+		defer t.endCommand()
 		stop := t.arm(ctx)
 		defer stop()
-		err := next(ctx, cmds)
+		err = next(ctx, cmds)
 		uncertain := executionPoolUncertain(err)
 		// Pipeline's return value may be its first native error even when a
 		// later reply was lost. Inspect every reply before lending the pool.

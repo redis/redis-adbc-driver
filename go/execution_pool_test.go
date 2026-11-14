@@ -327,6 +327,7 @@ func TestExecutionPoolPipelineNativeErrorCannotHideLostLaterReply(t *testing.T) 
 		p := &executionPool{}
 		ctx, cancel := context.WithCancelCause(context.Background())
 		transport := &executionTransport{ctx: ctx, cancel: cancel, pool: p}
+		p.active = transport
 		ctx = context.WithValue(ctx, transportContextKey{}, transport)
 		native := redisErr("ERR first command refused")
 		a, b := goredis.NewCmd(ctx, "first"), goredis.NewCmd(ctx, "second")
@@ -342,4 +343,57 @@ func TestExecutionPoolPipelineNativeErrorCannotHideLostLaterReply(t *testing.T) 
 			t.Fatalf("native first error hid uncertain %T later reply", later)
 		}
 	}
+}
+
+func TestExecutionPoolRefusesCompletedContextAfterTransfer(t *testing.T) {
+	c, server := executionPoolFixture(t, false)
+	stale, a := c.executionContext(context.Background())
+	if err := c.store.redis(stale).Ping(stale).Err(); err != nil {
+		t.Fatal(err)
+	}
+	a.finish()
+	live, b := c.executionContext(context.Background())
+	defer b.finish()
+	if a.pool != b.pool {
+		t.Fatal("test did not transfer pool")
+	}
+	count := server.count("PING")
+	if err := a.client.Ping(stale).Err(); err == nil {
+		t.Fatal("stale command accepted")
+	}
+	_, err := a.client.Pipelined(stale, func(p goredis.Pipeliner) error { p.Ping(stale); return nil })
+	if err == nil {
+		t.Fatal("stale pipeline accepted")
+	}
+	if server.count("PING") != count {
+		t.Fatal("stale command reached server")
+	}
+	if err := c.store.redis(live).Ping(live).Err(); err != nil {
+		t.Fatal("stale context affected active lease", err)
+	}
+	if server.count("HELLO") != 1 {
+		t.Fatal("stale request forced active pool reconnect")
+	}
+}
+
+func TestExecutionPoolCannotLendInFlightCommand(t *testing.T) {
+	c, _ := executionPoolFixture(t, false)
+	ctx, transport := c.executionContext(context.Background())
+	if err := c.store.redis(ctx).Ping(ctx).Err(); err != nil {
+		t.Fatal(err)
+	}
+	started, release := make(chan struct{}), make(chan struct{})
+	hook := transport.pool.ProcessHook(func(context.Context, goredis.Cmder) error { close(started); <-release; return nil })
+	done := make(chan struct{})
+	go func() { defer close(done); _ = hook(ctx, goredis.NewCmd(ctx, "in-flight")) }()
+	<-started
+	transport.finish()
+	c.store.mu.Lock()
+	idle := c.store.idleExecution
+	c.store.mu.Unlock()
+	if idle != nil {
+		t.Fatal("pool lent while command was in flight")
+	}
+	close(release)
+	<-done
 }

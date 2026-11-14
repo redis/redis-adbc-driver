@@ -49,3 +49,10 @@ newest-to-oldest/tombstones and preserves unmanaged membership. Four lease-valid
 round trips remain in the read profile; they are not removed by a time-based
 lease cache. Reducing them requires a separately proven atomic read protocol.
 No production server compatibility or storage-format change is introduced.
+
+Follow-up lifecycle hardening: both command and pipeline hooks refuse a completed
+execution context after pool transfer, before sending anything. Active command
+counts participate in the completion check, so unfinished command machinery
+cannot be lent to another execution. New protocol regressions verify no stale
+command/pipeline reaches the server and no in-flight command pool is cached.
+The complete focused race selection above passes again after these guards.
