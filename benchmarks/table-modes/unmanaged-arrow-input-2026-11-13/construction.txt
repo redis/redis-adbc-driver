@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M5 Max
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=63/fused=false-4         	    3883	     61345 ns/op	   19761 B/op	     142 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=63/fused=false-4         	    4003	     57257 ns/op	   19760 B/op	     142 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=63/fused=false-4         	    4276	     56549 ns/op	   19760 B/op	     142 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=63/fused=true-4          	    4105	     57006 ns/op	   19760 B/op	     142 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=63/fused=true-4          	    4174	     55719 ns/op	   19760 B/op	     142 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=63/fused=true-4          	    4353	     56613 ns/op	   19760 B/op	     142 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=1024/fused=false-4       	     278	    855033 ns/op	  200240 B/op	     158 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=1024/fused=false-4       	     278	    861672 ns/op	  200240 B/op	     158 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=1024/fused=false-4       	     278	    857917 ns/op	  200240 B/op	     158 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=1024/fused=true-4        	     271	    873456 ns/op	  200240 B/op	     158 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=1024/fused=true-4        	     274	    882618 ns/op	  200240 B/op	     158 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=8/rows=1024/fused=true-4        	     273	    869946 ns/op	  200240 B/op	     158 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=63/fused=false-4       	     397	    615463 ns/op	  280416 B/op	    2111 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=63/fused=false-4       	     381	    618610 ns/op	  280418 B/op	    2111 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=63/fused=false-4       	     391	    605987 ns/op	  280417 B/op	    2111 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=63/fused=true-4        	     543	    434509 ns/op	  290608 B/op	    2217 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=63/fused=true-4        	     566	    428453 ns/op	  290608 B/op	    2217 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=63/fused=true-4        	     549	    443224 ns/op	  290608 B/op	    2217 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=1024/fused=false-4     	      25	   9320120 ns/op	 2644716 B/op	    2319 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=1024/fused=false-4     	      25	   9284032 ns/op	 2644712 B/op	    2319 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=1024/fused=false-4     	      25	   9340842 ns/op	 2644712 B/op	    2319 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=1024/fused=true-4      	      37	   6298760 ns/op	 2654899 B/op	    2425 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=1024/fused=true-4      	      36	   6586634 ns/op	 2654899 B/op	    2425 allocs/op
+BenchmarkUnmanagedArrowInputConstruction/columns=105/rows=1024/fused=true-4      	      36	   6398825 ns/op	 2654902 B/op	    2425 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	6.587s

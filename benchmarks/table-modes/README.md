@@ -5,6 +5,13 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+[Scoped unmanaged Arrow input](unmanaged-arrow-input-2026-11-13/README.md) records
+a fresh 112-trial matched comparison. All unmanaged medians decreased 0.27–7.47%
+(4.22% geometric-mean speedup); the weakest case is flat and one managed control
+is 4.67% higher with overlapping ranges. The original gate passes; complete
+samples, setup allocation costs, coverage precision and limitations remain visible.
+Audit with `unmanaged_arrow_input_audit.py`.
+
 [Compaction reply-wait investigation](compaction-reply-2026-11-13/report.md)
 retains the unchanged control and both rejected server-counter attribution
 attempts. Added INFO requests moved the wait into the preceding observer call;

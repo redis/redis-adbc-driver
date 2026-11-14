@@ -1,0 +1,283 @@
+{
+  "source": "67264020f524f62a431ef00585a218c6a63660f5",
+  "samples": [
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": false,
+      "iterations": 3883,
+      "ns_per_op": 61345.0,
+      "bytes_per_op": 19761,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": false,
+      "iterations": 4003,
+      "ns_per_op": 57257.0,
+      "bytes_per_op": 19760,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": false,
+      "iterations": 4276,
+      "ns_per_op": 56549.0,
+      "bytes_per_op": 19760,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": true,
+      "iterations": 4105,
+      "ns_per_op": 57006.0,
+      "bytes_per_op": 19760,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": true,
+      "iterations": 4174,
+      "ns_per_op": 55719.0,
+      "bytes_per_op": 19760,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": true,
+      "iterations": 4353,
+      "ns_per_op": 56613.0,
+      "bytes_per_op": 19760,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 278,
+      "ns_per_op": 855033.0,
+      "bytes_per_op": 200240,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 278,
+      "ns_per_op": 861672.0,
+      "bytes_per_op": 200240,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 278,
+      "ns_per_op": 857917.0,
+      "bytes_per_op": 200240,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 271,
+      "ns_per_op": 873456.0,
+      "bytes_per_op": 200240,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 274,
+      "ns_per_op": 882618.0,
+      "bytes_per_op": 200240,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 273,
+      "ns_per_op": 869946.0,
+      "bytes_per_op": 200240,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": false,
+      "iterations": 397,
+      "ns_per_op": 615463.0,
+      "bytes_per_op": 280416,
+      "allocs_per_op": 2111
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": false,
+      "iterations": 381,
+      "ns_per_op": 618610.0,
+      "bytes_per_op": 280418,
+      "allocs_per_op": 2111
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": false,
+      "iterations": 391,
+      "ns_per_op": 605987.0,
+      "bytes_per_op": 280417,
+      "allocs_per_op": 2111
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": true,
+      "iterations": 543,
+      "ns_per_op": 434509.0,
+      "bytes_per_op": 290608,
+      "allocs_per_op": 2217
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": true,
+      "iterations": 566,
+      "ns_per_op": 428453.0,
+      "bytes_per_op": 290608,
+      "allocs_per_op": 2217
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": true,
+      "iterations": 549,
+      "ns_per_op": 443224.0,
+      "bytes_per_op": 290608,
+      "allocs_per_op": 2217
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 25,
+      "ns_per_op": 9320120.0,
+      "bytes_per_op": 2644716,
+      "allocs_per_op": 2319
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 25,
+      "ns_per_op": 9284032.0,
+      "bytes_per_op": 2644712,
+      "allocs_per_op": 2319
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 25,
+      "ns_per_op": 9340842.0,
+      "bytes_per_op": 2644712,
+      "allocs_per_op": 2319
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 37,
+      "ns_per_op": 6298760.0,
+      "bytes_per_op": 2654899,
+      "allocs_per_op": 2425
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 36,
+      "ns_per_op": 6586634.0,
+      "bytes_per_op": 2654899,
+      "allocs_per_op": 2425
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 36,
+      "ns_per_op": 6398825.0,
+      "bytes_per_op": 2654902,
+      "allocs_per_op": 2425
+    }
+  ],
+  "summary": [
+    {
+      "columns": 8,
+      "rows": 63,
+      "control": {
+        "ns_per_op": 57257.0,
+        "bytes_per_op": 19760,
+        "allocs_per_op": 142
+      },
+      "fused": {
+        "ns_per_op": 56613.0,
+        "bytes_per_op": 19760,
+        "allocs_per_op": 142
+      },
+      "seconds_change_pct": -1.1247533052727188
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "control": {
+        "ns_per_op": 857917.0,
+        "bytes_per_op": 200240,
+        "allocs_per_op": 158
+      },
+      "fused": {
+        "ns_per_op": 873456.0,
+        "bytes_per_op": 200240,
+        "allocs_per_op": 158
+      },
+      "seconds_change_pct": 1.8112474749888419
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "control": {
+        "ns_per_op": 615463.0,
+        "bytes_per_op": 280417,
+        "allocs_per_op": 2111
+      },
+      "fused": {
+        "ns_per_op": 434509.0,
+        "bytes_per_op": 290608,
+        "allocs_per_op": 2217
+      },
+      "seconds_change_pct": -29.401280011958477
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "control": {
+        "ns_per_op": 9320120.0,
+        "bytes_per_op": 2644712,
+        "allocs_per_op": 2319
+      },
+      "fused": {
+        "ns_per_op": 6398825.0,
+        "bytes_per_op": 2654899,
+        "allocs_per_op": 2425
+      },
+      "seconds_change_pct": -31.343963382445715
+    }
+  ]
+}

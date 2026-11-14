@@ -1,0 +1,8 @@
+{
+  "historical_reference": "06c76c0b68258862d091487c3eb280b961f4fb8d",
+  "original_README_sha256": "0981914fae56e3052b052a42774cef4fea1924d257760f3df15c8624237b1752",
+  "corrected_README_sha256": "1fe840a4996aa21cd86839522e95bf915eda5193e4f9295a2ce26ae3bfeb4bc9",
+  "precision_correction": "Selected string fixtures use printable backslash-x00, not an actual zero byte; original NUL coverage wording was not established",
+  "historical_measured_sources_numbers_attempts_changed": false,
+  "later_explicit_zero_byte_test_source": "1e112158028d60757c2555f11d8376d206da9332"
+}
