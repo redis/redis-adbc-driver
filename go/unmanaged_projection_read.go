@@ -60,6 +60,13 @@ func newUnmanagedProjectionRead(s *store, meta *tableMeta, need map[string]bool)
 	return r
 }
 
+// Redis prefixes single-token redis.error_reply payloads with ERR. Accept only
+// that exact wire spelling or the exact token used by deterministic transports;
+// do not normalize arbitrary prefixes or unwrap an indeterminate error.
+func unmanagedProjectionNativeToken(message, token string) bool {
+	return message == token || message == "ERR "+token
+}
+
 func unmanagedProjectionPermission(err error) bool {
 	native, ok := err.(interface {
 		error
@@ -69,7 +76,7 @@ func unmanagedProjectionPermission(err error) bool {
 		return false
 	}
 	message := native.Error()
-	if message == "ADBC_UNMANAGED_PROJECTION_TYPE_DENIED" || message == "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED" || message == "ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED" {
+	if unmanagedProjectionNativeToken(message, "ADBC_UNMANAGED_PROJECTION_TYPE_DENIED") || unmanagedProjectionNativeToken(message, "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED") || unmanagedProjectionNativeToken(message, "ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED") {
 		return true
 	}
 	for _, command := range []string{"evalsha_ro", "eval_ro"} {
@@ -94,7 +101,7 @@ func unmanagedProjectionTooLarge(err error) bool {
 		error
 		RedisError()
 	})
-	return ok && native.Error() == "ADBC_UNMANAGED_PROJECTION_TOO_LARGE"
+	return ok && unmanagedProjectionNativeToken(native.Error(), "ADBC_UNMANAGED_PROJECTION_TOO_LARGE")
 }
 
 // A pipeline error is accounted for only by the same direct native outcome.

@@ -95,8 +95,29 @@ cumulative individually-small fields, an exact boundary, missing selected fields
 and large unselected fields; it checks native guard refusal and complete original
 HGETALL data, rather than attempting an OOM-sized fixture.
 
-These follow-up tests are authored but not executed in this agent turn: the
-parent's ordinary suite owns the live slot and builds are paused. Parent
-integration must run focused unit/native coverage and final before/after native
-timings with this extra HSTRLEN work. Earlier timing and validation observations
+At resource-guard authoring, these tests were not executed because the parent's
+ordinary suite owned the live slot and builds were paused. Parent integration
+must run focused native coverage and final before/after native timings with this
+extra HSTRLEN work. Earlier timing and validation observations
 above retain their actual prior sources and are not final guarded-source claims.
+
+
+## Native refusal spelling follow-up
+
+Parent integration's native boundary test on combined source 00553f22 exposed
+Redis's actual error spelling: redis.error_reply of the fixed single-token size
+refusal arrives as `ERR ADBC_UNMANAGED_PROJECTION_TOO_LARGE`. The classifier now
+accepts only the exact bare token used by deterministic models or the exact token
+with one `ERR ` prefix. The same correction covers TYPE, HMGET and HSTRLEN
+preflight tokens. Top-level NOPERM matching is unchanged; no arbitrary prefix
+stripping or exception unwrapping was added.
+
+Focused unit/race coverage includes all four tokens with both spellings, native
+permission fallback and per-row size fallback using actual prefixed wire forms,
+and rejection of suffixes/infixes/doubled prefixes/untyped strings and
+wrapped/joined prefixed errors. Unknown prefixed outcomes preserve their original
+diagnostic and cause exactly one pipeline with no fallback or repair. The full
+`TestUnmanagedProjectionRead` focused race selection passes with both Redis
+endpoint environments unset. No live command ran during this correction; parent
+integration retains the red native checkpoint and must repeat verified native
+boundary/lifecycle coverage before final timings.

@@ -89,7 +89,7 @@ func TestUnmanagedProjectionReadExactAndColdCache(t *testing.T) {
 	}
 }
 func TestUnmanagedProjectionReadPermissionCompatibility(t *testing.T) {
-	for _, message := range []string{"ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "NOPERM this user has no permissions to run the 'evalsha_ro' command"} {
+	for _, message := range []string{"ERR ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "NOPERM this user has no permissions to run the 'evalsha_ro' command"} {
 		t.Run(message, func(t *testing.T) {
 			r, h := projectionReadUnit(t, "n")
 			h.step = func(n int, cmds []goredis.Cmder) error {
@@ -328,7 +328,7 @@ func TestUnmanagedProjectionReadTooLargeUsesPerRowCompatibility(t *testing.T) {
 				t.Fatal("fixture did not test a mixed pipeline")
 			}
 			setProjectionReply(cmds[0], []any{"small"}, nil)
-			refusal := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TOO_LARGE")
+			refusal := controlScriptNativeError("ERR ADBC_UNMANAGED_PROJECTION_TOO_LARGE")
 			setProjectionReply(cmds[1], nil, refusal)
 			setProjectionReply(cmds[2], []any{nil}, nil)
 			return refusal
@@ -404,5 +404,52 @@ func TestUnmanagedProjectionReadSizeRefusalDoesNotHideUnknown(t *testing.T) {
 				t.Fatal("unknown size result accepted/replayed or diagnostic lost", got, err, h.calls)
 			}
 		})
+	}
+}
+
+func TestUnmanagedProjectionReadExactNativeTokenSpellings(t *testing.T) {
+	for _, token := range []string{"ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "ADBC_UNMANAGED_PROJECTION_TOO_LARGE"} {
+		for _, prefix := range []string{"", "ERR "} {
+			wire := prefix + token
+			t.Run(wire, func(t *testing.T) {
+				native := controlScriptNativeError(wire)
+				permission := token != "ADBC_UNMANAGED_PROJECTION_TOO_LARGE"
+				if unmanagedProjectionPermission(native) != permission || unmanagedProjectionTooLarge(native) == permission {
+					t.Fatal("exact native wire token lost", wire)
+				}
+				for _, unknown := range []error{fmt.Errorf("unknown reply: %w", native), errors.Join(native, io.EOF), errors.New(wire), controlScriptNativeError("ERR " + wire + " suffix"), controlScriptNativeError("ERR ERR " + token), controlScriptNativeError("ERR prefix " + token), controlScriptNativeError("prefix ERR " + token), controlScriptNativeError("ERRprefix " + token), controlScriptNativeError(wire + "suffix")} {
+					if unmanagedProjectionPermission(unknown) || unmanagedProjectionTooLarge(unknown) {
+						t.Fatal("composed/nonexact wire token accepted", unknown)
+					}
+				}
+			})
+		}
+	}
+}
+func TestUnmanagedProjectionReadPrefixedTokenUnknownIsNotRetried(t *testing.T) {
+	for _, token := range []string{"ERR ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "ERR ADBC_UNMANAGED_PROJECTION_TOO_LARGE"} {
+		for _, wrapped := range []bool{false, true} {
+			t.Run(fmt.Sprint(token, wrapped), func(t *testing.T) {
+				r, h := projectionReadUnit(t, "value")
+				r.prepared = true
+				native := controlScriptNativeError(token)
+				var unknown error = errors.Join(native, io.EOF)
+				if wrapped {
+					unknown = fmt.Errorf("unknown prefixed refusal: %w", native)
+				}
+				h.step = func(n int, cmds []goredis.Cmder) error {
+					if n != 1 {
+						t.Fatal("composed prefixed token triggered fallback")
+					}
+					setProjectionReply(cmds[0], []any{"small"}, nil)
+					cmds[0].SetErr(unknown)
+					return unknown
+				}
+				got, err := r.read(context.Background(), []string{"app:one"})
+				if err == nil || got != nil || h.calls != 1 || r.fallback || !strings.Contains(err.Error(), unknown.Error()) {
+					t.Fatal("unknown prefixed token accepted/replayed", got, err, h.calls)
+				}
+			})
+		}
 	}
 }

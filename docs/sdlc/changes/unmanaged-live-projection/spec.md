@@ -29,7 +29,9 @@ Use EVALSHA_RO and EVAL_RO with NoRetry markers. Only a native NOSCRIPT refusal
 permits one full-body attempt. Only native fixed TYPE/HMGET ACL-preflight denial
 tokens or exact top-level read-only-script command permission refusals permit
 permission compatibility fallback; only the fixed native size-guard token permits
-per-row size fallback to HGETALL. Inspect every command and the pipeline outcome
+per-row size fallback to HGETALL. Fixed tokens accept the exact native token or
+its actual single `ERR ` wire prefix, never suffix/infix variants or an extracted
+wrapped/joined error. Inspect every command and the pipeline outcome
 before repair/fallback. Only direct goredis.Nil equality proves absence, and
 only direct native refusals can be accounted pipeline outcomes; never unwrap a
 joined/wrapped failure to extract such a proof. Unknown replies, cancellation,
