@@ -16,4 +16,4 @@
 See [intent](intent.md) and [contract](spec.md).
 
 Execution completed at clean `85cf660b`; quantitative gates passed. Final agent
-artifact review and owner cleanup proof precede authorized PR publication.
+artifact review passed and owner cleanup completed before authorized PR publication.

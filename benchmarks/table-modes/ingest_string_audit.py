@@ -115,9 +115,15 @@ def audit():
     assert hashlib.sha256((folder/'helper.py.txt').read_bytes()).hexdigest() == provenance['baseline']['helper_sha256'] == provenance['candidate']['helper_sha256']
     for name, digest in read('sha256.json').items():
         assert hashlib.sha256((folder/name).read_bytes()).hexdigest() == digest
-    if (folder/'cleanup.json').exists():
-        cleanup = read('cleanup.json')
-        assert all(v is True for k, v in cleanup.items() if k not in ('preexisting_container_count', 'preexisting_network_count'))
+    cleanup = read('cleanup.json')
+    assert cleanup == {
+        'owned_container_and_network_removed': True,
+        'preexisting_containers_preserved': True,
+        'preexisting_networks_preserved': True,
+        'preexisting_container_count': 1,
+        'preexisting_network_count': 31,
+        'generated_tls_and_environment_removed': True,
+        'private_generated_credentials_removed': True}
     print('PASS: all64 native/all8 cells +48 construction samples,146 passing cases, original failed compile attempt, source/settings and original quantitative gates')
 
 

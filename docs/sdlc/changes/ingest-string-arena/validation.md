@@ -40,8 +40,10 @@ independently recomputed the quantitative gates. This is agent review; source
 code remains proposed, not merged/released.
 
 Every loan ended with all subprocesses/clients closed, empty/index-free DB and
-effective 4x QPF / strict TLS / RESP3 reverified. Root final shared infrastructure
-cleanup is pending; operational artifacts, credentials and license files remain
-private. No ClickBench or alternative server/provider was used.
+effective 4x QPF / strict TLS / RESP3 reverified. Root completed final owner
+teardown: owned container/network and generated TLS/environment/settings/fixture
+credentials removed, prior container and 31 networks preserved. Sanitized proof
+is retained in the report; exact generated-secret scans found zero matches and
+raw hashes remain unchanged. Operational artifacts and license files remain private. No ClickBench or alternative server/provider was used.
 
 See [intent](intent.md), [contract](spec.md) and [plan](plan.md).

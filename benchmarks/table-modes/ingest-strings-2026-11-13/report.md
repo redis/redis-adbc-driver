@@ -157,7 +157,10 @@ Root and sibling agents reviewed source before execution, no blockers; this is
 agent review, not human maintainer approval. Final parent agent artifact review at `246b65fe` found no blockers and independently
 recomputed the native gates; this is not human maintainer approval.
 All clients/subprocesses ended and each loan returned empty/index-free with QPF,
-TLS and RESP3 reverified. Root owns final shared infrastructure/credential cleanup; that teardown is pending. No child teardown is claimed.
+TLS and RESP3 reverified. Final owner teardown removed the owned container/network and generated TLS,
+test environment, settings and fixture credentials. The prior container and all
+31 prior networks were preserved; [cleanup.json](cleanup.json) records completion.
+Generated-credential scans found zero matches, leaving raw log hashes unchanged.
 Operational artifacts, identifiers, credentials and license material remain private.
 No ClickBench or alternate Redis provider was used.
 
