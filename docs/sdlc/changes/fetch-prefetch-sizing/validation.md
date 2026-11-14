@@ -16,7 +16,11 @@ well beyond the original >3% threshold. No source/guard tuning or rerun followed
 Narrow managed controls were added before any timing after reviewing existing
 width-independent snapshot eligibility; this was a pre-measurement scope correction.
 Both sibling agents and parent found no source/ownership/proof blockers; this is
-agent review, not human approval. Final evidence audits/review precede publication.
+agent review, not human approval. Final agent artifact review at `8159023f` found no blockers and independently
+checked all 12 elapsed, first-batch and RSS summaries, the gate, source/hashes,
+cleanup and privacy. Read-only arithmetic audit, Python syntax, relative links,
+scoped path/URI checks and patch apply-check passed. Scoped whitespace checks
+exclude exact archived patch context; those bytes and their hash are preserved.
 
 Root completed all shared loans, verified empty/index-free and effective 4x QPF /
 strict TLS / RESP3, then removed the owned fixture/network and generated TLS/env/secrets.
