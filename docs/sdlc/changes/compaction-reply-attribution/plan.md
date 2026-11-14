@@ -37,3 +37,5 @@ Archive both exact diagnostic/test patches on an evidence-only branch from the
 baseline. Parent final source/evidence review found no blockers and authorized
 PR publication after completed shared infrastructure cleanup. Cleanup is complete;
 see [validation](validation.md). No merge or human approval is claimed.
+
+Review: [PR #430](https://github.com/redis/redis-adbc-driver/pull/430) is open; no merge or human approval is claimed.

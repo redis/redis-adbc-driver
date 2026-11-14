@@ -10,3 +10,5 @@ implementations are archived unapplied, not a supported per-release metrics feat
 See [spec](spec.md), [plan](plan.md), [validation](validation.md) and
 [report](../../../../benchmarks/table-modes/compaction-reply-2026-11-13/report.md).
 No human approval or speedup is claimed.
+
+Review: [PR #430](https://github.com/redis/redis-adbc-driver/pull/430) is open; no merge or human approval is claimed.

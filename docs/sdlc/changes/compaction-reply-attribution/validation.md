@@ -48,3 +48,5 @@ matches; raw log hashes are unchanged. Operational artifacts/IDs, credentials,
 license and TLS material remain private. No ClickBench or alternative provider.
 
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and [results](results.json).
+
+Review: [PR #430](https://github.com/redis/redis-adbc-driver/pull/430) is open; no merge or human approval is claimed.
