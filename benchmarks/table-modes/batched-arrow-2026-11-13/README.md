@@ -57,3 +57,13 @@ Start from baseline in an isolated checkout, apply candidate.patch there, and bu
 ```sh
 python3 benchmarks/table-modes/batched_arrow_audit.py
 ```
+
+## Review and artifact preservation
+
+The parent Codex agent reviewed evidence commit `09a79b9d`: the 136-sample audit,
+all eight native cells, memory/time tradeoffs and empty production Go diff passed
+review with no blockers. This records an agent review, not human approval.
+`git diff --check` reports whitespace in the exact frozen `candidate.patch`
+(context blank lines/email footer); those bytes are intentionally preserved so
+the original candidate artifact and SHA-256 remain unchanged. This exception
+does not apply to production files or the evidence prose/scripts.

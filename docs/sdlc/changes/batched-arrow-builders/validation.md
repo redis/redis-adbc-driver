@@ -27,4 +27,9 @@ The exact rejected implementation/tests remain in candidate.patch.
 
 All samples, control caveats, source/binary hashes, full distributions and the
 read-only Python audit are linked in the [report](../../../../benchmarks/table-modes/batched-arrow-2026-11-13/README.md).
-Review is pending parent inspection; no human approval, merge or release is claimed.
+The parent Codex agent reviewed evidence commit `09a79b9d`: all 136 samples,
+all eight cells, tradeoffs and empty production Go diff passed review, no blockers.
+This is an agent review, not human approval; no merge or release is claimed.
+`git diff --check` whitespace warnings inside the frozen candidate.patch context
+blank lines/email footer are an intentional artifact exception: preserve its
+exact bytes/hash. Production/evidence source whitespace has no such exception.
