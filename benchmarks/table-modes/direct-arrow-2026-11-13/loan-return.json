@@ -23,5 +23,7 @@
       "effective_qpf_tls_resp3_reverified": true
     }
   },
-  "infrastructure_teardown": "Parent-owned shared fixture; final owner cleanup pending"
+  "infrastructure_teardown": "Complete: parent removed owned container/network and generated TLS/test.env/settings/fixture-env credentials, preserving pre-existing one container and31 networks",
+  "final_cleanup_proof_sha256": "73603b253c9ba9865d6613df06d6c00545211a433d3f819355687e28e8d86353",
+  "credential_redactions_required": 0
 }

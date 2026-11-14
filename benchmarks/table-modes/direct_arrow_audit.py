@@ -100,6 +100,14 @@ assert all(loan['software'].values())
 for variant in ('baseline', 'candidate'):
     assert all(loan['native'][variant][k] for k in ('empty', 'no_indexes', 'clients_closed', 'effective_qpf_tls_resp3_reverified'))
     assert loan['native'][variant]['controller_exit_code'] == loan['native'][variant]['gate_after_exit_code'] == 0
+cleanup = load('cleanup-proof.json')
+assert all(cleanup[k] is True for k in (
+    'owned_container_and_network_removed', 'preexisting_containers_preserved',
+    'preexisting_networks_preserved', 'generated_tls_and_environment_removed',
+    'private_generated_credentials_removed'))
+assert cleanup['preexisting_container_count'] == 1 and cleanup['preexisting_network_count'] == 31
+assert hashlib.sha256((P / 'cleanup-proof.json').read_bytes()).hexdigest() == loan['final_cleanup_proof_sha256']
+assert loan['credential_redactions_required'] == 0
 patch = (P / 'candidate.patch').read_bytes()
 assert hashlib.sha256(patch).hexdigest() == provenance['candidate_go_patch_sha256']
 for name in ('go/scan_arrow.go', 'go/scan_typed.go', 'go/scan_input_test.go'):

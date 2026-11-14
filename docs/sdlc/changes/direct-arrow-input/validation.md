@@ -24,7 +24,12 @@ exact candidate/test patch is preserved.
 
 Parent and compaction sibling performed source-only agent review before timing,
 no blockers. This is not human maintainer approval. Every fixture loan returned
-empty/index-free and QPF/TLS/RESP3 verified, all clients/processes closed. Shared
-infrastructure/credential cleanup belongs to the parent and is pending.
+empty/index-free and QPF/TLS/RESP3 verified, all clients/processes closed. Parent final cleanup completed: owned container/network and generated TLS/test.env/
+settings/fixture-env credentials removed; pre-existing one container and31 networks
+preserved. Zero credential redactions were required, leaving raw hashes unchanged.
+The [sanitized proof](../../../../benchmarks/table-modes/direct-arrow-2026-11-13/cleanup-proof.json)
+is retained.
 See the [complete report](../../../../benchmarks/table-modes/direct-arrow-2026-11-13/README.md),
 [intent](intent.md), [contract](spec.md) and [plan](plan.md).
+
+Root reviewed evidence4832ca45 and exact-wrapper2253744b with no blockers; all136 samples audited and production Go diff empty. This is agent review, not human approval.
