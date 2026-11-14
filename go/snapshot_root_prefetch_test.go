@@ -14,31 +14,27 @@ import (
 )
 
 func TestSnapshotRootPrefetchSharesProofAndStaysPinLocal(t *testing.T) {
-	for _, reader := range []bool{false, true} {
-		t.Run(fmt.Sprint(reader), func(t *testing.T) {
-			s, ctx, pin, h := snapshotLeaseProofFixture(t, reader)
-			if err := s.validateSnapshotRead(ctx); err != nil {
-				t.Fatal(err)
-			}
-			want := []any{"EVAL_RO", snapshotRootPrefetchLua, 1, snapshotMetadataMap(pin.root)}
-			if h.batches != 1 || h.direct != 0 || len(h.rootWires) != 1 || !reflect.DeepEqual(h.rootWires[0], want) {
-				t.Fatal("prefetch not bounded same-slot native pipeline", h.batches, h.direct, h.rootWires)
-			}
-			if snapshotOf(ctx).metadata.prefetchedRoots == nil {
-				t.Fatal("successful empty root not retained")
-			}
-			got, err := resolveSnapshotMetadata(ctx, "absent", false)
-			if err != nil || got != snapshotPrefix+"absent:"+pin.root+":absent" || h.nativeRootReads != 0 {
-				t.Fatal("resolver did not consume existing pin map", got, err, h.nativeRootReads)
-			}
-			fresh := context.WithValue(context.Background(), snapshotContextKey{}, &snapshotScope{id: pin.root, store: s, pin: pin})
-			if _, err := resolveSnapshotMetadata(fresh, "absent", false); err != nil {
-				t.Fatal(err)
-			}
-			if h.nativeRootReads != 1 {
-				t.Fatal("another scope reused prefetch", h.nativeRootReads)
-			}
-		})
+	s, ctx, pin, h := snapshotLeaseProofFixture(t, false)
+	if err := s.validateSnapshotRead(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want := []any{"EVAL_RO", snapshotRootPrefetchLua, 1, snapshotMetadataMap(pin.root)}
+	if h.batches != 1 || h.direct != 0 || len(h.rootWires) != 1 || !reflect.DeepEqual(h.rootWires[0], want) {
+		t.Fatal("prefetch not bounded same-slot native pipeline", h.batches, h.direct, h.rootWires)
+	}
+	if snapshotOf(ctx).metadata.prefetchedRoots == nil {
+		t.Fatal("successful empty root not retained")
+	}
+	got, err := resolveSnapshotMetadata(ctx, "absent", false)
+	if err != nil || got != snapshotPrefix+"absent:"+pin.root+":absent" || h.nativeRootReads != 0 {
+		t.Fatal("resolver did not consume existing pin map", got, err, h.nativeRootReads)
+	}
+	fresh := context.WithValue(context.Background(), snapshotContextKey{}, &snapshotScope{id: pin.root, store: s, pin: pin})
+	if _, err := resolveSnapshotMetadata(fresh, "absent", false); err != nil {
+		t.Fatal(err)
+	}
+	if h.nativeRootReads != 1 {
+		t.Fatal("another scope reused prefetch", h.nativeRootReads)
 	}
 }
 
@@ -185,7 +181,7 @@ func TestSnapshotRootPrefetchShapeAndOriginalProofPrecedence(t *testing.T) {
 }
 
 func TestSnapshotRootPrefetchSkipsSharedAndUnrelatedScopes(t *testing.T) {
-	for _, kind := range []string{"shared", "no_pin", "no_scope", "other_root", "other_store", "writing"} {
+	for _, kind := range []string{"shared", "no_pin", "no_scope", "other_root", "other_store", "writing", "reader_pin", "restricted_store"} {
 		t.Run(kind, func(t *testing.T) {
 			s, ctx, pin, h := snapshotLeaseProofFixture(t, false)
 			scope := snapshotOf(ctx)
@@ -202,6 +198,10 @@ func TestSnapshotRootPrefetchSkipsSharedAndUnrelatedScopes(t *testing.T) {
 				scope.store = &store{}
 			case "writing":
 				scope.write = true
+			case "reader_pin":
+				pin.reader = true
+			case "restricted_store":
+				s.restrictedReader = true
 			}
 			pipe := s.client.Pipeline()
 			if s.queueSnapshotRootPrefetch(ctx, strings.Repeat("b", 32), pin, pipe) != nil || pipe.Len() != 0 || h.batches != 0 || h.direct != 0 {

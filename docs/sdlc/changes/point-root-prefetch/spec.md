@@ -5,7 +5,9 @@ Date: November 14, 2026. Author: Codex. Status: prototype.
 
 1. After the unchanged manifest/ZCARD/HLEN/valid commands, queue one NoRetry
    EVAL_RO on the same declared metadata-root key in that acquisition pipeline.
-   Skip shared pins and contexts without the matching store/pin/committed root.
+   Skip shared/restricted-reader pins, restricted stores and contexts without the
+   matching store/pin/committed root. Known restricted modes retain their original
+   native path without probing additional commands.
 2. Before HGETALL, atomically check native HLEN <=256 and full MEMORY USAGE
    SAMPLES 0 <=64 KiB. Keep command/key ACL checks for HLEN, HGETALL and MEMORY.
    Bound before enumeration, rather than checking an already materialized Lua

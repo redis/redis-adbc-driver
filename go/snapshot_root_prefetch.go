@@ -61,7 +61,7 @@ func snapshotSameNativeReply(a, b error) bool {
 
 func (s *store) queueSnapshotRootPrefetch(ctx context.Context, root string, pin *snapshotPin, pipe goredis.Pipeliner) *goredis.Cmd {
 	scope := snapshotOf(ctx)
-	if pin == nil || pin.shared != nil || scope == nil || scope.store != s || scope.pin != pin || scope.id != root || scope.write {
+	if pin == nil || pin.shared != nil || pin.reader || s.restrictedReader || scope == nil || scope.store != s || scope.pin != pin || scope.id != root || scope.write {
 		return nil
 	}
 	return once(ctx, pipe, "EVAL_RO", snapshotRootPrefetchLua, 1, snapshotMetadataMap(root))
