@@ -90,11 +90,11 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 		if err != nil {
 			return -1, err
 		}
-		defer func() {
+		defer func(writePin *snapshotPin, workID string) {
 			if !published {
-				s.conn.store.abortSnapshot(pin, id)
+				s.conn.store.abortSnapshot(writePin, workID)
 			}
-		}()
+		}(pin, id)
 		n, err := s.executeIngest(wctx)
 		if err != nil {
 			return -1, err

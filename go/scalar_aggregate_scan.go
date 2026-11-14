@@ -81,7 +81,9 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 		return false, nil
 	}
 	it.projection = p
-	e.diagnostics.setPlan(map[string]any{"kind": "typed_aggregate_inputs", "live_unmanaged": unmanaged, "input_slots": len(items), "bound_residual": p.predicate != nil})
+	if e.diagnostics != nil && !e.diagnostics.metricsOnly {
+		e.diagnostics.setPlan(map[string]any{"kind": "typed_aggregate_inputs", "live_unmanaged": unmanaged, "input_slots": len(items), "bound_residual": p.predicate != nil})
+	}
 	if len(it.fetch) > 0 && p.hashFields == nil && p.bindHash(it.fetch) {
 		p.hashExclusive = true
 	}

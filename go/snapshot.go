@@ -1910,14 +1910,14 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 		if err != nil {
 			return execResult{}, err
 		}
-		defer func() {
+		defer func(writePin *snapshotPin, workID string) {
 			// A confirmed commit already retired private ownership. Abort is a
 			// server no-op for committed work, so reserve it for unsuccessful
 			// statements (including no-op DML and uncertain outcomes).
 			if !published {
-				e.store.abortSnapshot(pin, id)
+				e.store.abortSnapshot(writePin, workID)
 			}
-		}()
+		}(pin, id)
 
 		if target != nil {
 			schema, table, err := e.resolveTable(*target)
