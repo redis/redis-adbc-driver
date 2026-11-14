@@ -150,7 +150,7 @@ func TestUnmanagedProjectionReadLaterWholeImage(t *testing.T) {
 	}
 }
 func TestUnmanagedProjectionReadPermissionCompatibility(t *testing.T) {
-	for _, message := range []string{"NOPERM this user has no permissions to run the 'hmget' command", "NOPERM User reader has no permissions to run the 'hmget' command"} {
+	for _, message := range []string{"NOPERM this user has no permissions to run the 'hmget' command", "NOPERM User reader has no permissions to run the 'hmget' command", "NOPERM No permissions to access a key", "NOPERM User reader has no permissions to access the 'app:1' key"} {
 		t.Run(message, func(t *testing.T) {
 			r, h := projectionReadUnit(t, "n")
 			h.step = func(n int, cmds []goredis.Cmder) error {
@@ -249,7 +249,7 @@ func TestUnmanagedProjectionReadUnknownDoesNotFallback(t *testing.T) {
 	}
 }
 func TestUnmanagedProjectionReadKnownRefusalDoesNotHideLaterUnknown(t *testing.T) {
-	for _, known := range []error{controlScriptNativeError("WRONGTYPE changed"), controlScriptNativeError("NOPERM this user has no permissions to run the 'hmget' command")} {
+	for _, known := range []error{controlScriptNativeError("WRONGTYPE changed"), controlScriptNativeError("NOPERM this user has no permissions to run the 'hmget' command"), controlScriptNativeError("NOPERM No permissions to access a key")} {
 		t.Run(known.Error(), func(t *testing.T) {
 			r, h := projectionReadUnit(t, "n")
 			r.prepared = true
@@ -387,5 +387,73 @@ func TestUnmanagedProjectionReadCancellationBeforeAllNullFallback(t *testing.T) 
 	}
 	if got, err := r.read(ctx, []string{"app:null"}); err == nil || got != nil || h.calls != 1 {
 		t.Fatal("canceled all-null read issued fallback", got, err, h.calls)
+	}
+}
+
+func TestUnmanagedProjectionReadKeySelectorCompatibility(t *testing.T) {
+	for _, message := range []string{"NOPERM No permissions to access a key", "NOPERM User reader has no permissions to access the 'app:selector' key"} {
+		t.Run(message, func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n")
+			r.prepared = true
+			h.step = func(n int, cmds []goredis.Cmder) error {
+				if n == 1 {
+					setProjectionReply(cmds[0], []any{"1"}, nil)
+					err := controlScriptNativeError(message)
+					setProjectionReply(cmds[1], nil, err)
+					setProjectionReply(cmds[2], []any{"3"}, nil)
+					return err
+				}
+				if len(cmds) != 1 || cmds[0].Name() != "hgetall" || cmds[0].Args()[1] != "app:selector" {
+					t.Fatal("selector fallback reread an authorized HMGET", len(cmds), cmds[0].Args())
+				}
+				setProjectionNative(cmds[0], map[string]string{"n": "2"}, nil)
+				return nil
+			}
+			got, err := r.read(context.Background(), []string{"app:one", "app:selector", "app:three"})
+			if err != nil || len(got) != 3 || got[0]["n"] != "1" || got[1]["n"] != "2" || got[2]["n"] != "3" || !r.fallback || h.calls != 2 {
+				t.Fatal(got, err, h.calls)
+			}
+		})
+	}
+}
+func TestUnmanagedProjectionReadKeySelectorUnknownNeverFallsBack(t *testing.T) {
+	for _, message := range []string{"NOPERM No permissions to access a key", "NOPERM User reader has no permissions to access the 'app:selector' key"} {
+		for _, pipelineOnly := range []bool{false, true} {
+			for _, joined := range []bool{false, true} {
+				t.Run(fmt.Sprint(message, "/pipeline=", pipelineOnly, "/joined=", joined), func(t *testing.T) {
+					r, h := projectionReadUnit(t, "n")
+					native := controlScriptNativeError(message)
+					unknown := error(fmt.Errorf("unknown: %w", native))
+					if joined {
+						unknown = errors.Join(native, io.EOF)
+					}
+					h.step = func(_ int, cmds []goredis.Cmder) error {
+						setProjectionReply(cmds[0], nil, native)
+						if !pipelineOnly {
+							cmds[0].SetErr(unknown)
+						}
+						return unknown
+					}
+					if got, err := r.read(context.Background(), []string{"app:selector"}); err == nil || got != nil || h.calls != 1 {
+						t.Fatal("key refusal extracted from unknown reply", got, err, h.calls)
+					}
+				})
+			}
+		}
+	}
+}
+func TestUnmanagedProjectionReadOtherKeyOrChannelRefusalIsUnknown(t *testing.T) {
+	for _, message := range []string{"NOPERM No permissions to access a channel", "NOPERM No permissions to access a key extra", "NOPERM User reader has no permissions to access the 'app:different' key", "NOPERM User reader has no permissions to access the 'app:selector' channel"} {
+		t.Run(message, func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n")
+			h.step = func(_ int, cmds []goredis.Cmder) error {
+				err := controlScriptNativeError(message)
+				setProjectionReply(cmds[0], nil, err)
+				return err
+			}
+			if got, err := r.read(context.Background(), []string{"app:selector"}); err == nil || got != nil || h.calls != 1 {
+				t.Fatal("unrecognized refusal triggered fallback", got, err, h.calls)
+			}
+		})
 	}
 }

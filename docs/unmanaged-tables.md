@@ -272,7 +272,7 @@ non-HASH key. This does not mix fields from two observations or provide a
 statement snapshot; SQL still rechecks its existing residual predicate.
 
 Full scans retain their established retrieval strategy. HMGET permission enables
-selected-field acceleration; an exact native command-permission refusal retains
+selected-field acceleration; an exact native command/key-permission refusal retains
 the existing HGETALL path. No TYPE/HSTRLEN or Lua permissions are needed, and
 large source values avoid an extra Lua copy. Requests retain bounded field and
 pipeline sizes. Unknown command/pipeline outcomes fail without replay; application

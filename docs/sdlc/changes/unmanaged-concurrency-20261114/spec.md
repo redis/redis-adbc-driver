@@ -22,7 +22,7 @@ bulk-string copy; they are never rejected or truncated.
 Both HMGET and fallback HGETALL commands carry NoRetry markers. Inspect every
 command and account for the outer pipeline outcome before any all-NULL or
 permission fallback. Accept only direct native WRONGTYPE as omission. Only an
-exact direct native HMGET command-permission refusal selects scan-local HGETALL
+exact direct native HMGET command/key-permission refusal selects scan-local HGETALL
 compatibility. A wrapped/joined error, direct goredis.Nil, malformed/wrong-width
 whole HMGET reply or non-string field is terminal: missing HASHes yield a proper
 all-NULL array, never whole-command Nil. Unknowns cannot hide behind a known
@@ -34,3 +34,14 @@ the Lua/digest/body path, TYPE/HSTRLEN/ACL-preflight work and script-cache repai
 Its short-key fixture already fit 1000 commands, so it was never evidence for
 the archived regression's cause. Historical guarded-reader diagnostics retain
 their original source and are not relabeled as native candidate observations.
+
+## Untimed compatibility follow-up
+
+Redis ACL selectors can authorize HMGET and HGETALL for different key patterns.
+Recognize only the direct native generic key-denial or verbose user/exact-key
+form emitted by [Redis 8.8 ACL error construction](https://github.com/redis/redis/blob/8.8/src/acl.c#L2580-L2601)
+in addition to the existing exact command-denial forms. The HGETALL fallback
+performs its own native authorization. Do not infer any grant from HMGET denial,
+accept a different key/channel denial, unwrap joined/wrapped failures or weaken
+whole-pipeline inspection. This cold compatibility path follows frozen source
+`859a9510` and is not relabeled as measured by the earlier SQL diagnostic.

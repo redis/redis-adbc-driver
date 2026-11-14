@@ -43,7 +43,7 @@ type unmanagedProjectionCmd struct{ goredis.Cmder }
 
 func (unmanagedProjectionCmd) NoRetry() bool { return true }
 
-func unmanagedProjectionPermission(err error) bool {
+func unmanagedProjectionPermission(err error, key string) bool {
 	native, ok := err.(interface {
 		error
 		RedisError()
@@ -52,7 +52,14 @@ func unmanagedProjectionPermission(err error) bool {
 		return false
 	}
 	message := native.Error()
-	return message == "NOPERM this user has no permissions to run the 'hmget' command" || strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to run the 'hmget' command")
+	// ACL selectors can permit HMGET on other keys while permitting only
+	// HGETALL on this key. Redis 8.8 emits either a generic key refusal or
+	// the verbose user/key form. The fallback performs its own native ACL
+	// check; this refusal never grants data access or unwraps an unknown.
+	return message == "NOPERM this user has no permissions to run the 'hmget' command" ||
+		strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to run the 'hmget' command") ||
+		message == "NOPERM No permissions to access a key" ||
+		strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to access the '"+key+"' key")
 }
 func unmanagedProjectionWrongType(err error) bool {
 	native, ok := err.(interface {
@@ -162,17 +169,19 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]a
 	accounted := pipelineErr == nil
 	// Inspect every reply and the outer outcome before any all-NULL/permission
 	// fallback. A wrapped/joined native refusal or Nil can also carry reply loss.
-	for _, cmd := range cmds {
+	for i, cmd := range cmds {
 		err := cmd.Err()
 		if err == nil {
 			continue
 		}
 		accounted = accounted || unmanagedProjectionSameNativeError(pipelineErr, err)
-		if !unmanagedProjectionWrongType(err) && !unmanagedProjectionPermission(err) {
+		if !unmanagedProjectionWrongType(err) && !unmanagedProjectionPermission(err, keys[i]) {
 			return nil, false, wrapRedis(transportContextError(ctx, err), "failed to read unmanaged projection")
 		}
 	}
-	if pipelineErr != nil && (!accounted || !unmanagedProjectionWrongType(pipelineErr) && !unmanagedProjectionPermission(pipelineErr)) {
+	// An accounted error is the same direct native outcome of a command
+	// already checked above; a wrapped/joined outer refusal cannot match.
+	if pipelineErr != nil && !accounted {
 		return nil, false, wrapRedis(transportContextError(ctx, pipelineErr), "failed to read unmanaged projection pipeline")
 	}
 	out := make([]aggRow, len(keys))
@@ -182,7 +191,7 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]a
 		if unmanagedProjectionWrongType(cmd.Err()) {
 			continue
 		}
-		if unmanagedProjectionPermission(cmd.Err()) {
+		if unmanagedProjectionPermission(cmd.Err(), keys[i]) {
 			fallback = append(fallback, i)
 			denied = true
 			continue
