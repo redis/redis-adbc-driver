@@ -1,0 +1,23 @@
+{
+  "capture_performed": false,
+  "workload_rerun": false,
+  "clock_calibration_performed": false,
+  "packet_timestamp_delivery_observed": false,
+  "default_exec_net_raw_effective": false,
+  "root_exec_net_raw_effective": true,
+  "protocol_zero_raw_socket_opened_and_closed": true,
+  "temporary_socket_accepts_timestampns_option": true,
+  "tools_present": {
+    "tcpdump": false,
+    "tshark": false,
+    "libpcap": false,
+    "dpkt": false,
+    "scapy": false
+  },
+  "decision": "Stopped before capture: reliable release-to-flow/clock/framing correlation was not established within the bounded minimal-instrumentation scope. This is not a permission blocker.",
+  "private_record_sha256": {
+    "trace-capability-private.log": "b4faf7bee828f575d9ce06cfcf4e0b198a72be04281aa7f0be022ad39cf9b69e",
+    "trace-python-capability-private.json": "9d9d04e0c6c002f43d185be4cf8ebffc8f6f8ee6533a8d47c297f15950818128",
+    "trace-root-capability-private.json": "f6fdc4fe93fe26dfdce55ae482b431657efe1f9612ab8a897728e7a0082f7031"
+  }
+}

@@ -86,6 +86,30 @@ No socket option, TLS/security policy, host networking or server scheduling was
 changed. No packet capture or server trace was collected; backend routing/queue
 and TLS processing were not separated. No unavailable-permission claim is made.
 
+## Bounded capture follow-up: capability available, correlation not established
+
+After the seven jobs completed, parent requested a capability-only inventory for
+one possible encrypted-port trace. Default non-root exec lacked effective NET_RAW.
+A separately authorized root process inside the same owned disposable container
+had existing NET_RAW; a protocol-zero AF_PACKET socket opened and closed without
+receiving frames, and its temporary socket accepted SO_TIMESTAMPNS. This checked
+option availability, not delivery/format of actual packet timestamps. No host sudo,
+capability addition, installation or host/server network change occurred.
+
+Tcpdump, tshark, libpcap, dpkt and scapy were absent. Existing release telemetry
+contains elapsed spans and job-local ordinals, without private endpoint/wall-clock
+write tags. Published-port forwarding prevents assuming client-side and container
+flow identities are identical. A trustworthy bound would need new private flow /
+dial-write-read wall-clock telemetry, clock calibration and TCP/TLS framing or
+segmentation ambiguity handling. Those were not established within the bounded
+minimal-instrumentation supplement. Parent approved stopping before capture.
+
+[trace-capability.json](trace-capability.json) retains sanitized capability facts
+and private inventory hashes. No packets were captured, no clock calibration or
+additional workload was run, and no server-ingress/egress timing or permission
+blocker is claimed. Existing seven-job source, observations and conclusions are
+unchanged. Raw interface/process/capability inventory stays private.
+
 ## Environment, reproduction and cleanup
 
 Measured clean source `dc6cceb5c9304a1f2bad740ec43e00cb162dff3b`, baseline

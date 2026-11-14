@@ -28,3 +28,13 @@ scoped path/URI and exact generated-credential scans passed (zero matches).
 The exact diagnostic patch applies to baseline with git apply --check. Scoped
 whitespace checks exclude archived patch context; original bytes/hash remain
 preserved. No production Go/module/default test change is present.
+
+A later parent-authorized capability-only follow-up found existing NET_RAW and
+SO_TIMESTAMPNS option support inside an owned-container root process. A temporary
+protocol-zero socket opened/closed without receiving frames. Standard packet tools
+were absent, and reliable private release/flow, wall-clock and TCP/TLS correlation
+was not established within minimal scope. Parent approved stopping before capture:
+no workload rerun, packets, clock calibration or wire attribution. This is a
+correlation/tooling scope constraint, not a permission blocker. The original seven
+jobs and exact candidate patch remain unchanged; sanitized facts are linked in
+the report and raw inventories remain private.

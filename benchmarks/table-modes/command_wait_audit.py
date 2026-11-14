@@ -91,6 +91,13 @@ def audit():
                                    'effective_qpf_tls_resp3_reverified_each_job': True,
                                    'container_identity_limits_unchanged_at_loan_boundaries': True,
                                    'all_seven_jobs_valid': True, 'release_observations': 2219}
+    trace = json.loads((folder/'trace-capability.json').read_text())
+    assert trace['capture_performed'] is False and trace['workload_rerun'] is False
+    assert trace['clock_calibration_performed'] is False and trace['packet_timestamp_delivery_observed'] is False
+    assert trace['default_exec_net_raw_effective'] is False and trace['root_exec_net_raw_effective'] is True
+    assert trace['protocol_zero_raw_socket_opened_and_closed'] is True
+    assert trace['temporary_socket_accepts_timestampns_option'] is True
+    assert trace['tools_present'] == {'tcpdump': False, 'tshark': False, 'libpcap': False, 'dpkt': False, 'scapy': False}
     print('PASS: all seven fixed jobs/2219 releases, exact phases/physical connections, controls and paired timing arithmetic')
 
 
