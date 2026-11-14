@@ -5,6 +5,7 @@ package redis
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -50,6 +51,9 @@ func TestIngestStringArenaMultiRecordValues(t *testing.T) {
 					value := int64(9007199254740993) + next
 					builder.Field(1).(*array.Int64Builder).Append(value)
 					note := fmt.Sprintf("é:\x00%d", next)
+					if strings.IndexByte(note, 0) < 0 {
+						t.Fatal("integration fixture has no NUL byte")
+					}
 					if next%7 == 0 {
 						builder.Field(2).(*array.StringBuilder).AppendNull()
 						note = "NULL"

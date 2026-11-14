@@ -17,6 +17,10 @@ import (
 )
 
 func TestIngestStringArenaOwnership(t *testing.T) {
+	const text = "é" + string([]byte{0}) + "🙂"
+	if strings.IndexByte(text, 0) < 0 {
+		t.Fatal("ownership fixture has no NUL byte")
+	}
 	for _, large := range []bool{false, true} {
 		t.Run(fmt.Sprintf("large_%t", large), func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -27,7 +31,7 @@ func TestIngestStringArenaOwnership(t *testing.T) {
 			} else {
 				builder = array.NewStringBuilder(mem)
 			}
-			for i, s := range []string{"outside", "é\x00🙂", "", "unused", "last", "tail"} {
+			for i, s := range []string{"outside", text, "", "unused", "last", "tail"} {
 				if i == 3 {
 					builder.AppendNull()
 				} else {
@@ -45,7 +49,7 @@ func TestIngestStringArenaOwnership(t *testing.T) {
 			if err := ingestColumn(input, typeString, utcZone, rows, 0); err != nil {
 				t.Fatal(err)
 			}
-			want := []Value{stringValue("é\x00🙂"), stringValue(""), nullValue(typeString), stringValue("last")}
+			want := []Value{stringValue(text), stringValue(""), nullValue(typeString), stringValue("last")}
 			for i, row := range rows {
 				if !reflect.DeepEqual(row[0], want[i]) || row[1].I != 9007199254740993 {
 					t.Fatalf("row%d got%#v", i, row)
@@ -57,7 +61,7 @@ func TestIngestStringArenaOwnership(t *testing.T) {
 			input.Release()
 			retained := rows[0][0]
 			rows = nil
-			if retained.S != "é\x00🙂" {
+			if retained.S != text {
 				t.Fatalf("retained string aliases Arrow: %q", retained.S)
 			}
 		})
