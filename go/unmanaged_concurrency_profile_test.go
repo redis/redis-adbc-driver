@@ -197,7 +197,13 @@ func TestUnmanagedProjectionSQLConcurrencyProfile(t *testing.T) {
 				}
 				stmts[c] = st
 				t.Cleanup(func() { _ = st.Close(h.ctx) })
-				st.(*statementImpl).conn.store.client.AddHook(observer)
+				impl := st.(*statementImpl).conn
+				impl.store.client.AddHook(observer)
+				// Install instrumentation on a not-yet-used execution pool too:
+				// production reads run there, not on the maintenance client.
+				pool := impl.newExecutionPool(impl.timeouts)
+				pool.client.AddHook(observer)
+				impl.store.idleExecution = pool
 			}
 			var before, after runtime.MemStats
 			runtime.ReadMemStats(&before)
