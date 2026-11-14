@@ -5,6 +5,21 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+[Scenario chart data](scenario-charts-2026-11-13/report.md) adds point reads,
+INSERT/UPDATE/DELETE, filtered projections and exact COUNT/SUM comparisons with
+persistent one/four-client connections. All 168 standard and 84 pilot records
+validated. `scenarios.py` runs the owned Software-only cases; `chart_data.py`
+verifies full matrices and generates current JSON/CSV plus separately labeled
+historical ClickBench/aggregate CSVs. Ratios, units, fixture sizes and sample
+counts are explicit. Audit with `python3 benchmarks/table-modes/audit_scenario_charts.py`.
+See the report for reproduction, timing boundaries and measurement limitations.
+
+[Merged-main full comparison](merged-scoped-2026-11-13/report.md) records all 156
+validated read/SQL/Arrow/native append and creation trials on clean source
+`ca685806`, after PRs #433–435. No conflicts or retries. Managed admitted
+mutations serialize; these observations do not attribute a gain to one change.
+Audit with `python3 benchmarks/table-modes/merged_scoped_audit.py`.
+
 [Scoped unmanaged Arrow input](unmanaged-arrow-input-2026-11-13/README.md) records
 a fresh 112-trial matched comparison. All unmanaged medians decreased 0.27–7.47%
 (4.22% geometric-mean speedup); the weakest case is flat and one managed control
@@ -164,3 +179,34 @@ The [fused pointer-input follow-up](direct-arrow-2026-11-13/README.md) preserves
 separate unapplied experiment without extra row staging: all 24 construction and
 112 native trials validated, but managed timings did not meet the predeclared
 both-mode benefit gate. Audit with `python3 benchmarks/table-modes/direct_arrow_audit.py`.
+
+## Generate the scenario and chart data
+
+`scenarios.py` uses the same private `REDIS_BENCH_*` / `SSL_CERT_FILE` environment
+and verified owned Software fixture as the table-mode suite. It generates its
+own deterministic four-column fixture, so it does not require the large Arrow
+source file. Defaults are one warmup plus three measured rounds, 32 total point
+operations or eight queries per trial, and one/four persistent clients:
+
+```sh
+python3 benchmarks/table-modes/scenarios.py \
+  --driver /private/exact-build/go/build/libadbc_driver_redis.dylib \
+  --cli /private/exact-build/go/build/redis-adbc \
+  --version v0.1.0-dev.example \
+  --work /private/new-scenario-run --dedicated-empty-server
+```
+
+The owner must use an empty dedicated database and a new work directory. The
+harness retains its private ownership marker and result files for inspection;
+after all clients/processes end, the owner checks that marker, empties the owned
+database and tears down its fixture. Failures remain failed evidence, including
+completed timed samples; SQL/input is never retried. `--suite oltp` or `olap`
+selects a subset; the default `all` is needed for all chart series.
+
+`chart_data.py` combines a complete standard table-mode run and a complete
+scenario run from the **same exact driver source/version/binary**. It exports
+seconds/milliseconds and baseline multiples explicitly; historical product and
+before/after aggregate files use separate CSVs and metadata. The
+[scenario report](scenario-charts-2026-11-13/report.md#chart-exports) contains the
+complete offline export command. Do not join separate driver builds or treat
+historical ClickBench values as a current Software result.
