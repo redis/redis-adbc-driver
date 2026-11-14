@@ -17,3 +17,5 @@
    Root owns the shared fixture; subagents receive serialized loans only.
 
 See [intent](intent.md) and [contract](spec.md).
+
+Review: [PR #427](https://github.com/redis/redis-adbc-driver/pull/427) is open; no merge or human approval is claimed.

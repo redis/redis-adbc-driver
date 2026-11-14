@@ -11,3 +11,5 @@ ten 1K calls, one stream of 1K batches, and one large batch for the same 10K row
 with one/four callers. Preserve all outcomes and independently validate results.
 
 See [contract](spec.md), [plan](plan.md) and the eventual validation record.
+
+Review: [PR #427](https://github.com/redis/redis-adbc-driver/pull/427) is open; no merge or human approval is claimed.

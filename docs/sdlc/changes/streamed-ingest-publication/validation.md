@@ -47,3 +47,5 @@ is retained; raw operational artifacts stay private. Zero credential matches
 required redaction, leaving raw digests intact. No ClickBench was run.
 
 See [intent](intent.md), [contract](spec.md) and [plan](plan.md).
+
+Review: [PR #427](https://github.com/redis/redis-adbc-driver/pull/427) is open; no merge or human approval is claimed.
