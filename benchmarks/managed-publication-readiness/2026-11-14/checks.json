@@ -1,0 +1,129 @@
+{
+  "managed-readiness-unit": {
+    "PASS": 4,
+    "SKIP": 1,
+    "FAIL": 0,
+    "exit_code": 0,
+    "wall_seconds": 21.71510900001158,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-race",
+      "-count=1",
+      "-p",
+      "1",
+      "-timeout=10m",
+      "-run",
+      "^TestSnapshotPublicationReadiness",
+      "."
+    ],
+    "skipped_tests": [
+      "TestSnapshotPublicationReadinessBatchesPrivateOutput"
+    ],
+    "source_checkpoint": "same production/test contents subsequently frozen as b5e71b05",
+    "post_b5_production_file_sha256": null
+  },
+  "managed-readiness-software-race": {
+    "PASS": 18,
+    "SKIP": 0,
+    "FAIL": 0,
+    "exit_code": 0,
+    "wall_seconds": 9.995696709025651,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-race",
+      "-count=1",
+      "-p",
+      "1",
+      "-timeout=10m",
+      "-run",
+      "^TestSnapshot(PublicationReadiness|IndexReadiness|TruncateIndexReadiness|FinalIndexAvoids|IndexNotification|IndexProofPermission|PrivateReadsAndSealed|LostPublicationReply|ConflictsAndExpired|ValidationBatches)",
+      "."
+    ],
+    "skipped_tests": [],
+    "source_checkpoint": "same production/test contents subsequently frozen as b5e71b05",
+    "post_b5_production_file_sha256": null
+  },
+  "managed-refusal-red": {
+    "PASS": 0,
+    "SKIP": 0,
+    "FAIL": 3,
+    "exit_code": 1,
+    "wall_seconds": 11.133508790982887,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-count=1",
+      "-p",
+      "1",
+      "-timeout=5m",
+      "-run",
+      "^TestSnapshotPublication(ProofUnknown|LaterInfoUnknown|ReadinessQueueFailure)",
+      "."
+    ],
+    "skipped_tests": [],
+    "source_checkpoint": "b5e71b05 with new regression tests, before direct-native/queue fix",
+    "post_b5_production_file_sha256": null
+  },
+  "managed-refusal-green": {
+    "PASS": 4,
+    "SKIP": 3,
+    "FAIL": 3,
+    "exit_code": 1,
+    "wall_seconds": 19.856925749976654,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-race",
+      "-count=1",
+      "-p",
+      "1",
+      "-timeout=5m",
+      "-run",
+      "^TestSnapshotPublication",
+      "."
+    ],
+    "skipped_tests": [
+      "TestSnapshotPublicationReadinessBatchesPrivateOutput",
+      "TestSnapshotPublicationOutcomeLookupIsReadOnly",
+      "TestSnapshotPublicationReusesAuthorizedDescriptors"
+    ],
+    "source_checkpoint": "b5e71b05 with new regression tests, before direct-native/queue fix",
+    "post_b5_production_file_sha256": null
+  },
+  "managed-refusal-corrected-green": {
+    "PASS": 7,
+    "SKIP": 3,
+    "FAIL": 0,
+    "exit_code": 0,
+    "wall_seconds": 20.682710207998753,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-race",
+      "-count=1",
+      "-p",
+      "1",
+      "-timeout=5m",
+      "-run",
+      "^TestSnapshotPublication",
+      "."
+    ],
+    "skipped_tests": [
+      "TestSnapshotPublicationReadinessBatchesPrivateOutput",
+      "TestSnapshotPublicationOutcomeLookupIsReadOnly",
+      "TestSnapshotPublicationReusesAuthorizedDescriptors"
+    ],
+    "source_checkpoint": "post-b5e71b05 direct-native/queue fix working tree, file hashes below",
+    "post_b5_production_file_sha256": {
+      "go/snapshot.go": "b82675c9c6f757114af048c56b6eefed29abbc85de06bd2deafff15e0f7995cd",
+      "go/snapshot_index_readiness.go": "8733b8f99519ea617838701d5968f506f039b90017ae84b90919ecf7202ea4dc"
+    }
+  }
+}

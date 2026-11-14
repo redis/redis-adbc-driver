@@ -1,0 +1,22 @@
+{
+  "1": {
+    "all_clients_exited": true,
+    "ownership_marker_verified": true,
+    "owned_data_and_indexes_removed": true
+  },
+  "2": {
+    "all_clients_exited": true,
+    "ownership_marker_verified": true,
+    "owned_data_and_indexes_removed": true
+  },
+  "3": {
+    "all_clients_exited": true,
+    "ownership_marker_verified": true,
+    "owned_data_and_indexes_removed": true
+  },
+  "4": {
+    "all_clients_exited": true,
+    "ownership_marker_verified": true,
+    "owned_data_and_indexes_removed": true
+  }
+}

@@ -1073,10 +1073,24 @@ func TestSQLAlterCleanupResumes(t *testing.T) {
 	// HASH fields or needs a persisted SCAN cursor/legacy cleanup marker.
 	reopened := newSQLHarness(t)
 	t.Cleanup(func() { reopened.exec("DROP TABLE IF EXISTS " + table) })
+	stmt, err := reopened.conn.NewStatement(reopened.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	maintenance := stmt.(*statementImpl).conn.store
+	if err := stmt.Close(reopened.ctx); err != nil {
+		t.Fatal(err)
+	}
 	waitFor(t, "new connection resumed ALTER reclamation", func() bool {
 		n, err := raw.Exists(h.ctx, directory).Result()
 		if err != nil {
 			t.Fatal(err)
+		}
+		// Keep the actual reopened worker scheduled while it drains retirement
+		// left by earlier tests. Its idle backoff is not a cleanup deadline.
+		// Do not collect inline: this assertion still requires worker recovery.
+		if n != 0 {
+			maintenance.wakeSnapshotCompactor()
 		}
 		return n == 0
 	})

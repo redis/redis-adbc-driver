@@ -1,0 +1,10 @@
+{
+  "1-baseline.json": "cba6c752270ae9ae68220edecb728d4caf9d9b79dc68d445bb8ab19fe2abe878",
+  "2-candidate.json": "9afc705d924eaa71e566be256bfb92b5452e33b5f8a7113ba0cdf53beac4b5d4",
+  "3-candidate.json": "f80ba05342b008fc340a364b2ed6c68b5ce8c1c6f85abec8d612f49055c7c959",
+  "4-baseline.json": "c09148f8034032abbca3c64a729cf2d4913a81d1f60f2affbe3fb3f20a3dc6b5",
+  "checks.json": "09bdfc626994b1d8654d2e54cdd4cdaed9806e11bc3fa43dbd86412d8cea7f2c",
+  "comparison.json": "fed3c7cba94735a8ae80ed54bad8bda37e300c634abfd4f215e25aa094db1d92",
+  "provenance.json": "a39e6829f55feae627dfebb0f0cd94ee270ccb26118f98965a13db77a04b22d7",
+  "report.md": "6b5cce834e5c58a226e075573aa75906993960f19eac38a1af474b0dad8cdd05"
+}

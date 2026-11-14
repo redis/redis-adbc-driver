@@ -1,0 +1,19 @@
+{
+  "1-baseline-exit.json": "b6ba51c06d9e2031e9bd64d95831bbf2976b78f488eab35b0ce2eec91a4e5772",
+  "1-baseline.json": "ca65621a265b8ff95dc396bb3a10de73474d54486953c22c539a2b661109dc57",
+  "2-candidate-exit.json": "e35c38c5c1893a0db12ba307abea2125f4520df2e434c58dde7f66a9b7d86ff7",
+  "2-candidate.json": "2a90d7aca599be361bd2bd6055b92914a70560b6211aeac0da99650e4d7554cc",
+  "3-candidate-exit.json": "e991b2db30dea1f7e853ae2691f9a0573ca787970a65be806db20c0ff5698429",
+  "3-candidate.json": "3f9d04c3ea64cb9b713b1fac24b3bece9ac85d0320f5a6d205989c8a859f0c5a",
+  "4-baseline-exit.json": "e087442c5cc1b0de614b8697361e295ef4d485a535b7a4be6125f0b05aecd2c5",
+  "4-baseline.json": "fc526be8fc6c41c15f37a1f2c61e3cc7b90fefde0de0a2a46bc08cd74b26f861",
+  "checks.json": "abdad40eb7476f2c27d1d5e0ca4e9b31c685ad7a86efffafc3bb88574e8b5e88",
+  "cleanup.json": "0852b5de5547c914c19742b80dd69e15711dde8e4bda29a2c2ba978ffb8405c2",
+  "comparison.csv": "8531dde95a3ed0f32809a9d329683997e1ced41723faa62cf7c77854e957b6ef",
+  "comparison.json": "169f926000f725caed4602453dd603e82311b1aca4dbe75e9f70b1d47a93f8c7",
+  "harness/managed_subset.py": "a868215b2945a1bcf5c5a051d5a46cbfd0b070b28494ea528b99565f0604c515",
+  "harness/run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+  "harness/scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+  "provenance.json": "b175d6fe983d767e4982194803f7e792e26b1c794c9a107f4bf8d11032ef1a96",
+  "report.md": "cef6e2bf58e0b7facc52523543df8b29ce188908c0edd36bf0b7095b98e42539"
+}

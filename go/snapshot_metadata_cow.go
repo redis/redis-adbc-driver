@@ -129,6 +129,29 @@ func (s *store) cloneSnapshotMetadata(_ context.Context, ctx context.Context, ba
 // Called only from the key-position hook. Internal protocol keys bypass this
 // resolver, so its Redis calls cannot recursively enter the metadata lock.
 func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, command ...string) (string, error) {
+	return resolveSnapshotMetadataRead(ctx, suffix, writing, nil, command...)
+}
+
+// A committed descriptor GET can share the immutable value's presence/reference
+// proof pipeline. This returns the actual native GET reply, not a value cache;
+// native key/command ACLs still execute on every load and no live row is cached.
+func (s *store) readSnapshotMetadataString(ctx context.Context, key string) (string, error) {
+	scope := snapshotOf(ctx)
+	if scope == nil || scope.store != s || scope.write {
+		return s.redis(ctx).Get(ctx, key).Result()
+	}
+	var read *goredis.StringCmd
+	physical, err := resolveSnapshotMetadataRead(ctx, strings.TrimPrefix(key, metaPrefix), false, &read, "get")
+	if err != nil {
+		return "", err
+	}
+	if read != nil {
+		return read.Result()
+	}
+	return s.redis(ctx).Get(ctx, physical).Result()
+}
+
+func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing bool, read **goredis.StringCmd, command ...string) (string, error) {
 	scope := snapshotOf(ctx)
 	s := scope.store
 	scope.metadataMu.Lock()
@@ -267,8 +290,17 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 		p := s.redis(ctx).Pipeline()
 		e := p.HMGet(ctx, snapshotMetadataGraph, "e:"+key, "v:"+key)
 		exists := p.Exists(ctx, key)
-		if _, err := p.Exec(ctx); err != nil {
-			return "", wrapRedis(err, "snapshot metadata object unavailable")
+		var fetched *goredis.StringCmd
+		if read != nil && !scope.write && !writing {
+			fetched = p.Get(ctx, key)
+		}
+		_, pipelineErr := p.Exec(ctx)
+		// A new GET refusal must not mask an invalid preexisting presence/ref
+		// proof. Only its exact complete native error may defer to the proof;
+		// an unknown pipeline/hook failure still aborts immediately.
+		getOnly := fetched != nil && e.Err() == nil && exists.Err() == nil && snapshotMetadataGetErrorOnly(pipelineErr, fetched.Err())
+		if pipelineErr != nil && !getOnly {
+			return "", wrapRedis(pipelineErr, "snapshot metadata object unavailable")
 		}
 		proof := e.Val()
 		expected, err := strconv.ParseInt(fmt.Sprint(proof[0]), 10, 64)
@@ -276,9 +308,40 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 		if err != nil || referr != nil || refs <= 0 || expected != exists.Val() {
 			return "", errorf(adbc.StatusIO, "snapshot metadata object is missing or corrupt")
 		}
+		if fetched != nil && fetched.Err() != nil {
+			if fetched.Err() != goredis.Nil {
+				return "", fetched.Err()
+			}
+			if expected != 0 {
+				return "", errorf(adbc.StatusIO, "snapshot metadata object is missing or corrupt")
+			}
+		}
 		m.checked[key] = true
+		if fetched != nil {
+			*read = fetched
+		}
 	}
 	return key, nil
+}
+
+// Match only direct native replies; wrapping/joining a refusal with a
+// transport error must never turn an incomplete pipeline into a valid proof.
+func snapshotMetadataGetErrorOnly(pipelineErr, getErr error) bool {
+	if getErr == nil {
+		return false
+	}
+	if pipelineErr == goredis.Nil && getErr == goredis.Nil {
+		return true
+	}
+	outer, ok := pipelineErr.(interface {
+		error
+		RedisError()
+	})
+	inner, native := getErr.(interface {
+		error
+		RedisError()
+	})
+	return ok && native && outer.Error() == inner.Error()
 }
 
 // Root retirement detaches references atomically. Empty-reference buckets and

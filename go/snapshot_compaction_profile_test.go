@@ -71,6 +71,8 @@ func compactionProfileCategory(cmd goredis.Cmder) string {
 			return "row_batch"
 		case snapshotIndexNotifyLua:
 			return "index_notify"
+		case snapshotPointReadLua:
+			return "point_image_read"
 		case snapshotMutation:
 			return "metadata_mutation"
 		case snapshotRowMutation:

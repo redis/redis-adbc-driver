@@ -1,0 +1,27 @@
+{
+  "source_commit": "00553f22cbaf76aaa6990ab2c4c1f8aee1229a31",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "-race",
+    "-count=1",
+    "-p",
+    "1",
+    "-timeout=15m",
+    "-run",
+    "Test(SnapshotPointWriteRead|SnapshotAcquireProof|SnapshotDescriptorRead|SnapshotDirectory|SnapshotMetadata|SnapshotManifest|SnapshotValid|SnapshotControl|UnmanagedProjectionRead|UnmanagedFiltered|UnmanagedStatement|SnapshotRuntimeExactBigInt|SnapshotStream|SharedRead|SQLRekeyTakeoverWait|ExecutionPool|StatementRepeatedSQL)",
+    "."
+  ],
+  "exit_code": 1,
+  "wall_seconds": 41.83492891700007,
+  "passed_top_level_tests": 88,
+  "failed_top_level_tests": 1,
+  "skipped_top_level_tests": 2,
+  "skipped_tests": [
+    "TestSnapshotControlScriptEvalOnlySoftware",
+    "TestSnapshotControlScriptPointLeaseSoftware"
+  ],
+  "failure": "TestUnmanagedProjectionReadValueBoundSoftware: native size guard did not decline before HMGET [large] ERR ADBC_UNMANAGED_PROJECTION_TOO_LARGE",
+  "interpretation": "Live Redis prefixes custom error_reply values with ERR; exact unprefixed-only recognition failed. Fixed and rerun in later source; this attempt remains retained."
+}

@@ -1,0 +1,55 @@
+{
+  "measured_windows": [
+    "1-baseline",
+    "2-candidate",
+    "3-candidate",
+    "4-baseline"
+  ],
+  "scope": "Point-only Python/C-boundary native ABBA pilot, not a complete168-record/build matrix. Both builds completed before all timings; same exclusive owned fixture, no overlapping tests/builds. No retries or discarded trials.",
+  "driver_builds": {
+    "baseline": {
+      "commit": "7b94a93ccb7bca367c01f0a73204d9cc91a236af",
+      "library_sha256": "6700c376165306c3fb171a7f01c8ab18cb66a0df459bfb46f52c95864428d40e",
+      "cli_sha256": "70fe16c2569d98614d77e976eb80abd1597f2bf5f9b4670bc822fa128cc4bdf0",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "f8d70faed24a1149b44495db37d39953c13522393e130824c80361bbdcccc9a0"
+      }
+    },
+    "candidate": {
+      "commit": "762d4ef2dfbe04307a9016f860db2d18951b8d3f",
+      "library_sha256": "d1e225e3470378e02fc0d70e6265faff98ed986022ea639849ccb7f68dda2d31",
+      "cli_sha256": "0457d7d3e02158da209ce24cce515be0bfa2228dba51dc47665f49404f335b3d",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "f8d70faed24a1149b44495db37d39953c13522393e130824c80361bbdcccc9a0"
+      }
+    }
+  },
+  "build_artifacts_after_run": {
+    "baseline": {
+      "library_sha256": "6700c376165306c3fb171a7f01c8ab18cb66a0df459bfb46f52c95864428d40e",
+      "cli_sha256": "70fe16c2569d98614d77e976eb80abd1597f2bf5f9b4670bc822fa128cc4bdf0"
+    },
+    "candidate": {
+      "library_sha256": "d1e225e3470378e02fc0d70e6265faff98ed986022ea639849ccb7f68dda2d31",
+      "cli_sha256": "0457d7d3e02158da209ce24cce515be0bfa2228dba51dc47665f49404f335b3d"
+    }
+  },
+  "failed_records": 0,
+  "discarded_records": 0,
+  "automatic_retries": 0,
+  "post_measurement_production_changes": [
+    {
+      "commit": "a623a94f",
+      "scope": "Skip prefetch for known restricted reader modes; unmeasured follow-up. Ordinary privileged fixture eligibility is unchanged. Final integrated guarded source must retain distinct measurements."
+    },
+    {
+      "commit": "ddb443a06104899392124c49a088ae15b5bc5afe",
+      "scope": "Propagate local root-prefetch Process queue errors, Discard alreadyqueued proof/lease commands before Exec. Unmeasured failure-path guard; normal successful native wire is unchanged."
+    }
+  ],
+  "harness_change": "Only POINT tuple is narrowed to point_read; run.py unchanged. Same frozen copies for every window.",
+  "cleanup": "All child processes and clients exited; exact original harness ownership marker checked before clearing owned data/indexes after every matrix. Final owned data/indexes empty; shared Software fixture teardown belongs to coordinating root after other agents finish.",
+  "selection_status": "Root-map prefetch not selected; frozen experiment measurements remain unchanged. Later selected source restores original metadata path."
+}

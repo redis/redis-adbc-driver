@@ -1,0 +1,49 @@
+{
+  "rows": [
+    {
+      "baseline": {
+        "median_allocated_bytes_per_32_queries": 683502100.0,
+        "median_allocations_per_32_queries": 11255606.0,
+        "median_finite_queries_per_second": 10.03239937507507,
+        "p50_ms": 99.0639165,
+        "p95_ms": 115.453583,
+        "records": 6,
+        "samples": 192
+      },
+      "candidate": {
+        "median_allocated_bytes_per_32_queries": 644891180.0,
+        "median_allocations_per_32_queries": 10615447.5,
+        "median_finite_queries_per_second": 12.699169314406483,
+        "p50_ms": 77.224396,
+        "p95_ms": 92.17075,
+        "records": 6,
+        "samples": 192
+      },
+      "clients": 1,
+      "p50_speedup": 1.2828059736459447
+    },
+    {
+      "baseline": {
+        "median_allocated_bytes_per_32_queries": 685325156.0,
+        "median_allocations_per_32_queries": 11262050.0,
+        "median_finite_queries_per_second": 22.32505490632682,
+        "p50_ms": 176.4923125,
+        "p95_ms": 206.532375,
+        "records": 6,
+        "samples": 192
+      },
+      "candidate": {
+        "median_allocated_bytes_per_32_queries": 646585924.0,
+        "median_allocations_per_32_queries": 10621459.0,
+        "median_finite_queries_per_second": 40.980261088661436,
+        "p50_ms": 98.2449795,
+        "p95_ms": 129.343458,
+        "records": 6,
+        "samples": 192
+      },
+      "clients": 4,
+      "p50_speedup": 1.7964512120438683
+    }
+  ],
+  "scope": "Instrumented full Go SQL ABBA diagnostic; measured samples only; nearest-rank p95. Neither native Python/C-boundary matrix nor capacity."
+}

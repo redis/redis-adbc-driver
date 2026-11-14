@@ -1,0 +1,44 @@
+{
+  "observed_local_date": "2026-11-14",
+  "driver_runtime_telemetry": "Disabled explicitly for both final native matrices",
+  "timezone": "America/Los_Angeles",
+  "driver_builds": {
+    "baseline": {
+      "commit": "31426a96866c4bc12f7f691b3b1de23a6af9dbef",
+      "library_sha256": "c89df134d417e9c886ea1994933cb37d73bb8141421ea152e139eae7b06ada51",
+      "cli_sha256": "2d28937a4de9280bee0d10f6e2f3ddb8bd8e4b0c8b0a69596b42307915c38db7",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6"
+      }
+    },
+    "candidate": {
+      "commit": "3f9cf6a85a2cf4b7744f785bca8517b3ff18859c",
+      "library_sha256": "00512396a6bf8fe0c74f762c8bd1fac35377c0c7f66f13379bfdf49062c0866f",
+      "cli_sha256": "0c17a66c422212af743b592cf16c635b11633a0dd431fab3b18e70b8b94c4dcc",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6"
+      }
+    }
+  },
+  "build_artifacts_after_run": {
+    "baseline": {
+      "library_sha256": "c89df134d417e9c886ea1994933cb37d73bb8141421ea152e139eae7b06ada51",
+      "cli_sha256": "2d28937a4de9280bee0d10f6e2f3ddb8bd8e4b0c8b0a69596b42307915c38db7"
+    },
+    "candidate": {
+      "library_sha256": "00512396a6bf8fe0c74f762c8bd1fac35377c0c7f66f13379bfdf49062c0866f",
+      "cli_sha256": "0c17a66c422212af743b592cf16c635b11633a0dd431fab3b18e70b8b94c4dcc"
+    }
+  },
+  "compare_source_sha256": "76f37462431d0e2730fde323047cdbec779b66c1e4dfdf026691f73ff39ef84c",
+  "post_measurement_production_changes": false,
+  "automatic_retries": 0,
+  "failed_native_trial_records": 0,
+  "discarded_native_trial_records": 0,
+  "timing_order": "Baseline then candidate consecutively, all builds completed beforehand; no tests or other heavy work during either matrix. Not randomized or interleaved.",
+  "scope": "Versioned unreleased native builds. Earlier Go diagnostics are separate evidence and retain their actual sources. No new ClickBench, bulk ingestion, transfer, Flex or Cluster API measurement.",
+  "scope_note": "Earlier pilot/diagnostic archives retain their own sources; publication batching not selected. Original CI-fix run43645143585 passed before these production follow-ups.",
+  "selection_status": "Root-map prefetch not selected; frozen experiment measurements remain unchanged. Later selected source restores original metadata path."
+}

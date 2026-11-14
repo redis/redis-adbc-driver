@@ -1,0 +1,38 @@
+{
+  "automatic_retries": 0,
+  "baseline_production_source": "7b94a93ccb7bca367c01f0a73204d9cc91a236af",
+  "builds_finished_before_timing": true,
+  "date": "2026-11-14",
+  "discarded_profile_records": 0,
+  "eviction_policy": "noeviction",
+  "failed_profile_records": 0,
+  "go_toolchain": "go1.27.3",
+  "gomaxprocs": 4,
+  "memory_bytes": 4294967296,
+  "post_measurement_change_scope": "Later exact native HMGET key-selector refusal compatibility, not timed here. Frozen diagnostic binaries and source snapshots remain unchanged; parent final checks/matrix use final integrated source.",
+  "post_measurement_production_changes": true,
+  "raw_operational_logs": "Private; no endpoint, container identifier, credentials or license artifacts published.",
+  "resp": 3,
+  "routing": "mnp",
+  "routing_connections": 32,
+  "search_workers": 6,
+  "software_qpf": 4,
+  "sources": {
+    "baseline": {
+      "commit": "164db2c2449a6a07b20beda645e8e12f7e2c8cc9",
+      "production_file_sha256": "ebcf799f87e9e81dd953bd829fff634d4f4aee26fb2c765541269a0cc10cae4c",
+      "profile_test_sha256": "71640d8ef0b5e0fcd31561baba0379ef33b52ae5c1d84ac2278078451e91bb5b",
+      "test_binary_sha256": "204f5836be7c4e3508c1c46c9f7c08a18ad6726ceda6a58c17172f01f4a10538",
+      "test_binary_sha256_after": "204f5836be7c4e3508c1c46c9f7c08a18ad6726ceda6a58c17172f01f4a10538"
+    },
+    "candidate": {
+      "commit": "859a9510875bd9965ae01c86662aafec3c90f01c",
+      "production_file_sha256": "3044d6545d4fe871e1310aad2860a24c92ada8a0432c5e59c2591de0033a08c1",
+      "profile_test_sha256": "71640d8ef0b5e0fcd31561baba0379ef33b52ae5c1d84ac2278078451e91bb5b",
+      "test_binary_sha256": "60e5a3d87652a3c16854b7776c8252cb811a385ed0eddd4fb554ce25feb596cc",
+      "test_binary_sha256_after": "60e5a3d87652a3c16854b7776c8252cb811a385ed0eddd4fb554ce25feb596cc"
+    }
+  },
+  "timezone": "America/Los_Angeles",
+  "tls_certificate_hostname_verified": true
+}

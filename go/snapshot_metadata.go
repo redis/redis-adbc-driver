@@ -31,12 +31,28 @@ func (s *store) walkSnapshotDirectory(ctx context.Context, directory string, vis
 }
 
 func (s *store) validateSnapshotMetadata(ctx context.Context, root string) error {
+	return s.validateSnapshotMetadataAndPin(ctx, root, nil)
+}
+
+// Metadata counts and the following lease check are independent native reads.
+// Queue them in their original order without caching either proof. Validate
+// metadata/error precedence before interpreting the final lease reply.
+func (s *store) validateSnapshotMetadataAndPin(ctx context.Context, root string, pin *snapshotPin) error {
+	if pin != nil {
+		if err := pin.validLocal(ctx); err != nil {
+			return err
+		}
+	}
 	// A live pin protects this immutable committed root. Batch the same native
 	// proof reads; this is not a transaction or a weaker cached validation.
 	pipe := s.client.Pipeline()
 	manifest := pipe.HGet(ctx, snapshotCatalogKey, "w:"+root)
 	directory := pipe.ZCard(ctx, snapshotMetadataKeys(root))
 	rootMap := pipe.HLen(ctx, snapshotMetadataMap(root))
+	var lease *queuedSnapshotValidation
+	if pin != nil {
+		lease = pin.queueValid(ctx, pipe)
+	}
 	_, pipelineErr := pipe.Exec(ctx)
 	// Preserve proof/error precedence instead of consuming a failed command's
 	// zero value or letting a later pipeline error hide the manifest failure.
@@ -71,5 +87,8 @@ func (s *store) validateSnapshotMetadata(ctx context.Context, root string) error
 	}
 	// Hooks/transports can fail the pipeline even when individual replies are
 	// populated. A proof never succeeds after an unaccounted-for pipeline error.
+	if lease != nil {
+		return lease.resolve(ctx, pipelineErr)
+	}
 	return pipelineErr
 }

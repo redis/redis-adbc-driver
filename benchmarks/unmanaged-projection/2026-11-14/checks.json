@@ -1,0 +1,23 @@
+{
+  "native_projection_race": {
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-race",
+      "-count=1",
+      "-p",
+      "1",
+      "-timeout=10m",
+      "-run",
+      "^TestUnmanaged(ProjectionRead|Filtered|Statement)",
+      "."
+    ],
+    "exit_code": 0,
+    "failed_top_level_tests": 0,
+    "passed_top_level_tests": 23,
+    "skipped_top_level_tests": 0,
+    "source_commit": "859a9510875bd9965ae01c86662aafec3c90f01c",
+    "wall_seconds": 29.571544583013747
+  }
+}

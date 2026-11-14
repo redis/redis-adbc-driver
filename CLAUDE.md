@@ -262,6 +262,10 @@ Build validation libraries with `make build` or preserve its version linker flag
 upstream GetInfo validation rejects a bare build's development version string.
 Finish Arrow fetch and validate results before claiming query success or speedup.
 Preserve cursor cleanup, cancellation, Arrow ownership and worker-token release.
+For missing-row or safe-fallback proofs, accept only a direct `goredis.Nil` or
+a direct native refusal. A wrapped/joined error can also contain reply loss;
+check the pipeline error and every reply before repair or fallback. See the
+[composed-error regressions](go/unmanaged_projection_read_test.go).
 For NUL/zero-byte coverage, construct bytes explicitly (for example,
 `string([]byte{'a', 0, 'b'})`) and assert the fixture contains a zero byte.
 A Go literal `"\\x00"` contains printable backslash text and does not prove NUL
