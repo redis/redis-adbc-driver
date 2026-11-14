@@ -1,0 +1,284 @@
+{
+  "source": "255e58919e7ad2327752a07cd30380968aad6798",
+  "samples": [
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": false,
+      "iterations": 3946,
+      "ns_per_op": 60295.0,
+      "bytes_per_op": 19728,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": false,
+      "iterations": 4179,
+      "ns_per_op": 57536.0,
+      "bytes_per_op": 19728,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": false,
+      "iterations": 4219,
+      "ns_per_op": 57546.0,
+      "bytes_per_op": 19728,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": true,
+      "iterations": 4060,
+      "ns_per_op": 57709.0,
+      "bytes_per_op": 19728,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": true,
+      "iterations": 4063,
+      "ns_per_op": 57494.0,
+      "bytes_per_op": 19728,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "fused": true,
+      "iterations": 4074,
+      "ns_per_op": 57956.0,
+      "bytes_per_op": 19728,
+      "allocs_per_op": 142
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 265,
+      "ns_per_op": 904935.0,
+      "bytes_per_op": 200208,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 264,
+      "ns_per_op": 899962.0,
+      "bytes_per_op": 200208,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 266,
+      "ns_per_op": 912307.0,
+      "bytes_per_op": 200208,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 262,
+      "ns_per_op": 909604.0,
+      "bytes_per_op": 200208,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 264,
+      "ns_per_op": 901184.0,
+      "bytes_per_op": 200208,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 265,
+      "ns_per_op": 907821.0,
+      "bytes_per_op": 200208,
+      "allocs_per_op": 158
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": false,
+      "iterations": 516,
+      "ns_per_op": 456957.0,
+      "bytes_per_op": 291408,
+      "allocs_per_op": 2216
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": false,
+      "iterations": 530,
+      "ns_per_op": 452412.0,
+      "bytes_per_op": 291408,
+      "allocs_per_op": 2216
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": false,
+      "iterations": 531,
+      "ns_per_op": 453424.0,
+      "bytes_per_op": 291410,
+      "allocs_per_op": 2216
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": true,
+      "iterations": 825,
+      "ns_per_op": 291006.0,
+      "bytes_per_op": 291409,
+      "allocs_per_op": 2216
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": true,
+      "iterations": 822,
+      "ns_per_op": 292325.0,
+      "bytes_per_op": 291409,
+      "allocs_per_op": 2216
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "fused": true,
+      "iterations": 793,
+      "ns_per_op": 293087.0,
+      "bytes_per_op": 291410,
+      "allocs_per_op": 2216
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 34,
+      "ns_per_op": 6657044.0,
+      "bytes_per_op": 2655703,
+      "allocs_per_op": 2424
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 34,
+      "ns_per_op": 6779591.0,
+      "bytes_per_op": 2655699,
+      "allocs_per_op": 2424
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": false,
+      "iterations": 34,
+      "ns_per_op": 6788205.0,
+      "bytes_per_op": 2655703,
+      "allocs_per_op": 2424
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 57,
+      "ns_per_op": 4293880.0,
+      "bytes_per_op": 2655699,
+      "allocs_per_op": 2424
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 56,
+      "ns_per_op": 4067070.0,
+      "bytes_per_op": 2655701,
+      "allocs_per_op": 2424
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "fused": true,
+      "iterations": 58,
+      "ns_per_op": 4492930.0,
+      "bytes_per_op": 2655699,
+      "allocs_per_op": 2424
+    }
+  ],
+  "summary": [
+    {
+      "columns": 8,
+      "rows": 63,
+      "control": {
+        "ns_per_op": 57546.0,
+        "bytes_per_op": 19728,
+        "allocs_per_op": 142
+      },
+      "fused": {
+        "ns_per_op": 57709.0,
+        "bytes_per_op": 19728,
+        "allocs_per_op": 142
+      },
+      "seconds_change_pct": 0.28325165954192766
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "control": {
+        "ns_per_op": 904935.0,
+        "bytes_per_op": 200208,
+        "allocs_per_op": 158
+      },
+      "fused": {
+        "ns_per_op": 907821.0,
+        "bytes_per_op": 200208,
+        "allocs_per_op": 158
+      },
+      "seconds_change_pct": 0.31891793333223006
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "control": {
+        "ns_per_op": 453424.0,
+        "bytes_per_op": 291408,
+        "allocs_per_op": 2216
+      },
+      "fused": {
+        "ns_per_op": 292325.0,
+        "bytes_per_op": 291409,
+        "allocs_per_op": 2216
+      },
+      "seconds_change_pct": -35.529438230001055
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "control": {
+        "ns_per_op": 6779591.0,
+        "bytes_per_op": 2655703,
+        "allocs_per_op": 2424
+      },
+      "fused": {
+        "ns_per_op": 4293880.0,
+        "bytes_per_op": 2655699,
+        "allocs_per_op": 2424
+      },
+      "seconds_change_pct": -36.66461590382075
+    }
+  ],
+  "control": "Same candidate binding setup with fused input funcs disabled; not archived baseline allocation evidence"
+}

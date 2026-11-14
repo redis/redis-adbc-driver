@@ -1,0 +1,27 @@
+{
+  "software": {
+    "empty": true,
+    "no_indexes": true,
+    "clients_closed": true,
+    "effective_qpf_tls_resp3_reverified": true
+  },
+  "native": {
+    "baseline": {
+      "controller_exit_code": 0,
+      "gate_after_exit_code": 0,
+      "empty": true,
+      "no_indexes": true,
+      "clients_closed": true,
+      "effective_qpf_tls_resp3_reverified": true
+    },
+    "candidate": {
+      "controller_exit_code": 0,
+      "gate_after_exit_code": 0,
+      "empty": true,
+      "no_indexes": true,
+      "clients_closed": true,
+      "effective_qpf_tls_resp3_reverified": true
+    }
+  },
+  "infrastructure_teardown": "Parent-owned shared fixture; final owner cleanup pending"
+}
