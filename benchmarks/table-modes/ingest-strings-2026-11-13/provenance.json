@@ -1,0 +1,90 @@
+{
+  "baseline": {
+    "candidate_head": "85cf660bd8bacc6ff1e2ed9d6f3289ff946bdfec",
+    "helper_sha256": "a4e01c712fc90f4b87c97eb783baf8e4a3b972e548f280b256236b132697f49b",
+    "stage": "baseline-native",
+    "inherited_runtime": {
+      "GOGC": null,
+      "GOMEMLIMIT": null,
+      "GODEBUG": null,
+      "GOMAXPROCS": null,
+      "GOFLAGS": null,
+      "GOWORK": null
+    },
+    "source_head": "06c76c0b68258862d091487c3eb280b961f4fb8d",
+    "version": "v0.1.0-dev.scoped-base",
+    "fixture": {
+      "qpf": 4,
+      "workers": 6,
+      "routing": "mnp",
+      "connections": 32,
+      "memory_bytes": 4294967296,
+      "tls_certificate_verified": true,
+      "resp": 3,
+      "empty": true
+    },
+    "native_gomaxprocs": "unset",
+    "driver_sha256": "e51036efc529f28fb010ac5e5993b301ef111497b0c1408642eb77da911fa1ca",
+    "cli_sha256": "2efb665efb9e4c1d29e9342f9d9e9b8e3e4f7cae2f408f0ba848d8d5da0dae86",
+    "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+    "base_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642"
+  },
+  "candidate": {
+    "candidate_head": "85cf660bd8bacc6ff1e2ed9d6f3289ff946bdfec",
+    "helper_sha256": "a4e01c712fc90f4b87c97eb783baf8e4a3b972e548f280b256236b132697f49b",
+    "stage": "candidate-native",
+    "inherited_runtime": {
+      "GOGC": null,
+      "GOMEMLIMIT": null,
+      "GODEBUG": null,
+      "GOMAXPROCS": null,
+      "GOFLAGS": null,
+      "GOWORK": null
+    },
+    "source_head": "85cf660bd8bacc6ff1e2ed9d6f3289ff946bdfec",
+    "version": "v0.1.0-dev.ingest-strings-1",
+    "fixture": {
+      "qpf": 4,
+      "workers": 6,
+      "routing": "mnp",
+      "connections": 32,
+      "memory_bytes": 4294967296,
+      "tls_certificate_verified": true,
+      "resp": 3,
+      "empty": true
+    },
+    "native_gomaxprocs": "unset",
+    "driver_sha256": "2f3fc3fa9f9f0426b1023b135476fde2ab2dd7101203c5b73875ac09b2e31e4a",
+    "cli_sha256": "f2df8f14ddc24183c9b4403f5ec369ab52e587d7e6847b14787c0dd102bde366",
+    "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+    "base_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642"
+  },
+  "measured_candidate": "85cf660bd8bacc6ff1e2ed9d6f3289ff946bdfec",
+  "baseline_commit": "06c76c0b68258862d091487c3eb280b961f4fb8d",
+  "go_toolchain": "go1.27.3",
+  "source_runtime_production_identical_to": "cd44471b",
+  "adoption": "accepted: every predeclared quantitative/correctness gate passed; human review pending",
+  "controller_sha256": "e82f53dd3ba49e09304aaf46ef13671f8b132308922b62ec64603c2a2c25e223",
+  "initial_controller_sha256": "69a2c341d6376f12fbc7ade192276d14f7f57273c68769740cf07a3783ee2c5c",
+  "candidate_builds": {
+    "libadbc_driver_redis.dylib": {
+      "sha256": "2f3fc3fa9f9f0426b1023b135476fde2ab2dd7101203c5b73875ac09b2e31e4a",
+      "go": "go1.27.3",
+      "vcs_revision": "85cf660bd8bacc6ff1e2ed9d6f3289ff946bdfec",
+      "vcs_modified": false
+    },
+    "redis-adbc": {
+      "sha256": "f2df8f14ddc24183c9b4403f5ec369ab52e587d7e6847b14787c0dd102bde366",
+      "go": "go1.27.3",
+      "vcs_revision": "85cf660bd8bacc6ff1e2ed9d6f3289ff946bdfec",
+      "vcs_modified": false
+    }
+  },
+  "gate": {
+    "mixed_allocation_reduction_minimum": 0.5,
+    "micro_time_or_bytes_median_increase": 0.03,
+    "native_time_median_increase": 0.03,
+    "native_rss_median_increase": 0.01,
+    "range_required_for_regression": "candidate minimum strictly greater than baseline/control maximum"
+  }
+}

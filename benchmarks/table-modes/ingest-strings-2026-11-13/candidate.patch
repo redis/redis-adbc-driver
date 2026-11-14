@@ -1,0 +1,521 @@
+diff --git a/go/ingest.go b/go/ingest.go
+index 08a18cf1..1035f0e7 100644
+--- a/go/ingest.go
++++ b/go/ingest.go
+@@ -397,6 +397,18 @@ func ingestColumn(arr arrow.Array, target ColType, zone tzZone, rows [][]Value,
+ 	if err := validateInputArray(arr); err != nil {
+ 		return errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
+ 	}
++	if target == typeString && len(rows) >= 2 {
++		switch a := arr.(type) {
++		case *array.String:
++			if ingestStringArena(a, rows, column) {
++				return nil
++			}
++		case *array.LargeString:
++			if ingestStringArena(a, rows, column) {
++				return nil
++			}
++		}
++	}
+ 	var read func(int) Value
+ 	exactInteger := false
+ 	switch a := arr.(type) {
+diff --git a/go/ingest_string.go b/go/ingest_string.go
+new file mode 100644
+index 00000000..4fa0322f
+--- /dev/null
++++ b/go/ingest_string.go
+@@ -0,0 +1,51 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import "strings"
++
++// Limit shared ownership: keeping one converted string may retain its column's
++// arena. Larger columns keep the independent per-cell clone path.
++const ingestStringArenaBytes = 1 << 20
++
++type ingestStrings interface {
++	IsNull(int) bool
++	Value(int) string
++}
++
++// ingestStringArena is called only after full array validation and only for
++// exact unbounded text. That conversion cannot fail or change the string bytes.
++// Each pass is restricted to the actual conversion rows, not the parent batch.
++// The final string owns copied Go bytes; no Arrow storage escapes the call.
++func ingestStringArena(a ingestStrings, rows [][]Value, column int) bool {
++	total := 0
++	for i := range rows {
++		if !a.IsNull(i) {
++			n := len(a.Value(i))
++			if n > ingestStringArenaBytes-total {
++				return false
++			}
++			total += n
++		}
++	}
++	var builder strings.Builder
++	builder.Grow(total)
++	for i := range rows {
++		if !a.IsNull(i) {
++			builder.WriteString(a.Value(i))
++		}
++	}
++	owned := builder.String()
++	at := 0
++	for i := range rows {
++		if a.IsNull(i) {
++			rows[i][column] = nullValue(typeString)
++			continue
++		}
++		n := len(a.Value(i))
++		rows[i][column] = stringValue(owned[at : at+n])
++		at += n
++	}
++	return true
++}
+diff --git a/go/ingest_string_integration_test.go b/go/ingest_string_integration_test.go
+new file mode 100644
+index 00000000..1eef8a0e
+--- /dev/null
++++ b/go/ingest_string_integration_test.go
+@@ -0,0 +1,112 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"fmt"
++	"strings"
++	"testing"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	"github.com/apache/arrow-go/v18/arrow"
++	"github.com/apache/arrow-go/v18/arrow/array"
++	"github.com/apache/arrow-go/v18/arrow/memory"
++)
++
++func TestIngestStringArenaMultiRecordValues(t *testing.T) {
++	for _, unmanaged := range []bool{false, true} {
++		t.Run(fmt.Sprintf("unmanaged_%t", unmanaged), func(t *testing.T) {
++			h, raw, _ := newSnapshotHarnessMode(t, false, false)
++			keyName := "source_key"
++			if unmanaged {
++				keyName = "__key"
++				if err := raw.HSet(h.ctx, "app:seed", "n", "0", "note", "seed").Err(); err != nil {
++					t.Fatal(err)
++				}
++				if err := raw.Do(h.ctx, "FT.CREATE", "app_idx", "ON", "HASH", "PREFIX", 1, "app:", "SCHEMA", "n", "NUMERIC").Err(); err != nil {
++					t.Fatal(err)
++				}
++				if err := (&store{client: raw}).awaitIndexReady(h.ctx, "app_idx"); err != nil {
++					t.Fatal(err)
++				}
++				_, err := AdoptHashes(h.ctx, unmanagedArrowDatabaseOptions(), HashAdoptOptions{Mode: "unmanaged", Prefix: "app:", Table: "t", Types: map[string]string{"n": "BIGINT", "note": "VARCHAR"}, Apply: true})
++				if err != nil {
++					t.Fatal(err)
++				}
++			} else {
++				h.exec("CREATE TABLE t(source_key VARCHAR,n BIGINT,note VARCHAR, omitted VARCHAR DEFAULT 'fallback')")
++			}
++			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
++			defer mem.AssertSize(t, 0)
++			schema := arrow.NewSchema([]arrow.Field{{Name: keyName, Type: arrow.BinaryTypes.String}, {Name: "n", Type: arrow.PrimitiveTypes.Int64, Nullable: true}, {Name: "note", Type: arrow.BinaryTypes.String, Nullable: true}}, nil)
++			var records []arrow.RecordBatch
++			var expected []string
++			next := int64(1)
++			for _, n := range []int{4096, 3, 4097, 1} {
++				builder := array.NewRecordBuilder(mem, schema)
++				for r := 0; r < n; r++ {
++					key := fmt.Sprintf("app:row%d", next)
++					builder.Field(0).(*array.StringBuilder).Append(key)
++					value := int64(9007199254740993) + next
++					builder.Field(1).(*array.Int64Builder).Append(value)
++					note := fmt.Sprintf("é:\x00%d", next)
++					if strings.IndexByte(note, 0) < 0 {
++						t.Fatal("integration fixture has no NUL byte")
++					}
++					if next%7 == 0 {
++						builder.Field(2).(*array.StringBuilder).AppendNull()
++						note = "NULL"
++					} else {
++						builder.Field(2).(*array.StringBuilder).Append(note)
++					}
++					expected = append(expected, fmt.Sprintf("%s|%d|%s", key, value, note))
++					next++
++				}
++				records = append(records, builder.NewRecordBatch())
++				builder.Release()
++			}
++			reader, err := array.NewRecordReader(schema, records)
++			for _, record := range records {
++				record.Release()
++			}
++			if err != nil {
++				t.Fatal(err)
++			}
++			st, err := h.conn.NewStatement(h.ctx)
++			if err != nil {
++				reader.Release()
++				t.Fatal(err)
++			}
++			defer st.Close(h.ctx)
++			for k, v := range map[string]string{adbc.OptionKeyIngestTargetTable: "t", adbc.OptionKeyIngestMode: adbc.OptionValueIngestModeAppend} {
++				if err := st.SetOption(h.ctx, k, v); err != nil {
++					reader.Release()
++					t.Fatal(err)
++				}
++			}
++			if err := st.BindStream(h.ctx, reader); err != nil {
++				t.Fatal(err)
++			}
++			written, err := st.ExecuteUpdate(h.ctx)
++			if err != nil || written != int64(len(expected)) {
++				t.Fatalf("rows%d error%v", written, err)
++			}
++			// Check every value after all Arrow records have been consumed. SQL
++			// ordering follows numeric n, avoiding lexical source-key ordering.
++			query := fmt.Sprintf("SELECT %s,n,note FROM t WHERE n>0 ORDER BY n", keyName)
++			rows, _ := h.query(query)
++			if len(rows) != len(expected) {
++				t.Fatalf("got%d rows want%d", len(rows), len(expected))
++			}
++			for i := range rows {
++				if rows[i] != expected[i] {
++					t.Fatalf("row%d got%q want%q", i, rows[i], expected[i])
++				}
++			}
++			if !unmanaged {
++				h.expectRows("SELECT COUNT(*) FROM t WHERE omitted='fallback'", fmt.Sprint(len(expected)))
++			}
++		})
++	}
++}
+diff --git a/go/ingest_string_test.go b/go/ingest_string_test.go
+new file mode 100644
+index 00000000..bf595ba0
+--- /dev/null
++++ b/go/ingest_string_test.go
+@@ -0,0 +1,317 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"encoding/binary"
++	"fmt"
++	"reflect"
++	"strings"
++	"testing"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	"github.com/apache/arrow-go/v18/arrow"
++	"github.com/apache/arrow-go/v18/arrow/array"
++	"github.com/apache/arrow-go/v18/arrow/memory"
++)
++
++func TestIngestStringArenaOwnership(t *testing.T) {
++	text := "é" + string([]byte{0}) + "🙂"
++	if strings.IndexByte(text, 0) < 0 {
++		t.Fatal("ownership fixture has no NUL byte")
++	}
++	for _, large := range []bool{false, true} {
++		t.Run(fmt.Sprintf("large_%t", large), func(t *testing.T) {
++			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
++			defer mem.AssertSize(t, 0)
++			var builder array.StringLikeBuilder
++			if large {
++				builder = array.NewLargeStringBuilder(mem)
++			} else {
++				builder = array.NewStringBuilder(mem)
++			}
++			for i, s := range []string{"outside", text, "", "unused", "last", "tail"} {
++				if i == 3 {
++					builder.AppendNull()
++				} else {
++					builder.Append(s)
++				}
++			}
++			whole := builder.NewArray()
++			builder.Release()
++			input := array.NewSlice(whole, 1, 5)
++			whole.Release()
++			rows := makeIngestStringRows(4, 2)
++			for _, row := range rows {
++				row[1] = intValue(typeInt64, 9007199254740993)
++			}
++			if err := ingestColumn(input, typeString, utcZone, rows, 0); err != nil {
++				t.Fatal(err)
++			}
++			want := []Value{stringValue(text), stringValue(""), nullValue(typeString), stringValue("last")}
++			for i, row := range rows {
++				if !reflect.DeepEqual(row[0], want[i]) || row[1].I != 9007199254740993 {
++					t.Fatalf("row%d got%#v", i, row)
++				}
++			}
++			for i := range input.Data().Buffers()[2].Bytes() {
++				input.Data().Buffers()[2].Bytes()[i] = 'X'
++			}
++			input.Release()
++			retained := rows[0][0]
++			rows = nil
++			if retained.S != text {
++				t.Fatalf("retained string aliases Arrow: %q", retained.S)
++			}
++		})
++	}
++}
++
++func makeIngestStringRows(n, columns int) [][]Value {
++	rows := make([][]Value, n)
++	values := make([]Value, n*columns)
++	for i := range rows {
++		start := i * columns
++		rows[i] = values[start : start+columns : start+columns]
++	}
++	return rows
++}
++
++func TestIngestStringArenaCapAndFallback(t *testing.T) {
++	for _, extra := range []int{0, 1} {
++		t.Run(fmt.Sprintf("extra_%d", extra), func(t *testing.T) {
++			b := array.NewStringBuilder(memory.DefaultAllocator)
++			first := strings.Repeat("a", ingestStringArenaBytes/2)
++			second := strings.Repeat("b", ingestStringArenaBytes/2+extra)
++			b.Append(first)
++			b.Append(second)
++			input := b.NewArray()
++			b.Release()
++			defer input.Release()
++			rows := makeIngestStringRows(2, 1)
++			rows[0][0] = stringValue("untouched")
++			if got := ingestStringArena(input.(*array.String), rows, 0); got != (extra == 0) {
++				t.Fatalf("eligible%v", got)
++			}
++			if extra > 0 && rows[0][0].S != "untouched" {
++				t.Fatal("oversized preflight changed output")
++			}
++			if err := ingestColumn(input, typeString, utcZone, rows, 0); err != nil {
++				t.Fatal(err)
++			}
++			for i := range input.Data().Buffers()[2].Bytes() {
++				input.Data().Buffers()[2].Bytes()[i] = 'X'
++			}
++			if rows[0][0].S != first || rows[1][0].S != second {
++				t.Fatal("cap/fallback aliases input")
++			}
++		})
++	}
++}
++
++type prefixOnlyIngestStrings struct {
++	t      *testing.T
++	values []string
++	max    int
++}
++
++func (s prefixOnlyIngestStrings) IsNull(i int) bool {
++	if i >= s.max {
++		s.t.Fatal("read past conversion rows")
++	}
++	return false
++}
++func (s prefixOnlyIngestStrings) Value(i int) string {
++	if i >= s.max {
++		s.t.Fatal("read past conversion rows")
++	}
++	return s.values[i]
++}
++
++func TestIngestStringArenaPrefixAndEmpty(t *testing.T) {
++	source := prefixOnlyIngestStrings{t, []string{"first", "second", "unread"}, 2}
++	rows := makeIngestStringRows(2, 1)
++	if !ingestStringArena(source, rows, 0) || rows[0][0].S != "first" || rows[1][0].S != "second" {
++		t.Fatal("prefix mismatch")
++	}
++	if !ingestStringArena(prefixOnlyIngestStrings{t, nil, 0}, nil, 0) {
++		t.Fatal("empty prefix rejected")
++	}
++	b := array.NewStringBuilder(memory.DefaultAllocator)
++	b.AppendNull()
++	b.Append("")
++	b.AppendNull()
++	b.Append("")
++	input := b.NewArray()
++	b.Release()
++	defer input.Release()
++	rows = makeIngestStringRows(4, 1)
++	if err := ingestColumn(input, typeString, utcZone, rows, 0); err != nil {
++		t.Fatal(err)
++	}
++	for i, row := range rows {
++		if row[0].Null != (i%2 == 0) || row[0].S != "" {
++			t.Fatalf("row%d%#v", i, row)
++		}
++	}
++}
++
++func TestIngestStringArenaValidationBeforeCopy(t *testing.T) {
++	b := array.NewStringBuilder(memory.DefaultAllocator)
++	b.Append("first")
++	b.Append("second")
++	input := b.NewArray()
++	b.Release()
++	defer input.Release()
++	binary.LittleEndian.PutUint32(input.Data().Buffers()[1].Bytes()[8:], uint32(1<<30))
++	rows := makeIngestStringRows(2, 1)
++	rows[0][0] = stringValue("untouched")
++	if err := ingestColumn(input, typeString, utcZone, rows, 0); err == nil {
++		t.Fatal("invalid offsets accepted")
++	}
++	if rows[0][0].S != "untouched" {
++		t.Fatal("copy happened before complete validation")
++	}
++}
++
++func BenchmarkIngestStringConversion(b *testing.B) {
++	for _, mixed := range []bool{false, true} {
++		for _, columns := range []int{8, 105} {
++			for _, n := range []int{63, 1024} {
++				arrays := make([]arrow.Array, columns)
++				targets := make([]ColType, columns)
++				for c := range columns {
++					if mixed && c%3 == 0 {
++						builder := array.NewStringBuilder(memory.DefaultAllocator)
++						for r := range n {
++							if r%17 == 0 {
++								builder.AppendNull()
++							} else {
++								builder.Append(fmt.Sprintf("é\x00column%d/row%d", c, r))
++							}
++						}
++						arrays[c] = builder.NewArray()
++						builder.Release()
++						targets[c] = typeString
++					} else {
++						builder := array.NewInt64Builder(memory.DefaultAllocator)
++						for r := range n {
++							if r%17 == 0 {
++								builder.AppendNull()
++							} else {
++								builder.Append(9007199254740993 + int64(r))
++							}
++						}
++						arrays[c] = builder.NewArray()
++						builder.Release()
++						targets[c] = typeInt64
++					}
++				}
++				for _, arena := range []bool{false, true} {
++					label := "clone"
++					if arena {
++						label = "arena"
++					}
++					b.Run(fmt.Sprintf("mixed%t/columns%d/rows%d/%s", mixed, columns, n, label), func(b *testing.B) {
++						run := func(check bool) {
++							rows := makeIngestStringRows(n, columns)
++							for c, a := range arrays {
++								convert := ingestColumnCloneReference
++								if arena {
++									convert = ingestColumn
++								}
++								if err := convert(a, targets[c], utcZone, rows, c); err != nil {
++									b.Fatal(err)
++								}
++							}
++							if check {
++								for r, row := range rows {
++									for c, got := range row {
++										want, err := valueAt(arrays[c], r)
++										if err == nil {
++											want, err = coerceIn(want, targets[c], utcZone)
++										}
++										if err != nil || !reflect.DeepEqual(got, want) {
++											b.Fatalf("row%d col%d got%#v want%#v error%v", r, c, got, want, err)
++										}
++									}
++								}
++							}
++						}
++						run(true)
++						b.ReportAllocs()
++						b.ResetTimer()
++						for i := 0; i < b.N; i++ {
++							run(false)
++						}
++						b.StopTimer()
++						run(true)
++					})
++				}
++				for _, a := range arrays {
++					a.Release()
++				}
++			}
++		}
++
++	}
++}
++
++// Exact baseline06c76c0b conversion control, renamed only for paired allocation timing.
++func ingestColumnCloneReference(arr arrow.Array, target ColType, zone tzZone, rows [][]Value, column int) error {
++	if err := validateInputArray(arr); err != nil {
++		return errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
++	}
++	var read func(int) Value
++	exactInteger := false
++	switch a := arr.(type) {
++	case *array.Int16:
++		read = func(i int) Value { return intValue(typeInt16, int64(a.Value(i))) }
++		exactInteger = target == typeInt16
++	case *array.Int32:
++		read = func(i int) Value { return intValue(typeInt32, int64(a.Value(i))) }
++		exactInteger = target == typeInt32
++	case *array.Int64:
++		read = func(i int) Value { return intValue(typeInt64, a.Value(i)) }
++		exactInteger = target == typeInt64
++	case *array.String:
++		read = func(i int) Value { return stringValue(strings.Clone(a.Value(i))) }
++	case *array.LargeString:
++		read = func(i int) Value { return stringValue(strings.Clone(a.Value(i))) }
++	}
++	// A validated signed integer array already has the complete target type
++	// and range. Bind that fact once per column; aliases, narrowing, other
++	// conversions and every non-integer layout retain coerceIn below.
++	if exactInteger {
++		for i := range rows {
++			if arr.IsNull(i) {
++				rows[i][column] = nullValue(target)
++			} else {
++				rows[i][column] = read(i)
++			}
++		}
++		return nil
++	}
++	for i := range rows {
++		var v Value
++		var err error
++		switch {
++		case read == nil:
++			v, err = valueAt(arr, i)
++		case arr.IsNull(i):
++			v = nullValue(target)
++		default:
++			v = read(i)
++		}
++		if err != nil {
++			return err
++		}
++		v, err = coerceIn(v, target, zone)
++		if err != nil {
++			return err
++		}
++		rows[i][column] = v
++	}
++	return nil
++}
