@@ -1,5 +1,7 @@
 # Plan
 
+**NOT SELECTED.** Frozen experiment evidence is retained; selected code restores the original metadata path. See the [final validation](../performance-followup-20261114/validation.md).
+
 Date: November 14, 2026. Author: Codex. Status: source prototype ready.
 [Intent](intent.md), [specification](spec.md), [validation](validation.md).
 

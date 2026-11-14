@@ -1,8 +1,9 @@
 # OLTP and selective-query performance
 
-The [final November 14 follow-up](2026-11-14-followup/report.md) measures selected
-point/native-projection changes against the first PR candidate, retaining all
-42 comparisons and the slower cases. Earlier reports retain their own sources.
+The [selected November 14 comparison](2026-11-14-final/report.md) measures native
+unmanaged projection and error-safety follow-ups. The [intermediate matrix](2026-11-14-followup/report.md)
+includes an unselected prefetch experiment. All observations and tradeoffs remain
+archived with their actual sources; do not compose ratios across separate runs.
 
 The [November 14 comparison](2026-11-14/report.md) adds the next point/write/retrieval
 changes, all 42 comparisons and explicit concurrency regressions. Both 168-record

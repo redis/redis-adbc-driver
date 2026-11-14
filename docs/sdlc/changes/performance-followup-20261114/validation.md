@@ -1,96 +1,73 @@
-# Verification and final review — November 14, 2026
+# Final selected verification — November 14, 2026
 
 [Intent](intent.md), [spec](spec.md), [plan](plan.md).
 [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).
 
-Final selected production source `3f9cf6a85a2cf4b7744f785bca8517b3ff18859c`;
-baseline `31426a96866c4bc12f7f691b3b1de23a6af9dbef` is the first PR candidate
-plus its test-only CI correction. Both clean versioned libraries/CLIs and the
-identical harness were frozen before timing. Post-run binary hashes match. Later
-commits add evidence/docs only; they do not relabel the measured source.
+Selected native source `c0d9f1e76716ffc87f3f1176a98527740571d508`, baseline
+`31426a96866c4bc12f7f691b3b1de23a6af9dbef`. Clean versioned builds and identical
+harness frozen before consecutive timing; post-run hashes match. Later commits
+publish evidence/docs only. Metadata proof/read files restore 31426 exactly, with
+matching file hashes in final provenance. No prefetch/batching runtime remains.
 
-## Checks
+## Selected checks and results
 
-| Check at final source | PASS | SKIP | FAIL |
-|---|---:|---:|---:|
-| Verified Software combined race selection | 108 | 2 | 0 |
-| Unit-only all Go packages, URIs intentionally unset | 668 | 896 | 0 |
-| Separate full Software snapshot suite | 319 | 62 | 0 |
+- Verified Software combined race: **99 PASS / 2 SKIP / 0 FAIL**.
+- Unit-only all packages: **660 / 895 / 0**, URIs intentionally unset; not Redis
+  compatibility proof. Commands and every skip name retain their actual source.
+- Native full matrices: **168 records per build**, all 42 comparisons,
+  **5,472 measured operations**, zero result failures/conflicts/retries/discards.
+  Complete typed fetch and whole mutation post-state independently validated.
+- The earlier experimental source 3f9 passed 319 snapshot tests/62skips and 108 race
+  tests/2skips; those results retain 3f9 and are not relabeled as selected code.
+  Final selected-head full driver/snapshot/integration CI is tracked in PR #439.
 
-[Checks](../../../../benchmarks/oltp-query-efficiency/2026-11-14-followup/checks.json)
-retain actual commands, full source IDs, counts, wrapper timing and every skip
-name. URI-unset checks are unit evidence, not Redis compatibility. Optional
-operator/backup/topology/profile and capability skips are not compatibility proof.
-Final focused race includes the later restricted/queue and per-key ACL-selector
-guards, temporal row changes, exact bytes/int64/NULL, real publication refusal
-regressions, ownership, pin/schema freshness, unknown replies and no replay.
+[Selected report](../../../../benchmarks/oltp-query-efficiency/2026-11-14-final/report.md)
+retains every raw sample, all 42 p50/p95/throughput comparisons, controls, input/build/
+harness/source hashes, actual environment and cleanup. Unmanaged filtered COUNT/
+SUM improves 106.645→86.399 ms at 1 client and 184.006→99.741 ms at 4; projections improve
+4.655→4.291 ms / 11.602→10.800 ms. These are finite workload observations.
 
-All live commands used an owned Redis Software fixture created via
-`make -C go redis-up`, independently gated for active/effective 4× QPF, six workers,
-mnp/32, 4-GiB noeviction, strict data TLS and RESP3. Shared live slots were exclusive;
-all builds/tests completed before the final consecutive native matrices. Native
-runtime was uncapped, with Go runtime tuning unset and telemetry explicitly off
-for both builds. Selected versions/resources are in the archived environment.
+Slower p50 and material p95 cases remain explicit, including managed four-client
+COUNT/SUM 10.531→15.537 ms and managed four-client DELETE 56.899→61.188 ms. Managed
+fast paths are unchanged by selected follow-ups apart from error handling; this
+sequential pair does not attribute all variation to the native-read change. No
+point-read speedup is claimed for selected code. Three trials do not establish
+confidence bounds, causal attribution or saturated capacity.
 
-Both full native matrices validated **168 records** each, all **42 combinations**
-and **5,472 measured operations**. No failed result, conflict, retry or discarded
-native sample. Complete typed fetch and independent whole mutation-state checks
-are required by the unchanged harness. Every JSON/CSV comparison, p50/p95,
-throughput, source/input/harness/build hash and cleanup proof passes the offline
-full-pair audit. Separate point, unmanaged and unselected managed archives/audits
-retain complete actual-source measurements; offline corruption tests pass.
-Formatting and `git diff --check` pass. No new ClickBench, bulk/transfer, Flex,
-Flight SQL or native Cluster API measurement is claimed.
+## Experiments not selected
 
-## Actual outcomes and selection
+[Root-prefetch pilot](../../../../benchmarks/point-root-prefetch/2026-11-14/report.md)
+and its [broader matrix](../../../../benchmarks/oltp-query-efficiency/2026-11-14-followup/report.md)
+retain their sources and all observations. Point p50 gains coincided with material
+tails/mixed-workload losses and control drift; prefetch is omitted conservatively.
+The complete six-file patch applies cleanly to 31426. No persisted migration needed.
 
-The [complete report](../../../../benchmarks/oltp-query-efficiency/2026-11-14-followup/report.md)
-retains all cases. Unmanaged filtered COUNT/SUM p50 improves 107.430→82.651 ms
-with one client and 192.297→81.154 ms with four (1.30×/2.37×). Point latency
-falls about 5–9%. Managed four-client INSERT improves 56.370→43.792 ms.
+[Managed batching](../../../../benchmarks/managed-publication-readiness/2026-11-14-native/report.md)
+is omitted after mixed native results, including 30.3% higher four-client DELETE
+p50 despite throughput/p95 improvements. All 384 Go and 96 native records remain.
+Only direct-native safety fixes and real-validator regressions are integrated.
 
-Slower cases remain explicit: managed four-client projection 16.489→21.422 ms
-(+29.9%); managed one-client filtered COUNT/SUM 3.955→4.331 ms (+9.5%); managed
-one-client UPDATE 45.377→47.878 ms (+5.5%). Small flat/slower cases are retained
-as well. Three finite measured trials do not establish cause or confidence bounds.
-Do not multiply these ratios with the earlier main→first-candidate comparison.
+## Review, environment and ownership
 
-The managed directory/readiness batching experiment is **not selected**. Native
-pilots showed mixed results, including 30.3% higher four-client DELETE median
-latency despite higher throughput and lower p95. All positive/negative Go and
-native evidence remains archived; an experiment patch permits reproduction.
-Production retains standalone ZCARD and FT.INFO, with direct-native failure guards.
+Independent final source review found no actionable correctness/security finding.
+Native non-NULL HMGET evidence, complete later HGETALL replacement and residual
+rechecks preserve live rows; exact key refusal stays local, command refusal may
+select scan-local fallback. Every outer/command unknown is inspected before
+fallback; both native reads retain NoRetry. Direct managed proof classifiers
+cannot rebuild/poll after an uncertain reply. Restricted metadata/lease behavior
+is the restored original path. Agent review is not maintainer approval.
 
-## Independent review and cleanup
+Every live command used owned Software created through `make -C go redis-up`,
+independently gated active/effective 4× QPF, six workers/mnp32, 4 GiB/noeviction and
+certificate-verified TLS/RESP3. Native builds finished before timing; no competing
+task-owned tests/builds/heavy work. Actual versions/resources are archived. Unit,
+race, offline corruption/complete-pair/pilot audits, formatting/diff checks pass.
+Optional fixtures/capabilities skipped are not compatibility evidence. Sparse/
+all-NULL wide rows may require a second full read; no such performance gain is
+claimed. No new bulk/transfer/ClickBench/Flex/Flight/native Cluster API measurement.
 
-Subagents independently reviewed the selected final source: no actionable
-correctness/security finding. Native HMGET non-NULL evidence and whole later
-HGETALL replacement preserve live source semantics; per-key refusals cannot force
-fallback for unrelated later keys. Unknown/composed outcomes are checked before
-any fallback. Root-map prefetch is atomic/bounded, authorization checked, per-pin
-only, skipped for restricted/shared readers and discarded before execution on a
-local queue error. Managed unknown proof outcomes cannot create replacement
-indexes or select polling. Original publication/lease/ownership proofs remain.
-This is agent review, not maintainer approval. Sparse/all-NULL wide-row costs and
-unavailable server CPU attribution remain explicit limitations.
-
-All Go/native processes and clients exited before owner-checked data/index
-clearing. Final empty/QPF/TLS/RESP3 verification passed before teardown.
-[Cleanup](../../../../benchmarks/oltp-query-efficiency/2026-11-14-followup/cleanup.json)
-confirms owned container/network and generated credentials/environment removed;
-preexisting containers/networks and TLS files were preserved. Private operational
-artifacts, identifiers, credentials/licenses and raw logs are excluded.
-
-The [original CI-fix run](https://github.com/redis/redis-adbc-driver/actions/runs/43645143585)
-passed at 31426a96 before these follow-ups. A pre-evidence CI attempt was canceled
-intentionally to avoid duplicate work. Final-evidence-head CI is tracked in the
-PR body; the earlier green run is not relabeled as validation of later code.
-
-## Selection follow-up
-
-Root-map prefetch is not selected after broader native evidence showed material
-tail and mixed-workload regressions plus control drift. This is a conservative
-selection decision, not proof of causality. Metadata proof/read Go files restore
-31426 exactly; the six-file experiment patch applies cleanly to that baseline.
-Earlier measurements retain their actual sources. A fresh selected-source native
-comparison and final checks supersede experimental-source performance claims.
+All clients/processes exited before owner-checked clearing and final empty/settings
+verification. Owned fixture/network and generated credentials/environment removed;
+preexisting containers/networks/TLS files preserved. Operational IDs, credentials,
+licenses and raw logs stay private. Earlier CI-fix run 43645143585 passed at 31426;
+final evidence-head CI outcome is reported in the PR body.

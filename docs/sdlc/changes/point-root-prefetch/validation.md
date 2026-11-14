@@ -1,5 +1,7 @@
 # Validation
 
+**NOT SELECTED.** Frozen experiment evidence is retained; selected code restores the original metadata path. See the [final validation](../performance-followup-20261114/validation.md).
+
 Date: November 14, 2026. Author: Codex. Status: native pilot complete; later
 restricted-mode eligibility guard awaits coordinating root's integrated checks.
 [Intent](intent.md), [specification](spec.md), [plan](plan.md).

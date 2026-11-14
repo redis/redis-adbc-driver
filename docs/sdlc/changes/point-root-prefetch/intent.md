@@ -1,5 +1,7 @@
 # Intent
 
+**NOT SELECTED.** Frozen experiment evidence is retained; selected code restores the original metadata path. See the [final validation](../performance-followup-20261114/validation.md).
+
 Date: November 14, 2026. Requested by Albert Wong; author: Codex point-read
 subagent. Status: prototype, pending validation and performance acceptance.
 [Specification](spec.md), [plan](plan.md), [validation](validation.md).

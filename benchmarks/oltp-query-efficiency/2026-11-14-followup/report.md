@@ -190,3 +190,15 @@ python3 benchmarks/oltp-query-efficiency/audit_pair.py \
  --require-check integrated-race-software --require-check unit-only-all-packages \
  --require-check snapshot-software
 ```
+
+## Independent tail/control review and selection
+
+Managed four-client projection has p50 +29.9%, p95 +99.2%, throughput −48.0%.
+Managed one-client point p95 rises 60.6%; unmanaged one-client/four-client point
+p95 rises 5.1%/23.5%. Redis-py point p50 controls also improve 6–8%; normalized
+driver/client point ratios improve only ~2.4% with one client and slightly worsen
+with four. The earlier point-only ABBA pilot has nearly flat controls, but these
+broader results do not establish a reliable general/tail win. Root prefetch is
+therefore not selected, without attributing every regression to it.
+The [fresh selected-source comparison](../2026-11-14-final/report.md) omits both
+root prefetch and publication batching. Earlier raw data/source identities remain.

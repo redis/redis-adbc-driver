@@ -33,3 +33,7 @@ The [combined follow-up validation](../performance-followup-20261114/validation.
 records final guarded source 3f9cf6a8, integrated race/unit/snapshot outcomes, all 42
 final native comparisons and ownership cleanup. Earlier pilot/diagnostic sources
 and limits above remain unchanged; they are not relabeled as the integrated build.
+
+Final selected verification and actual measured source are recorded in the
+[combined validation](../performance-followup-20261114/validation.md); earlier
+scoped source/measurement limits remain unchanged.
