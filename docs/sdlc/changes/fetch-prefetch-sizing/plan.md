@@ -11,3 +11,5 @@
    and generated TLS/credentials while preserving pre-existing resources.
 
 See [intent](intent.md) and [contract](spec.md).
+
+Review: [PR #432](https://github.com/redis/redis-adbc-driver/pull/432) is open and unmerged; no human approval is claimed.

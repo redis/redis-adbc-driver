@@ -28,3 +28,5 @@ The prior container and 31 networks were preserved. Sanitized cleanup proof is i
 the report; zero generated-credential matches left raw hashes unchanged. No 100M
 ClickBench or alternative server was used. See [intent](intent.md), [spec](spec.md)
 and [plan](plan.md). No merge or human approval is claimed.
+
+Review: [PR #432](https://github.com/redis/redis-adbc-driver/pull/432) is open and unmerged; no human approval is claimed.
