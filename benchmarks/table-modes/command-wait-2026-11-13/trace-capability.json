@@ -19,5 +19,6 @@
     "trace-capability-private.log": "b4faf7bee828f575d9ce06cfcf4e0b198a72be04281aa7f0be022ad39cf9b69e",
     "trace-python-capability-private.json": "9d9d04e0c6c002f43d185be4cf8ebffc8f6f8ee6533a8d47c297f15950818128",
     "trace-root-capability-private.json": "f6fdc4fe93fe26dfdce55ae482b431657efe1f9612ab8a897728e7a0082f7031"
-  }
+  },
+  "tool_lookup_scope": "tcpdump/tshark: default container exec PATH; libpcap/dpkt/scapy: root Python library/module lookup"
 }

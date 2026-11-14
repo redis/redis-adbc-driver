@@ -96,7 +96,8 @@ receiving frames, and its temporary socket accepted SO_TIMESTAMPNS. This checked
 option availability, not delivery/format of actual packet timestamps. No host sudo,
 capability addition, installation or host/server network change occurred.
 
-Tcpdump, tshark, libpcap, dpkt and scapy were absent. Existing release telemetry
+Executable lookup found no tcpdump/tshark on the default container exec path;
+root Python library/module lookup found no libpcap, dpkt or scapy. Existing release telemetry
 contains elapsed spans and job-local ordinals, without private endpoint/wall-clock
 write tags. Published-port forwarding prevents assuming client-side and container
 flow identities are identical. A trustworthy bound would need new private flow /
