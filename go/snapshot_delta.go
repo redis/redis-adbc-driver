@@ -235,6 +235,7 @@ func (s *store) fetchSnapshotVisible(ctx context.Context, m *tableMeta, keys, fi
 	out := make([]aggRow, len(keys))
 	resolved := make([]bool, len(keys))
 	segments := m.snapshotSegments()
+	point := !strict && len(keys) == 1 && snapshotOf(ctx) != nil && snapshotOf(ctx).write
 	for seg := len(segments) - 1; seg >= 0; seg-- {
 		var physical []string
 		var slots []int
@@ -251,9 +252,26 @@ func (s *store) fetchSnapshotVisible(ctx context.Context, m *tableMeta, keys, fi
 		if len(slots) == 0 {
 			break
 		}
-		rows, err := s.fetchSnapshotPhysical(ctx, physical, fields)
-		if err != nil {
-			return nil, err
+		var rows []aggRow
+		var err error
+		absenceVerified := false
+		if point {
+			var row aggRow
+			row, absenceVerified, err = s.fetchSnapshotPoint(ctx, segments[seg], physical[0], fields)
+			if err != nil {
+				return nil, err
+			}
+			if absenceVerified {
+				rows = []aggRow{row}
+			} else {
+				point = false
+			}
+		}
+		if !absenceVerified {
+			rows, err = s.fetchSnapshotPhysical(ctx, physical, fields)
+			if err != nil {
+				return nil, err
+			}
 		}
 		var members []bool
 		if strict {
@@ -273,7 +291,7 @@ func (s *store) fetchSnapshotVisible(ctx context.Context, m *tableMeta, keys, fi
 				if row == nil {
 					continue
 				}
-			} else if row == nil {
+			} else if row == nil && !absenceVerified {
 				if !snapshotOwns(ctx, segments[seg].Prefix) {
 					count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(segments[seg].Prefix))).Result()
 					if err != nil {
