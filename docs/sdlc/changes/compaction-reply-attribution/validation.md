@@ -24,7 +24,9 @@ observer correction and pacing/order limitations are in the
 
 Parent source review of initial `549cbd4a` found no blockers; parent explicitly
 requested/approved the record-only observer design before the corrected run.
-This is agent review, not human approval. Parent final evidence review is pending.
+This is agent review, not human approval. Parent final source/evidence review of `3d304257` plus the documentation follow-up
+found no blockers; the parent independently reran the 1,268-observation audit.
+This remains agent review, not human approval.
 The public audit recomputes all sample/counter/timing arithmetic and exact attempt
 coverage without Redis. No production code was cherry-picked from the experiment.
 
