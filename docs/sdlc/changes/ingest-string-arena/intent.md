@@ -7,3 +7,5 @@ roughly 102K allocations per operation. Inspect and measure the narrower owned
 string-copy path with matched managed/unmanaged writer controls.
 
 See [contract](spec.md) and [plan](plan.md). No human approval or speedup claimed.
+
+Review: [PR #433](https://github.com/redis/redis-adbc-driver/pull/433) is open and unmerged; no human approval or release is claimed.

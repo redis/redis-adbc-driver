@@ -17,3 +17,5 @@ See [intent](intent.md) and [contract](spec.md).
 
 Execution completed at clean `85cf660b`; quantitative gates passed. Final agent
 artifact review passed and owner cleanup completed before authorized PR publication.
+
+Review: [PR #433](https://github.com/redis/redis-adbc-driver/pull/433) is open and unmerged; no human approval or release is claimed.

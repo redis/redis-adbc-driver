@@ -47,3 +47,5 @@ is retained in the report; exact generated-secret scans found zero matches and
 raw hashes remain unchanged. Operational artifacts and license files remain private. No ClickBench or alternative server/provider was used.
 
 See [intent](intent.md), [contract](spec.md) and [plan](plan.md).
+
+Review: [PR #433](https://github.com/redis/redis-adbc-driver/pull/433) is open and unmerged; no human approval or release is claimed.
