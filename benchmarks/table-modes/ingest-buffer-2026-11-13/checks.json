@@ -1,0 +1,564 @@
+{
+  "unit": {
+    "passed": 59,
+    "top_level": 3,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "TestIngestColumnCoercion/int64/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnOwnsStringBytes",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestBufferClearsReferencesAndTails",
+        "seconds": 0.02
+      }
+    ],
+    "private_raw_sha256": "1014bc38456d1128d1a2a231ebc8b841231db7706b369a3fc0452ce963a7960d"
+  },
+  "race": {
+    "passed": 59,
+    "top_level": 3,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "TestIngestColumnCoercion/int64/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int64/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/utf8/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int16/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/int32/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/large_utf8/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/uint64/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/SMALLINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/INTEGER",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/BIGINT",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/VARCHAR",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/VARBINARY",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/DATE",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/CHAR(3)",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion/date32/BIGINT#01",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestColumnCoercion",
+        "seconds": 0.01
+      },
+      {
+        "name": "TestIngestColumnOwnsStringBytes",
+        "seconds": 0
+      },
+      {
+        "name": "TestIngestBufferClearsReferencesAndTails",
+        "seconds": 0.3
+      }
+    ],
+    "private_raw_sha256": "aef5c372060f8de32b2cfcf2620c7cc00406f55a9d38750910b9e5979d56c0a1"
+  },
+  "live": {
+    "passed": 14,
+    "top_level": 8,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "TestIngestBufferMultiRecordValues/unmanaged_false",
+        "seconds": 0.26
+      },
+      {
+        "name": "TestIngestBufferMultiRecordValues/unmanaged_true",
+        "seconds": 0.31
+      },
+      {
+        "name": "TestIngestBufferMultiRecordValues",
+        "seconds": 0.57
+      },
+      {
+        "name": "TestSnapshotLargeArrowRecordAtomicity/late_failure_false",
+        "seconds": 3.11
+      },
+      {
+        "name": "TestSnapshotLargeArrowRecordAtomicity/late_failure_true",
+        "seconds": 1.25
+      },
+      {
+        "name": "TestSnapshotLargeArrowRecordAtomicity",
+        "seconds": 4.36
+      },
+      {
+        "name": "TestUnmanagedArrowAppend/adopt",
+        "seconds": 0.04
+      },
+      {
+        "name": "TestUnmanagedArrowAppend/foreign",
+        "seconds": 0.04
+      },
+      {
+        "name": "TestUnmanagedArrowAppend",
+        "seconds": 0.09
+      },
+      {
+        "name": "TestUnmanagedArrowBoundedPartialFailure",
+        "seconds": 0.76
+      },
+      {
+        "name": "TestUnmanagedArrowUnknownReplyDoesNotReplay",
+        "seconds": 0.03
+      },
+      {
+        "name": "TestUnmanagedArrowReaderFailure",
+        "seconds": 0.03
+      },
+      {
+        "name": "TestUnmanagedArrowCancellation",
+        "seconds": 0.05
+      },
+      {
+        "name": "TestUnmanagedArrowChangedStreamSchema",
+        "seconds": 0.03
+      }
+    ],
+    "private_raw_sha256": "ea70f4fb700997c65a6bcdbf01913a81181af66f7bb1aaed50966bad9b499d04"
+  },
+  "controller_cleanup_attempt": {
+    "tests_completed_successfully": true,
+    "error": "ModuleNotFoundError: No module named redis in system Python, after tests passed and before cleanup mutation",
+    "correction": "Invoke existing benchmark virtualenv Python for cleanup; cleanup and configuration gate only",
+    "tests_repeated": false,
+    "cleanup_empty_gate_passed": true
+  }
+}

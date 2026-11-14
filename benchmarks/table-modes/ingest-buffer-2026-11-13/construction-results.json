@@ -1,0 +1,218 @@
+[
+  {
+    "columns": 8,
+    "kind": "integer",
+    "variant": "fresh",
+    "iterations": 348,
+    "ns_per_op": 667932.0,
+    "bytes_per_op": 3842592,
+    "allocs_per_op": 104
+  },
+  {
+    "columns": 8,
+    "kind": "integer",
+    "variant": "fresh",
+    "iterations": 370,
+    "ns_per_op": 670225.0,
+    "bytes_per_op": 3842592,
+    "allocs_per_op": 104
+  },
+  {
+    "columns": 8,
+    "kind": "integer",
+    "variant": "fresh",
+    "iterations": 366,
+    "ns_per_op": 648680.0,
+    "bytes_per_op": 3842592,
+    "allocs_per_op": 104
+  },
+  {
+    "columns": 8,
+    "kind": "integer",
+    "variant": "reuse",
+    "iterations": 456,
+    "ns_per_op": 523047.0,
+    "bytes_per_op": 1275520,
+    "allocs_per_op": 98
+  },
+  {
+    "columns": 8,
+    "kind": "integer",
+    "variant": "reuse",
+    "iterations": 462,
+    "ns_per_op": 533079.0,
+    "bytes_per_op": 1275521,
+    "allocs_per_op": 98
+  },
+  {
+    "columns": 8,
+    "kind": "integer",
+    "variant": "reuse",
+    "iterations": 446,
+    "ns_per_op": 527049.0,
+    "bytes_per_op": 1275521,
+    "allocs_per_op": 98
+  },
+  {
+    "columns": 8,
+    "kind": "mixed",
+    "variant": "fresh",
+    "iterations": 250,
+    "ns_per_op": 967403.0,
+    "bytes_per_op": 3980881,
+    "allocs_per_op": 8783
+  },
+  {
+    "columns": 8,
+    "kind": "mixed",
+    "variant": "fresh",
+    "iterations": 248,
+    "ns_per_op": 963324.0,
+    "bytes_per_op": 3980880,
+    "allocs_per_op": 8783
+  },
+  {
+    "columns": 8,
+    "kind": "mixed",
+    "variant": "fresh",
+    "iterations": 235,
+    "ns_per_op": 990702.0,
+    "bytes_per_op": 3980904,
+    "allocs_per_op": 8783
+  },
+  {
+    "columns": 8,
+    "kind": "mixed",
+    "variant": "reuse",
+    "iterations": 292,
+    "ns_per_op": 824961.0,
+    "bytes_per_op": 1413808,
+    "allocs_per_op": 8777
+  },
+  {
+    "columns": 8,
+    "kind": "mixed",
+    "variant": "reuse",
+    "iterations": 253,
+    "ns_per_op": 826665.0,
+    "bytes_per_op": 1413808,
+    "allocs_per_op": 8777
+  },
+  {
+    "columns": 8,
+    "kind": "mixed",
+    "variant": "reuse",
+    "iterations": 297,
+    "ns_per_op": 802989.0,
+    "bytes_per_op": 1413808,
+    "allocs_per_op": 8777
+  },
+  {
+    "columns": 105,
+    "kind": "integer",
+    "variant": "fresh",
+    "iterations": 37,
+    "ns_per_op": 5874716.0,
+    "bytes_per_op": 49430179,
+    "allocs_per_op": 1268
+  },
+  {
+    "columns": 105,
+    "kind": "integer",
+    "variant": "fresh",
+    "iterations": 36,
+    "ns_per_op": 5605133.0,
+    "bytes_per_op": 49430179,
+    "allocs_per_op": 1268
+  },
+  {
+    "columns": 105,
+    "kind": "integer",
+    "variant": "fresh",
+    "iterations": 40,
+    "ns_per_op": 5837818.0,
+    "bytes_per_op": 49430176,
+    "allocs_per_op": 1268
+  },
+  {
+    "columns": 105,
+    "kind": "integer",
+    "variant": "reuse",
+    "iterations": 38,
+    "ns_per_op": 5700948.0,
+    "bytes_per_op": 16410624,
+    "allocs_per_op": 1262
+  },
+  {
+    "columns": 105,
+    "kind": "integer",
+    "variant": "reuse",
+    "iterations": 40,
+    "ns_per_op": 5650407.0,
+    "bytes_per_op": 16410624,
+    "allocs_per_op": 1262
+  },
+  {
+    "columns": 105,
+    "kind": "integer",
+    "variant": "reuse",
+    "iterations": 39,
+    "ns_per_op": 5546435.0,
+    "bytes_per_op": 16410624,
+    "allocs_per_op": 1262
+  },
+  {
+    "columns": 105,
+    "kind": "mixed",
+    "variant": "fresh",
+    "iterations": 21,
+    "ns_per_op": 9711240.0,
+    "bytes_per_op": 51043536,
+    "allocs_per_op": 102523
+  },
+  {
+    "columns": 105,
+    "kind": "mixed",
+    "variant": "fresh",
+    "iterations": 22,
+    "ns_per_op": 9715466.0,
+    "bytes_per_op": 51043541,
+    "allocs_per_op": 102523
+  },
+  {
+    "columns": 105,
+    "kind": "mixed",
+    "variant": "fresh",
+    "iterations": 20,
+    "ns_per_op": 10224604.0,
+    "bytes_per_op": 51043541,
+    "allocs_per_op": 102523
+  },
+  {
+    "columns": 105,
+    "kind": "mixed",
+    "variant": "reuse",
+    "iterations": 22,
+    "ns_per_op": 9823619.0,
+    "bytes_per_op": 18023984,
+    "allocs_per_op": 102517
+  },
+  {
+    "columns": 105,
+    "kind": "mixed",
+    "variant": "reuse",
+    "iterations": 22,
+    "ns_per_op": 9800428.0,
+    "bytes_per_op": 18023984,
+    "allocs_per_op": 102517
+  },
+  {
+    "columns": 105,
+    "kind": "mixed",
+    "variant": "reuse",
+    "iterations": 24,
+    "ns_per_op": 9624873.0,
+    "bytes_per_op": 18023984,
+    "allocs_per_op": 102517
+  }
+]

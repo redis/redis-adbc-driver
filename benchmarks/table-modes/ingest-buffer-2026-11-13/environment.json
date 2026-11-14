@@ -1,0 +1,33 @@
+{
+  "software_api_versions": [
+    "8.2.6-25"
+  ],
+  "redis_version": "8.8.0",
+  "modules": {
+    "search": 80808,
+    "ReJSON": 80802,
+    "timeseries": 80808,
+    "vectorset": 1,
+    "bf": 80801
+  },
+  "host": {
+    "cpu": "Apple M5 Max",
+    "logical_cpus": "18",
+    "host_memory_bytes": "38654705664",
+    "macos": "26.7.3",
+    "arch": "arm64"
+  },
+  "container_cpus": 4,
+  "container_memory_bytes": 8589934592,
+  "image": "Explicit recorded local image ID used throughout, no tag resolution; identity retained privately",
+  "fixture": {
+    "qpf": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "tls_certificate_verified": true,
+    "resp": 3,
+    "empty": true
+  }
+}
