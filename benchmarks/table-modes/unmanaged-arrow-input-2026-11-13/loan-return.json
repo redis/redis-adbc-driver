@@ -5,5 +5,8 @@
   "effective_qpf_tls_resp3_verified": true,
   "native_trials_validated": 112,
   "supplemental_source": "1e112158028d60757c2555f11d8376d206da9332",
-  "production_identical_270_files_to": "67264020f524f62a431ef00585a218c6a63660f5"
+  "production_identical_270_files_to": "67264020f524f62a431ef00585a218c6a63660f5",
+  "final_cleanup_complete": true,
+  "final_cleanup_proof_sha256": "73603b253c9ba9865d6613df06d6c00545211a433d3f819355687e28e8d86353",
+  "credential_redactions_required": 0
 }

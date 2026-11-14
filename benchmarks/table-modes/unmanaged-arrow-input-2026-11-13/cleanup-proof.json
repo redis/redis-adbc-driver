@@ -1,0 +1,9 @@
+{
+  "owned_container_and_network_removed": true,
+  "preexisting_containers_preserved": true,
+  "preexisting_networks_preserved": true,
+  "preexisting_container_count": 1,
+  "preexisting_network_count": 31,
+  "generated_tls_and_environment_removed": true,
+  "private_generated_credentials_removed": true
+}

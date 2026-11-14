@@ -141,8 +141,17 @@ separately recorded source. Retain every new attempt and its actual identities.
 Both sibling and parent source reviews found no blockers before execution; agent
 review is not human approval. Every loan ended empty/index-free, all clients and
 processes closed, and effective QPF/TLS/RESP3 reverified ([loan proof](loan-return.json)).
-Parent owns final shared infrastructure/TLS/credential teardown, which is pending
-other tracks. Operational identifiers, credentials and raw logs remain private.
-No ClickBench or alternative server/provider was used.
+Parent completed final shared teardown: the owned container/network and generated
+test.env/TLS/settings/fixture-env credentials were removed, preserving the prior
+container and all 31 prior networks ([sanitized proof](cleanup-proof.json)). The
+final generated-credential scan found zero matches, leaving raw log hashes unchanged.
+Operational identifiers, credentials and raw logs remain private. No ClickBench
+or alternative server/provider was used.
+
+Parent final artifact review of `28fa7d99` found no blockers: the complete 136-sample
+audit, 167+3 correctness pass events, 270-file production identity and historical
+document-hash correction passed. The parent independently recomputed all eight
+native cells and the 4.220% geometric-mean gate. This is agent review, not human
+maintainer approval; no merge is claimed.
 
 Read-only audit: `python3 benchmarks/table-modes/unmanaged_arrow_input_audit.py`.

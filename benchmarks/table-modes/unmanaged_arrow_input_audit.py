@@ -117,6 +117,13 @@ assert identity['sha256']['go/scan_typed.go'] == provenance['frozen']['source_fi
 loan = load('loan-return.json')
 assert all(loan[k] is True for k in ('empty', 'index_free', 'all_clients_processes_ended', 'effective_qpf_tls_resp3_verified'))
 assert loan['native_trials_validated'] == 112 and loan['supplemental_source'] == SUPPLEMENT
+cleanup = load('cleanup-proof.json')
+assert all(cleanup[k] is True for k in ('owned_container_and_network_removed',
+    'preexisting_containers_preserved', 'preexisting_networks_preserved',
+    'generated_tls_and_environment_removed', 'private_generated_credentials_removed'))
+assert cleanup['preexisting_container_count'] == 1 and cleanup['preexisting_network_count'] == 31
+assert loan['final_cleanup_complete'] is True and loan['credential_redactions_required'] == 0
+assert loan['final_cleanup_proof_sha256'] == hashlib.sha256((P/'cleanup-proof.json').read_bytes()).hexdigest()
 for name, expected in load('sha256.json').items():
     assert hashlib.sha256((P/name).read_bytes()).hexdigest() == expected, name
 print('PASS: all112 native/all8 cells and gate, all24 micro samples, 167+3 correctness pass events and production identity')
