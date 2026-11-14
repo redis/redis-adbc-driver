@@ -1,0 +1,139 @@
+[
+  {
+    "name": "unit",
+    "exit_code": 0,
+    "seconds": 13.406549000006635,
+    "sha256": "5afe91dcda74b4a233ca92d64585897fafcb452c309024c1b2e60cf0d568b3a8",
+    "passes": 37,
+    "skips": 0,
+    "failures": 0,
+    "top_level_passed": [
+      "TestHashPrefetchAdditionalLiveMemory",
+      "TestHashPrefetchCancelDuringConsumerCallback",
+      "TestHashPrefetchCanceledClosedQueueIsNotEOF",
+      "TestHashPrefetchCancellation",
+      "TestHashPrefetchConnectionCloseDuringInitialFillJoinsWorker",
+      "TestHashPrefetchJoinsBlockedNetworkWork",
+      "TestHashPrefetchOnePageAndReplyOwnership",
+      "TestHashPrefetchTerminalErrors",
+      "TestHashPrefetchTransportFinishWaitsForWorker",
+      "TestHashSliceExistenceDiagnosticsAndCancellation",
+      "TestHashSliceProjectionCompatibility",
+      "TestScanProjectionFallbacks",
+      "TestScanProjectionKeepCancellationAndDiagnostics",
+      "TestScanProjectionValuesAndErrors",
+      "TestWideFetchCancelledBetweenBatches",
+      "TestWideHashFetchSelection"
+    ],
+    "expected_top_level": [
+      "TestHashPrefetchAdditionalLiveMemory",
+      "TestHashPrefetchCancelDuringConsumerCallback",
+      "TestHashPrefetchCanceledClosedQueueIsNotEOF",
+      "TestHashPrefetchCancellation",
+      "TestHashPrefetchConnectionCloseDuringInitialFillJoinsWorker",
+      "TestHashPrefetchJoinsBlockedNetworkWork",
+      "TestHashPrefetchOnePageAndReplyOwnership",
+      "TestHashPrefetchTerminalErrors",
+      "TestHashPrefetchTransportFinishWaitsForWorker",
+      "TestHashSliceExistenceDiagnosticsAndCancellation",
+      "TestHashSliceProjectionCompatibility",
+      "TestScanProjectionFallbacks",
+      "TestScanProjectionKeepCancellationAndDiagnostics",
+      "TestScanProjectionValuesAndErrors",
+      "TestWideFetchCancelledBetweenBatches",
+      "TestWideHashFetchSelection"
+    ]
+  },
+  {
+    "name": "race",
+    "exit_code": 0,
+    "seconds": 22.06063720799284,
+    "sha256": "efe3b8296b189d812f6e5d491f07c5185b200d94cea6695ddeeec097990751c8",
+    "passes": 37,
+    "skips": 0,
+    "failures": 0,
+    "top_level_passed": [
+      "TestHashPrefetchAdditionalLiveMemory",
+      "TestHashPrefetchCancelDuringConsumerCallback",
+      "TestHashPrefetchCanceledClosedQueueIsNotEOF",
+      "TestHashPrefetchCancellation",
+      "TestHashPrefetchConnectionCloseDuringInitialFillJoinsWorker",
+      "TestHashPrefetchJoinsBlockedNetworkWork",
+      "TestHashPrefetchOnePageAndReplyOwnership",
+      "TestHashPrefetchTerminalErrors",
+      "TestHashPrefetchTransportFinishWaitsForWorker",
+      "TestHashSliceExistenceDiagnosticsAndCancellation",
+      "TestHashSliceProjectionCompatibility",
+      "TestScanProjectionFallbacks",
+      "TestScanProjectionKeepCancellationAndDiagnostics",
+      "TestScanProjectionValuesAndErrors",
+      "TestWideFetchCancelledBetweenBatches",
+      "TestWideHashFetchSelection"
+    ],
+    "expected_top_level": [
+      "TestHashPrefetchAdditionalLiveMemory",
+      "TestHashPrefetchCancelDuringConsumerCallback",
+      "TestHashPrefetchCanceledClosedQueueIsNotEOF",
+      "TestHashPrefetchCancellation",
+      "TestHashPrefetchConnectionCloseDuringInitialFillJoinsWorker",
+      "TestHashPrefetchJoinsBlockedNetworkWork",
+      "TestHashPrefetchOnePageAndReplyOwnership",
+      "TestHashPrefetchTerminalErrors",
+      "TestHashPrefetchTransportFinishWaitsForWorker",
+      "TestHashSliceExistenceDiagnosticsAndCancellation",
+      "TestHashSliceProjectionCompatibility",
+      "TestScanProjectionFallbacks",
+      "TestScanProjectionKeepCancellationAndDiagnostics",
+      "TestScanProjectionValuesAndErrors",
+      "TestWideFetchCancelledBetweenBatches",
+      "TestWideHashFetchSelection"
+    ]
+  },
+  {
+    "name": "gate-before",
+    "exit_code": 0,
+    "seconds": 0.20589341598679312,
+    "sha256": "5ae727c1524c4d504d27add3eb84442a059b669c53aeb3c22d16fb735ef607d4"
+  },
+  {
+    "name": "software",
+    "exit_code": 0,
+    "seconds": 32.9949895000027,
+    "sha256": "21048b87e73749b3d9cc051d6e857ea2acce5c89b4bf7fa6831fb18d825fbeb7",
+    "passes": 16,
+    "skips": 0,
+    "failures": 0,
+    "top_level_passed": [
+      "TestPrefetchAvoidsSinglePageWorker",
+      "TestPrefetchDetectsDropAfterProducerEOF",
+      "TestPrefetchUpdateDeleteAfterDiscovery",
+      "TestSQLScanArrowEarlyReleaseBothAPIs",
+      "TestSQLScanProjectionBothAPIs",
+      "TestSQLWideHashFetchBothAPIs",
+      "TestSnapshotHashSliceVisibilityAndIntegrity",
+      "TestSnapshotPrefetchUpdateDeleteAfterDiscovery"
+    ],
+    "expected_top_level": [
+      "TestPrefetchAvoidsSinglePageWorker",
+      "TestPrefetchDetectsDropAfterProducerEOF",
+      "TestPrefetchUpdateDeleteAfterDiscovery",
+      "TestSQLScanArrowEarlyReleaseBothAPIs",
+      "TestSQLScanProjectionBothAPIs",
+      "TestSQLWideHashFetchBothAPIs",
+      "TestSnapshotHashSliceVisibilityAndIntegrity",
+      "TestSnapshotPrefetchUpdateDeleteAfterDiscovery"
+    ]
+  },
+  {
+    "name": "gate-after",
+    "exit_code": 0,
+    "seconds": 0.15137358399806544,
+    "sha256": "5ae727c1524c4d504d27add3eb84442a059b669c53aeb3c22d16fb735ef607d4"
+  },
+  {
+    "name": "build",
+    "exit_code": 0,
+    "seconds": 10.068634291994385,
+    "sha256": "ad6c49c7301b60e291d31a97fa43be07db6bc96eaa62b176d0aa06d729870c11"
+  }
+]

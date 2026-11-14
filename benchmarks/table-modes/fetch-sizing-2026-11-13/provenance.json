@@ -1,0 +1,71 @@
+{
+  "baseline": {
+    "source": "88774f10cf16fc4260e6ad5077097f4de8828406",
+    "version": "v0.1.0-dev.allocation-base",
+    "driver_sha256": "aad4ed9177b0cc761ee4d05da90dd8f5fb97bc88b448cf0e3f60f40e56166696",
+    "cli_sha256": "6b5dcecb1d737af3e36bab8fa4c63a59d646cd82936a4f6c7b29493b4444d767",
+    "source_data_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+    "wrapper_sha256": "f064767b726905ce746d597f4b93a068b158a0affd0356147c67157d54861f9f",
+    "worker_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+    "arrow_harness_sha256": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+    "fixture": {
+      "qpf": 4,
+      "workers": 6,
+      "routing": "mnp",
+      "connections": 32,
+      "memory_bytes": 4294967296,
+      "tls_certificate_verified": true,
+      "resp": 3,
+      "empty": true
+    },
+    "native_gomaxprocs": "unset",
+    "inherited_runtime": {
+      "GOGC": null,
+      "GOMEMLIMIT": null,
+      "GODEBUG": null,
+      "GOMAXPROCS": null,
+      "GOFLAGS": null,
+      "GOWORK": null
+    },
+    "go_toolchain": "go1.27.3",
+    "vcs_modified": false,
+    "raw_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "candidate": {
+    "source": "faa05f96158f92c7cb2c18f69addfb4a07202825",
+    "version": "v0.1.0-dev.fetch-2048",
+    "driver_sha256": "a6dae5d931dbce059f7381f161eebbd1420723094624920bf4761e299171c355",
+    "cli_sha256": "116210d936533fceac990422c0de0a37c2639e5fec988bf3a94e0d201b90c83c",
+    "source_data_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+    "wrapper_sha256": "f064767b726905ce746d597f4b93a068b158a0affd0356147c67157d54861f9f",
+    "worker_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+    "arrow_harness_sha256": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+    "fixture": {
+      "qpf": 4,
+      "workers": 6,
+      "routing": "mnp",
+      "connections": 32,
+      "memory_bytes": 4294967296,
+      "tls_certificate_verified": true,
+      "resp": 3,
+      "empty": true
+    },
+    "native_gomaxprocs": "unset",
+    "inherited_runtime": {
+      "GOGC": null,
+      "GOMEMLIMIT": null,
+      "GODEBUG": null,
+      "GOMAXPROCS": null,
+      "GOFLAGS": null,
+      "GOWORK": null
+    },
+    "go_toolchain": "go1.27.3",
+    "vcs_modified": false,
+    "raw_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "helper_source": "faa05f96158f92c7cb2c18f69addfb4a07202825",
+  "controller_sha256": "bcc522b01d2151ced2e2340d485e7173fc1a1a1d404baf7c155c5786d7901908",
+  "helper_sha256": "f064767b726905ce746d597f4b93a068b158a0affd0356147c67157d54861f9f",
+  "candidate_patch_sha256": "c7d35cca7bd8dbd1badfadb60c1dd5b1e57dda79cccc56be5a187bd6a0b9f2ee",
+  "native_trial_count": 168
+}

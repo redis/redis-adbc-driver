@@ -1,0 +1,18 @@
+diff --git a/go/store.go b/go/store.go
+index 73b5bf7d..a561c0e5 100644
+--- a/go/store.go
++++ b/go/store.go
+@@ -97,9 +97,10 @@ const (
+ 	tagSeparator = "\x1f"
+ 	// pipelineChunk is the number of commands sent per pipeline round trip.
+ 	pipelineChunk = 1000
+-	// wideFetchChunk amortizes wide discovery/fetch round trips. Narrow reads
+-	// retain pipelineChunk; a larger batch trades peak memory for elapsed time.
+-	wideFetchChunk = 4096
++	// wideFetchChunk amortizes positional HASH discovery/fetch round trips,
++	// including simple narrow snapshot projections. Generic narrow Search reads
++	// retain pipelineChunk; a larger page trades peak memory for elapsed time.
++	wideFetchChunk = 2048
+ 	// cursorCount is the FT.AGGREGATE cursor page size. Every page is a
+ 	// round trip, so pages are large; pageValues caps the fields per page so
+ 	// that pages of wide rows stay a bounded size.
