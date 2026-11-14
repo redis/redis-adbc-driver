@@ -53,7 +53,11 @@ func (s *store) validateSnapshotMetadataAndPin(ctx context.Context, root string,
 	if pin != nil {
 		lease = pin.queueValid(ctx, pipe)
 	}
-	prefetched := s.queueSnapshotRootPrefetch(ctx, root, pin, pipe)
+	prefetched, err := s.queueSnapshotRootPrefetch(ctx, root, pin, pipe)
+	if err != nil {
+		pipe.Discard()
+		return wrapRedis(err, "failed to queue snapshot metadata root")
+	}
 	_, pipelineErr := pipe.Exec(ctx)
 	// Preserve proof/error precedence instead of consuming a failed command's
 	// zero value or letting a later pipeline error hide the manifest failure.

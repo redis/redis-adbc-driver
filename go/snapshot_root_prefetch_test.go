@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	goredis "github.com/redis/go-redis/v9"
 )
 
 func TestSnapshotRootPrefetchSharesProofAndStaysPinLocal(t *testing.T) {
@@ -204,7 +206,8 @@ func TestSnapshotRootPrefetchSkipsSharedAndUnrelatedScopes(t *testing.T) {
 				s.restrictedReader = true
 			}
 			pipe := s.client.Pipeline()
-			if s.queueSnapshotRootPrefetch(ctx, strings.Repeat("b", 32), pin, pipe) != nil || pipe.Len() != 0 || h.batches != 0 || h.direct != 0 {
+			queued, err := s.queueSnapshotRootPrefetch(ctx, strings.Repeat("b", 32), pin, pipe)
+			if err != nil || queued != nil || pipe.Len() != 0 || h.batches != 0 || h.direct != 0 {
 				t.Fatal("prefetch entered unsupported scope", kind)
 			}
 		})
@@ -233,5 +236,40 @@ func TestSnapshotRootPrefetchRetainsExactNonemptyMap(t *testing.T) {
 	got, err := resolveSnapshotMetadata(ctx, suffix, false)
 	if err != nil || got != snapshotPrefix+"absent:"+pin.root+":"+suffix || h.nativeRootReads != 0 || !reflect.DeepEqual(snapshotOf(ctx).metadata.roots, want) {
 		t.Fatal("prefetched map not consumed exactly", got, err, h.nativeRootReads)
+	}
+}
+
+// A real pipeline queues commands without sending them. Preserve a local queue
+// failure even if it did not populate the Cmd's error, and discard earlier work.
+type snapshotRootQueueFailureClient struct {
+	goredis.UniversalClient
+	pipe *snapshotRootQueueFailurePipeline
+}
+
+func (c *snapshotRootQueueFailureClient) Pipeline() goredis.Pipeliner { return c.pipe }
+
+type snapshotRootQueueFailurePipeline struct {
+	goredis.Pipeliner
+	execs, discards int
+}
+
+func (p *snapshotRootQueueFailurePipeline) Process(ctx context.Context, cmd goredis.Cmder) error {
+	if len(cmd.Args()) > 1 && cmd.Args()[1] == snapshotRootPrefetchLua {
+		return io.ErrUnexpectedEOF
+	}
+	return p.Pipeliner.Process(ctx, cmd)
+}
+func (p *snapshotRootQueueFailurePipeline) Exec(ctx context.Context) ([]goredis.Cmder, error) {
+	p.execs++
+	return p.Pipeliner.Exec(ctx)
+}
+func (p *snapshotRootQueueFailurePipeline) Discard() { p.discards++; p.Pipeliner.Discard() }
+func TestSnapshotRootPrefetchQueueFailureStopsBeforeExec(t *testing.T) {
+	s, ctx, _, h := snapshotLeaseProofFixture(t, false)
+	pipe := &snapshotRootQueueFailurePipeline{Pipeliner: s.client.Pipeline()}
+	s.client = &snapshotRootQueueFailureClient{UniversalClient: s.client, pipe: pipe}
+	err := s.validateSnapshotRead(ctx)
+	if err == nil || !strings.Contains(err.Error(), "unexpected EOF") || pipe.execs != 0 || pipe.discards != 1 || pipe.Len() != 0 || h.batches != 0 || h.direct != 0 || snapshotOf(ctx).metadata.prefetchedRoots != nil {
+		t.Fatal("queue failure executed/lost or installed data", err, pipe.execs, pipe.discards, h.batches, h.direct)
 	}
 }

@@ -86,3 +86,11 @@ is not relabeled. Ordinary privileged fixture eligibility is unchanged.
 
 Agent reviews are not maintainer approval. Link the final integrating PR and
 its additional checks/whole-matrix evidence separately.
+
+A later failure-path follow-up explicitly propagates a local pipeline `Process`
+queue error and discards previously queued proof commands before `Exec`. Generic
+`once` ignores a `Process` return value; without this follow-up a custom local
+queue refusal could lose its original EOF diagnostic. A custom-pipeline regression
+asserts zero Exec/direct calls, one discard and no installed map. This is separate
+unmeasured guard source; the successful measured wire path is unchanged. It awaits
+the coordinating root's integrated guard checks, not a relabeled earlier pass.
