@@ -33,3 +33,5 @@ See the [complete report](../../../../benchmarks/table-modes/direct-arrow-2026-1
 [intent](intent.md), [contract](spec.md) and [plan](plan.md).
 
 Root reviewed evidence4832ca45 and exact-wrapper2253744b with no blockers; all136 samples audited and production Go diff empty. This is agent review, not human approval.
+
+Review: [PR #431](https://github.com/redis/redis-adbc-driver/pull/431) is open and unmerged; no human approval or release is claimed.

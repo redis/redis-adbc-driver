@@ -11,3 +11,5 @@
 5. Record source/build identities, every sample and limitations. Parent review
    decides eligibility before any publication; no human approval is implied.
 See [intent](intent.md) and [spec](spec.md).
+
+Review: [PR #431](https://github.com/redis/redis-adbc-driver/pull/431) is open and unmerged; no human approval or release is claimed.
