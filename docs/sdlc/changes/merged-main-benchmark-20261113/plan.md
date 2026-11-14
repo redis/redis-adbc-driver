@@ -10,3 +10,5 @@ Date: November 13, 2026. Author: Codex; requestor: repository user. Measured sou
 6. Review evidence/ownership/security and open a report PR. Do not infer human approval or merge the report automatically.
 
 Final commands, outcomes and limitations will be recorded in validation.md. These changes contain reports and an audit only; production behavior is unchanged.
+
+Review: [PR #436](https://github.com/redis/redis-adbc-driver/pull/436).

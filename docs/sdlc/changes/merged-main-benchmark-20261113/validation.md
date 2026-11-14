@@ -11,3 +11,5 @@ Date: November 13, 2026 (America/Los_Angeles). Author/reviewer: Codex; requestor
 - Evidence/documents only; production code and benchmark harness unchanged. No additional production test suite was required for report-only changes. Historical measurements remain labeled by their actual source/server/settings.
 
 Review passes: result correctness and measured boundaries checked; owned-resource teardown and public/private evidence separation checked; claims limited to observed workloads, with managed write serialization and differing index/consistency semantics explicit. No actionable findings remain in the report change. This agent review is not human approval, and no CI or release claim is inferred.
+
+Review: [PR #436](https://github.com/redis/redis-adbc-driver/pull/436).
