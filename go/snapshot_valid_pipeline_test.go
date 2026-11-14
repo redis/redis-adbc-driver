@@ -19,6 +19,11 @@ type snapshotLeaseProofReplies struct {
 	valid                 int64
 	validErr, pipelineErr error
 	manifest              string
+	rootErr               error
+	rootReply             any
+	rootCount             int64
+	rootWires             [][]any
+	nativeRootReads       int
 }
 
 func (h *snapshotLeaseProofReplies) DialHook(next goredis.DialHook) goredis.DialHook { return next }
@@ -27,10 +32,30 @@ func (h *snapshotLeaseProofReplies) reply(cmd goredis.Cmder) error {
 	case *goredis.StringCmd:
 		c.SetVal(h.manifest)
 	case *goredis.IntCmd:
-		c.SetVal(0)
+		if c.Name() == "hlen" {
+			c.SetVal(h.rootCount)
+		} else {
+			c.SetVal(0)
+		}
+	case *goredis.MapStringStringCmd:
+		h.nativeRootReads++
+		c.SetVal(map[string]string{})
 	case onceCmd:
 		if !c.NoRetry() {
 			panic("lease can retry")
+		}
+		if c.Args()[1] == snapshotRootPrefetchLua {
+			h.rootWires = append(h.rootWires, append([]any(nil), c.Args()...))
+			if h.rootErr != nil {
+				c.SetErr(h.rootErr)
+				return h.rootErr
+			}
+			if h.rootReply != nil {
+				c.SetVal(h.rootReply)
+			} else {
+				c.SetVal([]any{})
+			}
+			return nil
 		}
 		h.wires = append(h.wires, append([]any(nil), c.Args()...))
 		if c.Args()[0] == "EVALSHA" && h.validErr != nil {

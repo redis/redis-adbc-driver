@@ -53,6 +53,7 @@ func (s *store) validateSnapshotMetadataAndPin(ctx context.Context, root string,
 	if pin != nil {
 		lease = pin.queueValid(ctx, pipe)
 	}
+	prefetched := s.queueSnapshotRootPrefetch(ctx, root, pin, pipe)
 	_, pipelineErr := pipe.Exec(ctx)
 	// Preserve proof/error precedence instead of consuming a failed command's
 	// zero value or letting a later pipeline error hide the manifest failure.
@@ -87,8 +88,46 @@ func (s *store) validateSnapshotMetadataAndPin(ctx context.Context, root string,
 	}
 	// Hooks/transports can fail the pipeline even when individual replies are
 	// populated. A proof never succeeds after an unaccounted-for pipeline error.
+	var roots map[string]string
+	if prefetched != nil {
+		rootErr, leaseErr := prefetched.Err(), lease.command.Err()
+		// Unknown pipeline failures retain precedence even with populated
+		// replies. An exact native reply accounts only for that command.
+		if pipelineErr != nil && !snapshotSameNativeReply(pipelineErr, rootErr) && !snapshotSameNativeReply(pipelineErr, leaseErr) {
+			return wrapRedis(pipelineErr, "failed to validate statement snapshot")
+		}
+		if leaseErr != nil {
+			missing, denied := snapshotControlScriptRefusal(leaseErr)
+			if !missing && !denied {
+				return lease.resolve(ctx, leaseErr)
+			}
+		} else {
+			// Preserve original lease/expiry precedence without repairing a
+			// digest before all new prefetch outcomes have been inspected.
+			if err := pin.validLocal(ctx); err != nil {
+				return err
+			}
+			if err := pin.validReply(lease.command); err != nil {
+				return err
+			}
+		}
+		if rootErr != nil && !snapshotRootPrefetchDeclined(rootErr) {
+			return wrapRedis(rootErr, "failed to prefetch snapshot metadata root")
+		}
+		var err error
+		roots, err = readSnapshotRootPrefetch(prefetched, *work.Buckets)
+		if err != nil {
+			return err
+		}
+		if snapshotRootPrefetchDeclined(rootErr) && snapshotSameNativeReply(pipelineErr, rootErr) {
+			pipelineErr = nil
+		}
+	}
 	if lease != nil {
-		return lease.resolve(ctx, pipelineErr)
+		if err := lease.resolve(ctx, pipelineErr); err != nil {
+			return err
+		}
+		return rememberSnapshotRootPrefetch(ctx, root, pin, roots)
 	}
 	return pipelineErr
 }
