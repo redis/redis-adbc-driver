@@ -7,6 +7,7 @@ package redis
 import (
 	"context"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/apache/arrow-go/v18/arrow/array"
@@ -223,6 +224,32 @@ func executionPoolUncertain(err error) bool {
 	return !native
 }
 
+// A complete native refusal can still leave connection-local transaction
+// state armed. Cleanup must positively report its expected status, never QUEUED
+// (which means it was appended to a still-open MULTI). Unknown status shapes
+// are conservatively discarded as well.
+func executionPoolCleanupFailed(cmd goredis.Cmder, resultErr error) bool {
+	expected := "OK"
+	switch strings.ToLower(cmd.Name()) {
+	case "unwatch", "discard":
+	case "reset":
+		expected = "RESET"
+	default:
+		return false
+	}
+	if resultErr != nil || cmd.Err() != nil {
+		return true
+	}
+	var value string
+	switch c := cmd.(type) {
+	case interface{ Val() string }:
+		value = c.Val()
+	case interface{ Val() any }:
+		value, _ = c.Val().(string)
+	}
+	return value != expected
+}
+
 // A stale execution context must not submit work to a pool that now belongs
 // to another execution. Count admitted commands under the completion mutex so
 // finish cannot lend an execution pool while its machinery is still in flight.
@@ -265,7 +292,7 @@ func (p *executionPool) ProcessHook(next goredis.ProcessHook) goredis.ProcessHoo
 		stop := t.arm(ctx)
 		defer stop()
 		err = next(ctx, cmd)
-		if executionPoolUncertain(err) || executionPoolUncertain(cmd.Err()) {
+		if executionPoolUncertain(err) || executionPoolUncertain(cmd.Err()) || executionPoolCleanupFailed(cmd, err) {
 			t.mu.Lock()
 			t.failed = true
 			t.mu.Unlock()
@@ -290,11 +317,18 @@ func (p *executionPool) ProcessPipelineHook(next goredis.ProcessPipelineHook) go
 		defer stop()
 		err = next(ctx, cmds)
 		uncertain := executionPoolUncertain(err)
-		// Pipeline's return value may be its first native error even when a
-		// later reply was lost. Inspect every reply before lending the pool.
+		transaction := false
+		failed := err != nil
+		// A pipeline can report its first native error while a later reply is
+		// lost. Inspect every reply, and never lend a failed transaction even
+		// when all errors are native: EXEC refusal can leave MULTI armed.
 		for _, cmd := range cmds {
-			uncertain = uncertain || executionPoolUncertain(cmd.Err())
+			name := strings.ToLower(cmd.Name())
+			transaction = transaction || name == "multi" || name == "exec"
+			failed = failed || cmd.Err() != nil
+			uncertain = uncertain || executionPoolUncertain(cmd.Err()) || executionPoolCleanupFailed(cmd, cmd.Err())
 		}
+		uncertain = uncertain || transaction && failed
 		if uncertain {
 			t.mu.Lock()
 			t.failed = true

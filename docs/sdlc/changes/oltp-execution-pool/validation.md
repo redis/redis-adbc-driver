@@ -56,3 +56,14 @@ counts participate in the completion check, so unfinished command machinery
 cannot be lent to another execution. New protocol regressions verify no stale
 command/pipeline reaches the server and no in-flight command pool is cached.
 The complete focused race selection above passes again after these guards.
+
+Cross-review found a connection-state exception to native-error reuse: go-redis
+Tx.Close ignores an UNWATCH refusal, and a refused EXEC can leave MULTI active
+while later UNWATCH returns QUEUED. Both new protocol regressions were reproduced
+failing against the preceding transport implementation, then passed with the
+fix under the complete focused race selection. Cleanup commands UNWATCH,
+DISCARD and RESET must return their expected status; refusal/QUEUED/unknown status
+forbids reuse. Any failed transactional pipeline (top-level or individual reply,
+including native errors) also forbids reuse. Optional handshake and read-only
+native errors can still reuse a fully drained pool. These checks do not resend
+cleanup, a transaction or a mutation.

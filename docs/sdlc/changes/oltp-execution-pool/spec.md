@@ -9,7 +9,7 @@ Date: November 13, 2026. Author: Codex. Status: focused validation complete; int
   completion channel. An earlier handle cannot close sockets of a subsequent
   lease. Detachment and socket interruption synchronize through the pool mutex.
 - Reuse requires completely consumed replies, an uncanceled/uninterrupted
-  execution and no unfinished background work at completion. Direct native errors and missing-value replies are complete; transport/context,
+  execution and no unfinished background work at completion. Read-only direct native errors and missing-value replies are complete; transport/context,
   wrapped, or any uncertain pipeline reply discard the pool after joining
   existing workers and cleanup. Unknown writes/pages are
   never replayed. Timeouts/config identity must match before reuse.
@@ -33,3 +33,8 @@ remain the end-to-end performance evidence.
   by getTable under the current pin, avoiding one duplicate FT.INFO. Every new
   execution still checks its application definition; external row values and
   index definitions are never cached across statements.
+
+- Failed transactional pipelines and failed/non-acknowledged UNWATCH, DISCARD or
+  RESET cleanup cannot reuse a pool even when their errors are complete native
+  replies. Queued cleanup is not a cleanup acknowledgment. State is discarded
+  by closing the pool, never by replaying a transaction or mutation.
