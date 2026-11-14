@@ -21,6 +21,12 @@ binary: all 24 trials validated. One stream reduced median elapsed time by
 publication unit. The reports retain every sample, settings and limitations.
 Audit with `current_main_next_audit.py` and `streamed_publication_audit.py`.
 
+[Command-wait isolation](command-wait-2026-11-13/report.md) retains seven fixed
+control/probe/pacing jobs and all 2,219 valid release observations. PING, TIME and
+pure waiting moved the release subspan; pure 20 ms pacing made whole-job elapsed
+worse. Diagnostics remain unapplied, with no server/transport cause or production
+speedup claimed. Audit with `command_wait_audit.py`.
+
 [Fetch page sizing](fetch-sizing-2026-11-13/report.md) retains all 168 validated
 baseline/candidate trials, including a managed eight-column control. Halving the
 ceiling lowered memory but slowed single-reader managed reads 26.8–54.7%, so the

@@ -1,0 +1,465 @@
+diff --git a/go/command_wait_profile_test.go b/go/command_wait_profile_test.go
+new file mode 100644
+index 00000000..ac0f6676
+--- /dev/null
++++ b/go/command_wait_profile_test.go
+@@ -0,0 +1,229 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"crypto/tls"
++	"encoding/json"
++	"fmt"
++	"net"
++	"os"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	goredis "github.com/redis/go-redis/v9"
++)
++
++// All IDs here are process-local ordinals, never addresses, file descriptors or
++// infrastructure identities. Counters wrap the TLS plaintext side, not packets.
++type commandWaitIO struct {
++	reads, writes, readBytes, writeBytes, readID atomic.Int64
++}
++type commandWaitSnapshot struct{ reads, writes, readBytes, writeBytes int64 }
++
++func (m *commandWaitIO) snapshot() commandWaitSnapshot {
++	return commandWaitSnapshot{m.reads.Load(), m.writes.Load(), m.readBytes.Load(), m.writeBytes.Load()}
++}
++
++type commandWaitConn struct {
++	net.Conn
++	io *commandWaitIO
++	id int64
++}
++
++func (c *commandWaitConn) NetConn() net.Conn { return c.Conn }
++func (c *commandWaitConn) Read(b []byte) (int, error) {
++	n, err := c.Conn.Read(b)
++	c.io.reads.Add(1)
++	c.io.readBytes.Add(int64(n))
++	c.io.readID.Store(c.id)
++	return n, err
++}
++func (c *commandWaitConn) Write(b []byte) (int, error) {
++	n, err := c.Conn.Write(b)
++	c.io.writes.Add(1)
++	c.io.writeBytes.Add(int64(n))
++	return n, err
++}
++
++type commandWaitDial struct {
++	Ordinal      int64  `json:"ordinal"`
++	VerifiedTLS  bool   `json:"verified_tls"`
++	TLSVersion   uint16 `json:"tls_version"`
++	NoDelayKnown bool   `json:"tcp_nodelay_known"`
++	NoDelay      bool   `json:"tcp_nodelay"`
++}
++type commandWaitProfile struct {
++	mode          string
++	client, probe *goredis.Client
++	io, probeIO   *commandWaitIO
++	ids           atomic.Int64
++	mu            sync.Mutex
++	dials         []commandWaitDial
++}
++
++func commandWaitMode(mode string) (probe string, separate bool, err error) {
++	switch mode {
++	case "control":
++		return "", false, nil
++	case "pacing_20ms":
++		return "pacing", false, nil
++	case "same_ping":
++		return "ping", false, nil
++	case "separate_ping":
++		return "ping", true, nil
++	case "same_time":
++		return "time", false, nil
++	case "separate_time":
++		return "time", true, nil
++	default:
++		return "", false, fmt.Errorf("unknown command wait mode")
++	}
++}
++func (p *commandWaitProfile) newClient(t *testing.T, raw *goredis.Client, oldIO *compactionReleaseIO, io *commandWaitIO) *goredis.Client {
++	t.Helper()
++	options := *raw.Options()
++	if options.Protocol != 3 || options.TLSConfig == nil || options.TLSConfig.InsecureSkipVerify {
++		t.Fatal("command wait profile requires strict TLS and RESP3")
++	}
++	options.ContextTimeoutEnabled = true
++	dial := goredis.NewDialer(&options)
++	options.Dialer = func(ctx context.Context, network, address string) (net.Conn, error) {
++		conn, err := dial(ctx, network, address)
++		if err != nil {
++			return nil, err
++		}
++		tc, ok := conn.(*tls.Conn)
++		if !ok {
++			_ = conn.Close()
++			return nil, fmt.Errorf("command wait profile requires native TLS transport")
++		}
++		state := tc.ConnectionState()
++		if !state.HandshakeComplete || len(state.VerifiedChains) == 0 {
++			_ = conn.Close()
++			return nil, fmt.Errorf("command wait TLS verification incomplete")
++		}
++		ordinal := p.ids.Add(1)
++		// Portable net.Conn exposes no read-only TCP_NODELAY getter.
++		// Leave it explicitly unobserved rather than change socket settings.
++		known, noDelay := false, false
++		p.mu.Lock()
++		p.dials = append(p.dials, commandWaitDial{ordinal, true, state.Version, known, noDelay})
++		p.mu.Unlock()
++		wrapped := &commandWaitConn{Conn: conn, io: io, id: ordinal}
++		return &compactionReleaseConn{Conn: wrapped, io: oldIO}, nil
++	}
++	client := goredis.NewClient(&options)
++	client.AddHook(snapshotHook{})
++	t.Cleanup(func() { _ = client.Close() })
++	return client
++}
++func newCommandWaitProfile(t *testing.T, raw *goredis.Client, oldIO *compactionReleaseIO, mode string) (*goredis.Client, *commandWaitProfile) {
++	t.Helper()
++	_, separate, err := commandWaitMode(mode)
++	if err != nil {
++		t.Fatal(err)
++	}
++	p := &commandWaitProfile{mode: mode, io: &commandWaitIO{}}
++	p.client = p.newClient(t, raw, oldIO, p.io)
++	p.probe, p.probeIO = p.client, p.io
++	if separate {
++		p.probeIO = &commandWaitIO{}
++		p.probe = p.newClient(t, raw, &compactionReleaseIO{}, p.probeIO)
++	}
++	if err := p.client.Ping(context.Background()).Err(); err != nil {
++		t.Fatal("release transport warmup failed")
++	}
++	if separate {
++		if err := p.probe.Ping(context.Background()).Err(); err != nil {
++			t.Fatal("probe transport warmup failed")
++		}
++	}
++	return p.client, p
++}
++func (p *commandWaitProfile) before(ctx context.Context) map[string]any {
++	command, _, _ := commandWaitMode(p.mode)
++	row := map[string]any{"mode": p.mode, "prelude_nanoseconds": int64(0)}
++	if command == "pacing" {
++		start := time.Now()
++		timer := time.NewTimer(20 * time.Millisecond)
++		defer timer.Stop()
++		success := false
++		select {
++		case <-ctx.Done():
++		case <-timer.C:
++			success = ctx.Err() == nil
++		}
++		elapsed := time.Since(start).Nanoseconds()
++		row["pacing_success"], row["pacing_nanoseconds"], row["prelude_nanoseconds"] = success, elapsed, elapsed
++		row["probe_reads"], row["probe_writes"] = int64(0), int64(0)
++		row["probe_read_bytes"], row["probe_write_bytes"] = int64(0), int64(0)
++		row["probe_connection"], row["connection_relation"] = int64(0), "not_applicable"
++		return row
++	}
++	if command == "" {
++		return row
++	}
++	if ctx.Err() != nil {
++		row["probe_success"] = false
++		return row
++	}
++	before := p.probeIO.snapshot()
++	// Bound observation independently. Its elapsed still consumes part of the
++	// already-created release deadline; that pacing effect is reported.
++	probeCtx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
++	defer cancel()
++	start := time.Now()
++	success := false
++	if command == "ping" {
++		reply, err := p.probe.Ping(probeCtx).Result()
++		success = err == nil && reply == "PONG"
++	} else {
++		reply, err := p.probe.Time(probeCtx).Result()
++		success = err == nil && !reply.IsZero()
++	}
++	elapsed := time.Since(start)
++	after := p.probeIO.snapshot()
++	row["probe_success"], row["probe_nanoseconds"], row["probe_connection"] = success, elapsed.Nanoseconds(), p.probeIO.readID.Load()
++	row["prelude_nanoseconds"] = elapsed.Nanoseconds()
++	row["probe_reads"], row["probe_writes"] = after.reads-before.reads, after.writes-before.writes
++	row["probe_read_bytes"], row["probe_write_bytes"] = after.readBytes-before.readBytes, after.writeBytes-before.writeBytes
++	return row
++}
++func (p *commandWaitProfile) after(row map[string]any, before commandWaitSnapshot) {
++	after := p.io.snapshot()
++	row["release_connection"] = p.io.readID.Load()
++	row["release_read_bytes"], row["release_write_bytes"] = after.readBytes-before.readBytes, after.writeBytes-before.writeBytes
++	_, separate, _ := commandWaitMode(p.mode)
++	valid := p.io.readID.Load() > 0
++	if p.mode == "pacing_20ms" {
++		valid = valid && row["pacing_success"] == true && row["probe_reads"] == int64(0) && row["probe_writes"] == int64(0) && row["probe_connection"] == int64(0)
++	} else if p.mode != "control" {
++		valid = valid && row["probe_success"] == true && row["probe_reads"] == int64(1) && row["probe_writes"] == int64(1) && (row["probe_connection"] == row["release_connection"]) != separate
++	}
++	row["command_wait_valid"] = valid
++}
++func (p *commandWaitProfile) finish(t *testing.T, rows []map[string]any) {
++	t.Helper()
++	p.mu.Lock()
++	dials := append([]commandWaitDial(nil), p.dials...)
++	p.mu.Unlock()
++	encoded, err := json.Marshal(map[string]any{"mode": p.mode, "connections": dials})
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Logf("command_wait_transport %s", encoded)
++	if len(rows) == 0 {
++		t.Fatal("command wait observer recorded no releases")
++	}
++	for _, row := range rows {
++		if row["command_wait_valid"] != true || row["success"] != true || row["reads"] != int64(1) || row["writes"] != int64(1) || row["pool_misses"] != uint32(0) || row["pool_timeouts"] != uint32(0) {
++			t.Fatal("command wait observation invalid after full result validation")
++		}
++	}
++}
++func commandWaitRequested() string { return os.Getenv("REDIS_SNAPSHOT_COMMAND_WAIT") }
+diff --git a/go/command_wait_unit_test.go b/go/command_wait_unit_test.go
+new file mode 100644
+index 00000000..18b85f9d
+--- /dev/null
++++ b/go/command_wait_unit_test.go
+@@ -0,0 +1,137 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"net"
++	"strings"
++	"testing"
++	"time"
++
++	goredis "github.com/redis/go-redis/v9"
++)
++
++type commandWaitFailHook struct{ calls int }
++
++func (*commandWaitFailHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
++func (*commandWaitFailHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return next
++}
++func (h *commandWaitFailHook) ProcessHook(goredis.ProcessHook) goredis.ProcessHook {
++	return func(context.Context, goredis.Cmder) error {
++		h.calls++
++		return errors.New("private-endpoint-and-credential")
++	}
++}
++
++type commandWaitMemoryConn struct{ net.Conn }
++
++func (*commandWaitMemoryConn) Read(b []byte) (int, error)  { return copy(b, "OK"), nil }
++func (*commandWaitMemoryConn) Write(b []byte) (int, error) { return len(b), nil }
++
++func TestCommandWaitIsolation(t *testing.T) {
++	t.Run("fixed modes", func(t *testing.T) {
++		for _, mode := range []string{"control", "same_ping", "separate_ping", "same_time", "separate_time", "pacing_20ms"} {
++			if _, _, err := commandWaitMode(mode); err != nil {
++				t.Fatal(err)
++			}
++		}
++		if _, _, err := commandWaitMode("private-endpoint-and-credential"); err == nil || strings.Contains(err.Error(), "private-") {
++			t.Fatal("mode rejection leaked input")
++		}
++	})
++	t.Run("plaintext counters and connection identity", func(t *testing.T) {
++		inner := &commandWaitMemoryConn{}
++		io := &commandWaitIO{}
++		conn := &commandWaitConn{Conn: inner, io: io, id: 7}
++		before := io.snapshot()
++		buffer := make([]byte, 8)
++		if n, err := conn.Read(buffer); err != nil || n != 2 {
++			t.Fatal(n, err)
++		}
++		if n, err := conn.Write([]byte("abc")); err != nil || n != 3 {
++			t.Fatal(n, err)
++		}
++		after := io.snapshot()
++		if before != (commandWaitSnapshot{}) || after != (commandWaitSnapshot{1, 1, 2, 3}) || io.readID.Load() != 7 || conn.NetConn() != inner {
++			t.Fatal("incorrect connection/counter snapshot")
++		}
++	})
++	for _, tc := range []struct {
++		name, mode     string
++		probe, release int64
++		success, want  bool
++	}{
++		{"control", "control", 0, 1, false, true},
++		{"same", "same_ping", 1, 1, true, true},
++		{"wrong same", "same_time", 2, 1, true, false},
++		{"separate", "separate_time", 2, 1, true, true},
++		{"wrong separate", "separate_ping", 1, 1, true, false},
++		{"probe failure", "same_ping", 1, 1, false, false},
++		{"missing release", "control", 0, 0, false, false},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			io := &commandWaitIO{}
++			io.readID.Store(tc.release)
++			p := &commandWaitProfile{mode: tc.mode, io: io}
++			row := map[string]any{"probe_connection": tc.probe, "probe_success": tc.success, "probe_reads": int64(1), "probe_writes": int64(1)}
++			p.after(row, commandWaitSnapshot{})
++			if row["command_wait_valid"] != tc.want {
++				t.Fatal("incorrect physical connection classification")
++			}
++		})
++	}
++	t.Run("canceled pacing is zero IO", func(t *testing.T) {
++		ctx, cancel := context.WithCancel(context.Background())
++		cancel()
++		p := &commandWaitProfile{mode: "pacing_20ms", io: &commandWaitIO{}}
++		row := p.before(ctx)
++		p.io.readID.Store(1)
++		p.after(row, commandWaitSnapshot{})
++		if row["pacing_success"] != false || row["command_wait_valid"] != false || row["probe_reads"] != int64(0) || row["probe_writes"] != int64(0) || row["probe_connection"] != int64(0) || row["connection_relation"] != "not_applicable" {
++			t.Fatal("canceled timer issued I/O or appeared successful")
++		}
++	})
++	t.Run("pacing completes without a Redis client", func(t *testing.T) {
++		p := &commandWaitProfile{mode: "pacing_20ms", io: &commandWaitIO{}}
++		row := p.before(context.Background())
++		p.io.readID.Store(1)
++		p.after(row, commandWaitSnapshot{})
++		if row["pacing_success"] != true || row["command_wait_valid"] != true || row["probe_read_bytes"] != int64(0) || row["probe_write_bytes"] != int64(0) || row["pacing_nanoseconds"].(int64) < int64(20*time.Millisecond) {
++			t.Fatal("pacing did not complete independently of Redis")
++		}
++	})
++	for _, releaseErr := range []error{nil, errors.New("original release outcome")} {
++		t.Run("observer does not replace outcome", func(t *testing.T) {
++			client := goredis.NewClient(&goredis.Options{})
++			defer client.Close()
++			fail := &commandWaitFailHook{}
++			client.AddHook(fail)
++			waitIO := &commandWaitIO{}
++			p := &commandWaitProfile{mode: "same_ping", probe: client, io: waitIO, probeIO: waitIO}
++			outerIO := &compactionReleaseIO{}
++			h := &compactionReleaseHook{io: outerIO, wait: p}
++			calls := 0
++			next := func(context.Context, goredis.Cmder) error {
++				calls++
++				waitIO.readID.Store(1)
++				outerIO.reads.Add(1)
++				outerIO.writes.Add(1)
++				return releaseErr
++			}
++			cmd := goredis.NewCmd(context.Background(), "eval", snapshotControl, 1, "private-fixture-key", "release", "private-fixture-token")
++			got := h.ProcessHook(next)(context.Background(), cmd)
++			if !errors.Is(got, releaseErr) || calls != 1 || fail.calls != 1 || len(h.samples) != 1 || h.samples[0]["probe_success"] != false || h.samples[0]["command_wait_valid"] != false {
++				t.Fatal("observer changed release outcome/call count")
++			}
++			encoded, err := json.Marshal(h.samples)
++			if err != nil || strings.Contains(string(encoded), "private-") || strings.Contains(string(encoded), snapshotControl) {
++				t.Fatal("diagnostic exposed arguments or probe error")
++			}
++		})
++	}
++}
+diff --git a/go/snapshot_compaction_profile_test.go b/go/snapshot_compaction_profile_test.go
+index 8f66a290..1f6f7b6d 100644
+--- a/go/snapshot_compaction_profile_test.go
++++ b/go/snapshot_compaction_profile_test.go
+@@ -191,6 +191,9 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
+ 		t.Skip("set REDIS_SNAPSHOT_COMPACTION_PROFILE for owned-fixture profiling")
+ 	}
+ 	dense := os.Getenv("REDIS_SNAPSHOT_COMPACTION_DENSE_PROFILE") != ""
++	if commandWaitRequested() != "" && (!dense || os.Getenv("REDIS_SNAPSHOT_COMPACTION_RELEASE_IO") == "") {
++		t.Fatal("command wait isolation requires dense release I/O profile")
++	}
+ 	for _, paced := range []bool{true, false} {
+ 		t.Run(fmt.Sprintf("paced_%t", paced), func(t *testing.T) {
+ 			h, raw, _ := newSnapshotHarnessMode(t, false, false)
+@@ -210,9 +213,14 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
+ 			s := snapshotTestStore(t, raw)
+ 			var releaseIO *compactionReleaseIO
+ 			var releaseClient *goredis.Client
++			var waitProfile *commandWaitProfile
+ 			if os.Getenv("REDIS_SNAPSHOT_COMPACTION_RELEASE_IO") != "" {
+ 				releaseIO = &compactionReleaseIO{}
+-				releaseClient = newCompactionReleaseProfileClient(t, raw, releaseIO)
++				if mode := commandWaitRequested(); mode != "" {
++					releaseClient, waitProfile = newCommandWaitProfile(t, raw, releaseIO, mode)
++				} else {
++					releaseClient = newCompactionReleaseProfileClient(t, raw, releaseIO)
++				}
+ 				s.client = releaseClient
+ 			}
+ 			token := snapshotID()
+@@ -229,7 +237,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
+ 			profile := &compactionPhaseProfile{phases: map[string]*compactionProfilePhase{}}
+ 			var releaseObserver *compactionReleaseHook
+ 			if releaseClient != nil {
+-				releaseObserver = &compactionReleaseHook{io: releaseIO, phase: profile.current, client: releaseClient}
++				releaseObserver = &compactionReleaseHook{io: releaseIO, phase: profile.current, client: releaseClient, wait: waitProfile}
+ 				releaseClient.AddHook(releaseObserver)
+ 			}
+ 			s.client.AddHook(profile)
+@@ -317,6 +325,9 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
+ 					t.Fatal(err)
+ 				}
+ 				t.Logf("compaction_dense_release_profile %s", encoded)
++				if waitProfile != nil {
++					waitProfile.finish(t, releaseObserver.samples)
++				}
+ 			}
+ 		})
+ 	}
+diff --git a/go/snapshot_compaction_release_profile_test.go b/go/snapshot_compaction_release_profile_test.go
+index 560b360b..d019864f 100644
+--- a/go/snapshot_compaction_release_profile_test.go
++++ b/go/snapshot_compaction_release_profile_test.go
+@@ -47,6 +47,7 @@ type compactionReleaseHook struct {
+ 	samples []map[string]any // release calls are serial; caller joins heartbeat
+ 	phase   func() string
+ 	client  *goredis.Client
++	wait    *commandWaitProfile
+ }
+ 
+ func (*compactionReleaseHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+@@ -65,6 +66,12 @@ func (h *compactionReleaseHook) ProcessHook(next goredis.ProcessHook) goredis.Pr
+ 				return next(ctx, cmd)
+ 			}
+ 		}
++		var probe map[string]any
++		var waitBefore commandWaitSnapshot
++		if h.wait != nil {
++			probe = h.wait.before(ctx)
++			waitBefore = h.wait.io.snapshot()
++		}
+ 		var misses, timeouts uint32
+ 		if h.client != nil {
+ 			before := h.client.PoolStats()
+@@ -84,6 +91,12 @@ func (h *compactionReleaseHook) ProcessHook(next goredis.ProcessHook) goredis.Pr
+ 			after := h.client.PoolStats()
+ 			row["phase"], row["pool_misses"], row["pool_timeouts"] = phase, after.Misses-misses, after.Timeouts-timeouts
+ 		}
++		if h.wait != nil {
++			h.wait.after(probe, waitBefore)
++			for key, value := range probe {
++				row[key] = value
++			}
++		}
+ 		h.samples = append(h.samples, row)
+ 		return err
+ 	}
