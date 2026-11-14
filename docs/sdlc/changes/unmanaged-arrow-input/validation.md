@@ -9,7 +9,8 @@ The new unmanaged-only candidate passes its original gate: all four unmanaged
 median elapsed times decreased 0.27–7.47%, geometric-mean speedup 4.22%. The
 weakest −0.27% cell is essentially flat. Managed medians range −2.99%..+4.67%;
 the +4.67% control has overlapping ranges, so it does not trip the original
->3% plus nonoverlap condition. All RSS ranges overlap (medians −0.63%..+0.28%).
+>3% plus nonoverlap condition. Its first-batch median is also 7.50% higher, with
+overlapping ranges. All RSS ranges overlap (medians −0.63%..+0.28%).
 No universal/causal speedup claim follows from one ordered shared-host experiment.
 
 A test/docs-only supplement `1e112158028d60757c2555f11d8376d206da9332` added actual

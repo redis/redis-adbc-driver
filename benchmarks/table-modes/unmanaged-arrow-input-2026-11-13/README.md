@@ -5,8 +5,9 @@ so the implementation remains applied for review. All four unmanaged elapsed
 medians decreased (0.27–7.47%); geometric-mean speedup was **4.22%**. The weakest
 unmanaged four-reader/4096 case was essentially flat at −0.27%. The managed
 four-reader/512 control had a **4.67% higher median**, with overlapping ranges;
-that does not trigger the original >3% plus nonoverlap control gate. These facts
-are part of the decision, not exceptions introduced after timing. All native RSS
+that does not trigger the original >3% plus nonoverlap control gate. That same
+control's first-batch median was 7.50% higher, also with overlapping ranges.
+These facts are part of the decision, not exceptions introduced after timing. All native RSS
 ranges overlap and median differences are −0.63%..+0.28%. This is not a universal
 or isolated causal speedup claim.
 
