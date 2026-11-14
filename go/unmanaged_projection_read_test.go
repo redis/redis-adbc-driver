@@ -89,7 +89,7 @@ func TestUnmanagedProjectionReadExactAndColdCache(t *testing.T) {
 	}
 }
 func TestUnmanagedProjectionReadPermissionCompatibility(t *testing.T) {
-	for _, message := range []string{"ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "NOPERM this user has no permissions to run the 'evalsha_ro' command"} {
+	for _, message := range []string{"ADBC_UNMANAGED_PROJECTION_TYPE_DENIED", "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED", "ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED", "NOPERM this user has no permissions to run the 'evalsha_ro' command"} {
 		t.Run(message, func(t *testing.T) {
 			r, h := projectionReadUnit(t, "n")
 			h.step = func(n int, cmds []goredis.Cmder) error {
@@ -312,6 +312,96 @@ func TestUnmanagedProjectionReadWrappedAbsenceIsUnknown(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), unknown.Error()) {
 				t.Fatalf("original unknown diagnostic lost: got=%v want=%v", err, unknown)
+			}
+		})
+	}
+}
+
+func TestUnmanagedProjectionReadTooLargeUsesPerRowCompatibility(t *testing.T) {
+	r, h := projectionReadUnit(t, "value")
+	r.prepared = true
+	large := strings.Repeat("x", unmanagedProjectionReadBytes+1)
+	h.step = func(n int, cmds []goredis.Cmder) error {
+		switch n {
+		case 1:
+			if len(cmds) != 3 {
+				t.Fatal("fixture did not test a mixed pipeline")
+			}
+			setProjectionReply(cmds[0], []any{"small"}, nil)
+			refusal := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TOO_LARGE")
+			setProjectionReply(cmds[1], nil, refusal)
+			setProjectionReply(cmds[2], []any{nil}, nil)
+			return refusal
+		case 2:
+			if len(cmds) != 1 || cmds[0].Name() != "hgetall" || cmds[0].Args()[1] != "app:large" {
+				t.Fatal("size fallback replayed another row", cmds)
+			}
+			cmds[0].(*goredis.MapStringStringCmd).SetVal(map[string]string{"value": large})
+		case 3:
+			if len(cmds) != 1 || cmds[0].Name() != "evalsha_ro" {
+				t.Fatal("one large row disabled later fast reads")
+			}
+			setProjectionReply(cmds[0], []any{"later"}, nil)
+		default:
+			t.Fatal("unexpected read replay")
+		}
+		return nil
+	}
+	got, err := r.read(context.Background(), []string{"app:small", "app:large", "app:null"})
+	if err != nil || len(got) != 3 || got[0]["value"] != "small" || got[1]["value"] != large || got[2][keyField] != "app:null" || r.fallback {
+		t.Fatal("size compatibility changed values/existence", err, r.fallback)
+	}
+	got, err = r.read(context.Background(), []string{"app:later"})
+	if err != nil || got[0]["value"] != "later" || h.calls != 3 {
+		t.Fatal(got, err, h.calls)
+	}
+}
+
+func TestUnmanagedProjectionReadSizeRefusalDoesNotHideUnknown(t *testing.T) {
+	for _, kind := range []string{"wrapped_large", "joined_large", "pipeline_joined_large", "large_then_unknown", "strlen_denied_then_unknown", "unaccounted_large"} {
+		t.Run(kind, func(t *testing.T) {
+			r, h := projectionReadUnit(t, "value")
+			r.prepared = true
+			large := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_TOO_LARGE")
+			unknown := errors.Join(large, io.EOF)
+			h.step = func(n int, cmds []goredis.Cmder) error {
+				if n != 1 {
+					t.Fatal("unknown outcome selected size/permission fallback")
+				}
+				for _, cmd := range cmds {
+					setProjectionReply(cmd, []any{"small"}, nil)
+				}
+				switch kind {
+				case "wrapped_large":
+					unknown = fmt.Errorf("unknown size reply: %w", large)
+					cmds[0].SetErr(unknown)
+					return unknown
+				case "joined_large":
+					cmds[0].SetErr(unknown)
+					return unknown
+				case "pipeline_joined_large":
+					cmds[0].SetErr(large)
+					return unknown
+				case "large_then_unknown":
+					cmds[0].SetErr(large)
+					unknown = errors.Join(goredis.Nil, io.EOF)
+					cmds[1].SetErr(unknown)
+					return large
+				case "strlen_denied_then_unknown":
+					denied := controlScriptNativeError("ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED")
+					cmds[0].SetErr(denied)
+					cmds[1].SetErr(unknown)
+					return denied
+				case "unaccounted_large":
+					cmds[0].SetErr(goredis.Nil)
+					unknown = large
+					return large
+				}
+				return nil
+			}
+			got, err := r.read(context.Background(), []string{"app:one", "app:two"})
+			if err == nil || got != nil || h.calls != 1 || r.fallback || !strings.Contains(err.Error(), unknown.Error()) {
+				t.Fatal("unknown size result accepted/replayed or diagnostic lost", got, err, h.calls)
 			}
 		})
 	}

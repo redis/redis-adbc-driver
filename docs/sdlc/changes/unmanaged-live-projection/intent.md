@@ -10,6 +10,8 @@ candidate discovery. The previous 100K/four-column profile attributes most time
 to those commands and decoding; the earlier vector optimization did not remove
 that cost. Reduce transferred fields while preserving exact source values,
 current existence, index membership, predicate rechecking and caller permissions.
+External HASH values have no managed write ceiling, so keep Lua materialization
+bounded without imposing a new data-size restriction on supported sources.
 
 Limit this change to filtered unmanaged retrieval. Keep full LOAD-star scans,
 managed storage/publication, direct known-key access and application-owned

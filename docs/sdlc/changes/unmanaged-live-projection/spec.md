@@ -17,10 +17,19 @@ per pipeline, targeting at most 1 MiB of request arguments per pipeline. Larger
 requests, layouts requiring missing-through defaults and full scans keep the
 existing HASH path. Source-prefix isolation remains checked before any read.
 
+Request bounds do not constrain external HASH value sizes. Before HMGET can
+materialize selected values in Lua, the same script sums native HSTRLEN results
+plus 16 bytes per selected slot, declining above 1 MiB. TYPE, size checks and
+HMGET are atomic with respect to live application writers. A fixed direct native
+size refusal selects original HGETALL for that row only, preserving all data and
+keeping later small rows eligible. HSTRLEN permission denial uses the same
+statement-local compatibility path as other optional script permissions.
+
 Use EVALSHA_RO and EVAL_RO with NoRetry markers. Only a native NOSCRIPT refusal
 permits one full-body attempt. Only native fixed TYPE/HMGET ACL-preflight denial
 tokens or exact top-level read-only-script command permission refusals permit
-HGETALL compatibility fallback. Inspect every command and the pipeline outcome
+permission compatibility fallback; only the fixed native size-guard token permits
+per-row size fallback to HGETALL. Inspect every command and the pipeline outcome
 before repair/fallback. Only direct goredis.Nil equality proves absence, and
 only direct native refusals can be accounted pipeline outcomes; never unwrap a
 joined/wrapped failure to extract such a proof. Unknown replies, cancellation,

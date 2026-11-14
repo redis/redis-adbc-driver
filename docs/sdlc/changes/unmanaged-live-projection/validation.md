@@ -65,3 +65,38 @@ one-key routing, permission fallback proof, source isolation, malformed/unknown
 outcomes, cancellation and retained Arrow/cursor ownership. The cross-review
 finding is fixed; no actionable finding remains in this scoped agent review. Agent review is not human approval. No new
 100M ClickBench, Flex or Flight SQL benchmark ran.
+
+
+## Selected-value resource follow-up
+
+Source review found that bounded requests alone permit arbitrarily large selected
+external HASH values to be copied into Lua. Redis's
+[bulk-to-Lua conversion](https://github.com/redis/redis/blob/8.0/src/script_lua.c#L253-L266)
+uses lua_pushlstring, whose [Lua contract](https://www.lua.org/manual/5.1/manual.html#lua_pushlstring)
+creates or reuses internal string storage. Eight selected 64-MiB fields can thus
+introduce about 512 MiB of VM payload even though the field-name request is tiny.
+The managed writer's limit does not constrain external application HASHes.
+
+The RO script now checks cumulative selected HSTRLEN values plus small per-slot
+budget before HMGET, declining above 1 MiB. HSTRLEN is a native read-only
+[constant-time length query supported on Redis Software](https://redis.io/docs/latest/commands/hstrlen/).
+The check and read share one atomic script, so a writer cannot replace a small
+value with a large one between them. The fixed direct native size refusal reads
+only that row through original HGETALL instead; no data are rejected/truncated
+and later small rows retain projection. Missing HSTRLEN permission selects the
+existing permission compatibility path. Unknown/composed errors never prove a
+safe size/permission fallback, and all pipeline outcomes are inspected first.
+
+New authored tests cover per-row-only size fallback, HSTRLEN denial, mixed
+success/NULL/large rows, later fast-path reuse, composed size refusals, a known
+size/permission refusal followed by an unknown reply, and unaccounted pipeline
+size errors. The native boundary test uses modest values above the threshold,
+cumulative individually-small fields, an exact boundary, missing selected fields
+and large unselected fields; it checks native guard refusal and complete original
+HGETALL data, rather than attempting an OOM-sized fixture.
+
+These follow-up tests are authored but not executed in this agent turn: the
+parent's ordinary suite owns the live slot and builds are paused. Parent
+integration must run focused unit/native coverage and final before/after native
+timings with this extra HSTRLEN work. Earlier timing and validation observations
+above retain their actual prior sources and are not final guarded-source claims.

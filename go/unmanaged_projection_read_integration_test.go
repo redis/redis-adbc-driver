@@ -58,3 +58,53 @@ func TestUnmanagedProjectionReadSoftware(t *testing.T) {
 		t.Fatal("canceled projection succeeded")
 	}
 }
+
+func TestUnmanagedProjectionReadValueBoundSoftware(t *testing.T) {
+	h, raw, _ := unmanagedIngestFixture(t, false)
+	// Keep the regression modest in size: exceeding the fast-path limit proves
+	// fallback without constructing the hundreds-of-MiB external value that
+	// motivated the bound. None of these data are rejected or truncated.
+	large := strings.Repeat("x", unmanagedProjectionReadBytes+1)
+	part := strings.Repeat("p", unmanagedProjectionReadBytes/2)
+	boundary := strings.Repeat("b", unmanagedProjectionReadBytes-16)
+	if err := raw.HSet(h.ctx, "app:bounded", "large", large, "left", part, "right", part, "boundary", boundary, "small", "ok").Err(); err != nil {
+		t.Fatal(err)
+	}
+	s := snapshotTestStore(t, raw)
+	for _, fields := range [][]string{{"large"}, {"left", "right"}} {
+		args := []any{"EVAL_RO", unmanagedProjectionReadLua, 1, "app:bounded"}
+		for _, field := range fields {
+			args = append(args, field)
+		}
+		if _, err := raw.Do(h.ctx, args...).Result(); !unmanagedProjectionTooLarge(err) {
+			t.Fatal("native size guard did not decline before HMGET", fields, err)
+		}
+		r := &unmanagedProjectionRead{store: s, fields: fields, bytes: len(unmanagedProjectionReadLua) + 128, prepared: true}
+		got, err := r.read(h.ctx, []string{"app:bounded"})
+		if err != nil || len(got) != 1 || r.fallback {
+			t.Fatal("large row was rejected or disabled later projection", err)
+		}
+		for _, field := range fields {
+			if got[0][field] != raw.HGet(h.ctx, "app:bounded", field).Val() {
+				t.Fatal("large field truncated", field)
+			}
+		}
+	}
+	for _, tc := range []struct{ field, value string }{{"boundary", boundary}, {"small", "ok"}, {"absent", ""}} {
+		value, err := raw.Do(h.ctx, "EVAL_RO", unmanagedProjectionReadLua, 1, "app:bounded", tc.field).Result()
+		if err != nil {
+			t.Fatal("bounded selected value could not use script despite unselected large fields", tc.field, err)
+		}
+		values, ok := value.([]any)
+		if !ok || len(values) != 1 {
+			t.Fatal(value)
+		}
+		if tc.field == "absent" {
+			if values[0] != nil {
+				t.Fatal("missing field became nonNULL")
+			}
+		} else if values[0] != tc.value {
+			t.Fatal("bounded field changed", tc.field)
+		}
+	}
+}

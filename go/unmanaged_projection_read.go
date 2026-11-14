@@ -20,6 +20,14 @@ if not redis.acl_check_cmd('TYPE',KEYS[1]) then return redis.error_reply('ADBC_U
 if #ARGV>0 and not redis.acl_check_cmd('HMGET',KEYS[1],unpack(ARGV)) then return redis.error_reply('ADBC_UNMANAGED_PROJECTION_HMGET_DENIED') end
 if redis.call('TYPE',KEYS[1]).ok~='hash' then return false end
 if #ARGV==0 then return {} end
+-- Bound values before HMGET materializes native bulk strings in the Lua VM.
+-- This check and the eventual fetch are atomic with respect to live writers.
+local bytes=0
+for _,field in ipairs(ARGV) do
+ if not redis.acl_check_cmd('HSTRLEN',KEYS[1],field) then return redis.error_reply('ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED') end
+ bytes=bytes+redis.call('HSTRLEN',KEYS[1],field)+16
+ if bytes>1048576 then return redis.error_reply('ADBC_UNMANAGED_PROJECTION_TOO_LARGE') end
+end
 return redis.call('HMGET',KEYS[1],unpack(ARGV))
 `
 
@@ -61,7 +69,7 @@ func unmanagedProjectionPermission(err error) bool {
 		return false
 	}
 	message := native.Error()
-	if message == "ADBC_UNMANAGED_PROJECTION_TYPE_DENIED" || message == "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED" {
+	if message == "ADBC_UNMANAGED_PROJECTION_TYPE_DENIED" || message == "ADBC_UNMANAGED_PROJECTION_HMGET_DENIED" || message == "ADBC_UNMANAGED_PROJECTION_HSTRLEN_DENIED" {
 		return true
 	}
 	for _, command := range []string{"evalsha_ro", "eval_ro"} {
@@ -77,6 +85,16 @@ func unmanagedProjectionMissingScript(err error) bool {
 		RedisError()
 	})
 	return ok && strings.HasPrefix(native.Error(), "NOSCRIPT ")
+}
+
+// Only the fixed read-only guard can decline the fast path on value size.
+// Wrapped/joined refusals are unknown outcomes, as with permission refusals.
+func unmanagedProjectionTooLarge(err error) bool {
+	native, ok := err.(interface {
+		error
+		RedisError()
+	})
+	return ok && native.Error() == "ADBC_UNMANAGED_PROJECTION_TOO_LARGE"
 }
 
 // A pipeline error is accounted for only by the same direct native outcome.
@@ -203,20 +221,26 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string, body
 			continue
 		}
 		accountedPipelineError = accountedPipelineError || unmanagedProjectionSameNativeError(pipelineErr, err)
-		if err == goredis.Nil || unmanagedProjectionPermission(err) || !body && unmanagedProjectionMissingScript(err) {
+		if err == goredis.Nil || unmanagedProjectionPermission(err) || unmanagedProjectionTooLarge(err) || !body && unmanagedProjectionMissingScript(err) {
 			continue
 		}
 		return nil, false, wrapRedis(transportContextError(ctx, err), "failed to read unmanaged projection")
 	}
-	if pipelineErr != nil && (!accountedPipelineError || !(pipelineErr == goredis.Nil || unmanagedProjectionPermission(pipelineErr) || !body && unmanagedProjectionMissingScript(pipelineErr))) {
+	if pipelineErr != nil && (!accountedPipelineError || !(pipelineErr == goredis.Nil || unmanagedProjectionPermission(pipelineErr) || unmanagedProjectionTooLarge(pipelineErr) || !body && unmanagedProjectionMissingScript(pipelineErr))) {
 		return nil, false, wrapRedis(transportContextError(ctx, pipelineErr), "failed to read unmanaged projection pipeline")
 	}
 	out := make([]aggRow, len(keys))
-	var denied, missing []int
+	var compatible, missing []int
+	permissionDenied := false
 	for i, cmd := range cmds {
 		err := cmd.Err()
 		if unmanagedProjectionPermission(err) {
-			denied = append(denied, i)
+			compatible = append(compatible, i)
+			permissionDenied = true
+			continue
+		}
+		if unmanagedProjectionTooLarge(err) {
+			compatible = append(compatible, i)
 			continue
 		}
 		if !body && unmanagedProjectionMissingScript(err) {
@@ -246,7 +270,7 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string, body
 		row[keyField] = keys[i]
 		out[i] = row
 	}
-	fallback := len(denied) > 0
+	fallback := permissionDenied
 	if len(missing) > 0 {
 		retry := make([]string, len(missing))
 		for i, n := range missing {
@@ -261,16 +285,16 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string, body
 		}
 		fallback = fallback || deniedBody
 	}
-	if len(denied) > 0 {
-		retry := make([]string, len(denied))
-		for n, i := range denied {
+	if len(compatible) > 0 {
+		retry := make([]string, len(compatible))
+		for n, i := range compatible {
 			retry[n] = keys[i]
 		}
 		rows, err := r.store.fetchKeyRows(ctx, retry, nil)
 		if err != nil {
 			return nil, false, err
 		}
-		for i, n := range denied {
+		for i, n := range compatible {
 			out[n] = rows[i]
 		}
 	}
