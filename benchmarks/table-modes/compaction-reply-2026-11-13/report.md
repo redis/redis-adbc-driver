@@ -97,5 +97,9 @@ python3 benchmarks/table-modes/compaction_reply_audit.py
 ```
 
 Each exclusive loan ended with all processes/clients closed, the database empty
-and index-free, and effective QPF/TLS/RESP3 reverified. Parent-owned final shared
-infrastructure cleanup is pending sibling experiments. No ClickBench was run.
+and index-free, and effective QPF/TLS/RESP3 reverified. The parent completed final
+shared teardown: the owned container/network and generated TLS/environment/settings/
+fixture-env credentials were removed; the pre-existing container and all 31
+pre-existing networks were preserved. [Sanitized cleanup proof](cleanup.json)
+is included. The owner's exact generated-credential scan found zero matches,
+so raw log hashes remain unchanged. No ClickBench was run.

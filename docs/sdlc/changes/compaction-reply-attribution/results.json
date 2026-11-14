@@ -22815,6 +22815,18 @@
   },
   "final_cleanup": {
     "owner": "root",
-    "status": "pending final infrastructure teardown after sibling experiments; each loan returned verified empty/index-free"
+    "status": "complete",
+    "proof_sha256": "73603b253c9ba9865d6613df06d6c00545211a433d3f819355687e28e8d86353",
+    "proof": {
+      "owned_container_and_network_removed": true,
+      "preexisting_containers_preserved": true,
+      "preexisting_networks_preserved": true,
+      "preexisting_container_count": 1,
+      "preexisting_network_count": 31,
+      "generated_tls_and_environment_removed": true,
+      "private_generated_credentials_removed": true
+    },
+    "credential_redaction_matches": 0,
+    "raw_log_hashes_unchanged": true
   }
 }

@@ -33,6 +33,20 @@ def audit(path):
     assert env['fixture'] == {'qpf': 4, 'workers': 6, 'routing': 'mnp', 'connections': 32, 'memory_bytes': 4294967296, 'tls_certificate_verified': True, 'resp': 3, 'empty': True}
     assert env['container_cpus'] == 4 and env['container_memory_bytes'] == 8589934592
 
+    cleanup_raw = (patchdir / 'cleanup.json').read_bytes()
+    cleanup = evidence['final_cleanup']
+    assert cleanup['status'] == 'complete' and cleanup['owner'] == 'root'
+    assert hashlib.sha256(cleanup_raw).hexdigest() == cleanup['proof_sha256']
+    assert json.loads(cleanup_raw) == cleanup['proof'] == {
+        'owned_container_and_network_removed': True,
+        'preexisting_containers_preserved': True,
+        'preexisting_networks_preserved': True,
+        'preexisting_container_count': 1,
+        'preexisting_network_count': 31,
+        'generated_tls_and_environment_removed': True,
+        'private_generated_credentials_removed': True,
+    }
+    assert cleanup['credential_redaction_matches'] == 0 and cleanup['raw_log_hashes_unchanged']
     profiles = evidence['profiles']
     assert [p['name'] for p in profiles] == ['dense-control', 'dense-commandstats', 'corrected-dense-commandstats']
     assert [len(p['releases']) for p in profiles] == [317, 634, 317]

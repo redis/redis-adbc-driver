@@ -39,8 +39,12 @@ outer-diff whitespace check flags. Those bytes are intentionally preserved with
 their hashes rather than rewritten after measurement.
 
 All loans ended with clients/processes closed, empty/index-free DB and effective
-Software 4x QPF, strict TLS/RESP3 reverified. Root owns final shared infrastructure
-teardown; it is pending sibling experiments. Operational artifacts/IDs, credentials,
+Software 4x QPF, strict TLS/RESP3 reverified. Root completed final shared
+infrastructure teardown: owned container/network and generated TLS/environment/
+settings/fixture-env credentials removed; prior one container and 31 networks
+preserved. The [sanitized proof](../../../../benchmarks/table-modes/compaction-reply-2026-11-13/cleanup.json)
+and its SHA-256 are included. Root's exact generated-credential scan found zero
+matches; raw log hashes are unchanged. Operational artifacts/IDs, credentials,
 license and TLS material remain private. No ClickBench or alternative provider.
 
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and [results](results.json).

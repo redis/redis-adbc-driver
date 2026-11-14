@@ -34,4 +34,6 @@ The first instrumented attempt was rejected after sample audit despite Go exit0;
 the corrected attempt completed normal releases/output validation and then failed
 its strict attribution assertion. No further rerun or production optimization.
 Archive both exact diagnostic/test patches on an evidence-only branch from the
-baseline. Parent owns final shared infrastructure cleanup and PR authorization.
+baseline. Parent final source/evidence review found no blockers and authorized
+PR publication after completed shared infrastructure cleanup. Cleanup is complete;
+see [validation](validation.md). No merge or human approval is claimed.
