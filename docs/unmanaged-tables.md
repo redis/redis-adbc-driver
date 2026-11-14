@@ -263,3 +263,14 @@ DROP/GC ownership rules above remain in force, as do the unmanaged operation
 exclusions.
 
 See [implementation and live validation](sdlc/changes/flex-unmanaged/validation.md).
+
+Filtered reads can fetch only required HASH fields after Search discovers keys.
+The driver uses a bounded, per-key read-only Lua TYPE/HMGET operation to preserve
+live existence and exact native values, including existing rows whose selected
+fields are all NULL. Full scans retain their established retrieval strategy.
+The additional `EVALSHA_RO`, `EVAL_RO`, `TYPE`, `HSTRLEN` and `HMGET` permissions
+enable this acceleration; a definite permission refusal retains the existing
+HGETALL path. Atomic length checks bound selected values materialized in Lua;
+larger rows use original HGETALL without rejecting or truncating their data.
+Unknown command outcomes fail without replay. No application HASH/index is
+modified, and permissions or values are not cached across statements.

@@ -1,0 +1,42 @@
+{
+  "observed_local_date": "2026-11-14",
+  "timezone": "America/Los_Angeles",
+  "driver_builds": {
+    "baseline": {
+      "commit": "0b21647831d13b0c10e652b7095515b0f5a74069",
+      "library_sha256": "04d724d399693ca3431e4680da433dc7e92df5238843983523dae9828eb10337",
+      "cli_sha256": "af444c1e5a1510fd7fac938a00d18949a19c549a3263801ed6e4057169d66997",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6"
+      }
+    },
+    "candidate": {
+      "commit": "c63477a9cb2509b3b3c484f0c6401e31b692ded9",
+      "library_sha256": "1ca5ee86e9b2845e2e63b1f4303c568a0df490be03e2eb0d38e80c2cd50fef88",
+      "cli_sha256": "5a964b88b62c92984b28b1ee6a068e6b24acf082ceec905efae06997cce78bd0",
+      "harness_sha256": {
+        "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+        "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6"
+      }
+    }
+  },
+  "build_artifacts_after_run": {
+    "baseline": {
+      "library_sha256": "04d724d399693ca3431e4680da433dc7e92df5238843983523dae9828eb10337",
+      "cli_sha256": "af444c1e5a1510fd7fac938a00d18949a19c549a3263801ed6e4057169d66997"
+    },
+    "candidate": {
+      "library_sha256": "1ca5ee86e9b2845e2e63b1f4303c568a0df490be03e2eb0d38e80c2cd50fef88",
+      "cli_sha256": "5a964b88b62c92984b28b1ee6a068e6b24acf082ceec905efae06997cce78bd0"
+    }
+  },
+  "compare_source_sha256": "76f37462431d0e2730fde323047cdbec779b66c1e4dfdf026691f73ff39ef84c",
+  "post_measurement_production_changes": false,
+  "automatic_retries": 0,
+  "failed_native_trial_records": 0,
+  "discarded_native_trial_records": 0,
+  "timing_order": "Baseline then candidate consecutively, all builds completed beforehand; no tests or other heavy work during either matrix. Not randomized or interleaved.",
+  "scope": "Versioned unreleased native builds. Earlier Go diagnostics are separate evidence and retain their actual sources. No new ClickBench, bulk ingestion, transfer, Flex or Cluster API measurement.",
+  "failed_pre_measurement_check": "pre-fix-regression.json retains the ERR-token boundary failure, followed by corrected final-race-software checkpoint."
+}

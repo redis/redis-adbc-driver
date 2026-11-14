@@ -767,21 +767,32 @@ func (p *snapshotPin) valid(ctx context.Context) error {
 	if p == nil {
 		return nil
 	}
+	if err := p.validLocal(ctx); err != nil {
+		return err
+	}
+	return p.validReply(p.control(ctx, "valid", ""))
+}
+
+// Local errors are checked before issuing the unchanged server lease proof.
+// This is not a lease cache: every successful validation still reaches Redis.
+func (p *snapshotPin) validLocal(ctx context.Context) error {
 	if err := cancelled(ctx); err != nil {
 		return err
 	}
 	p.mu.Lock()
 	err := p.err
-	materialized := p.materialized
 	p.mu.Unlock()
-	if err != nil {
-		return err
-	}
-	n, err := p.control(ctx, "valid", "").Int()
+	return err
+}
+func (p *snapshotPin) validReply(command *goredis.Cmd) error {
+	n, err := command.Int()
 	if err != nil {
 		return wrapRedis(err, "failed to validate statement snapshot")
 	}
 	if n != 1 {
+		p.mu.Lock()
+		materialized := p.materialized
+		p.mu.Unlock()
 		if materialized {
 			return matviewLeaseExpired()
 		}
@@ -1565,10 +1576,15 @@ func (s *store) validateSnapshotTables(ctx context.Context, tables []*tableMeta)
 // lazily by getTable, so an unrelated missing/rebuilding index cannot disable
 // the whole catalog. Per-statement caching is safe only for immutable segments.
 func (s *store) validateSnapshotRead(ctx context.Context) error {
-	if err := s.validateSnapshotMetadata(ctx, snapshotOf(ctx).id); err != nil {
-		return err
+	scope := snapshotOf(ctx)
+	// Shared bindings keep their terminal-loss handling in sharedReadView.valid.
+	if scope.pin == nil || scope.pin.shared != nil {
+		if err := s.validateSnapshotMetadata(ctx, scope.id); err != nil {
+			return err
+		}
+		return scope.pin.valid(ctx)
 	}
-	return snapshotOf(ctx).pin.valid(ctx)
+	return s.validateSnapshotMetadataAndPin(ctx, scope.id, scope.pin)
 }
 
 // A base read and its private workspace share proofs about immutable inputs.

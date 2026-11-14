@@ -993,6 +993,7 @@ type store struct {
 	controlScript      snapshotControlExecutor
 	rowBatchScript     snapshotControlExecutor
 	indexNotifyScript  snapshotControlExecutor
+	pointReadScript    snapshotControlExecutor
 	compactionScript   snapshotControlExecutor
 	snapshots          bool
 	compactor          *snapshotCompactor
@@ -1173,7 +1174,7 @@ func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*ta
 		return s.foreignTable(ctx, table)
 	}
 	readAt := time.Now()
-	raw, err := s.redis(ctx).Get(ctx, metaKey(schema, table)).Result()
+	raw, err := s.readSnapshotMetadataString(ctx, metaKey(schema, table))
 	if errors.Is(err, goredis.Nil) {
 		return nil, tableNotFound(schema, table)
 	}

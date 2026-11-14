@@ -1,0 +1,51 @@
+{
+  "server_versions": {
+    "redis_version": "8.8.0",
+    "modules": [
+      {
+        "name": "bf",
+        "version": 80801
+      },
+      {
+        "name": "timeseries",
+        "version": 80808
+      },
+      {
+        "name": "search",
+        "version": 80808
+      },
+      {
+        "name": "vectorset",
+        "version": 1
+      },
+      {
+        "name": "ReJSON",
+        "version": 80802
+      }
+    ]
+  },
+  "software_node_versions": [
+    {
+      "software_version": "8.2.6-25",
+      "os_version": "Red Hat Enterprise Linux 9.8 (Plow)"
+    }
+  ],
+  "server_container_cpus": 4,
+  "server_container_memory_bytes": 8589934592,
+  "host_cpu": "Apple M5 Max",
+  "host_logical_cpus": 18,
+  "host_memory_bytes": 38654705664,
+  "host_os": "macOS 26.7.3",
+  "host_architecture": "arm64",
+  "native_client_cpu_memory": "Uncapped; GOMAXPROCS/GOGC/GOMEMLIMIT/GODEBUG unset for native matrices; diagnostic Go tests GOMAXPROCS=4.",
+  "distribution": "Redis Software RAM, one shard; not Redis Community, Flex or a Cluster API topology.",
+  "qpf": 4,
+  "search_workers": 6,
+  "routing": "mnp",
+  "routing_connections": 32,
+  "shard_memory_bytes": 4294967296,
+  "eviction_policy": "noeviction",
+  "data_tls": "Certificate and hostname verified",
+  "protocol": 3,
+  "management_tls": "Local fixture self-signed bootstrap trust mode"
+}

@@ -45,6 +45,8 @@ func snapshotObservedScriptBody(cmd goredis.Cmder) string {
 		return snapshotWriteBatchLua
 	case snapshotIndexNotifyDigest:
 		return snapshotIndexNotifyLua
+	case snapshotPointReadDigest:
+		return snapshotPointReadLua
 	case snapshotCompactionCopyDigest:
 		return snapshotCompactionCopyLua
 	}
