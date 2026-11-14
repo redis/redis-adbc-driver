@@ -52,3 +52,20 @@ command-budget checks do not establish end-to-end native speedup. The parent
 integration work records before/after native scenarios, combined-source identity
 and final full-suite checks separately. No 100M ClickBench was run. Operational
 logs, fixture identifiers and credentials remain private.
+
+## Cross-review follow-up: bound root enumeration
+
+Independent aggregate-agent review identified that removing the client proof
+also removed its pre-enumeration HLEN check: the existing clone Lua checked the
+root size only after HGETALL. Move the 0..256 manifest bound and actual HLEN
+comparison ahead of HGETALL inside the same atomic clone, retaining the later
+length equality check. This adds no client round trip and does not alter storage
+format. Two new corruption cases seed 257 actual map fields, with either a
+matching oversized manifest or a false small manifest; both refuse without
+changing references, target map or published root.
+
+Verified Software 4x-QPF selection `TestSnapshotCloneAtomicallyRejectsInvalidBase`,
+`TestSnapshotPublicationReusesAuthorizedDescriptors` and
+`TestSnapshotConfirmedSQLPublicationSkipsAbort`: PASS, including all 15 invalid
+base cases. All clients closed before returning the shared live slot. The
+pre-HGETALL bound was explicitly reviewed; no source-text assertion was added.

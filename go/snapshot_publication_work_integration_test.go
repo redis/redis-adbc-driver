@@ -112,7 +112,7 @@ func TestSnapshotConfirmedSQLPublicationSkipsAbort(t *testing.T) {
 // references. Corrupt the base after acquisition so an acquisition check cannot
 // accidentally be the only protection after removing the duplicate pipeline.
 func TestSnapshotCloneAtomicallyRejectsInvalidBase(t *testing.T) {
-	for _, kind := range []string{"missing_manifest", "invalid_manifest", "not_committed", "missing_keys", "negative_keys", "wrong_keys", "missing_buckets", "negative_buckets", "oversized_buckets", "wrong_buckets", "directory_type", "map_type", "missing_reference"} {
+	for _, kind := range []string{"missing_manifest", "invalid_manifest", "not_committed", "missing_keys", "negative_keys", "wrong_keys", "missing_buckets", "negative_buckets", "oversized_buckets", "wrong_buckets", "directory_type", "map_type", "actual_oversized_map", "actual_map_mismatch", "missing_reference"} {
 		t.Run(kind, func(t *testing.T) {
 			h, raw, _ := newSnapshotHarnessMode(t, false, false)
 			if kind == "missing_reference" {
@@ -143,7 +143,7 @@ func TestSnapshotCloneAtomicallyRejectsInvalidBase(t *testing.T) {
 				if kind == "directory_type" {
 					_ = raw.Del(h.ctx, snapshotMetadataKeys(root)).Err()
 				}
-				if kind == "map_type" {
+				if kind == "map_type" || kind == "actual_oversized_map" || kind == "actual_map_mismatch" {
 					_ = raw.Del(h.ctx, snapshotMetadataMap(root)).Err()
 				}
 				if reference != "" {
@@ -177,6 +177,18 @@ func TestSnapshotCloneAtomicallyRejectsInvalidBase(t *testing.T) {
 				err = raw.Set(h.ctx, snapshotMetadataKeys(root), "wrong-type", 0).Err()
 			case "map_type":
 				err = raw.Set(h.ctx, snapshotMetadataMap(root), "wrong-type", 0).Err()
+			case "actual_oversized_map", "actual_map_mismatch":
+				// Seed the physical map, not only the declared count. Both a
+				// matching oversized manifest and a false small manifest must
+				// fail before the clone enumerates or retains any references.
+				entries := map[string]any{}
+				for i := range 257 {
+					entries[fmt.Sprintf("corrupt_%d", i)] = snapshotID()
+				}
+				err = raw.HSet(h.ctx, snapshotMetadataMap(root), entries).Err()
+				if kind == "actual_oversized_map" {
+					work["metadata_buckets"] = 257
+				}
 			case "missing_reference":
 				entries, e := raw.HGetAll(h.ctx, snapshotMetadataMap(root)).Result()
 				if e != nil {

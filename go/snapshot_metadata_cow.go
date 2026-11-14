@@ -64,9 +64,15 @@ if w.metadata_ready then return 1 end
 local baseRaw=redis.call('HGET',KEYS[1],'w:'..ARGV[3])
 if not baseRaw then return redis.error_reply('snapshot metadata manifest unavailable') end
 local baseWork=cjson.decode(baseRaw)
+-- Bound the actual root before enumeration. A corrupted map must not turn a
+-- point mutation into an unbounded HGETALL, even with a matching manifest.
+if baseWork.state~='committed' or (baseWork.metadata_builds or 0)>0 or
+ type(baseWork.metadata_buckets)~='number' or baseWork.metadata_buckets<0 or baseWork.metadata_buckets>256 or
+ baseWork.metadata_buckets~=redis.call('HLEN',KEYS[2]) or baseWork.metadata_keys~=redis.call('ZCARD',KEYS[5]) then
+ return redis.error_reply('snapshot metadata base is incomplete')
+end
 local entries=redis.call('HGETALL',KEYS[2])
-if baseWork.state~='committed' or (baseWork.metadata_builds or 0)>0 or baseWork.metadata_buckets~=#entries/2 or baseWork.metadata_keys~=redis.call('ZCARD',KEYS[5]) then return redis.error_reply('snapshot metadata base is incomplete') end
-if #entries>512 then return redis.error_reply('invalid snapshot metadata root') end
+if #entries>512 or #entries/2~=baseWork.metadata_buckets then return redis.error_reply('invalid snapshot metadata root') end
 for i=1,#entries,2 do
  local field='b:'..entries[i+1]..':'..entries[i]
  if tonumber(redis.call('HGET',KEYS[4],field) or '0')<=0 then return redis.error_reply('snapshot metadata bucket unavailable') end
