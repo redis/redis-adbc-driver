@@ -349,3 +349,43 @@ func TestUnmanagedProjectionReadOversizedRequestKeepsNativeFallback(t *testing.T
 		t.Fatal(got, err, h.calls)
 	}
 }
+
+func TestUnmanagedProjectionReadAllNullFallbackDoesNotDisableProjection(t *testing.T) {
+	r, h := projectionReadUnit(t, "n")
+	h.step = func(n int, cmds []goredis.Cmder) error {
+		switch n {
+		case 1:
+			setProjectionReply(cmds[0], []any{nil}, nil)
+		case 2:
+			setProjectionNative(cmds[0], map[string]string{"other": "present"}, nil)
+		case 3:
+			if cmds[0].Name() != "hmget" {
+				t.Fatal("all-null row disabled later projection")
+			}
+			setProjectionReply(cmds[0], []any{"7"}, nil)
+		default:
+			t.Fatal("unexpected extra read", n)
+		}
+		return nil
+	}
+	if _, err := r.read(context.Background(), []string{"app:null"}); err != nil || r.fallback {
+		t.Fatal(err, r.fallback)
+	}
+	got, err := r.read(context.Background(), []string{"app:next"})
+	if err != nil || len(got) != 1 || got[0]["n"] != "7" || h.calls != 3 {
+		t.Fatal(got, err, h.calls)
+	}
+}
+func TestUnmanagedProjectionReadCancellationBeforeAllNullFallback(t *testing.T) {
+	r, h := projectionReadUnit(t, "n")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	h.step = func(_ int, cmds []goredis.Cmder) error {
+		setProjectionReply(cmds[0], []any{nil}, nil)
+		cancel()
+		return nil
+	}
+	if got, err := r.read(ctx, []string{"app:null"}); err == nil || got != nil || h.calls != 1 {
+		t.Fatal("canceled all-null read issued fallback", got, err, h.calls)
+	}
+}
