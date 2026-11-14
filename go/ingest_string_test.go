@@ -172,82 +172,85 @@ func TestIngestStringArenaValidationBeforeCopy(t *testing.T) {
 }
 
 func BenchmarkIngestStringConversion(b *testing.B) {
-	for _, columns := range []int{8, 105} {
-		for _, n := range []int{63, 1024} {
-			arrays := make([]arrow.Array, columns)
-			targets := make([]ColType, columns)
-			for c := range columns {
-				if c%3 == 0 {
-					builder := array.NewStringBuilder(memory.DefaultAllocator)
-					for r := range n {
-						if r%17 == 0 {
-							builder.AppendNull()
-						} else {
-							builder.Append(fmt.Sprintf("é\x00column%d/row%d", c, r))
-						}
-					}
-					arrays[c] = builder.NewArray()
-					builder.Release()
-					targets[c] = typeString
-				} else {
-					builder := array.NewInt64Builder(memory.DefaultAllocator)
-					for r := range n {
-						if r%17 == 0 {
-							builder.AppendNull()
-						} else {
-							builder.Append(9007199254740993 + int64(r))
-						}
-					}
-					arrays[c] = builder.NewArray()
-					builder.Release()
-					targets[c] = typeInt64
-				}
-			}
-			for _, arena := range []bool{false, true} {
-				label := "clone"
-				if arena {
-					label = "arena"
-				}
-				b.Run(fmt.Sprintf("columns%d/rows%d/%s", columns, n, label), func(b *testing.B) {
-					run := func(check bool) {
-						rows := makeIngestStringRows(n, columns)
-						for c, a := range arrays {
-							convert := ingestColumnCloneReference
-							if arena {
-								convert = ingestColumn
-							}
-							if err := convert(a, targets[c], utcZone, rows, c); err != nil {
-								b.Fatal(err)
+	for _, mixed := range []bool{false, true} {
+		for _, columns := range []int{8, 105} {
+			for _, n := range []int{63, 1024} {
+				arrays := make([]arrow.Array, columns)
+				targets := make([]ColType, columns)
+				for c := range columns {
+					if mixed && c%3 == 0 {
+						builder := array.NewStringBuilder(memory.DefaultAllocator)
+						for r := range n {
+							if r%17 == 0 {
+								builder.AppendNull()
+							} else {
+								builder.Append(fmt.Sprintf("é\x00column%d/row%d", c, r))
 							}
 						}
-						if check {
-							for r, row := range rows {
-								for c, got := range row {
-									want, err := valueAt(arrays[c], r)
-									if err == nil {
-										want, err = coerceIn(want, targets[c], utcZone)
-									}
-									if err != nil || !reflect.DeepEqual(got, want) {
-										b.Fatalf("row%d col%d got%#v want%#v error%v", r, c, got, want, err)
+						arrays[c] = builder.NewArray()
+						builder.Release()
+						targets[c] = typeString
+					} else {
+						builder := array.NewInt64Builder(memory.DefaultAllocator)
+						for r := range n {
+							if r%17 == 0 {
+								builder.AppendNull()
+							} else {
+								builder.Append(9007199254740993 + int64(r))
+							}
+						}
+						arrays[c] = builder.NewArray()
+						builder.Release()
+						targets[c] = typeInt64
+					}
+				}
+				for _, arena := range []bool{false, true} {
+					label := "clone"
+					if arena {
+						label = "arena"
+					}
+					b.Run(fmt.Sprintf("mixed%t/columns%d/rows%d/%s", mixed, columns, n, label), func(b *testing.B) {
+						run := func(check bool) {
+							rows := makeIngestStringRows(n, columns)
+							for c, a := range arrays {
+								convert := ingestColumnCloneReference
+								if arena {
+									convert = ingestColumn
+								}
+								if err := convert(a, targets[c], utcZone, rows, c); err != nil {
+									b.Fatal(err)
+								}
+							}
+							if check {
+								for r, row := range rows {
+									for c, got := range row {
+										want, err := valueAt(arrays[c], r)
+										if err == nil {
+											want, err = coerceIn(want, targets[c], utcZone)
+										}
+										if err != nil || !reflect.DeepEqual(got, want) {
+											b.Fatalf("row%d col%d got%#v want%#v error%v", r, c, got, want, err)
+										}
 									}
 								}
 							}
 						}
-					}
-					run(true)
-					b.ReportAllocs()
-					b.ResetTimer()
-					for i := 0; i < b.N; i++ {
-						run(false)
-					}
-					b.StopTimer()
-					run(true)
-				})
-			}
-			for _, a := range arrays {
-				a.Release()
+						run(true)
+						b.ReportAllocs()
+						b.ResetTimer()
+						for i := 0; i < b.N; i++ {
+							run(false)
+						}
+						b.StopTimer()
+						run(true)
+					})
+				}
+				for _, a := range arrays {
+					a.Release()
+				}
 			}
 		}
+
 	}
 }
 

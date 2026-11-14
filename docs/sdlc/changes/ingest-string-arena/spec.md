@@ -18,7 +18,9 @@ arena remains valid even after Arrow input bytes are modified or freed.
 
 Freeze before timing: focused unit/race/Software assertions must pass without
 weakened assertions/skips. Every mixed-string complete-conversion micro cell must
-reduce median allocation counts by at least 50%. A micro elapsed or allocated-byte
+reduce median allocation counts by at least 50%. Pure integer controls have no
+required allocation decrease; the same elapsed/byte regression gate applies.
+A micro elapsed or allocated-byte
 regression fails when its median is more than 3% higher and the candidate range
 is wholly above the control range. Actual clean baseline/candidate native writes
 cover both modes, one_stream/one_batch and one/four writers, warmup plus three
