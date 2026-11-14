@@ -17,13 +17,18 @@ partial effects, no replay and cancellation/unknown-outcome handling. The owned
 arena remains valid even after Arrow input bytes are modified or freed.
 
 Freeze before timing: focused unit/race/Software assertions must pass without
-weakened assertions/skips. Complete conversion microbenchmarks must materially
-reduce mixed-string allocation counts without a clear elapsed/allocated-byte
-regression. Actual clean baseline/candidate native writes cover both modes,
-one_stream/one_batch and one/four writers, warmup plus three measured repetitions
-per cell (64 total), complete physical types/values/counts/multiplicity/ordinal
-validation and raw checks for unmanaged. Keep all samples. Adopt only if no clear
-native elapsed or peak-worker-RSS regression appears; otherwise preserve the
+weakened assertions/skips. Every mixed-string complete-conversion micro cell must
+reduce median allocation counts by at least 50%. A micro elapsed or allocated-byte
+regression fails when its median is more than 3% higher and the candidate range
+is wholly above the control range. Actual clean baseline/candidate native writes
+cover both modes, one_stream/one_batch and one/four writers, warmup plus three
+measured repetitions per cell (64 total), complete physical types/values/counts/
+multiplicity/ordinal validation and raw checks for unmanaged. Keep all samples.
+A native elapsed regression fails when its median is more than 3% higher and the
+candidate range is wholly above baseline. Native peak-worker-RSS fails at more
+than 1% median increase with the candidate range wholly above baseline. Report
+all medians, ranges and tails even when those gates pass. Adopt only if every
+cell passes these quantitative gates and correctness; otherwise preserve the
 exact candidate unapplied. Do not retune guards/cap after results.
 
 See [intent](intent.md) and [plan](plan.md).
