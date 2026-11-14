@@ -256,3 +256,32 @@ func TestSnapshotPointReadEligibilityRetainsExistingPaths(t *testing.T) {
 		t.Fatal("multi-row native path changed", rows, err, observer.calls)
 	}
 }
+
+func TestSnapshotPointWriteReadKeepsLargeIDsAndBinaryValues(t *testing.T) {
+	_, _, s, ctx, m, observer := snapshotPointWriteFixture(t)
+	const id = "9223372036854775807"
+	label := string([]byte{'a', 0, 'b'})
+	opaque := string([]byte{0, 0xff, '\n'})
+	if !strings.ContainsRune(label, 0) || opaque[0] != 0 {
+		t.Fatal("fixture lacks actual zero bytes")
+	}
+	image := snapshotInsertRow{key: m.prefix() + id, member: "09223372036854775807", fields: []any{rowIDField, id, "id", "9007199254740993", "v", "9007199254740993", "label", label, "opaque", opaque}}
+	if err := s.writeSnapshotImages(ctx, m.prefix(), []snapshotInsertRow{image}, true); err != nil {
+		t.Fatal(err)
+	}
+	for _, fields := range [][]string{nil, {"id", "v", "label"}, {}} {
+		observer.reset()
+		rows, err := s.fetchSnapshotVisible(ctx, m, []string{m.prefix() + id}, fields)
+		if err != nil || len(rows) != 1 || rows[0] == nil || rows[0][rowIDField] != id || observer.calls != 1 {
+			t.Fatal("large row ID rounded or missed", rows, err, observer.calls)
+		}
+		if fields == nil || len(fields) > 0 {
+			if rows[0]["v"] != "9007199254740993" || rows[0]["label"] != label {
+				t.Fatal("stored value changed", rows)
+			}
+		}
+		if fields == nil && rows[0]["opaque"] != opaque {
+			t.Fatal("full image changed opaque bytes")
+		}
+	}
+}
