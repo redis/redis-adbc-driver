@@ -14,3 +14,5 @@
    final infrastructure/TLS/credential teardown and publication after review.
 
 See [intent](intent.md) and [spec](spec.md).
+
+Review: [PR #434](https://github.com/redis/redis-adbc-driver/pull/434) is open and unmerged. No human approval is claimed.

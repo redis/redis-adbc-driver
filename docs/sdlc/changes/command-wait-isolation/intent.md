@@ -10,3 +10,5 @@ Use bounded opt-in diagnostic controls to distinguish probe-command and physical
 connection dependence. Production leases, release, cleanup and storage remain
 unchanged. See [contract](spec.md) and [plan](plan.md). Agent findings are not human
 approval; no speedup or causal attribution is claimed before measurements.
+
+Review: [PR #434](https://github.com/redis/redis-adbc-driver/pull/434) is open and unmerged. No human approval is claimed.

@@ -42,3 +42,5 @@ no workload rerun, packets, clock calibration or wire attribution. This is a
 correlation/tooling scope constraint, not a permission blocker. The original seven
 jobs and exact candidate patch remain unchanged; sanitized facts are linked in
 the report and raw inventories remain private.
+
+Review: [PR #434](https://github.com/redis/redis-adbc-driver/pull/434) is open and unmerged. No human approval is claimed.
