@@ -1,173 +1,97 @@
-# Validation and review — draft
+# Verification and review — November 14, 2026
 
-Date: November 14, 2026 (America/Los_Angeles). Requestor: repository user.
-Author/review coordinator: Codex with three delegated agents. Human review pending.
-[Intent](intent.md), [specification](spec.md), [plan](plan.md).
+[Intent](intent.md), [spec](spec.md), [plan](plan.md). Requested by Albert Wong;
+implemented and independently cross-reviewed by Codex subagents. Human approval
+and merge are not inferred. The complete [native report](../../../../benchmarks/oltp-query-efficiency/2026-11-14/report.md)
+is the authoritative final comparison, including regressions and limitations.
 
-**Draft status:** this records completed evidence through integrated source
-`665c3f1b2712776890c1f288fefe86b609dd136f`. Final rebased production source,
-subsequent guard validation, completed ordinary/full-snapshot suites, isolated
-native matrices, evidence audit and fixture cleanup remain pending. Do not
-interpret this document as final validation or a completed native speedup claim.
+## Actual checkpoints
 
-## Environment and measurement boundaries
+Frozen native candidate production source is
+`c63477a9cb2509b3b3c484f0c6401e31b692ded9`; baseline is merged
+`0b21647831d13b0c10e652b7095515b0f5a74069`. Both driver/CLI builds and identical
+harness copies have recorded pre/post hashes. No production changes followed
+measurement. Later changes publish evidence and documentation only.
 
-The coordinator provisioned its owned Redis Software fixture using
-`make -C go redis-up`. Its independent gate verified active/effective 4x QPF,
-six Search workers, mnp/32, a 4-GiB noeviction RAM shard, actual four-CPU/eight-GiB
-container limits, certificate/hostname-verified data TLS and RESP3 before the
-recorded live selections. Agents used exclusive serial live slots and closed
-their clients before returning those slots. This is not final infrastructure
-teardown evidence; the fixture remains under coordinator ownership until the
-remaining suites and matrices finish. Endpoints, operational identifiers,
-credentials, licenses and raw logs remain private.
+| Check | Actual source | PASS | SKIP | FAIL |
+|---|---|---:|---:|---:|
+| Initial integrated race selection | `665c3f1b` | 80 | 2 | 0 |
+| Ordinary Software all Go packages | `665c3f1b` | 1,164 | 374 | 0 |
+| Full separate snapshot suite | `00553f22` | 306 | 62 | 0 |
+| Pre-correction native boundary race | `00553f22` | 88 | 2 | 1 |
+| Corrected final focused race | `c63477a9` | 91 | 2 | 0 |
 
-Scoped Go diagnostics used Go 1.27.3 and GOMAXPROCS=4. Concurrent compilation/host
-activity could affect their wall times. They establish client-command shape and
-limited workload observations, not isolated Python/ADBC latency, server CPU,
-production capacity, confidence intervals or a product-wide ranking. No new 100M
-ClickBench, Flex, Flight SQL, transfer or bulk-ingestion result is established by
-this change. Historical results retain their actual source/server labels.
+Commands, full checkpoint commit IDs and every skipped test name are retained in
+[checks.json](../../../../benchmarks/oltp-query-efficiency/2026-11-14/checks.json).
+Ordinary tests intentionally unset the snapshot URI; snapshots ran separately.
+Every live command used the same owned Redis Software fixture created through
+`make -C go redis-up` and independently gated for active/effective 4× QPF,
+six workers/mnp32, noeviction and certificate-verified TLS/RESP3. Packages ran
+sequentially with caching disabled. Final race selection explicitly includes
+acquisition/descriptor proof tests and every unmanaged guard regression.
+Snapshot source predates only the unmanaged exact refusal-token recognition
+correction, covered in the final race run. Optional operator fixtures/topologies,
+backups/profiles and capability skips do not establish compatibility.
 
-## Completed correctness checks
+The failed boundary check is retained as
+[pre-fix-regression.json](../../../../benchmarks/oltp-query-efficiency/2026-11-14/pre-fix-regression.json).
+Redis prefixes custom one-token script errors with `ERR`; exact bare-token-only
+recognition failed on the live oversized-value case. The corrected implementation
+accepts only four exact direct native spellings, bare or with one `ERR ` prefix;
+wrapped/joined/altered outcomes fail closed. The same native boundary passes in
+the final race run, without relaxing its assertion.
 
-The following are **top-level Go test counts per completed command**, not a sum
-of distinct tests. Counts come from completed verbose output and successful exit
-records; package execution time excludes compilation/wrapper overhead.
+Eleven offline Python comparison/audit tests pass, as do the archived November 13
+audit, managed diagnostic audit (96+96 observations), final full-pair audit,
+formatting and `git diff --check`. The final native pair retains **168 validated
+records per build**, all **42 comparisons** and 5,472 measured observations:
+zero failed native trials, conflicts, retries or discarded samples. Builds
+finished before both matrices; baseline and candidate ran consecutively with no
+other heavy work. This is not randomized/interleaved evidence.
 
-| Completed selection | Source scope | Pass | Skip | Fail | Package seconds |
-|---|---|---:|---:|---:|---:|
-| Existing managed sustained/stage/index-wait diagnostics | unchanged 0b216478 production | 3 | 0 | 0 | 8.565 |
-| Matching managed 1K-row baseline diagnostic | unchanged 0b216478 production plus new diagnostic test | 1 | 0 | 0 | 7.185 |
-| New managed point-proof regressions | scoped managed candidate | 4 | 0 | 0 | 1.726 |
-| Matching managed candidate diagnostic | scoped production 6af289dd | 1 | 0 | 0 | 6.686 |
-| Managed version/publication/Arrow/strict-partition regressions | scoped managed candidate | 33 | 0 | 0 | 8.983 |
-| Point-read baseline profile/manifest checks | unchanged 0b216478 production | 3 | 0 | 0 | 1.176 |
-| Point-read candidate profile/corruption/lifetime/freshness checks | scoped point candidate; predates final error-precedence refinements | 26 | 0 | 0 | 14.678 |
-| Live unmanaged projection/filtered membership/Arrow lifetime checks | scoped retrieval candidate | 6 | 0 | 0 | 4.691 |
-| Full-size unmanaged baseline diagnostic | exact restored baseline query source | 1 | 0 | 0 | 8.811 |
-| Full-size unmanaged candidate diagnostic | scoped timed retrieval source | 1 | 0 | 0 | 8.110 |
-| Integrated focused Software race selection | 665c3f1b | 80 | 2 | 0 | 22.764 |
+## Results and limitations
 
-The integrated race wrapper completed successfully in 42.278 seconds including
-build/runner overhead. Its command was:
+Single-client managed UPDATE/DELETE improve 1.48×/1.41×; known-key reads in both
+modes improve about 13–14%. Unmanaged filtered projection improves 3.31×/1.81×
+with one/four clients; filtered COUNT/SUM improves 2.39× with one client.
+**Four-client unmanaged filtered COUNT/SUM is 38.1% slower, managed INSERT 15.9%
+slower, and managed filtered COUNT/SUM 3.7% slower.** Managed four-client DELETE
+and unmanaged single-client grouped aggregation are essentially flat. The full
+report retains exact p50/p95/throughput and redis-py multiples for every case.
+Three measured trials do not establish causal attribution or confidence bounds.
+The driver remains much slower than direct redis-py commands for OLTP.
 
-```sh
-go test -v -race -count=1 -p 1 -timeout=15m \
-  -run 'Test(SnapshotPointWriteRead|SnapshotDirectory|SnapshotMetadata|SnapshotManifest|SnapshotValid|SnapshotControl|UnmanagedProjectionRead|UnmanagedFiltered|UnmanagedStatement|SnapshotRuntimeExactBigInt|SnapshotStream|SharedRead|SQLRekeyTakeoverWait|ExecutionPool|StatementRepeatedSQL)' .
-```
+The earlier [managed profile](../../../../benchmarks/managed-point-images/2026-11-14/report.md)
+and [point proof](../point-read-proof-pipelines/validation.md) /
+[unmanaged retrieval](../unmanaged-live-projection/validation.md) diagnostics keep
+their own sources and scope, including earlier slower observations; their timings
+are not relabeled as the final guarded native build. No new bulk/transfer,
+ClickBench, Flex, Flight SQL or native Cluster API result is claimed.
 
-Its exact skips were:
+## Review and ownership
 
-- `TestSnapshotControlScriptEvalOnlySoftware`: requires an owned Software
-  EVAL-only operator fixture, which was not configured for this selection.
-- `TestSnapshotControlScriptPointLeaseSoftware`: requires an owned Software
-  operator without HGETALL, which was not configured for this selection.
+Independent cross-review inspected unchanged native proof keys/arguments and
+error precedence; shared pins; no permission/lease/value caching; managed
+newest-winner/tombstone/string/int64/NULL/NUL and MaxInt64 row-ID behavior;
+restricted/strict/multi-key compatibility; external source ownership/type/NULL
+policy; request/selected-value bounds; cursor/Arrow/cancellation lifetime.
 
-These skips do not establish native compatibility for those operator profiles.
-The integrated selection includes the new MaxInt64 row-ID/opaque-byte test and
-joined/wrapped absence guard. Its pattern **does not include** the new
-`TestSnapshotAcquireProof*` or `TestSnapshotDescriptorRead*` unit-test families;
-the point agent's scoped unit/race checks covered them, but a final combined
-race selection including both families is still pending here.
+Cross-review reproduced composed absence/refusal failures masking lost replies;
+those now require direct native proof and full pipeline inspection before any
+repair/fallback. Source review found selected external values could be unbounded
+inside Lua; an atomic HSTRLEN guard now limits copied values to 1 MiB, with original
+HGETALL fallback per oversized row and exact permission compatibility. Native
+boundary testing caught the ERR-token issue above. Independent final review found
+no remaining actionable correctness/security findings; the measured concurrency
+regressions remain explicit performance limitations requiring maintainer review.
 
-Scoped unit-only all-package checks passed for managed and unmanaged work;
-Redis-dependent cases skip without endpoints. Their nonverbose outputs do not
-supply exact native skip counts, so none are inferred. The managed offline audit
-passes all 96 baseline plus 96 candidate diagnostic observations, complete case
-coverage, source/input hashes and comparison arithmetic. Scoped formatting and
-`git diff --check` passed. These are not substitutes for final combined checks.
+All test/native processes and clients exited, owner-checked data/index clearing
+completed, and a final empty/QPF/TLS/RESP3 gate passed before teardown.
+[Cleanup proof](../../../../benchmarks/oltp-query-efficiency/2026-11-14/cleanup.json)
+records owned container/network and generated environment/credentials removed,
+with preexisting containers/networks/TLS files preserved. Operational artifacts,
+identifiers, credentials and licenses remain private.
 
-## Completed diagnostic observations
-
-- **Point proof batching:** 13 to 11 client exchanges in each mode, while the
-  original 20 managed/19 unmanaged Redis command counts and four lease-valid
-  checks remain. The new shapes are `hget,zcard,hlen,control_valid` and
-  `hmget,exists,get`. Tiny warm Go medians were **slower** in that diagnostic:
-  managed 2.790 to 4.003 ms, unmanaged 3.130 to 3.926 ms. No native latency gain
-  is inferred. Later error-precedence refinements retain separate test evidence.
-- **Managed mutations:** the matching diagnostic independently checked all 96
-  mutations and complete value/count states. Scoped p50 milliseconds were
-  INSERT 39.934 to 45.245 (**slower**), UPDATE 64.733 to 44.743, DELETE 49.587 to
-  42.910. Source/hash-pinned [complete observations and audit](../../../../benchmarks/managed-point-images/2026-11-14/report.md)
-  retain every sample and client-call category. HASH/directory commands execute
-  inside the fused scripts; reduced client exchanges do not imply fewer native
-  HASH reads. Background maintenance can change segment counts between runs.
-- **Index readiness:** fresh final indexes were ready on the first poll in the
-  diagnostic, with 1.77–2.60 ms create-to-readiness. Faster readiness polling was
-  not implemented. Native slowlog was available but its threshold-selected,
-  uncorrelated events do not attribute the observed admission wait to Lua CPU.
-- **Unmanaged filtered aggregation:** a matched 100K-row Go execution/Arrow
-  profile observed filtered COUNT/SUM median 243.75 to 94.55 ms, validating every
-  Arrow INT64 result against independent arithmetic. Transfer fell about 2.02
-  to 1.06 MB per call, while allocation rose about 18.8 to 21.0 MB. It still
-  performs 10K per-key reads plus Search discovery. The unchanged grouped
-  LOAD-star path remains around 390 ms. This is not the final Python/C native
-  matrix and does not claim fanout elimination. Later source-address/error
-  accounting guards retain their actual later test sources.
-
-Detailed scope records:
-[point-read proofs](../point-read-proof-pipelines/validation.md),
-[managed point images](../managed-point-image-read/validation.md),
-[live unmanaged projection](../unmanaged-live-projection/validation.md).
-Do not relabel those earlier scoped measurements with the final combined source.
-
-## Review and fixes
-
-Three agents reviewed the isolated changes and their interactions; agent review
-is not human approval. The coordinator and independent cross-review checked:
-
-- Native commands/keys/namespace arguments and error precedence in queued
-  lease and descriptor proofs; one full-body fallback only after a direct
-  native NOSCRIPT/EVALSHA-command refusal and successful metadata proof.
-  Unknown pipeline failures remain terminal, shared pins keep their existing
-  terminal-loss path, and descriptor values/authorization are not cached.
-- Single-key writer-scope read fusion retains newest-to-oldest early stopping,
-  tombstones, conditional directory proofs, exact string/int64/NULL/NUL behavior,
-  request bounds and all outer pin/ownership/publication fences. MaxInt64 row
-  IDs and opaque HASH bytes passed in the integrated race selection. Strict
-  direct readers and multi-key batches retain their prior execution path.
-- Live projected HASH retrieval keeps source discovery/membership and the real
-  source address authoritative, including application fields named `__key`.
-  Atomic existence/type/field reads preserve existing all-selected-fields-NULL
-  HASHes and established missing/wrong-type policy. Command/byte bounds and
-  cursor/Arrow/cancellation lifetime remain explicit.
-- Cross-review reproduced unsafe composed absence/refusal handling in the
-  retrieval predecessor: `errors.Is(err, goredis.Nil)` could unwrap an unknown
-  transport failure and permit omission or fallback. The fix requires direct
-  nil equality and accounted direct native outcomes, inspects every pipeline
-  command, and retains unknown diagnostics without repair/replay. Earlier timed
-  observations are not relabeled as this later correctness-source measurement.
-
-No additional actionable finding remained in the completed scoped reviews.
-This does not assert final combined review completion for subsequent guards or
-rebased source. The collector scheduling fixture correction is tracked separately
-in [PR #438](https://github.com/redis/redis-adbc-driver/pull/438); its intentionally
-competing collectors and original assertions remain, without sleeps/retries or
-broader skips. Do not attribute performance gains to that test-only correction.
-
-## Pending before final publication
-
-1. Record the final rebased production commit, PR reference and independent
-   review outcome for any subsequent guard; preserve each earlier check's
-   actual source rather than relabeling it.
-2. Finish and summarize the ordinary Software suite with exact passes/skips/
-   failures and skipped test names. Run the separate full snapshot suite and
-   final combined race selection, explicitly including acquisition/descriptor
-   proof tests and all new guard regressions. Record capability/topology limits.
-3. Freeze clean versioned baseline/candidate library and CLI builds plus the
-   identical scenario harness; finish both complete native matrices
-   consecutively with other heavy tasks paused. Retain every warmup/measured
-   sample, validation result, failure and p50/p95/throughput comparison,
-   including flat/slower cases. Record actual resource/server/settings and
-   pre/post source/binary/input hashes.
-4. Audit final chart/comparison arithmetic, case completeness, provenance,
-   private-artifact sanitization and all claimed validations. New native source
-   measurements remain pending until those runs and their independent fetch/
-   post-state checks complete successfully.
-5. After every client/process exits, perform ownership-checked data/index cleanup,
-   final QPF/TLS/RESP3 verification and owned fixture/network/generated-secret
-   teardown while preserving preexisting resources. Publish sanitized cleanup
-   proof; never infer cleanup from process exit alone.
-6. Update this draft, scoped records and the PR around actual final results and
-   unresolved limits; human maintainer approval and merge remain separate.
+The independent CI race fix [PR #438](https://github.com/redis/redis-adbc-driver/pull/438)
+merged with successful full Test and Release binaries workflows. That test-only
+change is not a source of production performance improvement.

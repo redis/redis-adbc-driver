@@ -47,3 +47,10 @@ full-body fallback is limited to a definite native digest refusal after metadata
 proof success; unknown pipeline failures never become successful proofs. Complete
 integration, cluster/RBAC capability checks and final native timings remain with
 the coordinator before PR completion.
+
+## Final integrated follow-up
+
+The [November 14 combined validation](../point-write-retrieval-20261114/validation.md)
+records the final guarded native build, complete paired matrix, corrected boundary
+failure, independent review and ownership cleanup. Earlier diagnostics above retain
+their actual sources and scope; they are not relabeled as final native measurements.

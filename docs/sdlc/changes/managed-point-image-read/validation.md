@@ -47,3 +47,10 @@ endpoints. `python3 benchmarks/managed-point-images/audit.py`: PASS, covering
 96+96 retained diagnostic observations, exact coverage, source/input hashes and
 comparison arithmetic. `gofmt` and `git diff --check`: PASS. No new live Redis
 work ran during these offline checks.
+
+## Final integrated follow-up
+
+The [November 14 combined validation](../point-write-retrieval-20261114/validation.md)
+records the final guarded native build, complete paired matrix, corrected boundary
+failure, independent review and ownership cleanup. Earlier diagnostics above retain
+their actual sources and scope; they are not relabeled as final native measurements.

@@ -1,5 +1,9 @@
 # OLTP and selective-query performance
 
+The [November 14 comparison](2026-11-14/report.md) adds the next point/write/retrieval
+changes, all 42 comparisons and explicit concurrency regressions. Both 168-record
+matrices and actual-source checks/cleanup are retained and independently audited.
+
 The [November 13 comparison](2026-11-13/report.md) retains 168 validated records
 per build, all 42 chart combinations, profiling attribution and actual verification
 sources/skips. It compares clean ca685806 with the versioned unreleased candidate;

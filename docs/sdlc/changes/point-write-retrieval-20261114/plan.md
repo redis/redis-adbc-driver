@@ -15,3 +15,7 @@
 5. Freeze builds/harness, run complete matched native matrices back-to-back with
    other heavy tasks paused, publish exact chart data and all regressions, finish
    ownership cleanup and open a PR. No merge authorization inferred.
+
+Final implementation, complete native comparison, actual check sources/skips and
+ownership cleanup are recorded in [validation](validation.md). Human approval
+and merge remain separate.

@@ -121,3 +121,10 @@ diagnostic and cause exactly one pipeline with no fallback or repair. The full
 endpoint environments unset. No live command ran during this correction; parent
 integration retains the red native checkpoint and must repeat verified native
 boundary/lifecycle coverage before final timings.
+
+## Final integrated follow-up
+
+The [November 14 combined validation](../point-write-retrieval-20261114/validation.md)
+records the final guarded native build, complete paired matrix, corrected boundary
+failure, independent review and ownership cleanup. Earlier diagnostics above retain
+their actual sources and scope; they are not relabeled as final native measurements.

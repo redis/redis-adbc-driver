@@ -16,3 +16,7 @@ Go tests/builds during native performance windows. Retain every raw sample and
 failed attempt. Run final baseline/candidate matrices consecutively after local
 checks to reduce the previous ordinary-suite-between-matrices confound. Report
 flat/slower cases, overhead/guarantee differences and finite-sample limits.
+
+Final implementation, complete native comparison, actual check sources/skips and
+ownership cleanup are recorded in [validation](validation.md). Human approval
+and merge remain separate.
