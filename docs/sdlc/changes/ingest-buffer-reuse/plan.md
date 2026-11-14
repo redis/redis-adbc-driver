@@ -20,3 +20,6 @@ Outcome: evidence only. The original frozen contract remains above; measured
 source `55396058` is preserved unapplied. Native memory gains accompany mixed
 elapsed outcomes, so the original adoption gate is not established. Production
 Go remains identical to `88774f10`. See [validation](validation.md).
+
+Publication: [PR #429](https://github.com/redis/redis-adbc-driver/pull/429) is open
+as evidence only. No merge, release or human maintainer approval is claimed.

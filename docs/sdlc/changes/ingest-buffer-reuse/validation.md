@@ -57,3 +57,6 @@ Parent final evidence review passed at f5e773bb (plus the README-only follow-up
 04fd4b26); no blocker was found in distributions, attempt disclosure, lifecycle,
 source identity or unchanged production scope. This is agent review, not human
 maintainer approval. Final shared-fixture cleanup proof is now attached.
+
+Publication: [PR #429](https://github.com/redis/redis-adbc-driver/pull/429) is open
+as evidence only. No merge, release or human maintainer approval is claimed.
