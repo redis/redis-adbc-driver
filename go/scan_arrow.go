@@ -17,6 +17,7 @@ import (
 type scanArrow struct {
 	builder *array.RecordBuilder
 	typed   []typedArrowColumn
+	input   []func(*Value) error // explicit unmanaged output only
 	scratch []Value
 	rows    int
 	bytes   int64
@@ -34,6 +35,7 @@ func (a *scanArrow) release() {
 	a.ready = nil
 	a.scratch = nil
 	a.typed = nil
+	a.input = nil
 }
 
 func (r *streamReader) fillArrow() error {
@@ -97,6 +99,12 @@ func (r *streamReader) appendDecodedArrow() error {
 		for j, c := range r.cols {
 			a.typed[j] = bindArrowColumn(a.builder.Field(j), c.Type)
 		}
+		if r.it != nil && r.it.meta != nil && r.it.meta.Unmanaged && r.batchBytes == 0 {
+			a.input = make([]func(*Value) error, len(r.cols))
+			for j, c := range r.cols {
+				a.input[j] = bindUnmanagedArrowInput(a.builder.Field(j), c.Type, a.typed[j])
+			}
+		}
 	}
 	if r.skip > 0 {
 		r.skip--
@@ -147,6 +155,18 @@ func (r *streamReader) appendDecodedArrow() error {
 				err = appendValue(a.builder.Field(j), c.Type, a.scratch[j])
 			} else {
 				err = a.typed[j].append(a.scratch[j])
+			}
+			if err != nil {
+				return invalidArg(err)
+			}
+		}
+	} else if a.input != nil {
+		for j := range r.cols {
+			var err error
+			if input := a.input[j]; input != nil {
+				err = input(&a.scratch[j])
+			} else {
+				err = appendArrowInputFallback(a.typed[j], &a.scratch[j])
 			}
 			if err != nil {
 				return invalidArg(err)
