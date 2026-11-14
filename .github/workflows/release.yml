@@ -64,6 +64,8 @@ on:
       - go/aggregate.go
       - go/connection.go
       - go/rekey.go
+      # Collector scheduling regressions also need the native macOS test job.
+      - go/rekey*_test.go
       - python/pyproject.toml
       - python/adbc_driver_redis/**
       - scripts/build_python_wheel.py

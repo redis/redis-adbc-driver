@@ -352,6 +352,18 @@ func (b *rekeyGCBarrier) ProcessHook(next goredis.ProcessHook) goredis.ProcessHo
 func TestSQLRekeyTakeoverWait(t *testing.T) {
 	const from, to = "it_rk_tw", "it_rk_tw2"
 	h := newSQLHarness(t)
+	// This test controls the first collector through rekeyGCBarrier. Join the
+	// fixture connection's automatic collector before making output reclaimable;
+	// otherwise it can delete a batch before the controlled collector pauses.
+	// The independent connection opened below still exercises real takeover.
+	statement, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statement.(*statementImpl).conn.store.stopSnapshotCompactor()
+	if err := statement.Close(h.ctx); err != nil {
+		t.Fatal(err)
+	}
 	h.dropTables(from, to)
 	h.exec("CREATE TABLE " + from + " (id INTEGER)")
 	h.exec("INSERT INTO " + from + " SELECT i FROM generate_series(1,600) AS g(i)")
