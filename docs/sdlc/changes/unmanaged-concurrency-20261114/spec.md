@@ -45,3 +45,8 @@ performs its own native authorization. Do not infer any grant from HMGET denial,
 accept a different key/channel denial, unwrap joined/wrapped failures or weaken
 whole-pipeline inspection. This cold compatibility path follows frozen source
 `859a9510` and is not relabeled as measured by the earlier SQL diagnostic.
+
+Key-specific refusal falls back only for that key and does not disable later
+HMGET reads. A later key may permit HMGET but refuse HGETALL under another
+selector. Only an exact command-wide HMGET refusal selects scan-wide native
+compatibility. The first-key capability boundary preserves that distinction.

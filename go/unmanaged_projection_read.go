@@ -56,10 +56,24 @@ func unmanagedProjectionPermission(err error, key string) bool {
 	// HGETALL on this key. Redis 8.8 emits either a generic key refusal or
 	// the verbose user/key form. The fallback performs its own native ACL
 	// check; this refusal never grants data access or unwraps an unknown.
-	return message == "NOPERM this user has no permissions to run the 'hmget' command" ||
-		strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to run the 'hmget' command") ||
+	return unmanagedProjectionCommandPermission(err) ||
 		message == "NOPERM No permissions to access a key" ||
 		strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to access the '"+key+"' key")
+}
+
+// Only a command-wide refusal disables later HMGET reads in this scan.
+// A key-specific selector refusal says nothing about permissions on other keys.
+func unmanagedProjectionCommandPermission(err error) bool {
+	native, ok := err.(interface {
+		error
+		RedisError()
+	})
+	if !ok {
+		return false
+	}
+	message := native.Error()
+	return message == "NOPERM this user has no permissions to run the 'hmget' command" ||
+		strings.HasPrefix(message, "NOPERM User ") && strings.HasSuffix(message, " has no permissions to run the 'hmget' command")
 }
 func unmanagedProjectionWrongType(err error) bool {
 	native, ok := err.(interface {
@@ -193,7 +207,7 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]a
 		}
 		if unmanagedProjectionPermission(cmd.Err(), keys[i]) {
 			fallback = append(fallback, i)
-			denied = true
+			denied = denied || unmanagedProjectionCommandPermission(cmd.Err())
 			continue
 		}
 		values := cmd.Val()

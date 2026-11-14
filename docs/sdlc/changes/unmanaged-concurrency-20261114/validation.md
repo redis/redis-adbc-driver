@@ -73,3 +73,10 @@ unrecognized/different-key/channel refusals. This source-only follow-up was not
 run during another agent's timing slot; parent final unit/race checks and native
 matrix must use the integrated final source. Earlier 23-pass checks and SQL
 observations retain their actual `859a9510` identity.
+
+A subsequent parent review caught that key-specific denial must not disable
+HMGET for every later key. The follow-up distinguishes command-wide denial from
+key denial and adds a first-key-boundary regression: HGETALL-only key B falls
+back once; following HMGET-only key A still uses HMGET and must never issue
+HGETALL. Generic and verbose native key-refusal forms are covered. This source/
+unit-only follow-up awaits parent checks and does not relabel frozen859 timings.

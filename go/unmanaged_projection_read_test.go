@@ -150,7 +150,7 @@ func TestUnmanagedProjectionReadLaterWholeImage(t *testing.T) {
 	}
 }
 func TestUnmanagedProjectionReadPermissionCompatibility(t *testing.T) {
-	for _, message := range []string{"NOPERM this user has no permissions to run the 'hmget' command", "NOPERM User reader has no permissions to run the 'hmget' command", "NOPERM No permissions to access a key", "NOPERM User reader has no permissions to access the 'app:1' key"} {
+	for _, message := range []string{"NOPERM this user has no permissions to run the 'hmget' command", "NOPERM User reader has no permissions to run the 'hmget' command"} {
 		t.Run(message, func(t *testing.T) {
 			r, h := projectionReadUnit(t, "n")
 			h.step = func(n int, cmds []goredis.Cmder) error {
@@ -410,7 +410,7 @@ func TestUnmanagedProjectionReadKeySelectorCompatibility(t *testing.T) {
 				return nil
 			}
 			got, err := r.read(context.Background(), []string{"app:one", "app:selector", "app:three"})
-			if err != nil || len(got) != 3 || got[0]["n"] != "1" || got[1]["n"] != "2" || got[2]["n"] != "3" || !r.fallback || h.calls != 2 {
+			if err != nil || len(got) != 3 || got[0]["n"] != "1" || got[1]["n"] != "2" || got[2]["n"] != "3" || r.fallback || h.calls != 2 {
 				t.Fatal(got, err, h.calls)
 			}
 		})
@@ -453,6 +453,45 @@ func TestUnmanagedProjectionReadOtherKeyOrChannelRefusalIsUnknown(t *testing.T) 
 			}
 			if got, err := r.read(context.Background(), []string{"app:selector"}); err == nil || got != nil || h.calls != 1 {
 				t.Fatal("unrecognized refusal triggered fallback", got, err, h.calls)
+			}
+		})
+	}
+}
+
+func TestUnmanagedProjectionReadKeyRefusalKeepsLaterHMGETEnabled(t *testing.T) {
+	for _, message := range []string{"NOPERM No permissions to access a key", "NOPERM User reader has no permissions to access the 'app:hgetall_only' key"} {
+		t.Run(message, func(t *testing.T) {
+			r, h := projectionReadUnit(t, "n") // Exercise the first-key capability boundary.
+			h.step = func(n int, cmds []goredis.Cmder) error {
+				if len(cmds) != 1 {
+					t.Fatal("unexpected boundary grouping", len(cmds))
+				}
+				switch n {
+				case 1:
+					if cmds[0].Name() != "hmget" || cmds[0].Args()[1] != "app:hgetall_only" {
+						t.Fatal(cmds[0].Args())
+					}
+					err := controlScriptNativeError(message)
+					setProjectionReply(cmds[0], nil, err)
+					return err
+				case 2:
+					if cmds[0].Name() != "hgetall" || cmds[0].Args()[1] != "app:hgetall_only" {
+						t.Fatal(cmds[0].Args())
+					}
+					setProjectionNative(cmds[0], map[string]string{"n": "2"}, nil)
+				case 3:
+					if cmds[0].Name() != "hmget" || cmds[0].Args()[1] != "app:hmget_only" {
+						t.Fatal("key refusal disabled permitted HMGET on later key", cmds[0].Args())
+					}
+					setProjectionReply(cmds[0], []any{"3"}, nil)
+				default:
+					t.Fatal("unexpected extra read", n)
+				}
+				return nil
+			}
+			got, err := r.read(context.Background(), []string{"app:hgetall_only", "app:hmget_only"})
+			if err != nil || len(got) != 2 || got[0]["n"] != "2" || got[1]["n"] != "3" || r.fallback || h.calls != 3 {
+				t.Fatal(got, err, r.fallback, h.calls)
 			}
 		})
 	}
