@@ -259,6 +259,7 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	}
 	// Renames running on other goroutines stop, and are rolled back, while
 	// the client is open (see rekey.go).
+	c.store.closeIdleExecutionPool()
 	c.store.stopSnapshotCompactor()
 	c.store.stopRekeys(ctx)
 	executions := c.store.activeExecutions()

@@ -654,7 +654,12 @@ func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...b
 	if s == nil || !s.snapshots || snapshotOf(ctx) != nil {
 		return ctx, nil, nil
 	}
-	if reap && !s.restrictedReader {
+	if reap && !s.restrictedReader && !s.snapshotReaperRunning() {
+		// Production connections already collect retired generations on their
+		// separate maintenance worker. Never make a point query synchronously
+		// collect unrelated row/index garbage. Worker-less protocol stores keep
+		// the existing fallback; explicit sweep and capacity reclamation are
+		// unchanged and still use the same durable ownership checks.
 		s.reapSnapshot(ctx)
 	}
 	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{})}
@@ -1656,6 +1661,23 @@ func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) erro
 		}
 	}
 	return nil
+}
+
+// Presence is checked under the same mutex as worker start/stop. A completed
+// worker is not a collector; use foreground maintenance until another starts.
+func (s *store) snapshotReaperRunning() bool {
+	s.mu.Lock()
+	c := s.compactor
+	s.mu.Unlock()
+	if c == nil {
+		return false
+	}
+	select {
+	case <-c.done:
+		return false
+	default:
+		return true
+	}
 }
 
 func (s *store) reapSnapshot(parent context.Context) {

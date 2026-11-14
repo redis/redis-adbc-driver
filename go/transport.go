@@ -24,7 +24,8 @@ type executionTransport struct {
 	ctx         context.Context
 	cancel      context.CancelCauseFunc
 	mu          sync.Mutex
-	sockets     map[*executionSocket]bool
+	pool        *executionPool
+	failed      bool
 	interrupted bool
 	finishing   bool
 	background  map[<-chan struct{}]struct{}
@@ -35,64 +36,122 @@ type executionTransport struct {
 	matviews    *matviewReads
 }
 
+// A completed execution can lend its fully drained pool to the next execution.
+// The lease (context, cancellation and stream ownership) is never reused. Pools
+// are exclusive while active, including while a streamed result remains open.
+// Keeping one idle pool per connection bounds retained sockets; concurrent
+// executions allocate independent pools and cannot interrupt each other.
+type executionPool struct {
+	client   goredis.UniversalClient
+	cfg      *clientConfig
+	timeouts timeouts
+	mu       sync.Mutex
+	active   *executionTransport
+	sockets  map[*executionSocket]bool
+}
+
 type executionSocket struct {
 	net.Conn
-	transport *executionTransport
+	pool *executionPool
 }
 
 func (c *executionSocket) Close() error {
-	c.transport.mu.Lock()
-	delete(c.transport.sockets, c)
-	c.transport.mu.Unlock()
+	c.pool.mu.Lock()
+	delete(c.pool.sockets, c)
+	c.pool.mu.Unlock()
 	return c.Conn.Close()
+}
+
+func (p *executionPool) interrupt(t *executionTransport) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.active != t {
+		return
+	}
+	// Detachment and interruption must be atomic with respect to each other.
+	// Closing a copied socket list after unlocking could otherwise interrupt a
+	// subsequent lease of this same pool. Close the underlying connection here;
+	// the wrapper's eventual Close is idempotent and removes no new socket.
+	for socket := range p.sockets {
+		delete(p.sockets, socket)
+		_ = socket.Conn.Close()
+	}
+}
+
+func (s *store) closeIdleExecutionPool() {
+	s.mu.Lock()
+	p := s.idleExecution
+	s.idleExecution = nil
+	s.mu.Unlock()
+	if p != nil {
+		_ = p.client.Close()
+	}
 }
 
 func (t *executionTransport) interrupt() {
 	t.mu.Lock()
 	t.interrupted = true
-	sockets := make([]*executionSocket, 0, len(t.sockets))
-	for socket := range t.sockets {
-		sockets = append(sockets, socket)
-	}
 	t.mu.Unlock()
-	for _, socket := range sockets {
-		_ = socket.Close()
+	if t.pool != nil {
+		t.pool.interrupt(t)
 	}
 }
 func (t *executionTransport) closeWith(err error) {
 	t.cancel(err)
 	t.interrupt()
 	// Close waits for command machinery; never call it inside a process hook.
-	go t.closeClient()
+	go t.closeClient(false)
 }
-func (t *executionTransport) closeClient() {
+func (t *executionTransport) closeClient(allowReuse bool) {
 	t.once.Do(func() {
-		t.cancel(nil)
-		t.interrupt()
 		t.mu.Lock()
 		t.finishing = true
 		pending := make([]<-chan struct{}, 0, len(t.background))
 		for done := range t.background {
 			pending = append(pending, done)
 		}
+		reuse := allowReuse && t.pool != nil && !t.interrupted && !t.failed && t.ctx.Err() == nil && len(pending) == 0
 		t.mu.Unlock()
+		t.cancel(nil)
+		if !reuse {
+			t.interrupt()
+		}
 		for _, done := range pending {
 			<-done
 		}
 		if t.matviews != nil {
 			t.matviews.close()
 		}
-		_ = t.client.Close()
 		for _, owner := range t.owners {
 			owner.remove(t)
 		}
+		if t.pool != nil {
+			t.pool.mu.Lock()
+			t.mu.Lock()
+			reuse = reuse && !t.interrupted && !t.failed
+			t.mu.Unlock()
+			t.pool.active = nil
+			t.pool.mu.Unlock()
+			// A Close racing completion marks the store before checking active owners.
+			// Never park a client after closure, and never keep more than one idle pool.
+			if reuse && t.owner != nil {
+				t.owner.mu.Lock()
+				if !t.owner.closed && t.owner.idleExecution == nil {
+					t.owner.idleExecution = t.pool
+					t.owner.mu.Unlock()
+					return
+				}
+				t.owner.mu.Unlock()
+			}
+		}
+		_ = t.client.Close()
 	})
 }
 
 // Socket interruption may finish before SQL/Arrow unwinds its abort and reader
 // lease defers. Keep that operation registered until its normal owner finishes.
 func (t *executionTransport) finish() {
-	t.closeClient()
+	t.closeClient(true)
 	t.finished.Do(func() {
 		if t.owner != nil {
 			t.owner.mu.Lock()
@@ -148,20 +207,107 @@ func (t *executionTransport) arm(ctx context.Context) func() {
 		}
 	}
 }
-func (t *executionTransport) DialHook(next goredis.DialHook) goredis.DialHook { return next }
-func (t *executionTransport) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+
+// A native error (including an optional handshake-command refusal) is a
+// completely consumed reply, just like a missing value. Transport/context or
+// wrapped errors are conservatively uncertain and discard the pool.
+func executionPoolUncertain(err error) bool {
+	if err == nil || err == goredis.Nil {
+		return false
+	}
+	_, native := err.(interface {
+		error
+		RedisError()
+	})
+	return !native
+}
+
+func (p *executionPool) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+func (p *executionPool) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
+		t, _ := ctx.Value(transportContextKey{}).(*executionTransport)
+		if t == nil || t.pool != p {
+			return next(ctx, cmd)
+		}
 		stop := t.arm(ctx)
 		defer stop()
-		return next(ctx, cmd)
+		err := next(ctx, cmd)
+		if executionPoolUncertain(err) || executionPoolUncertain(cmd.Err()) {
+			t.mu.Lock()
+			t.failed = true
+			t.mu.Unlock()
+		}
+		return err
 	}
 }
-func (t *executionTransport) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+func (p *executionPool) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		t, _ := ctx.Value(transportContextKey{}).(*executionTransport)
+		if t == nil || t.pool != p {
+			return next(ctx, cmds)
+		}
 		stop := t.arm(ctx)
 		defer stop()
-		return next(ctx, cmds)
+		err := next(ctx, cmds)
+		uncertain := executionPoolUncertain(err)
+		// Pipeline's return value may be its first native error even when a
+		// later reply was lost. Inspect every reply before lending the pool.
+		for _, cmd := range cmds {
+			uncertain = uncertain || executionPoolUncertain(cmd.Err())
+		}
+		if uncertain {
+			t.mu.Lock()
+			t.failed = true
+			t.mu.Unlock()
+		}
+		return err
 	}
+}
+
+func (c *connectionImpl) newExecutionPool(timeouts timeouts) *executionPool {
+	p := &executionPool{cfg: c.clientCfg, timeouts: timeouts, sockets: map[*executionSocket]bool{}}
+	single, cluster := *c.clientCfg.single, *c.clientCfg.cluster
+	dial := single.Dialer
+	if dial == nil {
+		dial = goredis.NewDialer(&single)
+	}
+	wrapped := func(ctx context.Context, network, address string) (net.Conn, error) {
+		p.mu.Lock()
+		t := p.active
+		p.mu.Unlock()
+		if t == nil {
+			return nil, net.ErrClosed
+		}
+		conn, err := dial(ctx, network, address)
+		if err != nil {
+			return nil, err
+		}
+		socket := &executionSocket{Conn: &diagnosticConn{Conn: conn, active: &c.clientCfg.diagnostics}, pool: p}
+		p.mu.Lock()
+		if p.active != t || t.ctx.Err() != nil || ctx.Err() != nil {
+			p.mu.Unlock()
+			_ = conn.Close()
+			return nil, net.ErrClosed
+		}
+		p.sockets[socket] = true
+		p.mu.Unlock()
+		return socket, nil
+	}
+	single.Dialer, cluster.Dialer = wrapped, wrapped
+	// Never replay a consumed cursor page or an uncertain mutation.
+	single.MaxRetries, cluster.MaxRetries = -1, -1
+	single.MinIdleConns, cluster.MinIdleConns = 0, 0
+	cfg := &clientConfig{single: &single, cluster: &cluster}
+	_, isCluster := c.store.client.(*goredis.ClusterClient)
+	p.client = newClient(cfg, isCluster, timeouts)
+	if c.store.snapshots {
+		addSnapshotHooks(p.client)
+	}
+	p.client.AddHook(p)
+	if cc, ok := p.client.(*goredis.ClusterClient); ok {
+		cc.OnNewNode(func(node *goredis.Client) { node.AddHook(p) })
+	}
+	return p
 }
 
 func (c *connectionImpl) executionContext(ctx context.Context, owners ...*streams) (context.Context, *executionTransport) {
@@ -172,43 +318,23 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 		return ctx, nil
 	}
 	parent, cancel := context.WithCancelCause(ctx)
-	t := &executionTransport{owner: c.store, ctx: parent, cancel: cancel, sockets: map[*executionSocket]bool{}, owners: owners, done: make(chan struct{})}
+	t := &executionTransport{owner: c.store, ctx: parent, cancel: cancel, owners: owners, done: make(chan struct{})}
 	t.matviews = &matviewReads{store: c.store}
-	single, cluster := *c.clientCfg.single, *c.clientCfg.cluster
-	dial := single.Dialer
-	if dial == nil {
-		dial = goredis.NewDialer(&single)
+	c.store.mu.Lock()
+	pool := c.store.idleExecution
+	c.store.idleExecution = nil
+	c.store.mu.Unlock()
+	if pool != nil && (pool.timeouts != timeouts || pool.cfg != c.clientCfg) {
+		_ = pool.client.Close()
+		pool = nil
 	}
-	wrapped := func(ctx context.Context, network, address string) (net.Conn, error) {
-		conn, err := dial(ctx, network, address)
-		if err != nil {
-			return nil, err
-		}
-		socket := &executionSocket{Conn: &diagnosticConn{Conn: conn, active: &c.clientCfg.diagnostics}, transport: t}
-		t.mu.Lock()
-		if t.ctx.Err() != nil || ctx.Err() != nil {
-			t.mu.Unlock()
-			_ = conn.Close()
-			return nil, net.ErrClosed
-		}
-		t.sockets[socket] = true
-		t.mu.Unlock()
-		return socket, nil
+	if pool == nil {
+		pool = c.newExecutionPool(timeouts)
 	}
-	single.Dialer, cluster.Dialer = wrapped, wrapped
-	// An unknown reply can be a committed write or consumed cursor page.
-	single.MaxRetries, cluster.MaxRetries = -1, -1
-	single.MinIdleConns, cluster.MinIdleConns = 0, 0
-	cfg := &clientConfig{single: &single, cluster: &cluster}
-	_, isCluster := c.store.client.(*goredis.ClusterClient)
-	t.client = newClient(cfg, isCluster, timeouts)
-	if c.store.snapshots {
-		addSnapshotHooks(t.client)
-	}
-	t.client.AddHook(t)
-	if cc, ok := t.client.(*goredis.ClusterClient); ok {
-		cc.OnNewNode(func(node *goredis.Client) { node.AddHook(t) })
-	}
+	t.pool, t.client = pool, pool.client
+	pool.mu.Lock()
+	pool.active = t
+	pool.mu.Unlock()
 	for _, owner := range owners {
 		owner.add(t)
 	}
