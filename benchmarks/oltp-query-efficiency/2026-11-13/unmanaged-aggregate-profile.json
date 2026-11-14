@@ -1,0 +1,235 @@
+{
+  "source_commit": "44e9c1e2ee244b5b01192e888f40c475c4fa76e1",
+  "production_source_commit": "45e0ef69297ecc536b88f690ef5a781218e3cf80",
+  "worker_mode": "Protocol harness without background maintenance; not native matrix timing.",
+  "samples": [
+    {
+      "case": "filtered",
+      "repeat": -1,
+      "warmup": true,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 1,
+      "execute_and_full_arrow_seconds": 0.259971666,
+      "allocated_bytes_full_call": 19845088,
+      "allocations_full_call": 314557,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": true,
+        "input_slots": 2,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 10032,
+      "redis_round_trip_worker_seconds": 0.25178896,
+      "socket_read_worker_seconds": 0.21903346,
+      "connection_read_bytes": 2024593,
+      "connection_written_bytes": 476420
+    },
+    {
+      "case": "filtered",
+      "repeat": 0,
+      "warmup": false,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 1,
+      "execute_and_full_arrow_seconds": 0.258303625,
+      "allocated_bytes_full_call": 18782992,
+      "allocations_full_call": 312010,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": true,
+        "input_slots": 2,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 10023,
+      "redis_round_trip_worker_seconds": 0.242269751,
+      "socket_read_worker_seconds": 0.222777915,
+      "connection_read_bytes": 2021403,
+      "connection_written_bytes": 473939
+    },
+    {
+      "case": "filtered",
+      "repeat": 1,
+      "warmup": false,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 1,
+      "execute_and_full_arrow_seconds": 0.262698625,
+      "allocated_bytes_full_call": 18832528,
+      "allocations_full_call": 312040,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": true,
+        "input_slots": 2,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 10023,
+      "redis_round_trip_worker_seconds": 0.247467416,
+      "socket_read_worker_seconds": 0.227625286,
+      "connection_read_bytes": 2021401,
+      "connection_written_bytes": 473935
+    },
+    {
+      "case": "filtered",
+      "repeat": 2,
+      "warmup": false,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 1,
+      "execute_and_full_arrow_seconds": 0.26379175,
+      "allocated_bytes_full_call": 18783032,
+      "allocations_full_call": 312014,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": true,
+        "input_slots": 2,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 10023,
+      "redis_round_trip_worker_seconds": 0.248239957,
+      "socket_read_worker_seconds": 0.226826866,
+      "connection_read_bytes": 2021403,
+      "connection_written_bytes": 473939
+    },
+    {
+      "case": "grouped",
+      "repeat": -1,
+      "warmup": true,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 16,
+      "execute_and_full_arrow_seconds": 0.427363167,
+      "allocated_bytes_full_call": 148349624,
+      "allocations_full_call": 3703790,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": false,
+        "input_slots": 3,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 31,
+      "redis_round_trip_worker_seconds": 0.376355043,
+      "socket_read_worker_seconds": 0.30575668,
+      "connection_read_bytes": 20172719,
+      "connection_written_bytes": 5790
+    },
+    {
+      "case": "grouped",
+      "repeat": 0,
+      "warmup": false,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 16,
+      "execute_and_full_arrow_seconds": 0.376837834,
+      "allocated_bytes_full_call": 148352560,
+      "allocations_full_call": 3703792,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": false,
+        "input_slots": 3,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 31,
+      "redis_round_trip_worker_seconds": 0.333278165,
+      "socket_read_worker_seconds": 0.266166634,
+      "connection_read_bytes": 20172709,
+      "connection_written_bytes": 5770
+    },
+    {
+      "case": "grouped",
+      "repeat": 1,
+      "warmup": false,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 16,
+      "execute_and_full_arrow_seconds": 0.393320666,
+      "allocated_bytes_full_call": 148340776,
+      "allocations_full_call": 3703777,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": false,
+        "input_slots": 3,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 31,
+      "redis_round_trip_worker_seconds": 0.348097416,
+      "socket_read_worker_seconds": 0.279736503,
+      "connection_read_bytes": 20172709,
+      "connection_written_bytes": 5770
+    },
+    {
+      "case": "grouped",
+      "repeat": 2,
+      "warmup": false,
+      "validated": true,
+      "fixture_rows": 100000,
+      "public_columns": 4,
+      "result_rows": 16,
+      "execute_and_full_arrow_seconds": 0.398223792,
+      "allocated_bytes_full_call": 148341928,
+      "allocations_full_call": 3703784,
+      "scope": "Instrumented Go ADBC execute and complete typed Arrow consumption; excludes fixture/setup and Python/C bridge. Redis wait includes pool wait and reply decoding, not server CPU.",
+      "plan": {
+        "bound_residual": false,
+        "input_slots": 3,
+        "kind": "typed_aggregate_inputs",
+        "live_unmanaged": true
+      },
+      "redis_commands": 31,
+      "redis_round_trip_worker_seconds": 0.351142543,
+      "socket_read_worker_seconds": 0.286474035,
+      "connection_read_bytes": 20172719,
+      "connection_written_bytes": 5790
+    }
+  ],
+  "planned_phases": [
+    {
+      "case": "filtered",
+      "commands": {
+        "ft.aggregate": 1,
+        "ft.cursor": 2,
+        "hgetall": 10000
+      },
+      "round_trip_seconds": {
+        "ft.aggregate": 0.007401833,
+        "ft.cursor": 0.040143542,
+        "hgetall_pipeline": 0.187587
+      },
+      "scan_fetch_seconds": 0.250284799,
+      "scan_rows": 10000,
+      "scope": "Pinned/planned Go aggregate execution only; command wait includes decode/pool wait, not server CPU",
+      "seconds": 0.251867583,
+      "validated": true
+    },
+    {
+      "case": "grouped",
+      "commands": {
+        "ft.aggregate": 1,
+        "ft.cursor": 10
+      },
+      "round_trip_seconds": {
+        "ft.aggregate": 0.022365917,
+        "ft.cursor": 0.328353417
+      },
+      "scan_fetch_seconds": 0.387976382,
+      "scan_rows": 100000,
+      "scope": "Pinned/planned Go aggregate execution only; command wait includes decode/pool wait, not server CPU",
+      "seconds": 0.396859292,
+      "validated": true
+    }
+  ]
+}

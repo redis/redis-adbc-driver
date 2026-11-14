@@ -67,3 +67,7 @@ forbids reuse. Any failed transactional pipeline (top-level or individual reply,
 including native errors) also forbids reuse. Optional handshake and read-only
 native errors can still reuse a fully drained pool. These checks do not resend
 cleanup, a transaction or a mutation.
+
+## Coordinator integration evidence
+
+The final measured production source, combined verification, complete native comparison (including flat/slower cases), actual diagnostic attribution, skipped checks and ownership cleanup are recorded in [coordinator validation](../oltp-query-efficiency/validation.md) and its linked evidence bundle. Earlier scoped observations above retain their actual sources and timing scopes. Human maintainer review remains pending.

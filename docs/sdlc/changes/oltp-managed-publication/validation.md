@@ -69,3 +69,7 @@ Verified Software 4x-QPF selection `TestSnapshotCloneAtomicallyRejectsInvalidBas
 `TestSnapshotConfirmedSQLPublicationSkipsAbort`: PASS, including all 15 invalid
 base cases. All clients closed before returning the shared live slot. The
 pre-HGETALL bound was explicitly reviewed; no source-text assertion was added.
+
+## Coordinator integration evidence
+
+The final measured production source, combined verification, complete native comparison (including flat/slower cases), actual diagnostic attribution, skipped checks and ownership cleanup are recorded in [coordinator validation](../oltp-query-efficiency/validation.md) and its linked evidence bundle. Earlier scoped observations above retain their actual sources and timing scopes. Human maintainer review remains pending.

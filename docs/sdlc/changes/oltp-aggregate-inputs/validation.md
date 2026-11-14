@@ -37,3 +37,7 @@ Review passes checked exact integer precision and fallback, retained cursor and
 pin ownership, cancellation, live application data preservation, error paths and
 actual claims versus measured scope. No actionable findings remain in this
 scoped change. Agent review does not constitute human approval.
+
+## Coordinator integration evidence
+
+The final measured production source, combined verification, complete native comparison (including flat/slower cases), actual diagnostic attribution, skipped checks and ownership cleanup are recorded in [coordinator validation](../oltp-query-efficiency/validation.md) and its linked evidence bundle. Earlier scoped observations above retain their actual sources and timing scopes. Human maintainer review remains pending.

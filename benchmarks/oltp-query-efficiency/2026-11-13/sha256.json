@@ -1,0 +1,13 @@
+{
+  "baseline.json": "0e3d46959a07e02215b8ac6367dc2fa286c51dd6d787b60ed86b8724770ac7fa",
+  "candidate.json": "33be0c861575813cfb432c0b1eac554d90235759f68583880ddc0f406236606e",
+  "checks.json": "3a64529d7b5fdb18759ebb90f894d5b573f9ca87f9d14cc301b69dcf5f08be38",
+  "cleanup.json": "ef8899effc4dc7c920f2d91a701f81a34f966b30e84c2113c52c99e2298f2794",
+  "comparison.csv": "b66e8f5cc94c915ac06f9c91850afe7a4df822fc43f268396c3c803e495b37cd",
+  "comparison.json": "6093ee796254bf32fdb49aa5f0c38657681502b3e4ea002d7b5c0b2b03ac3c3b",
+  "environment.json": "2958445f2454365cc6be59666bb74257bb9ba23d5ab2a70e6698cda63d28319d",
+  "provenance.json": "f3eb6995835714a11f06cd2cb074923b724a837fc7f7ba7af7a879a27c5a0a54",
+  "report.md": "becf9a098cd90e214d538d8efa675e1afede8cb9e2ade6609c6afa241ae247f5",
+  "statement-profile.json": "0d77fcd5e24aef0b8def4523f5cce29d6cbed4878cb46bd816d3d710c83a4312",
+  "unmanaged-aggregate-profile.json": "ac2a6b515c06dd491277fb285713c57a33eb389814b31e728c49689d9bf5a461"
+}
