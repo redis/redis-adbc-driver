@@ -610,6 +610,7 @@ type scanIter struct {
 	// wide HASH replies instead of copying each user field into a second map.
 	hashFetch          bool
 	unmanagedHashFetch bool // Search owns membership; live HASHes own values/existence
+	unmanagedRead      *unmanagedProjectionRead
 	// ties is set for a scan with a tieSort, which also records the page
 	// keep last saw (raw) and which of its rows it kept.
 	ties       *tieScan
@@ -799,6 +800,7 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 	// retrieval stage. Filtered scans fetch live HASHes after index discovery.
 	if meta.Unmanaged && req.where.query != "*" && len(req.sortBy) == 0 && req.ties == nil && req.late == nil {
 		it.store, it.unmanagedHashFetch = e.store, true
+		it.unmanagedRead = newUnmanagedProjectionRead(e.store, meta, it.need)
 		ar.load, ar.loadAll, ar.hashFetch = []string{"__key"}, false, true
 	}
 	if req.authoritative {
@@ -992,7 +994,13 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		}
 	}
 	if it.unmanagedHashFetch {
-		fetched, err := it.store.fetchKeyRows(ctx, keys, nil)
+		var fetched []aggRow
+		var err error
+		if it.unmanagedRead != nil {
+			fetched, err = it.unmanagedRead.read(ctx, keys)
+		} else {
+			fetched, err = it.store.fetchKeyRows(ctx, keys, nil)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
