@@ -29,3 +29,5 @@ checks cover corruption, old pins across drop, mutable/private descriptors,
 restricted/shared streams, expiry/cancellation and unmanaged freshness. Native
 before/after measurements remain the performance evidence, rather than small
 instrumented wall-time samples.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

@@ -14,3 +14,5 @@ Author: Codex. Human review pending.
 5. Compare complete typed Arrow results on the same verified Software fixture;
    retain regressions and allocation increases. Parent integration owns native
    Python/C-boundary one/four-client matrices and final combined-source review.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

@@ -16,3 +16,5 @@ not cache leases, metadata authorization, application index definitions or live
 row values across statements. Preserve exact managed visibility, existing
 unmanaged membership rules, Arrow ownership, cancellation, and buffered-stream
 lease validation. No new storage protocol, SQL API or supported server is needed.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

@@ -95,3 +95,5 @@ identifiers, credentials and licenses remain private.
 The independent CI race fix [PR #438](https://github.com/redis/redis-adbc-driver/pull/438)
 merged with successful full Test and Release binaries workflows. That test-only
 change is not a source of production performance improvement.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

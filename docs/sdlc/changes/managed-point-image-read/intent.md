@@ -10,3 +10,5 @@ medians. UPDATE spends 192 HMGET and 192 HGETALL exchanges plus 320 individual
 membership probes across 32 operations, because the same logical key can miss
 several newer immutable segments before its old image is found. Reduce those
 serial exchanges without changing publication, visibility or ownership.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

@@ -24,3 +24,5 @@ The caller resolves newest to oldest and stops at the first image or tombstone.
 Acceptance requires exact large integers, NULL/missing fields, newest wins,
 tombstones, private updates, early termination, absent/corrupt row/directory/type
 refusals, ACL fallback versus inner failure, no replay and strict/bulk fallbacks.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

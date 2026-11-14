@@ -13,3 +13,5 @@ Date: November 14, 2026. Author: Codex. Base: 0b216478.
    the identical diagnostic workload, then run relevant snapshot regressions.
 5. Parent coordinator reviews and combines this with other scoped changes,
    freezes source and runs isolated complete native before/after matrices.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

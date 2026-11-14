@@ -54,3 +54,5 @@ The [November 14 combined validation](../point-write-retrieval-20261114/validati
 records the final guarded native build, complete paired matrix, corrected boundary
 failure, independent review and ownership cleanup. Earlier diagnostics above retain
 their actual sources and scope; they are not relabeled as final native measurements.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

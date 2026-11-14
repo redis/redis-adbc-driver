@@ -38,3 +38,5 @@ joined/wrapped failure to extract such a proof. Unknown replies, cancellation,
 malformed data, unrelated server errors and unaccounted pipeline errors terminate
 without replay. Capability
 state belongs only to this scan, not a later catalog pin or changed application ACL.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

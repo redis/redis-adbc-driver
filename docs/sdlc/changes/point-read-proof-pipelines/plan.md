@@ -16,3 +16,5 @@ Date: November 14, 2026. Author: Codex. Status: focused implementation complete.
   complete relevant validation and isolated native benchmarks, and opens the PR.
   Review is required before any performance claims or merge; agent review is not
   human approval.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

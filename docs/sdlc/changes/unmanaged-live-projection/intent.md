@@ -17,3 +17,5 @@ Limit this change to filtered unmanaged retrieval. Keep full LOAD-star scans,
 managed storage/publication, direct known-key access and application-owned
 indexes unchanged. No new product support, optional consistency mode, 100M
 ClickBench load/rerun or universal speedup claim is in scope.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).

@@ -15,3 +15,5 @@ PR438 and verified Software slots; performance is a separate reviewable change.
 Final implementation, complete native comparison, actual check sources/skips and
 ownership cleanup are recorded in [validation](validation.md). Human approval
 and merge remain separate.
+
+Implementation and evidence: [PR #439](https://github.com/redis/redis-adbc-driver/pull/439).
