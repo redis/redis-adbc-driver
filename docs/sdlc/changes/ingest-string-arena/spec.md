@@ -7,7 +7,7 @@ store immutable substrings in Values. The arena is capped at 1 MiB per column;
 above it, keep existing per-cell Clone/coerce behavior. No global pool, matrix
 reuse, Arrow borrowing or unsafe conversion is introduced. Shared substrings
 can retain a whole owned arena when a scalar remains live; this cap bounds that
-extra retention. Integer, CHAR/bounded VARCHAR/aliases, binary, JSON, temporal,
+extra logical payload retention, not allocator/RSS size. Integer, CHAR/bounded VARCHAR/aliases, binary, JSON, temporal,
 encoded and unsupported layouts preserve existing coercion and error order.
 
 Full Arrow validation still runs first. Preserve NULL/empty/NUL/Unicode values,

@@ -397,6 +397,18 @@ func ingestColumn(arr arrow.Array, target ColType, zone tzZone, rows [][]Value, 
 	if err := validateInputArray(arr); err != nil {
 		return errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
 	}
+	if target == typeString && len(rows) >= 2 {
+		switch a := arr.(type) {
+		case *array.String:
+			if ingestStringArena(a, rows, column) {
+				return nil
+			}
+		case *array.LargeString:
+			if ingestStringArena(a, rows, column) {
+				return nil
+			}
+		}
+	}
 	var read func(int) Value
 	exactInteger := false
 	switch a := arr.(type) {
