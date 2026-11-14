@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-14",
+  "scope": "Instrumented Go SQL diagnostics, not native shared-library end-to-end results or Redis server CPU",
+  "identities": {
+    "baseline": {
+      "source_commit": "7b94a93ccb7bca367c01f0a73204d9cc91a236af",
+      "test_binary_sha256": "21aa3b71fe3816cfc4198354efeb519666e4be91f348c80e53c3c31f9e47cb79"
+    },
+    "candidate": {
+      "source_commit": "b5e71b05a76db034982c67da16b1891973fd215f",
+      "test_binary_sha256": "b07a74b2832b55db141ce30efcb08199bb3d0b53c0525eacecf20009e3e52b08"
+    }
+  },
+  "execution_order": [
+    "baseline",
+    "candidate",
+    "candidate",
+    "baseline"
+  ],
+  "rows": 1000,
+  "public_columns": 4,
+  "control_columns": 1,
+  "mutations_per_run": 96,
+  "mutations_per_build": 192,
+  "all_final_states_validated": true,
+  "automatic_retries": 0,
+  "discarded_observations": 0,
+  "other_heavy_work_during_timings": false,
+  "maintenance": "Production worker enabled, separate unhooked maintenance client; no background command or CPU attribution inferred",
+  "environment": "Coordinator-owned Redis Software, active/effective4xQPF,6Searchworkers,mnp32,noeviction,certificate/hostname-verifiedTLS/RESP3. GOMAXPROCS=4. Operational identities remain private.",
+  "test_hash_after_runs": {
+    "baseline": "21aa3b71fe3816cfc4198354efeb519666e4be91f348c80e53c3c31f9e47cb79",
+    "candidate": "b07a74b2832b55db141ce30efcb08199bb3d0b53c0525eacecf20009e3e52b08"
+  }
+}

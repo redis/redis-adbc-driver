@@ -1,0 +1,642 @@
+diff --git a/go/snapshot.go b/go/snapshot.go
+index 0580de62..e13a819c 100644
+--- a/go/snapshot.go
++++ b/go/snapshot.go
+@@ -1493,19 +1493,23 @@ func (s *store) validateSnapshotTables(ctx context.Context, tables []*tableMeta)
+ 		if !snapshotOwns(ctx, meta.prefix()) {
+ 			continue
+ 		}
+-		count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Result()
++		count, first, err := s.snapshotFirstIndexReadiness(ctx, meta)
+ 		if err != nil {
+-			return wrapRedis(err, "failed to validate snapshot directory")
++			return err
+ 		}
+ 
+ 		for {
+-			reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
+-			if err != nil && !inconsistentIndexState(err) {
+-				var serverErr interface {
++			probe := first
++			first = nil
++			if probe == nil {
++				probe = s.searchDo(ctx, meta.index(), "FT.INFO", meta.index())
++			}
++			reply, err := probe.Result()
++			if err != nil && !snapshotReadinessTransient(err) {
++				if serverErr, native := err.(interface {
+ 					error
+ 					RedisError()
+-				}
+-				if errors.As(err, &serverErr) && strings.HasPrefix(serverErr.Error(), "NOPERM ") {
++				}); native && strings.HasPrefix(serverErr.Error(), "NOPERM ") {
+ 					return wrapErr(adbc.StatusUnauthorized, err, "failed to validate snapshot index")
+ 				}
+ 				return wrapRedis(err, "failed to validate snapshot index")
+@@ -1531,11 +1535,10 @@ func (s *store) validateSnapshotTables(ctx context.Context, tables []*tableMeta)
+ 					}
+ 					indexed, err := s.snapshotIndexedRowCount(ctx, meta.index())
+ 					if err != nil {
+-						var denied interface {
++						if denied, native := err.(interface {
+ 							error
+ 							RedisError()
+-						}
+-						if errors.As(err, &denied) && strings.HasPrefix(denied.Error(), "NOPERM ") {
++						}); native && strings.HasPrefix(denied.Error(), "NOPERM ") {
+ 							// Keep write-only principals working with the original
+ 							// initial-scan completion proof. Only a definite permission
+ 							// refusal selects it; unknown query outcomes remain errors.
+diff --git a/go/snapshot_alter_readiness_test.go b/go/snapshot_alter_readiness_test.go
+index 23f2243c..64bf9569 100644
+--- a/go/snapshot_alter_readiness_test.go
++++ b/go/snapshot_alter_readiness_test.go
+@@ -30,6 +30,24 @@ type snapshotAlterReadyHook struct {
+ 	waiting         chan struct{}
+ }
+ 
++// The first private readiness probe shares a read-only pipeline with ZCARD.
++func (h *snapshotAlterReadyHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return func(ctx context.Context, cmds []goredis.Cmder) error {
++		if err := next(ctx, cmds); err != nil {
++			return err
++		}
++		apply := h.ProcessHook(func(context.Context, goredis.Cmder) error { return nil })
++		for _, cmd := range cmds {
++			if cmd.Name() == "ft.info" {
++				if err := apply(ctx, cmd); err != nil {
++					return err
++				}
++			}
++		}
++		return nil
++	}
++}
++
+ func (h *snapshotAlterReadyHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+ 	return func(ctx context.Context, cmd goredis.Cmder) error {
+ 		args := cmd.Args()
+diff --git a/go/snapshot_index_readiness.go b/go/snapshot_index_readiness.go
+new file mode 100644
+index 00000000..6e93979e
+--- /dev/null
++++ b/go/snapshot_index_readiness.go
+@@ -0,0 +1,76 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++package redis
++
++import (
++	"context"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++// Execution and final index population have finished, so the private directory
++// and its first index-readiness probe are independent native reads. Select the
++// metadata primary explicitly, as searchDo does; do not rely on FT.INFO's key
++// inference in the Cluster API. Search keeps NoRetry for the whole pipeline.
++// A later readiness poll remains a fresh native FT.INFO, never this batch again.
++func (s *store) snapshotFirstIndexReadiness(ctx context.Context, meta *tableMeta) (int64, *goredis.Cmd, error) {
++	if err := ctx.Err(); err != nil {
++		return 0, nil, wrapRedis(err, "snapshot index readiness canceled")
++	}
++	node, err := s.search(ctx, meta.index())
++	if err != nil {
++		return 0, nil, err
++	}
++	client, ok := node.c.(interface{ Pipeline() goredis.Pipeliner })
++	if !ok {
++		return 0, nil, errorf(adbc.StatusIO, "snapshot readiness requires a pipeline-capable primary")
++	}
++	pipe := client.Pipeline()
++	count := pipe.ZCard(ctx, snapshotMembers(snapshotDataID(meta.prefix())))
++	info := goredis.NewCmd(ctx, "FT.INFO", meta.index())
++	if err := pipe.Process(ctx, onceCmd{info}); err != nil {
++		pipe.Discard()
++		return 0, nil, wrapRedis(err, "failed to queue snapshot index readiness")
++	}
++	_, execErr := pipe.Exec(ctx)
++	n, err := count.Result()
++	if err != nil {
++		return 0, nil, wrapRedis(err, "failed to validate snapshot directory")
++	}
++	// An unknown pipeline error is terminal even with populated replies or a
++	// native transient/permission error in FT.INFO. Only the same direct native
++	// response accounts for the pipeline's first-error return; no unwrapping.
++	if execErr != nil && !snapshotReadinessNativeErrorMatches(execErr, info.Err()) {
++		return 0, nil, wrapRedis(execErr, "failed to probe snapshot index readiness")
++	}
++	if err := ctx.Err(); err != nil {
++		return 0, nil, wrapRedis(err, "snapshot index readiness canceled")
++	}
++	return n, info, nil
++}
++
++func snapshotReadinessNativeErrorMatches(a, b error) bool {
++	left, leftOK := a.(interface {
++		error
++		RedisError()
++	})
++	right, rightOK := b.(interface {
++		error
++		RedisError()
++	})
++	return leftOK && rightOK && left.Error() == right.Error()
++}
++
++// This private-output polling path may retry only the two exact native Search
++// transient errors. A joined/wrapped error can carry reply loss as well.
++func snapshotReadinessTransient(err error) bool {
++	native, ok := err.(interface {
++		error
++		RedisError()
++	})
++	if !ok {
++		return false
++	}
++	return native.Error() == "Inconsistent index state" || native.Error() == "SEARCH_VALUE_BAD Inconsistent index state"
++}
+diff --git a/go/snapshot_index_readiness_integration_test.go b/go/snapshot_index_readiness_integration_test.go
+new file mode 100644
+index 00000000..49d00f3e
+--- /dev/null
++++ b/go/snapshot_index_readiness_integration_test.go
+@@ -0,0 +1,42 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++package redis
++
++import (
++	"context"
++	"sync/atomic"
++	"testing"
++
++	goredis "github.com/redis/go-redis/v9"
++)
++
++type snapshotPrivateReadinessTracker struct {
++	snapshotHook
++	batches atomic.Int64
++	invalid atomic.Bool
++}
++
++func (h *snapshotPrivateReadinessTracker) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return func(ctx context.Context, cmds []goredis.Cmder) error {
++		if scope := snapshotOf(ctx); scope != nil && scope.write && len(cmds) == 2 && cmds[0].Name() == "zcard" && cmds[1].Name() == "ft.info" {
++			h.batches.Add(1)
++			if once, ok := cmds[1].(interface{ NoRetry() bool }); !ok || !once.NoRetry() {
++				h.invalid.Store(true)
++			}
++		}
++		return next(ctx, cmds)
++	}
++}
++func TestSnapshotPublicationReadinessBatchesPrivateOutput(t *testing.T) {
++	h, raw, _ := newSnapshotHarnessMode(t, false, false)
++	h.exec("CREATE TABLE private_ready(id INTEGER,v BIGINT,payload VARCHAR)")
++	h.exec("INSERT INTO private_ready VALUES(1,9007199254740993,'one'),(2,NULL,'two'),(3,-9007199254740993,'three')")
++	s := snapshotTestStore(t, raw)
++	tracker := &snapshotPrivateReadinessTracker{}
++	s.client.AddHook(tracker)
++	snapshotExecuteTest(t, s, h.ctx, "UPDATE private_ready SET payload='after' WHERE __rowid=1")
++	if tracker.batches.Load() != 1 || tracker.invalid.Load() {
++		t.Fatal("first private readiness proof did not use one non-retry pipeline", tracker.batches.Load(), tracker.invalid.Load())
++	}
++	h.expectRows("SELECT id,v,payload FROM private_ready ORDER BY id", "1|9007199254740993|after", "2|NULL|two", "3|-9007199254740993|three")
++}
+diff --git a/go/snapshot_index_readiness_test.go b/go/snapshot_index_readiness_test.go
+new file mode 100644
+index 00000000..e9ef4d0e
+--- /dev/null
++++ b/go/snapshot_index_readiness_test.go
+@@ -0,0 +1,180 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++package redis
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"reflect"
++	"strings"
++	"testing"
++
++	goredis "github.com/redis/go-redis/v9"
++)
++
++type snapshotIndexReadinessReplies struct {
++	batches, direct                int
++	wires                          [][]any
++	countErr, infoErr, pipelineErr error
++	count                          int64
++	reply                          any
++}
++
++func (h *snapshotIndexReadinessReplies) DialHook(next goredis.DialHook) goredis.DialHook { return next }
++func (h *snapshotIndexReadinessReplies) ProcessHook(_ goredis.ProcessHook) goredis.ProcessHook {
++	return func(_ context.Context, cmd goredis.Cmder) error {
++		h.direct++
++		err := fmt.Errorf("unexpected direct readiness command")
++		cmd.SetErr(err)
++		return err
++	}
++}
++func (h *snapshotIndexReadinessReplies) ProcessPipelineHook(_ goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return func(_ context.Context, cmds []goredis.Cmder) error {
++		h.batches++
++		var first error
++		for _, cmd := range cmds {
++			h.wires = append(h.wires, append([]any(nil), cmd.Args()...))
++			switch c := cmd.(type) {
++			case *goredis.IntCmd:
++				c.SetVal(h.count)
++				c.SetErr(h.countErr)
++			case onceCmd:
++				if !c.NoRetry() {
++					return fmt.Errorf("readiness command can retry")
++				}
++				c.SetVal(h.reply)
++				c.SetErr(h.infoErr)
++			default:
++				return fmt.Errorf("unexpected readiness command %T", cmd)
++			}
++			if first == nil {
++				first = cmd.Err()
++			}
++		}
++		if h.pipelineErr != nil {
++			return h.pipelineErr
++		}
++		return first
++	}
++}
++func snapshotIndexReadinessFixture(t *testing.T) (*store, *tableMeta, *snapshotIndexReadinessReplies) {
++	t.Helper()
++	c := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1"})
++	t.Cleanup(func() { _ = c.Close() })
++	h := &snapshotIndexReadinessReplies{count: 7, reply: []any{"num_docs", int64(7)}}
++	c.AddHook(h)
++	id := strings.Repeat("a", 32)
++	meta := &tableMeta{KeyPrefix: snapshotRows(id, "public", strings.Repeat("b", 32)), IndexName: snapshotIndexPrefix(id) + "final"}
++	return &store{client: c}, meta, h
++}
++func TestSnapshotPublicationReadinessQueuesIndependentProofs(t *testing.T) {
++	s, m, h := snapshotIndexReadinessFixture(t)
++	n, info, err := s.snapshotFirstIndexReadiness(context.Background(), m)
++	if err != nil || n != 7 || info.Err() != nil || !reflect.DeepEqual(info.Val(), h.reply) {
++		t.Fatal(n, info, err)
++	}
++	want := [][]any{{"zcard", snapshotMembers(snapshotDataID(m.prefix()))}, {"FT.INFO", m.index()}}
++	if h.batches != 1 || h.direct != 0 || !reflect.DeepEqual(h.wires, want) {
++		t.Fatal("readiness commands changed/repeated", h.batches, h.direct, h.wires)
++	}
++}
++func TestSnapshotPublicationReadinessRejectsUnknownPipeline(t *testing.T) {
++	for _, kind := range []string{"populated_then_loss", "native_then_loss", "joined_native_loss", "wrapped_native", "count_precedence", "canceled"} {
++		t.Run(kind, func(t *testing.T) {
++			s, m, h := snapshotIndexReadinessFixture(t)
++			ctx, cancel := context.WithCancel(context.Background())
++			defer cancel()
++			want := "unexpected EOF"
++			switch kind {
++			case "populated_then_loss":
++				h.pipelineErr = io.ErrUnexpectedEOF
++			case "native_then_loss":
++				h.infoErr = readinessServerError("Inconsistent index state")
++				h.pipelineErr = io.ErrUnexpectedEOF
++			case "joined_native_loss":
++				h.infoErr = errors.Join(readinessServerError("Inconsistent index state"), io.ErrUnexpectedEOF)
++			case "wrapped_native":
++				h.infoErr = fmt.Errorf("wrapped: %w", readinessServerError("Inconsistent index state"))
++				want = "wrapped"
++			case "count_precedence":
++				h.countErr = errors.New("directory unavailable")
++				h.pipelineErr = io.ErrUnexpectedEOF
++				want = "directory unavailable"
++			case "canceled":
++				cancel()
++				want = "canceled"
++			}
++			_, info, err := s.snapshotFirstIndexReadiness(ctx, m)
++			if err == nil || info != nil || !strings.Contains(err.Error(), want) {
++				t.Fatal("unknown readiness accepted/reclassified", info, err)
++			}
++			wantBatches := 1
++			if kind == "canceled" {
++				wantBatches = 0
++			}
++			if h.batches != wantBatches || h.direct != 0 {
++				t.Fatal("unknown readiness was replayed", h.batches, h.direct)
++			}
++		})
++	}
++}
++func TestSnapshotPublicationReadinessPreservesNativeRefusal(t *testing.T) {
++	for _, message := range []string{"Inconsistent index state", "SEARCH_VALUE_BAD Inconsistent index state", "NOPERM no FT.INFO permission", "Unknown index name"} {
++		t.Run(message, func(t *testing.T) {
++			s, m, h := snapshotIndexReadinessFixture(t)
++			h.infoErr = readinessServerError(message)
++			n, info, err := s.snapshotFirstIndexReadiness(context.Background(), m)
++			if err != nil || n != 7 || info.Err() != h.infoErr || h.batches != 1 || h.direct != 0 {
++				t.Fatal("native outcome changed/replayed", n, info, err)
++			}
++		})
++	}
++}
++func TestSnapshotPublicationReadinessRetriesDirectNativeOnly(t *testing.T) {
++	for _, message := range []string{"Inconsistent index state", "SEARCH_VALUE_BAD Inconsistent index state"} {
++		native := readinessServerError(message)
++		if !snapshotReadinessTransient(native) {
++			t.Fatal("native transient lost", message)
++		}
++		for _, err := range []error{errors.New(message), fmt.Errorf("wrapped: %w", native), errors.Join(native, io.ErrUnexpectedEOF), readinessServerError(message + ": different failure")} {
++			if snapshotReadinessTransient(err) {
++				t.Fatal("unknown/altered error classified transient", err)
++			}
++		}
++	}
++}
++
++// Normal go-redis queues currently return nil; a pipeline implementation may
++// return a local error without populating the queued command. Never ignore it.
++type snapshotReadinessQueueFailureClient struct {
++	goredis.UniversalClient
++	pipe *snapshotReadinessQueueFailurePipeline
++}
++
++func (c *snapshotReadinessQueueFailureClient) Pipeline() goredis.Pipeliner { return c.pipe }
++
++type snapshotReadinessQueueFailurePipeline struct {
++	goredis.Pipeliner
++	execs, discards int
++}
++
++func (*snapshotReadinessQueueFailurePipeline) Process(context.Context, goredis.Cmder) error {
++	return io.ErrUnexpectedEOF
++}
++func (p *snapshotReadinessQueueFailurePipeline) Exec(ctx context.Context) ([]goredis.Cmder, error) {
++	p.execs++
++	return p.Pipeliner.Exec(ctx)
++}
++func (p *snapshotReadinessQueueFailurePipeline) Discard() { p.discards++; p.Pipeliner.Discard() }
++func TestSnapshotPublicationReadinessQueueFailureStopsBeforeExec(t *testing.T) {
++	s, m, _ := snapshotIndexReadinessFixture(t)
++	pipe := &snapshotReadinessQueueFailurePipeline{Pipeliner: s.client.Pipeline()}
++	s.client = &snapshotReadinessQueueFailureClient{UniversalClient: s.client, pipe: pipe}
++	_, info, err := s.snapshotFirstIndexReadiness(context.Background(), m)
++	if err == nil || info != nil || !strings.Contains(err.Error(), "unexpected EOF") || pipe.execs != 0 || pipe.discards != 1 {
++		t.Fatal("local queue failure was executed or forgotten", info, err, "exec", pipe.execs, "discard", pipe.discards)
++	}
++}
+diff --git a/go/snapshot_integration_test.go b/go/snapshot_integration_test.go
+index 0144262a..5246475a 100644
+--- a/go/snapshot_integration_test.go
++++ b/go/snapshot_integration_test.go
+@@ -317,6 +317,24 @@ type snapshotPendingIndex struct {
+ 	reads atomic.Int32
+ }
+ 
++// The first private readiness probe shares a read-only pipeline with ZCARD.
++func (h *snapshotPendingIndex) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return func(ctx context.Context, cmds []goredis.Cmder) error {
++		if err := next(ctx, cmds); err != nil {
++			return err
++		}
++		apply := h.ProcessHook(func(context.Context, goredis.Cmder) error { return nil })
++		for _, cmd := range cmds {
++			if cmd.Name() == "ft.info" {
++				if err := apply(ctx, cmd); err != nil {
++					return err
++				}
++			}
++		}
++		return nil
++	}
++}
++
+ func (h *snapshotPendingIndex) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+ 	return func(ctx context.Context, cmd goredis.Cmder) error {
+ 		err := next(ctx, cmd)
+diff --git a/go/snapshot_publication_refusal_test.go b/go/snapshot_publication_refusal_test.go
+new file mode 100644
+index 00000000..241deb0e
+--- /dev/null
++++ b/go/snapshot_publication_refusal_test.go
+@@ -0,0 +1,129 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++package redis
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"strings"
++	"testing"
++
++	"github.com/apache/arrow-adbc/go/adbc"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++type snapshotPublicationRefusalReplies struct {
++	snapshotHook
++	meta                    *tableMeta
++	proofErr                error
++	laterInfoErr            error
++	infos, creates, queries int
++}
++
++func (h *snapshotPublicationRefusalReplies) reply(cmd goredis.Cmder) error {
++	switch cmd.Name() {
++	case "zcard":
++		cmd.(*goredis.IntCmd).SetVal(1)
++	case "ft.info":
++		h.infos++
++		if h.laterInfoErr != nil {
++			if h.infos == 1 {
++				cmd.SetErr(readinessServerError("Inconsistent index state"))
++			} else {
++				cmd.SetErr(h.laterInfoErr)
++			}
++		} else {
++			cmd.(interface{ SetVal(any) }).SetVal(map[string]any{"index_definition": map[string]any{"prefixes": []any{h.meta.prefix()}}, "num_docs": int64(1), "indexing": 0, "percent_indexed": 1, "hash_indexing_failures": 0})
++		}
++	case "ft.search":
++		h.queries++
++		cmd.SetErr(h.proofErr)
++	case "ft.create":
++		h.creates++
++		cmd.SetErr(errors.New("stopped after replacement CREATE"))
++	default:
++		cmd.SetErr(fmt.Errorf("unexpected publication command %s", cmd.Name()))
++	}
++	return cmd.Err()
++}
++func (h *snapshotPublicationRefusalReplies) ProcessHook(_ goredis.ProcessHook) goredis.ProcessHook {
++	return func(_ context.Context, cmd goredis.Cmder) error { return h.reply(cmd) }
++}
++func (h *snapshotPublicationRefusalReplies) ProcessPipelineHook(_ goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return func(_ context.Context, cmds []goredis.Cmder) error {
++		var first error
++		for _, cmd := range cmds {
++			if err := h.reply(cmd); first == nil {
++				first = err
++			}
++		}
++		return first
++	}
++}
++func publicationRefusalFixture(t *testing.T) (*store, context.Context, *tableMeta, *snapshotPublicationRefusalReplies) {
++	t.Helper()
++	id := strings.Repeat("a", 32)
++	m := &tableMeta{Schema: defaultSchema, Name: "publication_refusal", KeyPrefix: snapshotRows(id, defaultSchema, strings.Repeat("b", 32)), IndexName: snapshotIndexPrefix(id) + "final"}
++	c := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1"})
++	t.Cleanup(func() { _ = c.Close() })
++	h := &snapshotPublicationRefusalReplies{meta: m}
++	c.AddHook(h)
++	s := &store{client: c, snapshots: true}
++	ctx := context.WithValue(context.Background(), snapshotContextKey{}, &snapshotScope{store: s, write: true, owned: map[string]bool{id: true}})
++	return s, ctx, m, h
++}
++func TestSnapshotPublicationProofUnknownNeverRebuildsIndex(t *testing.T) {
++	native := readinessServerError("NOPERM injected index-proof denial")
++	for _, kind := range []string{"joined", "wrapped", "untyped", "native"} {
++		t.Run(kind, func(t *testing.T) {
++			s, ctx, m, h := publicationRefusalFixture(t)
++			want := "unexpected EOF"
++			wantCreates := 0
++			switch kind {
++			case "joined":
++				h.proofErr = errors.Join(native, io.ErrUnexpectedEOF)
++			case "wrapped":
++				h.proofErr = fmt.Errorf("wrapped unknown: %w", native)
++				want = "wrapped unknown"
++			case "untyped":
++				h.proofErr = errors.New("NOPERM unknown proof reply")
++				want = "unknown proof reply"
++			case "native":
++				h.proofErr = native
++				want = "stopped after replacement CREATE"
++				wantCreates = 1
++			}
++			err := s.validateSnapshotTables(ctx, []*tableMeta{m})
++			if err == nil || !strings.Contains(err.Error(), want) || h.creates != wantCreates || h.queries != 1 {
++				t.Fatal("unsafe query-proof compatibility/replay or lost diagnostic", err, "creates", h.creates, "queries", h.queries)
++			}
++		})
++	}
++}
++func TestSnapshotPublicationLaterInfoUnknownKeepsIOStatus(t *testing.T) {
++	native := readinessServerError("NOPERM injected FT.INFO denial")
++	for _, kind := range []string{"joined", "wrapped", "native"} {
++		t.Run(kind, func(t *testing.T) {
++			s, ctx, m, h := publicationRefusalFixture(t)
++			want := "unexpected EOF"
++			status := adbc.StatusIO
++			switch kind {
++			case "joined":
++				h.laterInfoErr = errors.Join(native, io.ErrUnexpectedEOF)
++			case "wrapped":
++				h.laterInfoErr = fmt.Errorf("wrapped unknown: %w", native)
++				want = "wrapped unknown"
++			case "native":
++				h.laterInfoErr = native
++				want = "injected FT.INFO denial"
++				status = adbc.StatusUnauthorized
++			}
++			err := s.validateSnapshotTables(ctx, []*tableMeta{m})
++			if err == nil || !strings.Contains(err.Error(), want) || !isStatus(err, status) || h.infos != 2 || h.creates != 0 || h.queries != 0 {
++				t.Fatal("unknown readiness reclassified/replayed", err, "info", h.infos, "creates", h.creates, "queries", h.queries)
++			}
++		})
++	}
++}
+diff --git a/go/snapshot_write_profile_test.go b/go/snapshot_write_profile_test.go
+index da9b4e60..3eba6911 100644
+--- a/go/snapshot_write_profile_test.go
++++ b/go/snapshot_write_profile_test.go
+@@ -23,42 +23,51 @@ type snapshotIndexWaitProfile struct {
+ }
+ 
+ func (*snapshotIndexWaitProfile) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+-func (*snapshotIndexWaitProfile) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+-	return next
+-}
+ 
++// A pipelined first FT.INFO shares elapsed client wait with its directory
++// count. This is client diagnostic attribution, never per-command server CPU.
++func (h *snapshotIndexWaitProfile) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return func(ctx context.Context, cmds []goredis.Cmder) error {
++		start := time.Now()
++		err := next(ctx, cmds)
++		for _, cmd := range cmds {
++			h.observe(cmd, start, cmd.Err())
++		}
++		return err
++	}
++}
+ func (h *snapshotIndexWaitProfile) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+ 	return func(ctx context.Context, cmd goredis.Cmder) error {
+ 		start := time.Now()
+ 		err := next(ctx, cmd)
+-		args := cmd.Args()
+-		if len(args) < 2 {
+-			return err
+-		}
+-		name := cmd.Name()
+-		key := fmt.Sprint(args[1])
+-		h.mu.Lock()
+-		defer h.mu.Unlock()
+-		if name == "ft.create" && err == nil {
+-			h.created[key] = start
+-		}
+-		if name == "ft.info" {
+-			if created, ok := h.created[key]; ok {
+-				h.polls++
+-				h.wait += time.Since(start)
+-				if c, ok := cmd.(interface{ Val() any }); ok && err == nil {
+-					info := indexInfoOf(c.Val())
+-					if info.indexing || info.percent < 1 || info.numDocs != 1 || info.failures != 0 {
+-						h.waiting++
+-					} else {
+-						if h.readyDelay == 0 {
+-							h.readyDelay = time.Since(created)
+-						}
+-					}
++		h.observe(cmd, start, err)
++		return err
++	}
++}
++func (h *snapshotIndexWaitProfile) observe(cmd goredis.Cmder, start time.Time, err error) {
++	args := cmd.Args()
++	if len(args) < 2 {
++		return
++	}
++	name, key := cmd.Name(), fmt.Sprint(args[1])
++	h.mu.Lock()
++	defer h.mu.Unlock()
++	if name == "ft.create" && err == nil {
++		h.created[key] = start
++	}
++	if name == "ft.info" {
++		if created, ok := h.created[key]; ok {
++			h.polls++
++			h.wait += time.Since(start)
++			if c, ok := cmd.(interface{ Val() any }); ok && err == nil {
++				info := indexInfoOf(c.Val())
++				if info.indexing || info.percent < 1 || info.numDocs != 1 || info.failures != 0 {
++					h.waiting++
++				} else if h.readyDelay == 0 {
++					h.readyDelay = time.Since(created)
+ 				}
+ 			}
+ 		}
+-		return err
+ 	}
+ }
+ func TestSnapshotPointWriteIndexWaitProfile(t *testing.T) {

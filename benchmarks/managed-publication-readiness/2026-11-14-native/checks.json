@@ -1,0 +1,23 @@
+{
+  "final-safety-software-race": {
+    "source_commit": "feb325a9a12c3b7399ac59495e668dc64f1f9415",
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-race",
+      "-count=1",
+      "-p",
+      "1",
+      "-timeout=10m",
+      "-run",
+      "^TestSnapshot(Publication|IndexReadiness|TruncateIndexReadiness|FinalIndexAvoids|IndexNotification|IndexProofPermission|PrivateReadsAndSealed|LostPublicationReply|ConflictsAndExpired|ValidationBatches)",
+      "."
+    ],
+    "exit_code": 0,
+    "wall_seconds": 11.703980582999066,
+    "passed_top_level_tests": 23,
+    "skipped_tests": [],
+    "failed_top_level_tests": 0
+  }
+}

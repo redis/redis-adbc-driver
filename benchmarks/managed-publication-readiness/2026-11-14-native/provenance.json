@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-14",
+  "scope": "Uninstrumented native Python/C-boundary managed-write SUBSET; not complete42case/168recordmatrix",
+  "source_builds": {
+    "baseline": {
+      "commit": "7b94a93ccb7bca367c01f0a73204d9cc91a236af",
+      "version": "v0.1.0-dev.managed-readiness-baseline",
+      "library_sha256": "985cb72896e2bf9a8bc76d91c3af5a62b8a08d7a08c6c0d518536b1b1fc8500e",
+      "cli_sha256": "b40c902a84f735612ad3b5498fbef245eee35613259a2f8be5cbfc8537948346"
+    },
+    "candidate": {
+      "commit": "feb325a9a12c3b7399ac59495e668dc64f1f9415",
+      "version": "v0.1.0-dev.managed-readiness-candidate",
+      "library_sha256": "1d06e05ce511b6af053286994abe1c33d25e5208edf39372a3a3fc52c4f2720a",
+      "cli_sha256": "0b30f7d3ae0a44c695c1162cf12f69c58a484d4f557e77349ed7f23c0dc90d39"
+    }
+  },
+  "execution_order": [
+    "baseline",
+    "candidate",
+    "candidate",
+    "baseline"
+  ],
+  "records_per_run": 24,
+  "warmup_records_per_run": 6,
+  "measured_records_per_run": 18,
+  "measured_operations_per_case_per_build": 192,
+  "automatic_retries": 0,
+  "failed_records": 0,
+  "discarded_records": 0,
+  "all_complete_final_states_validated": true,
+  "all_builds_completed_before_timings": true,
+  "other_heavy_work_during_timings": false,
+  "native_client_tuning": "GOMAXPROCS/GOGC/GOMEMLIMIT/GODEBUG unset; native CPU/RAM uncapped",
+  "harness_sha256": {
+    "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+    "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "managed_subset.py": "a868215b2945a1bcf5c5a051d5a46cbfd0b070b28494ea528b99565f0604c515"
+  },
+  "build_artifacts_after_run": {
+    "baseline": {
+      "library_sha256": "985cb72896e2bf9a8bc76d91c3af5a62b8a08d7a08c6c0d518536b1b1fc8500e",
+      "cli_sha256": "b40c902a84f735612ad3b5498fbef245eee35613259a2f8be5cbfc8537948346"
+    },
+    "candidate": {
+      "library_sha256": "1d06e05ce511b6af053286994abe1c33d25e5208edf39372a3a3fc52c4f2720a",
+      "cli_sha256": "0b30f7d3ae0a44c695c1162cf12f69c58a484d4f557e77349ed7f23c0dc90d39"
+    }
+  },
+  "environment_scope": "Same coordinator-owned Redis Software fixture, verified active/effective4xQPF,6workers,mnp32,noeviction,one4GiBRAMshard,certificate/hostname-verifiedTLS/RESP3. No standalone server CPU attribution or separate host/server version inventory captured by this agent.",
+  "selection": "NOT SELECTED: publication batching removed from integrated candidate; direct-native safety fixes retained separately."
+}

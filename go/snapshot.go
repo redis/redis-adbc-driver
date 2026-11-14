@@ -1500,12 +1500,11 @@ func (s *store) validateSnapshotTables(ctx context.Context, tables []*tableMeta)
 
 		for {
 			reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
-			if err != nil && !inconsistentIndexState(err) {
-				var serverErr interface {
+			if err != nil && !snapshotPublicationTransient(err) {
+				if serverErr, native := err.(interface {
 					error
 					RedisError()
-				}
-				if errors.As(err, &serverErr) && strings.HasPrefix(serverErr.Error(), "NOPERM ") {
+				}); native && strings.HasPrefix(serverErr.Error(), "NOPERM ") {
 					return wrapErr(adbc.StatusUnauthorized, err, "failed to validate snapshot index")
 				}
 				return wrapRedis(err, "failed to validate snapshot index")
@@ -1531,11 +1530,10 @@ func (s *store) validateSnapshotTables(ctx context.Context, tables []*tableMeta)
 					}
 					indexed, err := s.snapshotIndexedRowCount(ctx, meta.index())
 					if err != nil {
-						var denied interface {
+						if denied, native := err.(interface {
 							error
 							RedisError()
-						}
-						if errors.As(err, &denied) && strings.HasPrefix(denied.Error(), "NOPERM ") {
+						}); native && strings.HasPrefix(denied.Error(), "NOPERM ") {
 							// Keep write-only principals working with the original
 							// initial-scan completion proof. Only a definite permission
 							// refusal selects it; unknown query outcomes remain errors.

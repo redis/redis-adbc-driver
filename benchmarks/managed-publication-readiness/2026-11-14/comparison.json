@@ -1,0 +1,44 @@
+[
+  {
+    "operation": "insert",
+    "baseline": {
+      "observations": 64,
+      "p50_ms": 39.660979499999996,
+      "p95_ms": 133.482958
+    },
+    "candidate": {
+      "observations": 64,
+      "p50_ms": 43.188103999999996,
+      "p95_ms": 166.358666
+    },
+    "p50_speedup": 0.9183311103446449
+  },
+  {
+    "operation": "update",
+    "baseline": {
+      "observations": 64,
+      "p50_ms": 43.4313545,
+      "p95_ms": 115.301125
+    },
+    "candidate": {
+      "observations": 64,
+      "p50_ms": 47.159749500000004,
+      "p95_ms": 138.379
+    },
+    "p50_speedup": 0.920941161911812
+  },
+  {
+    "operation": "delete",
+    "baseline": {
+      "observations": 64,
+      "p50_ms": 43.8075625,
+      "p95_ms": 127.186
+    },
+    "candidate": {
+      "observations": 64,
+      "p50_ms": 41.538979,
+      "p95_ms": 131.4805
+    },
+    "p50_speedup": 1.0546133668812612
+  }
+]

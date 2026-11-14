@@ -1,0 +1,116 @@
+[
+  {
+    "operation": "delete",
+    "clients": 1,
+    "baseline": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 42.4787705,
+      "p95_ms": 140.837125,
+      "median_operations_per_second": 17.165453491798935
+    },
+    "candidate": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 44.523771,
+      "p95_ms": 137.646083,
+      "median_operations_per_second": 16.92048128448752
+    },
+    "p50_speedup": 0.9540694677456678
+  },
+  {
+    "operation": "delete",
+    "clients": 4,
+    "baseline": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 50.380375,
+      "p95_ms": 961.511625,
+      "median_operations_per_second": 13.238018976618259
+    },
+    "candidate": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 65.6334585,
+      "p95_ms": 937.081208,
+      "median_operations_per_second": 15.948319325471317
+    },
+    "p50_speedup": 0.7676020150606568
+  },
+  {
+    "operation": "insert",
+    "clients": 1,
+    "baseline": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 44.649271,
+      "p95_ms": 144.832334,
+      "median_operations_per_second": 16.761753497503395
+    },
+    "candidate": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 41.318292,
+      "p95_ms": 145.538417,
+      "median_operations_per_second": 17.200475607196353
+    },
+    "p50_speedup": 1.0806175385952546
+  },
+  {
+    "operation": "insert",
+    "clients": 4,
+    "baseline": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 49.4664585,
+      "p95_ms": 940.211416,
+      "median_operations_per_second": 16.321822034165102
+    },
+    "candidate": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 48.9388125,
+      "p95_ms": 898.337292,
+      "median_operations_per_second": 16.76101248129386
+    },
+    "p50_speedup": 1.0107817491484903
+  },
+  {
+    "operation": "update",
+    "clients": 1,
+    "baseline": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 45.7663125,
+      "p95_ms": 119.910458,
+      "median_operations_per_second": 17.41807566399916
+    },
+    "candidate": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 44.9593545,
+      "p95_ms": 121.175541,
+      "median_operations_per_second": 17.477050152282292
+    },
+    "p50_speedup": 1.0179486117844507
+  },
+  {
+    "operation": "update",
+    "clients": 4,
+    "baseline": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 64.5372295,
+      "p95_ms": 1265.469875,
+      "median_operations_per_second": 14.029595198219138
+    },
+    "candidate": {
+      "trials": 6,
+      "observations": 192,
+      "p50_ms": 56.941833,
+      "p95_ms": 840.1835,
+      "median_operations_per_second": 16.637355759374326
+    },
+    "p50_speedup": 1.1333886898231744
+  }
+]
