@@ -28,6 +28,13 @@ This is agent review, not human approval. Parent final evidence review is pendin
 The public audit recomputes all sample/counter/timing arithmetic and exact attempt
 coverage without Redis. No production code was cherry-picked from the experiment.
 
+Exact patch SHA-256 and `git apply --check` passed for both archived variants.
+Relative file links and a scoped exact-secret/private-path/URI scan passed with
+zero matches. Whitespace checks pass outside the exact patch artifacts: their
+context lines retain leading diff spaces before Go tabs/blank lines, which Git's
+outer-diff whitespace check flags. Those bytes are intentionally preserved with
+their hashes rather than rewritten after measurement.
+
 All loans ended with clients/processes closed, empty/index-free DB and effective
 Software 4x QPF, strict TLS/RESP3 reverified. Root owns final shared infrastructure
 teardown; it is pending sibling experiments. Operational artifacts/IDs, credentials,
