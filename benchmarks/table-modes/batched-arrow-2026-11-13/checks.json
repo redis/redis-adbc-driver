@@ -1,0 +1,758 @@
+{
+  "source_commit": "2caafbc3cef7005523d4f0eca1631c2646128d4e",
+  "failed_attempts": 0,
+  "checks": {
+    "unit": {
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-count=1",
+        "-p",
+        "1",
+        "-run",
+        "^(TestBatchedArrow|TestScanArrow|TestTyped|TestScanProjection|TestHashSlice|TestUnmanagedScanProjection|TestUnmanagedWideProjectionExternalErrorParity)",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.441768884658813,
+      "top_level_passed": 20,
+      "passed_including_subtests": 58,
+      "skipped": 0,
+      "failed": 0,
+      "cases": [
+        {
+          "Test": "TestBatchedArrowCompleteFieldsAndRetainedOwnership/false",
+          "Action": "pass",
+          "Elapsed": 0.01
+        },
+        {
+          "Test": "TestBatchedArrowCompleteFieldsAndRetainedOwnership/true",
+          "Action": "pass",
+          "Elapsed": 0.01
+        },
+        {
+          "Test": "TestBatchedArrowCompleteFieldsAndRetainedOwnership",
+          "Action": "pass",
+          "Elapsed": 0.01
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/partial",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/retained",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/offset",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/limit",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowLimitOffsetAndMetadataErrorOrder",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/narrow",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/small_batch",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/byte_budget",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/time",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/fixed_string",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowValuesAndOwnership",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors/offset",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors/limit",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors/partial",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowPartialBuilderError",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestHashSliceProjectionCompatibility",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestHashSliceExistenceDiagnosticsAndCancellation",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanProjectionValuesAndErrors",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanProjectionFallbacks",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanProjectionKeepCancellationAndDiagnostics",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/SMALLINT",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/INTEGER",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/BIGINT",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/BOOLEAN",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/REAL",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/DOUBLE_PRECISION",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/VARCHAR",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/CHAR(5)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/VARBINARY",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/DATE",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIME(6)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)_WITH_TIME_ZONE",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIME(6)_WITH_TIME_ZONE",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/INTERVAL",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/NUMERIC(12,3)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedProjectionWideDefaultsAndAliases",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedWideArrowLifetimeAndErrorOrder/0",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedWideArrowLifetimeAndErrorOrder/256",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedWideArrowLifetimeAndErrorOrder",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/1",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/520",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/1024",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/9223372036854775807",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionValues/wide=false",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionValues/wide=true",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionValues",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionFallbacks",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedWideProjectionExternalErrorParity",
+          "Action": "pass",
+          "Elapsed": 0
+        }
+      ],
+      "raw_private_log_sha256": "17c78dd753a867b7cf353559c87279d695edc7ce098b2560f1f29f847fec8437"
+    },
+    "race": {
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-json",
+        "-count=1",
+        "-p",
+        "1",
+        "-run",
+        "^(TestBatchedArrow|TestScanArrow|TestTyped|TestScanProjection|TestHashSlice|TestUnmanagedScanProjection|TestUnmanagedWideProjectionExternalErrorParity)",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 22.091169834136963,
+      "top_level_passed": 20,
+      "passed_including_subtests": 58,
+      "skipped": 0,
+      "failed": 0,
+      "cases": [
+        {
+          "Test": "TestBatchedArrowCompleteFieldsAndRetainedOwnership/false",
+          "Action": "pass",
+          "Elapsed": 0.04
+        },
+        {
+          "Test": "TestBatchedArrowCompleteFieldsAndRetainedOwnership/true",
+          "Action": "pass",
+          "Elapsed": 0.03
+        },
+        {
+          "Test": "TestBatchedArrowCompleteFieldsAndRetainedOwnership",
+          "Action": "pass",
+          "Elapsed": 0.07
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/partial",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/retained",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/offset",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail/limit",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowErrorsAndSkippedTail",
+          "Action": "pass",
+          "Elapsed": 0.01
+        },
+        {
+          "Test": "TestBatchedArrowLimitOffsetAndMetadataErrorOrder",
+          "Action": "pass",
+          "Elapsed": 0.01
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/narrow",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/small_batch",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/byte_budget",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/time",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks/fixed_string",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestBatchedArrowFallbacks",
+          "Action": "pass",
+          "Elapsed": 0.01
+        },
+        {
+          "Test": "TestScanArrowValuesAndOwnership",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors/offset",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors/limit",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors/partial",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowSkippedAndPartialErrors",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowPartialBuilderError",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestHashSliceProjectionCompatibility",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestHashSliceExistenceDiagnosticsAndCancellation",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanProjectionValuesAndErrors",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanProjectionFallbacks",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanProjectionKeepCancellationAndDiagnostics",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/SMALLINT",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/INTEGER",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/BIGINT",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/BOOLEAN",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/REAL",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/DOUBLE_PRECISION",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/VARCHAR",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/CHAR(5)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/VARBINARY",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/DATE",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIME(6)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)_WITH_TIME_ZONE",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/TIME(6)_WITH_TIME_ZONE",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/INTERVAL",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric/NUMERIC(12,3)",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedArrowAgainstGeneric",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedProjectionWideDefaultsAndAliases",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedWideArrowLifetimeAndErrorOrder/0",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedWideArrowLifetimeAndErrorOrder/256",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestTypedWideArrowLifetimeAndErrorOrder",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/1",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/520",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/1024",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget/9223372036854775807",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestScanArrowByteBudget",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionValues/wide=false",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionValues/wide=true",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionValues",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionFallbacks",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedScanProjectionArrowOwnershipAndErrors",
+          "Action": "pass",
+          "Elapsed": 0
+        },
+        {
+          "Test": "TestUnmanagedWideProjectionExternalErrorParity",
+          "Action": "pass",
+          "Elapsed": 0
+        }
+      ],
+      "raw_private_log_sha256": "5c89af3dd27d5461509965c2c32e1937425ddf6d381f83c99f89b568e5ee6296"
+    },
+    "software": {
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-count=1",
+        "-p",
+        "1",
+        "-run",
+        "^(TestSQLScanProjectionBothAPIs|TestSQLScanArrowEarlyReleaseBothAPIs|TestSQLWideHashFetchBothAPIs|TestManagedHashReplyReleaseArrowOwnership|TestUnmanagedWideProjectionArrowLifetime|TestStreamByteBudget)$",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 46.429733991622925,
+      "top_level_passed": 6,
+      "passed_including_subtests": 21,
+      "skipped": 0,
+      "failed": 0,
+      "cases": [
+        {
+          "Test": "TestManagedHashReplyReleaseArrowOwnership/candidate_false/finish",
+          "Action": "pass",
+          "Elapsed": 2.04
+        },
+        {
+          "Test": "TestManagedHashReplyReleaseArrowOwnership/candidate_false/release",
+          "Action": "pass",
+          "Elapsed": 1.89
+        },
+        {
+          "Test": "TestManagedHashReplyReleaseArrowOwnership/candidate_false/cancel",
+          "Action": "pass",
+          "Elapsed": 1.83
+        },
+        {
+          "Test": "TestManagedHashReplyReleaseArrowOwnership/candidate_true/finish",
+          "Action": "pass",
+          "Elapsed": 1.99
+        },
+        {
+          "Test": "TestManagedHashReplyReleaseArrowOwnership/candidate_true/release",
+          "Action": "pass",
+          "Elapsed": 1.83
+        },
+        {
+          "Test": "TestManagedHashReplyReleaseArrowOwnership/candidate_true/cancel",
+          "Action": "pass",
+          "Elapsed": 1.87
+        },
+        {
+          "Test": "TestManagedHashReplyReleaseArrowOwnership",
+          "Action": "pass",
+          "Elapsed": 11.45
+        },
+        {
+          "Test": "TestSQLScanProjectionBothAPIs/SELECT_label_AS_alias,_id,_id_AS_duplicate,_qty,_stamp,___rowid_FROM_it_scan_projection",
+          "Action": "pass",
+          "Elapsed": 0.13
+        },
+        {
+          "Test": "TestSQLScanProjectionBothAPIs/SELECT_label_FROM_it_scan_projection_LIMIT_100_OFFSET_10",
+          "Action": "pass",
+          "Elapsed": 0.04
+        },
+        {
+          "Test": "TestSQLScanProjectionBothAPIs",
+          "Action": "pass",
+          "Elapsed": 0.5
+        },
+        {
+          "Test": "TestSQLScanArrowEarlyReleaseBothAPIs/regular/bytes=0",
+          "Action": "pass",
+          "Elapsed": 0.06
+        },
+        {
+          "Test": "TestSQLScanArrowEarlyReleaseBothAPIs/regular/bytes=1100",
+          "Action": "pass",
+          "Elapsed": 0.07
+        },
+        {
+          "Test": "TestSQLScanArrowEarlyReleaseBothAPIs/partition/bytes=0",
+          "Action": "pass",
+          "Elapsed": 0.13
+        },
+        {
+          "Test": "TestSQLScanArrowEarlyReleaseBothAPIs/partition/bytes=1100",
+          "Action": "pass",
+          "Elapsed": 0.09
+        },
+        {
+          "Test": "TestSQLScanArrowEarlyReleaseBothAPIs",
+          "Action": "pass",
+          "Elapsed": 0.44
+        },
+        {
+          "Test": "TestStreamByteBudget",
+          "Action": "pass",
+          "Elapsed": 2.36
+        },
+        {
+          "Test": "TestUnmanagedWideProjectionArrowLifetime/finish",
+          "Action": "pass",
+          "Elapsed": 0.49
+        },
+        {
+          "Test": "TestUnmanagedWideProjectionArrowLifetime/release",
+          "Action": "pass",
+          "Elapsed": 0.11
+        },
+        {
+          "Test": "TestUnmanagedWideProjectionArrowLifetime/cancel",
+          "Action": "pass",
+          "Elapsed": 0.11
+        },
+        {
+          "Test": "TestUnmanagedWideProjectionArrowLifetime",
+          "Action": "pass",
+          "Elapsed": 2.43
+        },
+        {
+          "Test": "TestSQLWideHashFetchBothAPIs",
+          "Action": "pass",
+          "Elapsed": 25.1
+        }
+      ],
+      "raw_private_log_sha256": "78314a9e5f8bb2aaef47d2489f272834d8d953091aecc65c06b058fc6bde7537"
+    }
+  }
+}

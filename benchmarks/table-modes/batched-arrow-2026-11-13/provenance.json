@@ -1,0 +1,36 @@
+{
+  "baseline_source": "24f654b76b98f3d8960af94a3ca0230185d467a1",
+  "candidate_source": "2caafbc3cef7005523d4f0eca1631c2646128d4e",
+  "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+  "harness_sha256": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+  "base_harness_sha256": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+  "wrapper_sha256": "b83afa90eebf4615666a72ff0d74bf0e6da82d9d11719ed367afbf4256eb68ee",
+  "cpus": 4,
+  "container_memory_bytes": 8589934592,
+  "native_gomaxprocs": "unset",
+  "platform": "macOS-26.7.3-arm64-arm-64bit-Mach-O",
+  "fixture": {
+    "qpf": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "tls_certificate_verified": true,
+    "resp": 3,
+    "empty": true
+  },
+  "variants": {
+    "baseline": {
+      "version": "v0.1.0-dev.next-four-base",
+      "source": "24f654b76b98f3d8960af94a3ca0230185d467a1",
+      "driver_sha256": "8ae32eaf20723d55a9bf108a33907e5a1db1e514598073385dd2d8499057cfb7",
+      "cli_sha256": "9162ae4368384b2af6dc2c3f409dd97d06626fd34bb29fa09cf7b0e0f46558ac"
+    },
+    "candidate": {
+      "version": "v0.1.0-dev.batched-arrow-1",
+      "source": "2caafbc3cef7005523d4f0eca1631c2646128d4e",
+      "driver_sha256": "16d689f22824250ce0c64ed403da533199c086cdd08620f38a8e2400f4dd8208",
+      "cli_sha256": "86a6a53b8d14366223a96a3d9f65c8b3799ab81fe98da46ff7548ea160e49042"
+    }
+  }
+}

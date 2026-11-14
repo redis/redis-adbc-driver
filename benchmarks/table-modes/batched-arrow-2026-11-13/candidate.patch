@@ -1,0 +1,773 @@
+From 2caafbc3cef7005523d4f0eca1631c2646128d4e Mon Sep 17 00:00:00 2001
+From: "Albert T. Wong" <atwong@alumni.uci.edu>
+Date: Fri, 13 Nov 2026 15:26:39 -0800
+Subject: [PATCH] Stage eligible wide Arrow columns for bounded bulk append
+
+---
+ .../changes/batched-arrow-builders/intent.md  |  12 +
+ .../changes/batched-arrow-builders/plan.md    |  20 +
+ .../changes/batched-arrow-builders/spec.md    |  25 ++
+ .../batched-arrow-builders/validation.md      |  11 +
+ go/scan_arrow.go                              |  31 +-
+ go/scan_arrow_batch.go                        | 186 +++++++++
+ go/scan_arrow_batch_test.go                   | 386 ++++++++++++++++++
+ 7 files changed, 667 insertions(+), 4 deletions(-)
+ create mode 100644 docs/sdlc/changes/batched-arrow-builders/intent.md
+ create mode 100644 docs/sdlc/changes/batched-arrow-builders/plan.md
+ create mode 100644 docs/sdlc/changes/batched-arrow-builders/spec.md
+ create mode 100644 docs/sdlc/changes/batched-arrow-builders/validation.md
+ create mode 100644 go/scan_arrow_batch.go
+ create mode 100644 go/scan_arrow_batch_test.go
+
+diff --git a/docs/sdlc/changes/batched-arrow-builders/intent.md b/docs/sdlc/changes/batched-arrow-builders/intent.md
+new file mode 100644
+index 00000000..54d058de
+--- /dev/null
++++ b/docs/sdlc/changes/batched-arrow-builders/intent.md
+@@ -0,0 +1,12 @@
++# Intent: bounded batched Arrow construction
++
++Date: November 13, 2026. Requestor: repository user; author: Codex.
++Status: candidate; correctness/measurement pending. Baseline `24f654b7`.
++
++Current wide direct projections bind typed coercion/append callbacks, but each
++cell still calls a builder append/reserve path. Investigate bounded typed
++column staging and AppendValues to reduce that dispatch without materializing
++projected Value rows or changing retrieval. Do not repeat rejected write
++argument-cache/sizing or upstream HMGET experiments.
++
++See [contract](spec.md), [plan](plan.md) and [validation](validation.md).
+diff --git a/docs/sdlc/changes/batched-arrow-builders/plan.md b/docs/sdlc/changes/batched-arrow-builders/plan.md
+new file mode 100644
+index 00000000..cce62a9f
+--- /dev/null
++++ b/docs/sdlc/changes/batched-arrow-builders/plan.md
+@@ -0,0 +1,20 @@
++# Plan
++
++1. Inspect current typed/decode/stream lifecycle and pinned Arrow AppendValues
++   implementation; bind only supported physical/logical pairs.
++2. Add 64-row typed staging in scan_arrow.go/scan_arrow_batch.go, preserving all
++   existing fallback/decode/fit/coerce rules and public record boundaries.
++3. Run focused unit/race for complete mixed fields, NULL/default/exact values,
++   maps/HMGET, duplicate aliases, timezone fitting, partial/error order after 63
++   staged rows, retained output, 65-row records and fallback/byte policies.
++4. Run existing live ownership/cancellation/limit/readiness and managed/unmanaged
++   direct projection cases on the parent-owned verified Software 4x-QPF fixture.
++5. Separately measure complete construction versus scalar-control conversion,
++   validating every field before/after timing. Native compare both modes at 100K×105,
++   one/four readers, 512/4096 ceilings, 6 measured plus warmup: 112 trials total.
++   Use unchanged existing workers and independent complete IPC/value validation.
++6. Keep every attempt/negative; no tuning after measurement. Adopt only supported
++   gain; otherwise preserve exact source and evidence with prototype unapplied.
++
++No builds/tests/provisioning/timing before the coordinator grants its slot.
++See [contract](spec.md), [intent](intent.md) and [validation](validation.md).
+diff --git a/docs/sdlc/changes/batched-arrow-builders/spec.md b/docs/sdlc/changes/batched-arrow-builders/spec.md
+new file mode 100644
+index 00000000..12e350f2
+--- /dev/null
++++ b/docs/sdlc/changes/batched-arrow-builders/spec.md
+@@ -0,0 +1,25 @@
++# Contract
++
++Only wide direct-Arrow streams (at least 64 output columns), public row ceilings
++at least 64, no optional byte budget and supported primitive logical/physical
++builders may batch. Unsupported/narrow/small/byte-budget streams retain their
++complete existing path. Managed and explicit unmanaged projections share this
++eligibility; no predicate, key discovery, fetching or readiness rule changes.
++
++Decode all required fields in metadata order before output work. Retain existing
++fitRow/session-timezone behavior and the same bound per-column coercion/error
++ordering. Stage already-coerced integer/bool/float/date/timestamp/string values
++plus validity in at most 64-row blocks. No bulk append can flush a partial row;
++a terminal error discards staged buffers, including strings staged before a
++later-column coercion error. OFFSET/LIMIT still validate the required final-page
++tail and retain their existing output/error semantics.
++
++Flush staged columns at every 64-row staging boundary, actual public record
++boundary (including nonmultiples such as 65), and EOF. Public batch row counts,
++physical schema/NULL/default/exact-value behavior remain identical. String bulk
++append copies payloads into record-owned Arrow buffers; clear staging references
++after copy and release. Independently retained records survive Next/error/cancel/
++Release. Existing cursor cancellation, worker ownership and source pins remain.
++No public option, protocol/layout or publication change; this is not zero-copy.
++
++See [intent](intent.md), [plan](plan.md) and [validation](validation.md).
+diff --git a/docs/sdlc/changes/batched-arrow-builders/validation.md b/docs/sdlc/changes/batched-arrow-builders/validation.md
+new file mode 100644
+index 00000000..08a6948d
+--- /dev/null
++++ b/docs/sdlc/changes/batched-arrow-builders/validation.md
+@@ -0,0 +1,11 @@
++# Validation
++
++Pending. No builds/tests/native or micro timing yet. Parent owns the shared
++Software 4x-QPF fixture and grants serialized heavy slots; this agent is source/
++docs only so far. The 64-row bound is selected before measurement; no tuning or
++native-performance claim is made.
++
++Unit and complete mixed-field construction controls are prepared. The scalar
++micro control disables new staging selection while retaining the exact existing
++typed row loop; it is baseline-equivalent conversion, not the archived baseline
++binary. Native comparisons must use the actual clean 24f baseline library/CLI.
+diff --git a/go/scan_arrow.go b/go/scan_arrow.go
+index a8cfa2bc..667da684 100644
+--- a/go/scan_arrow.go
++++ b/go/scan_arrow.go
+@@ -17,13 +17,20 @@ import (
+ type scanArrow struct {
+ 	builder *array.RecordBuilder
+ 	typed   []typedArrowColumn
+-	scratch []Value
+-	rows    int
+-	bytes   int64
+-	ready   []arrow.RecordBatch
++	batched *scanArrowBatch
++	// Decide once; unsupported types and optional byte budgets stay scalar.
++	batchChecked bool
++	scratch      []Value
++	rows         int
++	bytes        int64
++	ready        []arrow.RecordBatch
+ }
+ 
+ func (a *scanArrow) release() {
++	if a.batched != nil {
++		a.batched.release()
++		a.batched = nil
++	}
+ 	if a.builder != nil {
+ 		a.builder.Release()
+ 		a.builder = nil
+@@ -66,6 +73,9 @@ func (r *streamReader) fillArrow() error {
+ 		}
+ 	}
+ 	if r.exhausted && a.rows > 0 {
++		if a.batched != nil {
++			a.batched.flush()
++		}
+ 		a.ready = append(a.ready, a.builder.NewRecordBatch())
+ 		a.rows = 0
+ 		a.bytes = 0
+@@ -108,6 +118,12 @@ func (r *streamReader) appendDecodedArrow() error {
+ 	if err := fitRow(a.scratch, r.cols, r.zone); err != nil {
+ 		return err
+ 	}
++	if !a.batchChecked {
++		a.batchChecked = true
++		if a.typed != nil && r.batchBytes == 0 && r.batchRows >= scanArrowBlockRows {
++			a.batched = newScanArrowBatch(a.builder, r.cols)
++		}
++	}
+ 	var cost int64
+ 	if r.batchBytes > 0 {
+ 		for j, c := range r.cols {
+@@ -152,6 +168,10 @@ func (r *streamReader) appendDecodedArrow() error {
+ 				return invalidArg(err)
+ 			}
+ 		}
++	} else if a.batched != nil {
++		if err := a.batched.append(a.typed, a.scratch); err != nil {
++			return invalidArg(err)
++		}
+ 	} else {
+ 		// Preserve the row-only hot loop: no extra Value copy or budget
+ 		// branch per column when the optional policy is disabled.
+@@ -179,6 +199,9 @@ func (r *streamReader) appendDecodedArrow() error {
+ 	a.rows++
+ 	a.bytes = addBatchBytes(a.bytes, cost)
+ 	if a.rows == r.batchRows || r.batchBytes > 0 && a.bytes >= r.batchBytes {
++		if a.batched != nil {
++			a.batched.flush()
++		}
+ 		a.ready = append(a.ready, a.builder.NewRecordBatch())
+ 		a.rows = 0
+ 		a.bytes = 0
+diff --git a/go/scan_arrow_batch.go b/go/scan_arrow_batch.go
+new file mode 100644
+index 00000000..d561459e
+--- /dev/null
++++ b/go/scan_arrow_batch.go
+@@ -0,0 +1,186 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"github.com/apache/arrow-go/v18/arrow/array"
++)
++
++// Bound intermediate storage independently of the public Arrow batch ceiling.
++// A completed row is staged before any bulk append; errors never flush a partial
++// row. The public record/limit boundaries remain owned by scanArrow.
++const scanArrowBlockRows = 64
++
++type scanArrowBatch struct {
++	columns []arrowBatchColumn
++	rows    int
++}
++
++type arrowBatchColumn struct {
++	stage   func(Value)
++	flush   func()
++	discard func()
++}
++
++func newScanArrowBatch(builder *array.RecordBuilder, cols []resultColumn) *scanArrowBatch {
++	// Check everything first, avoiding scratch allocation for a mixed schema
++	// that must use appendValue's complete generic behavior.
++	for j, c := range cols {
++		if !arrowBatchSupported(builder.Field(j), c.Type) {
++			return nil
++		}
++	}
++	b := &scanArrowBatch{columns: make([]arrowBatchColumn, len(cols))}
++	for j := range cols {
++		switch field := builder.Field(j).(type) {
++		case *array.Int16Builder:
++			b.columns[j] = batchIntegerColumn(field.AppendValues)
++		case *array.Int32Builder:
++			b.columns[j] = batchIntegerColumn(field.AppendValues)
++		case *array.Int64Builder:
++			b.columns[j] = batchIntegerColumn(field.AppendValues)
++		case *array.Date32Builder:
++			b.columns[j] = batchIntegerColumn(field.AppendValues)
++		case *array.TimestampBuilder:
++			b.columns[j] = batchIntegerColumn(field.AppendValues)
++		case *array.Float32Builder:
++			b.columns[j] = batchFloatColumn(field.AppendValues)
++		case *array.Float64Builder:
++			b.columns[j] = batchFloatColumn(field.AppendValues)
++		case *array.BooleanBuilder:
++			b.columns[j] = batchBoolColumn(field)
++		case *array.StringBuilder:
++			b.columns[j] = batchStringColumn(field)
++		}
++	}
++	return b
++}
++
++func arrowBatchSupported(builder array.Builder, typ ColType) bool {
++	switch builder.(type) {
++	case *array.Int16Builder:
++		return typ.Kind == KindInt16
++	case *array.Int32Builder:
++		return typ.Kind == KindInt32
++	case *array.Int64Builder:
++		return typ.Kind == KindInt64
++	case *array.Date32Builder:
++		return typ.Kind == KindDate
++	case *array.TimestampBuilder:
++		return typ.Kind == KindTimestamp
++	case *array.Float32Builder:
++		return typ.Kind == KindFloat32
++	case *array.Float64Builder:
++		return typ.Kind == KindFloat64
++	case *array.BooleanBuilder:
++		return typ.Kind == KindBool
++	case *array.StringBuilder:
++		return typ.Kind == KindString && !typ.Fixed
++	}
++	return false
++}
++
++func (b *scanArrowBatch) append(typed []typedArrowColumn, row []Value) error {
++	for j, column := range b.columns {
++		value, err := typed[j].coerce(row[j])
++		if err != nil {
++			return err
++		}
++		column.stage(value)
++	}
++	b.rows++
++	if b.rows == scanArrowBlockRows {
++		b.flush()
++	}
++	return nil
++}
++
++func (b *scanArrowBatch) flush() {
++	if b.rows == 0 {
++		return
++	}
++	for _, column := range b.columns {
++		column.flush()
++	}
++	b.rows = 0
++}
++
++func (b *scanArrowBatch) release() {
++	for _, column := range b.columns {
++		if column.discard != nil {
++			column.discard()
++		}
++	}
++	b.columns = nil
++	b.rows = 0
++}
++
++func batchIntegerColumn[T ~int16 | ~int32 | ~int64](appendValues func([]T, []bool)) arrowBatchColumn {
++	values := make([]T, 0, scanArrowBlockRows)
++	valid := make([]bool, 0, scanArrowBlockRows)
++	return arrowBatchColumn{
++		stage: func(value Value) {
++			values = append(values, T(value.I))
++			valid = append(valid, !value.Null)
++		},
++		flush: func() {
++			appendValues(values, valid)
++			values, valid = values[:0], valid[:0]
++		},
++	}
++}
++
++func batchFloatColumn[T ~float32 | ~float64](appendValues func([]T, []bool)) arrowBatchColumn {
++	values := make([]T, 0, scanArrowBlockRows)
++	valid := make([]bool, 0, scanArrowBlockRows)
++	return arrowBatchColumn{
++		stage: func(value Value) {
++			values = append(values, T(value.F))
++			valid = append(valid, !value.Null)
++		},
++		flush: func() {
++			appendValues(values, valid)
++			values, valid = values[:0], valid[:0]
++		},
++	}
++}
++
++func batchBoolColumn(builder *array.BooleanBuilder) arrowBatchColumn {
++	values := make([]bool, 0, scanArrowBlockRows)
++	valid := make([]bool, 0, scanArrowBlockRows)
++	return arrowBatchColumn{
++		stage: func(value Value) {
++			values = append(values, value.I != 0)
++			valid = append(valid, !value.Null)
++		},
++		flush: func() {
++			builder.AppendValues(values, valid)
++			values, valid = values[:0], valid[:0]
++		},
++	}
++}
++
++func batchStringColumn(builder *array.StringBuilder) arrowBatchColumn {
++	values := make([]string, 0, scanArrowBlockRows)
++	valid := make([]bool, 0, scanArrowBlockRows)
++	clearValues := func() {
++		clear(values)
++		values, valid = values[:0], valid[:0]
++	}
++	return arrowBatchColumn{
++		stage: func(value Value) {
++			text := ""
++			if !value.Null {
++				text = value.S
++			}
++			values = append(values, text)
++			valid = append(valid, !value.Null)
++		},
++		flush: func() {
++			builder.AppendValues(values, valid)
++			clearValues()
++		},
++		discard: clearValues,
++	}
++}
+diff --git a/go/scan_arrow_batch_test.go b/go/scan_arrow_batch_test.go
+new file mode 100644
+index 00000000..e7393618
+--- /dev/null
++++ b/go/scan_arrow_batch_test.go
+@@ -0,0 +1,386 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"fmt"
++	"strconv"
++	"strings"
++	"testing"
++
++	"github.com/apache/arrow-go/v18/arrow"
++	"github.com/apache/arrow-go/v18/arrow/array"
++	"github.com/apache/arrow-go/v18/arrow/memory"
++)
++
++func batchedArrowFixture(mem memory.Allocator, width, count, batchRows int) (*streamReader, []aggRow) {
++	types := []ColType{typeInt64, typeInt32, typeInt16, typeBool, typeFloat64, typeFloat32,
++		typeDate, typeTimestampTZ, typeString}
++	meta := &tableMeta{Schema: defaultSchema, Name: "batched", KeyPrefix: "batched:"}
++	it := &scanIter{meta: meta, need: map[string]bool{}}
++	var items []planItem
++	var cols []resultColumn
++	for j := range width {
++		name, typ := "c"+strconv.Itoa(j), types[j%len(types)]
++		meta.Columns = append(meta.Columns, columnMeta{Name: name, Type: typ, Nullable: true})
++		it.need[name] = true
++		items = append(items, planItem{expr: &ColumnRef{Name: name}})
++		cols = append(cols, resultColumn{Name: name, Type: typ})
++	}
++	meta.Columns[0].Missing, meta.Columns[0].MissingThrough = "9007199254740993", 2
++	it.projection = newScanProjection(it, items)
++	rows := make([]aggRow, count)
++	for i := range rows {
++		raw := aggRow{rowIDField: strconv.Itoa(i + 1)}
++		for j, c := range meta.Columns {
++			if (i+j)%11 == 0 {
++				continue // NULL, or the first column's historical default.
++			}
++			var text string
++			switch c.Type.Kind {
++			case KindInt64:
++				text = strconv.FormatInt(9007199254740993+int64(i), 10)
++			case KindInt32:
++				text = strconv.Itoa(-2147483000 + i)
++			case KindInt16:
++				text = strconv.Itoa(-1000 + i%2000)
++			case KindBool:
++				text = strconv.Itoa(i % 2)
++			case KindFloat32, KindFloat64:
++				text = strconv.FormatFloat(float64(i)/8-123, 'g', -1, 64)
++				if i%13 == 0 {
++					text = nanStored
++				}
++			case KindDate:
++				text = strconv.Itoa(-1000 + i)
++			case KindTimestamp:
++				text = strconv.FormatInt(1234567890123456+int64(i), 10)
++			case KindString:
++				if i%7 != 0 {
++					text = "payload\x00é:" + strconv.Itoa(i)
++				}
++			}
++			raw[c.Name] = text
++		}
++		rows[i] = raw
++	}
++	r := &streamReader{ctx: context.Background(), it: it, cols: cols, zone: utcZone,
++		batchRows: batchRows, left: -1, mem: mem, schema: resultSchema(cols),
++		arrow: &scanArrow{scratch: make([]Value, width), builder: array.NewRecordBuilder(mem, resultSchema(cols))}}
++	r.batchSizer = newBatchSizer(cols)
++	return r, rows
++}
++
++func finishBatchedArrowForTest(r *streamReader) {
++	if r.arrow.rows == 0 {
++		return
++	}
++	if r.arrow.batched != nil {
++		r.arrow.batched.flush()
++	}
++	r.arrow.ready = append(r.arrow.ready, r.arrow.builder.NewRecordBatch())
++	r.arrow.rows, r.arrow.bytes = 0, 0
++}
++
++func TestBatchedArrowCompleteFieldsAndRetainedOwnership(t *testing.T) {
++	for _, hash := range []bool{false, true} {
++		t.Run(fmt.Sprint(hash), func(t *testing.T) {
++			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
++			defer mem.AssertSize(t, 0)
++			r, rows := batchedArrowFixture(mem, 105, 131, 65)
++			defer r.arrow.release()
++			// Exercise a duplicate/alias alongside independent required inputs,
++			// and local-time fitting before the already-bound output coercion.
++			items := make([]planItem, len(r.cols))
++			for j, col := range r.cols {
++				items[j].expr = &ColumnRef{Name: col.Name}
++			}
++			items[9].expr, r.cols[9].Name = &ColumnRef{Name: "c0"}, "duplicate_id"
++			r.cols[7].Type, r.zone = typeTimestamp, tzZone{off: 3600}
++			r.it.projection = newScanProjection(r.it, items)
++			r.arrow.builder.Release()
++			r.arrow.builder = array.NewRecordBuilder(mem, resultSchema(r.cols))
++			var hashFields []string
++			if hash {
++				for _, c := range r.it.meta.Columns {
++					hashFields = append(hashFields, c.field())
++				}
++				hashFields = append(hashFields, nullMarker("c0"))
++				if !r.it.projection.bindHash(hashFields) {
++					t.Fatal("HASH binding refused complete fields/default marker")
++				}
++			}
++			var expected [][]Value
++			for _, raw := range rows {
++				row, err := r.it.projection.decode(raw)
++				if err != nil {
++					t.Fatal(err)
++				}
++				if err := fitRow(row, r.cols, r.zone); err != nil {
++					t.Fatal(err)
++				}
++				expected = append(expected, row)
++				if hash {
++					values := make([]any, len(hashFields)+1)
++					values[0] = raw[rowIDField]
++					for j, f := range hashFields {
++						if value, ok := raw[f]; ok {
++							values[j+1] = value
++						}
++					}
++					err = r.appendArrowHash(values)
++				} else {
++					err = r.appendArrow(raw)
++				}
++				if err != nil {
++					t.Fatal(err)
++				}
++				if r.arrow.batched == nil || r.arrow.batched.rows >= scanArrowBlockRows {
++					t.Fatal("eligible stream did not retain a bounded staging block")
++				}
++			}
++			finishBatchedArrowForTest(r)
++			if len(r.arrow.ready) != 3 {
++				t.Fatal("record boundaries changed", len(r.arrow.ready))
++			}
++			at := 0
++			for _, rec := range r.arrow.ready {
++				n := int(rec.NumRows())
++				if n != min(65, len(rows)-at) {
++					t.Fatal("wrong record tail", n, at)
++				}
++				want, err := buildRecord(mem, r.cols, expected[at:at+n])
++				if err != nil {
++					t.Fatal(err)
++				}
++				if !array.RecordApproxEqual(rec, want, array.WithNaNsEqual(true), array.WithAbsTolerance(0)) {
++					t.Errorf("all-column validation differs at row %d", at)
++				}
++				want.Release()
++				at += n
++			}
++			retained := r.arrow.ready[0]
++			retained.Retain()
++			defer retained.Release()
++			r.arrow.release()
++			if got := retained.Column(0).(*array.Int64).Value(0); got != 9007199254740993 {
++				t.Fatal("retained exact value/default changed", got)
++			}
++			if got := retained.Column(8).(*array.String).Value(1); got != "payload\x00é:1" {
++				t.Fatal("retained variable-width payload changed", got)
++			}
++		})
++	}
++}
++
++func TestBatchedArrowErrorsAndSkippedTail(t *testing.T) {
++	for _, mode := range []string{"partial", "retained", "offset", "limit"} {
++		t.Run(mode, func(t *testing.T) {
++			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
++			defer mem.AssertSize(t, 0)
++			r, rows := batchedArrowFixture(mem, 105, 65, 64)
++			defer r.arrow.release()
++			// Later-column coercion must fail after preceding string columns
++			// staged the next row, without flushing any of that partial row.
++			const narrow = 99
++			r.cols[narrow].Type = typeInt16
++			r.arrow.builder.Release()
++			r.arrow.builder = array.NewRecordBuilder(mem, resultSchema(r.cols))
++			for i := range rows {
++				rows[i]["c99"] = "12"
++			}
++			n := 63
++			if mode == "retained" {
++				n = 64
++			}
++			if mode == "offset" || mode == "limit" {
++				n = 0
++			}
++			for i := range n {
++				if err := r.appendArrow(rows[i]); err != nil {
++					t.Fatal(err)
++				}
++			}
++			var retained arrow.RecordBatch
++			if mode == "retained" {
++				retained = r.arrow.ready[0]
++				retained.Retain()
++				defer retained.Release()
++			}
++			bad := rows[64]
++			bad["c99"] = "40000" // valid stored BIGINT, invalid SMALLINT output.
++			if mode == "offset" {
++				r.skip = 1
++			} else if mode == "limit" {
++				r.left = 0
++			}
++			if mode == "partial" || mode == "retained" {
++				before := r.arrow.rows
++				if err := r.appendArrow(bad); err == nil || r.arrow.rows != before {
++					t.Fatal("coercion published a partial row", err)
++				}
++			}
++			bad["c103"] = "malformed" // required decode must beat output error/skip.
++			if err := r.appendArrow(bad); err == nil || !strings.Contains(err.Error(), "c103") {
++				t.Fatal("required decode/error ordering changed", err)
++			}
++			r.arrow.release()
++			if retained != nil && retained.Column(narrow).(*array.Int16).Value(0) != 12 {
++				t.Fatal("retained prior batch changed after failure/release")
++			}
++		})
++	}
++}
++
++func TestBatchedArrowLimitOffsetAndMetadataErrorOrder(t *testing.T) {
++	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
++	defer mem.AssertSize(t, 0)
++	r, rows := batchedArrowFixture(mem, 105, 131, 65)
++	defer r.arrow.release()
++	r.skip, r.left = 3, 67
++	var expected [][]Value
++	for i, raw := range rows {
++		if i >= 3 && i < 70 {
++			row, err := r.it.projection.decode(raw)
++			if err != nil {
++				t.Fatal(err)
++			}
++			expected = append(expected, row)
++		}
++		if err := r.appendArrow(raw); err != nil {
++			t.Fatal(err)
++		}
++	}
++	finishBatchedArrowForTest(r)
++	if r.left != 0 || len(r.arrow.ready) != 2 || r.arrow.ready[0].NumRows() != 65 || r.arrow.ready[1].NumRows() != 2 {
++		t.Fatal("limit/offset record boundaries changed")
++	}
++	at := 0
++	for _, rec := range r.arrow.ready {
++		n := int(rec.NumRows())
++		want, err := buildRecord(mem, r.cols, expected[at:at+n])
++		if err != nil {
++			t.Fatal(err)
++		}
++		if !array.RecordApproxEqual(rec, want, array.WithNaNsEqual(true), array.WithAbsTolerance(0)) {
++			t.Error("limited full-field output differs")
++		}
++		want.Release()
++		at += n
++	}
++	// Even the skipped LIMIT tail is validated in metadata order.
++	bad := rows[130]
++	bad["c99"], bad["c103"] = "malformed", "malformed"
++	if err := r.appendArrow(bad); err == nil || !strings.Contains(err.Error(), "c99") {
++		t.Fatal("metadata error ordering changed after LIMIT", err)
++	}
++}
++
++func TestBatchedArrowFallbacks(t *testing.T) {
++	for _, mode := range []string{"narrow", "small_batch", "byte_budget", "time", "fixed_string"} {
++		t.Run(mode, func(t *testing.T) {
++			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
++			defer mem.AssertSize(t, 0)
++			width, batchRows := 105, 512
++			if mode == "narrow" {
++				width = 8
++			} else if mode == "small_batch" {
++				batchRows = 1
++			}
++			r, rows := batchedArrowFixture(mem, width, 1, batchRows)
++			defer r.arrow.release()
++			if mode == "byte_budget" {
++				r.batchBytes = 256
++			} else if mode == "time" || mode == "fixed_string" {
++				typ := timeType(arrow.Microsecond)
++				text := "1234"
++				if mode == "fixed_string" {
++					typ, text = ColType{Kind: KindString, Fixed: true, Length: 5}, "x"
++				}
++				r.cols[0].Type, r.it.meta.Columns[0].Type = typ, typ
++				r.it.meta.Columns[0].MissingThrough = 0
++				rows[0]["c0"] = text
++				// Reconstruct the same bare references used by the fixture.
++				items := make([]planItem, len(r.cols))
++				for j, col := range r.cols {
++					items[j].expr = &ColumnRef{Name: col.Name}
++				}
++				r.it.projection = newScanProjection(r.it, items)
++				r.arrow.builder.Release()
++				r.arrow.builder = array.NewRecordBuilder(mem, resultSchema(r.cols))
++			}
++			if err := r.appendArrow(rows[0]); err != nil {
++				t.Fatal(err)
++			}
++			if r.arrow.batched != nil {
++				t.Fatal("unsupported stream selected batching")
++			}
++			finishBatchedArrowForTest(r)
++		})
++	}
++}
++
++func BenchmarkBatchedArrowConstruction(b *testing.B) {
++	for _, width := range []int{8, 105} {
++		for _, count := range []int{63, 1024} {
++			for _, batched := range []bool{false, true} {
++				b.Run(fmt.Sprintf("columns_%d/rows_%d/batched_%t", width, count, batched), func(b *testing.B) {
++					fixture, raws := batchedArrowFixture(memory.DefaultAllocator, width, count, 512)
++					fixture.arrow.release()
++					build := func() *streamReader {
++						r, _ := batchedArrowFixture(memory.DefaultAllocator, width, 0, 512)
++						r.arrow.batchChecked = !batched // baseline-equivalent scalar control.
++						for _, raw := range raws {
++							if err := r.appendArrow(raw); err != nil {
++								b.Fatal(err)
++							}
++						}
++						finishBatchedArrowForTest(r)
++						return r
++					}
++					validate := func(r *streamReader) {
++						at := 0
++						for _, record := range r.arrow.ready {
++							n := int(record.NumRows())
++							rows := make([][]Value, n)
++							for i := range rows {
++								var err error
++								rows[i], err = r.it.projection.decode(raws[at+i])
++								if err != nil {
++									b.Fatal(err)
++								}
++							}
++							want, err := buildRecord(memory.DefaultAllocator, r.cols, rows)
++							if err != nil {
++								b.Fatal(err)
++							}
++							if !array.RecordApproxEqual(record, want, array.WithNaNsEqual(true), array.WithAbsTolerance(0)) {
++								b.Fatal("complete typed field validation differs")
++							}
++							want.Release()
++							at += n
++						}
++						if at != len(raws) {
++							b.Fatal("incomplete Arrow output", at)
++						}
++					}
++					control := build()
++					validate(control)
++					control.arrow.release()
++					b.ReportAllocs()
++					b.ResetTimer()
++					for range b.N {
++						r := build()
++						r.arrow.release()
++					}
++					b.StopTimer()
++					control = build()
++					validate(control)
++					control.arrow.release()
++				})
++			}
++		}
++	}
++}
+-- 
+2.54.0 (Apple Git-157)
+

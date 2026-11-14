@@ -1,0 +1,264 @@
+{
+  "source_commit": "2caafbc3cef7005523d4f0eca1631c2646128d4e",
+  "control": "same candidate tree, staging selection disabled; includes fresh setup and full-field validation outside timing",
+  "samples": [
+    {
+      "columns": 8,
+      "rows": 63,
+      "batched": false,
+      "ns_per_op": 67732,
+      "bytes_per_op": 79856,
+      "allocs_per_op": 164
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "batched": false,
+      "ns_per_op": 67321,
+      "bytes_per_op": 79856,
+      "allocs_per_op": 164
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "batched": false,
+      "ns_per_op": 66880,
+      "bytes_per_op": 79856,
+      "allocs_per_op": 164
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "batched": true,
+      "ns_per_op": 68506,
+      "bytes_per_op": 79856,
+      "allocs_per_op": 164
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "batched": true,
+      "ns_per_op": 67200,
+      "bytes_per_op": 79856,
+      "allocs_per_op": 164
+    },
+    {
+      "columns": 8,
+      "rows": 63,
+      "batched": true,
+      "ns_per_op": 68240,
+      "bytes_per_op": 79856,
+      "allocs_per_op": 164
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "batched": false,
+      "ns_per_op": 920205,
+      "bytes_per_op": 130128,
+      "allocs_per_op": 224
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "batched": false,
+      "ns_per_op": 940214,
+      "bytes_per_op": 130128,
+      "allocs_per_op": 224
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "batched": false,
+      "ns_per_op": 937186,
+      "bytes_per_op": 130128,
+      "allocs_per_op": 224
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "batched": true,
+      "ns_per_op": 917776,
+      "bytes_per_op": 130128,
+      "allocs_per_op": 224
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "batched": true,
+      "ns_per_op": 919446,
+      "bytes_per_op": 130128,
+      "allocs_per_op": 224
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "batched": true,
+      "ns_per_op": 915921,
+      "bytes_per_op": 130128,
+      "allocs_per_op": 224
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "batched": false,
+      "ns_per_op": 761381,
+      "bytes_per_op": 1189749,
+      "allocs_per_op": 2386
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "batched": false,
+      "ns_per_op": 771984,
+      "bytes_per_op": 1189749,
+      "allocs_per_op": 2386
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "batched": false,
+      "ns_per_op": 764590,
+      "bytes_per_op": 1189750,
+      "allocs_per_op": 2386
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "batched": true,
+      "ns_per_op": 709399,
+      "bytes_per_op": 1237506,
+      "allocs_per_op": 3067
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "batched": true,
+      "ns_per_op": 714267,
+      "bytes_per_op": 1237507,
+      "allocs_per_op": 3067
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "batched": true,
+      "ns_per_op": 700811,
+      "bytes_per_op": 1237506,
+      "allocs_per_op": 3067
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "batched": false,
+      "ns_per_op": 10306777,
+      "bytes_per_op": 2229416,
+      "allocs_per_op": 3257
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "batched": false,
+      "ns_per_op": 10338938,
+      "bytes_per_op": 2229416,
+      "allocs_per_op": 3257
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "batched": false,
+      "ns_per_op": 10492316,
+      "bytes_per_op": 2229416,
+      "allocs_per_op": 3257
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "batched": true,
+      "ns_per_op": 8991920,
+      "bytes_per_op": 2493817,
+      "allocs_per_op": 3982
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "batched": true,
+      "ns_per_op": 9165468,
+      "bytes_per_op": 2493816,
+      "allocs_per_op": 3982
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "batched": true,
+      "ns_per_op": 9094511,
+      "bytes_per_op": 2493816,
+      "allocs_per_op": 3982
+    }
+  ],
+  "summary": [
+    {
+      "columns": 8,
+      "rows": 63,
+      "scalar": {
+        "ns_per_op": 67321,
+        "bytes_per_op": 79856,
+        "allocs_per_op": 164
+      },
+      "batched": {
+        "ns_per_op": 68240,
+        "bytes_per_op": 79856,
+        "allocs_per_op": 164
+      },
+      "time_change_pct": 1.365101528497803,
+      "bytes_change_pct": 0.0
+    },
+    {
+      "columns": 8,
+      "rows": 1024,
+      "scalar": {
+        "ns_per_op": 937186,
+        "bytes_per_op": 130128,
+        "allocs_per_op": 224
+      },
+      "batched": {
+        "ns_per_op": 917776,
+        "bytes_per_op": 130128,
+        "allocs_per_op": 224
+      },
+      "time_change_pct": -2.0710936783093215,
+      "bytes_change_pct": 0.0
+    },
+    {
+      "columns": 105,
+      "rows": 63,
+      "scalar": {
+        "ns_per_op": 764590,
+        "bytes_per_op": 1189749,
+        "allocs_per_op": 2386
+      },
+      "batched": {
+        "ns_per_op": 709399,
+        "bytes_per_op": 1237506,
+        "allocs_per_op": 3067
+      },
+      "time_change_pct": -7.218378477353871,
+      "bytes_change_pct": 4.01403993615459
+    },
+    {
+      "columns": 105,
+      "rows": 1024,
+      "scalar": {
+        "ns_per_op": 10338938,
+        "bytes_per_op": 2229416,
+        "allocs_per_op": 3257
+      },
+      "batched": {
+        "ns_per_op": 9094511,
+        "bytes_per_op": 2493816,
+        "allocs_per_op": 3982
+      },
+      "time_change_pct": -12.0363135942976,
+      "bytes_change_pct": 11.859608076734007
+    }
+  ]
+}
