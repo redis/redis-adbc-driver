@@ -36,5 +36,7 @@ uses the actual reopened connection's worker and existing coalesced wake; no inl
 collection, longer deadline, SQL replay, new skip or production behavior change. Original
 first 256 / remaining 344 / retained 600-row and final generation/index/ownership checks
 remain. This is scheduling control in a recovery test, not a new production GC
-latency guarantee. Human maintainer approval remains separate. Remote CI verification
-is pending when this correction is pushed.
+latency guarantee. Human maintainer approval remains separate. The full [remote Test run](https://github.com/redis/redis-adbc-driver/actions/runs/43645143585)
+passed at source `31426a96866c4bc12f7f691b3b1de23a6af9dbef`, including both
+architectures' driver, snapshot and integration jobs. This run verifies the
+CI-test correction before the later performance follow-ups.
