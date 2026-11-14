@@ -5,6 +5,13 @@ unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF
 This directory changes benchmark tooling/evidence, not production driver behavior.
 The raw Redis client is redis-py, not the managed snapshot-aware `NativeClient`.
 
+[Compaction reply-wait investigation](compaction-reply-2026-11-13/report.md)
+retains the unchanged control and both rejected server-counter attribution
+attempts. Added INFO requests moved the wait into the preceding observer call;
+per-release counters failed their visibility gate. All diagnostic code remains
+unapplied, and no production speedup or causal server/transport claim follows.
+Audit with `python3 benchmarks/table-modes/compaction_reply_audit.py`.
+
 [Current main reference](current-main-next-2026-11-13/report.md) records all 156
 validated read/write/creation trials on source `24f654b7`, with no conflicts or
 retries. [Explicit streamed managed ingestion](streamed-publication-2026-11-13/report.md)

@@ -1,0 +1,312 @@
+diff --git a/go/snapshot_compaction_commandstats_test.go b/go/snapshot_compaction_commandstats_test.go
+new file mode 100644
+index 00000000..e07ef4e1
+--- /dev/null
++++ b/go/snapshot_compaction_commandstats_test.go
+@@ -0,0 +1,91 @@
++// Copyright (c) 2026 ADBC Drivers Contributors
++// Licensed under the Apache License, Version 2.0.
++
++package redis
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	goredis "github.com/redis/go-redis/v9"
++	"strings"
++	"testing"
++)
++
++func TestSnapshotCompactionCommandstats(t *testing.T) {
++	valid := "# Commandstats\r\ncmdstat_eval:calls=4,usec=12,usec_per_call=3.00,rejected_calls=0,failed_calls=0\r\ncmdstat_evalsha:calls=5,usec=21,usec_per_call=4.20,rejected_calls=2,failed_calls=1\r\ncmdstat_hget:calls=500,usec=123\r\n"
++	got, err := compactionParseScriptStats(valid)
++	if err != nil || got != (compactionScriptStats{Calls: 9, Microseconds: 33, Rejected: 2, Failed: 1}) {
++		t.Fatal("invalid aggregate", got, err)
++	}
++	for name, bad := range map[string]string{
++		"empty": "", "unrelated": "cmdstat_hget:calls=1,usec=2", "missing_calls": "cmdstat_eval:usec=2", "missing_usec": "cmdstat_eval:calls=1", "negative": "cmdstat_eval:calls=-1,usec=2", "malformed": "cmdstat_eval:calls=x,usec=2", "duplicate_counter": "cmdstat_eval:calls=1,calls=1,usec=2", "duplicate_command": "cmdstat_eval:calls=1,usec=2\ncmdstat_eval:calls=1,usec=2", "overflow": "cmdstat_eval:calls=9223372036854775807,usec=2\ncmdstat_evalsha:calls=1,usec=2", "invalid_rejected": "cmdstat_eval:calls=1,usec=2,rejected_calls=x", "missing_equals": "cmdstat_eval:calls,usec=2",
++	} {
++		t.Run(name, func(t *testing.T) {
++			if _, err := compactionParseScriptStats(bad); err == nil {
++				t.Fatal("accepted invalid counters")
++			}
++		})
++	}
++	// Unknown operational fields and unrelated commands must never reach JSON.
++	got, err = compactionParseScriptStats("cmdstat_eval:calls=1,usec=2,private=SECRET\ncmdstat_SECRET:calls=1,usec=2")
++	if err != nil {
++		t.Fatal(err)
++	}
++	data, err := json.Marshal(got)
++	if err != nil || strings.Contains(string(data), "SECRET") || string(data) != "{\"calls\":1,\"microseconds\":2,\"rejected\":0,\"failed\":0}" {
++		t.Fatal("unsafe profile shape")
++	}
++	before := compactionScriptStats{Calls: 10, Microseconds: 100, Rejected: 3, Failed: 2}
++	after := compactionScriptStats{Calls: 11, Microseconds: 104, Rejected: 3, Failed: 2}
++	delta, err := compactionScriptStatsDelta(before, after)
++	if err != nil || delta != (compactionScriptStats{Calls: 1, Microseconds: 4}) {
++		t.Fatal("wrong delta", delta, err)
++	}
++	for name, bad := range map[string]compactionScriptStats{
++		"none": before, "concurrent": {Calls: 12, Microseconds: 104, Rejected: 3, Failed: 2}, "reset": {Calls: 11, Microseconds: 99, Rejected: 3, Failed: 2}, "rejected": {Calls: 11, Microseconds: 104, Rejected: 4, Failed: 2}, "failed": {Calls: 11, Microseconds: 104, Rejected: 3, Failed: 3},
++	} {
++		t.Run(name, func(t *testing.T) {
++			if _, err := compactionScriptStatsDelta(before, bad); err == nil {
++				t.Fatal("accepted contaminated counters")
++			}
++		})
++	}
++}
++
++// A diagnostic counter failure cannot turn acknowledged cleanup into a failed
++// release and trigger the pin's explicit retry. This is endpoint-free.
++type compactionCommandstatsReply struct{}
++
++func (compactionCommandstatsReply) DialHook(next goredis.DialHook) goredis.DialHook { return next }
++func (compactionCommandstatsReply) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
++	return next
++}
++func (compactionCommandstatsReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
++	return func(ctx context.Context, cmd goredis.Cmder) error {
++		if cmd.Name() != "info" {
++			return errors.New("unexpected diagnostic command")
++		}
++		cmd.(*goredis.StringCmd).SetVal("cmdstat_eval:calls=10,usec=100")
++		return nil
++	}
++}
++func TestSnapshotCompactionCommandstatsObservationPreservesRelease(t *testing.T) {
++	monitor := goredis.NewClient(&goredis.Options{})
++	defer monitor.Close()
++	monitor.AddHook(compactionCommandstatsReply{})
++	for _, original := range []error{nil, errors.New("original release failure")} {
++		observer := &compactionReleaseHook{io: &compactionReleaseIO{}, monitor: monitor}
++		called := 0
++		next := observer.ProcessHook(func(ctx context.Context, cmd goredis.Cmder) error { called++; return original })
++		cmd := goredis.NewCmd(context.Background(), "EVAL", snapshotControl, 1, "private-key", "release")
++		got := next(context.Background(), cmd)
++		if got != original || called != 1 || len(observer.samples) != 1 || observer.samples[0]["commandstats_valid"] != false {
++			t.Fatal("observation changed release outcome", got, called, observer.samples)
++		}
++		encoded, err := json.Marshal(observer.samples)
++		if err != nil || strings.Contains(string(encoded), "private-key") || strings.Contains(string(encoded), "original release failure") {
++			t.Fatal("unsafe diagnostic report")
++		}
++	}
++}
+diff --git a/go/snapshot_compaction_profile_test.go b/go/snapshot_compaction_profile_test.go
+index 8f66a290..9ab98ae1 100644
+--- a/go/snapshot_compaction_profile_test.go
++++ b/go/snapshot_compaction_profile_test.go
+@@ -191,6 +191,9 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
+ 		t.Skip("set REDIS_SNAPSHOT_COMPACTION_PROFILE for owned-fixture profiling")
+ 	}
+ 	dense := os.Getenv("REDIS_SNAPSHOT_COMPACTION_DENSE_PROFILE") != ""
++	if os.Getenv("REDIS_SNAPSHOT_COMPACTION_COMMANDSTATS") != "" && os.Getenv("REDIS_SNAPSHOT_COMPACTION_RELEASE_IO") == "" {
++		t.Fatal("commandstats attribution requires release I/O instrumentation")
++	}
+ 	for _, paced := range []bool{true, false} {
+ 		t.Run(fmt.Sprintf("paced_%t", paced), func(t *testing.T) {
+ 			h, raw, _ := newSnapshotHarnessMode(t, false, false)
+@@ -230,6 +233,12 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
+ 			var releaseObserver *compactionReleaseHook
+ 			if releaseClient != nil {
+ 				releaseObserver = &compactionReleaseHook{io: releaseIO, phase: profile.current, client: releaseClient}
++				if os.Getenv("REDIS_SNAPSHOT_COMPACTION_COMMANDSTATS") != "" {
++					if _, err := compactionReadScriptStats(h.ctx, raw); err != nil {
++						t.Fatal(err)
++					}
++					releaseObserver.monitor = raw
++				}
+ 				releaseClient.AddHook(releaseObserver)
+ 			}
+ 			s.client.AddHook(profile)
+@@ -317,6 +326,17 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
+ 					t.Fatal(err)
+ 				}
+ 				t.Logf("compaction_dense_release_profile %s", encoded)
++				if releaseObserver.monitor != nil {
++					valid := 0
++					for _, sample := range releaseObserver.samples {
++						if sample["commandstats_valid"] == true {
++							valid++
++						}
++					}
++					if valid != len(releaseObserver.samples) {
++						t.Fatalf("commandstats attribution invalid: %d of %d samples valid; full job/output validation completed", valid, len(releaseObserver.samples))
++					}
++				}
+ 			}
+ 		})
+ 	}
+diff --git a/go/snapshot_compaction_release_profile_test.go b/go/snapshot_compaction_release_profile_test.go
+index 560b360b..5ed064fd 100644
+--- a/go/snapshot_compaction_release_profile_test.go
++++ b/go/snapshot_compaction_release_profile_test.go
+@@ -6,8 +6,11 @@ package redis
+ import (
+ 	"context"
+ 	"encoding/json"
++	"fmt"
+ 	"net"
+ 	"os"
++	"strconv"
++	"strings"
+ 	"sync/atomic"
+ 	"testing"
+ 	"time"
+@@ -47,6 +50,7 @@ type compactionReleaseHook struct {
+ 	samples []map[string]any // release calls are serial; caller joins heartbeat
+ 	phase   func() string
+ 	client  *goredis.Client
++	monitor *goredis.Client // independent INFO requests are outside hook/socket timers
+ }
+ 
+ func (*compactionReleaseHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+@@ -65,6 +69,14 @@ func (h *compactionReleaseHook) ProcessHook(next goredis.ProcessHook) goredis.Pr
+ 				return next(ctx, cmd)
+ 			}
+ 		}
++		var commandBefore compactionScriptStats
++		var monitorErr error
++		var monitorBeforeNS int64
++		if h.monitor != nil {
++			monitorStart := time.Now()
++			commandBefore, monitorErr = compactionReadScriptStats(ctx, h.monitor)
++			monitorBeforeNS = time.Since(monitorStart).Nanoseconds()
++		}
+ 		var misses, timeouts uint32
+ 		if h.client != nil {
+ 			before := h.client.PoolStats()
+@@ -74,16 +86,45 @@ func (h *compactionReleaseHook) ProcessHook(next goredis.ProcessHook) goredis.Pr
+ 		readNS, writeNS := h.io.readNS.Load(), h.io.writeNS.Load()
+ 		start := time.Now()
+ 		err := next(ctx, cmd)
++		elapsed := time.Since(start)
++		readElapsed, writeElapsed := h.io.readNS.Load()-readNS, h.io.writeNS.Load()-writeNS
++		readCount, writeCount := h.io.reads.Load()-reads, h.io.writes.Load()-writes
+ 		row := map[string]any{
+-			"hook_nanoseconds": time.Since(start).Nanoseconds(),
+-			"read_nanoseconds": h.io.readNS.Load() - readNS, "write_nanoseconds": h.io.writeNS.Load() - writeNS,
+-			"reads": h.io.reads.Load() - reads, "writes": h.io.writes.Load() - writes,
++			"hook_nanoseconds": elapsed.Nanoseconds(),
++			"read_nanoseconds": readElapsed, "write_nanoseconds": writeElapsed,
++			"reads": readCount, "writes": writeCount,
+ 			"success": err == nil,
+ 		}
+ 		if h.client != nil {
+ 			after := h.client.PoolStats()
+ 			row["phase"], row["pool_misses"], row["pool_timeouts"] = phase, after.Misses-misses, after.Timeouts-timeouts
+ 		}
++		if h.monitor != nil {
++			// Observation failures must not become release failures: doing so
++			// causes the pin's explicit idempotent cleanup retry and changes the
++			// operation under observation. The profile asserts validity only
++			// after the full job, row checks and normal cleanup have completed.
++			row["script_commandstats_before"] = commandBefore
++			row["commandstats_before_nanoseconds"] = monitorBeforeNS
++			monitorStart := time.Now()
++			after, afterErr := compactionReadScriptStats(ctx, h.monitor)
++			row["commandstats_after_nanoseconds"] = time.Since(monitorStart).Nanoseconds()
++			row["script_commandstats_after"] = after
++			if monitorErr == nil {
++				monitorErr = afterErr
++			}
++			if monitorErr == nil {
++				var delta compactionScriptStats
++				delta, monitorErr = compactionScriptStatsDelta(commandBefore, after)
++				row["script_commandstats"] = delta
++			}
++			row["commandstats_valid"] = monitorErr == nil
++			if monitorErr != nil {
++				// All errors originate in the fixed parser/delta/request
++				// classification functions, never in raw INFO/client errors.
++				row["commandstats_error"] = monitorErr.Error()
++			}
++		}
+ 		h.samples = append(h.samples, row)
+ 		return err
+ 	}
+@@ -181,3 +222,81 @@ func TestSnapshotCompactionReleaseProfile(t *testing.T) {
+ 	}
+ 	t.Logf("compaction_release_profile %s", encoded)
+ }
++
++// Only fixed aggregate counters leave the INFO parser. Do not put raw INFO or
++// command error text in profile output; they can contain operational details.
++type compactionScriptStats struct {
++	Calls        int64 `json:"calls"`
++	Microseconds int64 `json:"microseconds"`
++	Rejected     int64 `json:"rejected"`
++	Failed       int64 `json:"failed"`
++}
++
++func compactionParseScriptStats(info string) (compactionScriptStats, error) {
++	var total compactionScriptStats
++	found := false
++	seen := map[string]bool{}
++	for _, line := range strings.Split(info, "\n") {
++		line = strings.TrimSpace(line)
++		name, fields, ok := strings.Cut(line, ":")
++		if !ok || (name != "cmdstat_eval" && name != "cmdstat_evalsha") {
++			continue
++		}
++		if seen[name] {
++			return total, fmt.Errorf("duplicate script commandstats command")
++		}
++		seen[name] = true
++		values := map[string]int64{}
++		for _, field := range strings.Split(fields, ",") {
++			key, value, ok := strings.Cut(field, "=")
++			if key != "calls" && key != "usec" && key != "rejected_calls" && key != "failed_calls" {
++				continue
++			}
++			if !ok {
++				return total, fmt.Errorf("invalid script commandstats counter")
++			}
++			if _, duplicate := values[key]; duplicate {
++				return total, fmt.Errorf("duplicate script commandstats counter")
++			}
++			n, err := strconv.ParseInt(value, 10, 64)
++			if err != nil || n < 0 {
++				return total, fmt.Errorf("invalid script commandstats counter")
++			}
++			values[key] = n
++		}
++		if _, ok := values["calls"]; !ok {
++			return total, fmt.Errorf("missing script commandstats calls")
++		}
++		if _, ok := values["usec"]; !ok {
++			return total, fmt.Errorf("missing script commandstats usec")
++		}
++		found = true
++		total.Calls += values["calls"]
++		total.Microseconds += values["usec"]
++		total.Rejected += values["rejected_calls"]
++		total.Failed += values["failed_calls"]
++		if total.Calls < 0 || total.Microseconds < 0 || total.Rejected < 0 || total.Failed < 0 {
++			return compactionScriptStats{}, fmt.Errorf("script commandstats overflow")
++		}
++	}
++	if !found {
++		return total, fmt.Errorf("script commandstats unavailable")
++	}
++	return total, nil
++}
++
++func compactionReadScriptStats(ctx context.Context, client *goredis.Client) (compactionScriptStats, error) {
++	raw, err := client.Info(ctx, "commandstats").Result()
++	if err != nil {
++		return compactionScriptStats{}, fmt.Errorf("script commandstats request failed")
++	}
++	return compactionParseScriptStats(raw)
++}
++
++func compactionScriptStatsDelta(before, after compactionScriptStats) (compactionScriptStats, error) {
++	d := compactionScriptStats{Calls: after.Calls - before.Calls, Microseconds: after.Microseconds - before.Microseconds, Rejected: after.Rejected - before.Rejected, Failed: after.Failed - before.Failed}
++	if d.Calls != 1 || d.Microseconds < 0 || d.Rejected != 0 || d.Failed != 0 {
++		return d, fmt.Errorf("script commandstats contaminated, reset or failed")
++	}
++	return d, nil
++}

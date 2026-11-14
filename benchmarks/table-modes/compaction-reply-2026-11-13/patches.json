@@ -1,0 +1,14 @@
+{
+  "initial.patch": {
+    "source": "549cbd4a429b8c17d78c6750a1390c504ebf2ce0",
+    "sha256": "91cfb94ce4e9d633e976d2e92076726081c708c87574ad9ca046dbaeaee60277",
+    "base": "88774f10",
+    "scope": "exact Go test-only diff; unapplied"
+  },
+  "corrected.patch": {
+    "source": "d2abe7358b548cc8c42932b8ccea0dd0e70acf87",
+    "sha256": "c67bf54f76bfd4955d3b36e15f5cb8e9dec2c2964afada05b266491601baa506",
+    "base": "88774f10",
+    "scope": "exact Go test-only diff; unapplied"
+  }
+}
