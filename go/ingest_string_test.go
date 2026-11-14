@@ -17,7 +17,7 @@ import (
 )
 
 func TestIngestStringArenaOwnership(t *testing.T) {
-	const text = "é" + string([]byte{0}) + "🙂"
+	text := "é" + string([]byte{0}) + "🙂"
 	if strings.IndexByte(text, 0) < 0 {
 		t.Fatal("ownership fixture has no NUL byte")
 	}
