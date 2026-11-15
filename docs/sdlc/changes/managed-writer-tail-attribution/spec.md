@@ -1,0 +1,7 @@
+# Contract
+
+The opt-in `TestManagedInterleavedWriterTailProfile` runs one warmup and three rotated measured trials of 1/4/8 concurrent SQL writers, 144 total operations per trial by default, interleaving INSERT/UPDATE/DELETE against a shared 1,000-row managed table. Writers change disjoint seed rows and insert distinct public IDs. There are no caller retries or discarded trials. Complete ordered final rows and values are checked independently after timing; every operation requires exactly one acknowledged affected row.
+
+Record operation-relative foreground command categories/counts/timing, snapshot acquire attempts, elapsed time through successful `admit_ingest`, and maintenance command timelines from separately hooked production worker clients. Admission off-transport time includes Go work, scheduling and timers; it is not a pure sleep measurement. Pin-release commands using background contexts are excluded from per-operation command attribution. Maintenance overlap establishes correlation, not causation or exact wake delivery. Client elapsed time includes transport/pool/decode overhead and is not Redis CPU.
+
+Go GC association uses the runtime pause ring and explicitly reports whether it contains all trial collections. Per operation it sums stop-the-world pauses for GC cycles that completed during the operation; this is not exact pause overlap or concurrent GC CPU. Output contains no SQL, command arguments, physical keys, credentials or endpoints. Runtime production behavior is unchanged. [Intent](intent.md), [plan](plan.md).
