@@ -36,9 +36,6 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def identity(metadata):
-    return {key: metadata[key] for key in sorted(BUILD_KEYS)}
-
 
 def validate(data):
     meta = data['metadata']
@@ -177,7 +174,7 @@ def flat(row):
 def markdown(result):
     text = '# Native CRUD/query ABBA comparison\n\n'
     text += '672 validated trial records: 168 each in A1/B1/B2/A2, including 168 warmups and 504 measured records. '
-    text += 'Every 42-case matrix and both raw Redis control windows are retained.\n\n'
+    text += 'Every 42-case matrix and all raw Redis control series are retained.\n\n'
     text += 'Target: **' + ('MET' if result['target']['met'] else 'NOT MET') + '** — at least 10% less one-client point-read p50 in both driver modes. '
     text += 'A valid comparison does not imply adoption; tail/other-case regressions remain below.\n\n'
     text += result['throughput_scope'] + '\n\n'
