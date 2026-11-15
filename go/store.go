@@ -995,6 +995,8 @@ type store struct {
 	rowBatchScript     snapshotControlExecutor
 	indexNotifyScript  snapshotControlExecutor
 	pointReadScript    snapshotControlExecutor
+	metadataReadScript snapshotControlExecutor
+	metadataReadHints  snapshotMetadataReadHints
 	compactionScript   snapshotControlExecutor
 	snapshots          bool
 	compactor          *snapshotCompactor

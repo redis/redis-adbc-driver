@@ -140,15 +140,24 @@ func (s *store) readSnapshotMetadataString(ctx context.Context, key string) (str
 	if scope == nil || scope.store != s || scope.write {
 		return s.redis(ctx).Get(ctx, key).Result()
 	}
+	if value, handled, err := s.readSnapshotMetadataHint(ctx, key); handled {
+		return value, err
+	}
 	var read *goredis.StringCmd
 	physical, err := resolveSnapshotMetadataRead(ctx, strings.TrimPrefix(key, metaPrefix), false, &read, "get")
 	if err != nil {
 		return "", err
 	}
+	var value string
 	if read != nil {
-		return read.Result()
+		value, err = read.Result()
+	} else {
+		value, err = s.redis(ctx).Get(ctx, physical).Result()
 	}
-	return s.redis(ctx).Get(ctx, physical).Result()
+	if err == nil {
+		s.rememberSnapshotMetadataHint(ctx, key, len(value))
+	}
+	return value, err
 }
 
 func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing bool, read **goredis.StringCmd, command ...string) (string, error) {
@@ -165,25 +174,7 @@ func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing boo
 		if len(roots) > 256 {
 			return "", errorf(adbc.StatusIO, "invalid snapshot metadata root")
 		}
-		m.roots = roots
-		m.buckets = map[string]map[string]string{}
-		m.checked = map[string]bool{}
-		m.loaded = map[string]bool{}
-		m.bucketChecked = map[string]bool{}
-		m.ready = map[string]bool{}
-		m.building = map[string]string{}
-		if m.dirty == nil {
-			m.dirty = map[string]bool{}
-		}
-		if m.prune == nil {
-			m.prune = map[string]bool{}
-		}
-		if m.changed == nil {
-			m.changed = map[string]bool{}
-		}
-		if m.reads == nil {
-			m.reads = map[string]string{}
-		}
+		initializeSnapshotMetadataState(m, roots)
 	}
 	slot := snapshotMetadataSlot(suffix)
 	owner := m.roots[slot]
@@ -508,4 +499,26 @@ func (s *store) pruneSnapshotMetadata(ctx context.Context) error {
 	}
 	clear(scope.metadata.prune)
 	return nil
+}
+
+func initializeSnapshotMetadataState(m *snapshotMetadataState, roots map[string]string) {
+	m.roots = roots
+	m.buckets = map[string]map[string]string{}
+	m.checked = map[string]bool{}
+	m.loaded = map[string]bool{}
+	m.bucketChecked = map[string]bool{}
+	m.ready = map[string]bool{}
+	m.building = map[string]string{}
+	if m.dirty == nil {
+		m.dirty = map[string]bool{}
+	}
+	if m.prune == nil {
+		m.prune = map[string]bool{}
+	}
+	if m.changed == nil {
+		m.changed = map[string]bool{}
+	}
+	if m.reads == nil {
+		m.reads = map[string]string{}
+	}
 }
