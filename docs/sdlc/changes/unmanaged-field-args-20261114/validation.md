@@ -24,3 +24,5 @@ snapshot harness attempted disposable index/data cleanup before slot release;
 its individual cleanup errors are ignored, so this is not an independently
 verified post-run emptiness claim.
 Private operational details stay outside git. Agent selection is not human review.
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

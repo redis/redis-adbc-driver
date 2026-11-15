@@ -30,3 +30,5 @@ is archived after repeated four-client SQL median loss; unit ownership coverage
 for it stays with the archived source. No adaptive reader, Lua materialization or
 speculative Search alias/reducer path is introduced. A measured sparse penalty is a limitation to publish, not grounds
 for silently changing live-read semantics.
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

@@ -8,3 +8,5 @@
 [Intent](intent.md), [spec](spec.md), [validation](validation.md).
 
 Completed: unit/lifecycle checks, below-trigger unrelated-publication controls, all paired288-write trials, full output validation and offline comparison. Rejected runtime on mixed/worse tails, lower throughput and command amplification. Preserved source/unit patch and all trial evidence; active runtime restored. No further experiment or native confirmation planned for this candidate.
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

@@ -49,3 +49,5 @@ cannot satisfy that contract for externally writable HASHes. Lua would introduce
 separate ACL, materialization, arithmetic and execution-budget work without giving
 an exact distributed Search reducer. The small local field-argument optimization
 therefore reduces client work only; it leaves this server/API boundary visible.
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

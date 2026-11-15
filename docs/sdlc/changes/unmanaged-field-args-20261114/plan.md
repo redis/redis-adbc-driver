@@ -20,3 +20,5 @@
 All live tests used verified Software 4×QPF; no ClickBench/external infrastructure
 or upstream issue/comment. Fixtures closed/cleaned; exclusive slot released.
 Human review remains pending.
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

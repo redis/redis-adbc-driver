@@ -13,3 +13,5 @@ Date/source/requestor: [intent](intent.md); contract: [specification](spec.md). 
 Request counts reproduce the saved round trips; end-to-end medians/tails and physical controls are mixed, so no general latency gain is claimed. The first standalone overlay `control_valid` accounts for most client-observed request time; its server CPU/cause remains unproven. No issue or external comment was created. Root agent source review found no blocker; this is not a human maintainer approval.
 
 Independent review identified that the profile pre-acquires one execution transport for the full run. Per-statement pool acquisition/registration/finish/return/drain are excluded. This is now disclosed in source, all reports and corrected artifact metadata; original emitted labels remain preserved. Metadata/comment-only corrections after timing are identified separately in source provenance; runtime and test logic did not change.
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

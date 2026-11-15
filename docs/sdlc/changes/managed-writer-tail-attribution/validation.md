@@ -1,6 +1,6 @@
 # Validation
 
-Date: 2026-11-14. Runtime source b904cf8d, with new test-only instrumentation. PR pending. Runtime optimization deferred because the measured bottleneck is admission waiting, while repeated readiness proofs are a small share of the longest operations.
+Date: 2026-11-14. Runtime source b904cf8d, with new test-only instrumentation. Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440). Runtime optimization deferred because the measured bottleneck is admission waiting, while repeated readiness proofs are a small share of the longest operations.
 
 - `env -u REDIS_URI -u REDIS_SNAPSHOT_URI go test -count=1 -p 1 -run '^TestManagedTailProfileAttribution$' .`: passed, including eight concurrent operation contexts and production `onceCmd` result handling, maintenance isolation and command-argument omission.
 - Exclusive verified Software run of `REDIS_MANAGED_TAIL_PROFILE=true go test -count=1 -p 1 -timeout 20m -run '^TestManagedInterleavedWriterTailProfile$' -v .`: passed in 124.29 s. One warmup and three rotated measured trials for each of 1/4/8 writers, 144 writes/trial. All 12 complete typed row/value oracles passed; 1,728 acknowledged writes; zero failures/conflicts/retries/missing admission observations.

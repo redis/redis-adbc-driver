@@ -9,3 +9,5 @@ The user requested performance work using subagents. This work identifies the ne
 Success means identifying precisely which native proofs, permissions, key discovery and exact row semantics must survive a combined operation, with runnable hit/miss/overlay attribution and explicit implementation gates. The rejected [root-prefetch experiment](../point-root-prefetch/validation.md) remains rejected. No new cache, lease relaxation, generic scripting ACL grant, unmanaged consistency promise, automatic retry, storage-format change or ClickBench run is in scope.
 
 See [specification](spec.md), [plan and verification](plan.md), and [protocol proposal](../../../validated-point-protocol.md).
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

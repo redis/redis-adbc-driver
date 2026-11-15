@@ -1,6 +1,6 @@
 # Validation and rejection
 
-Date: 2026-11-14. Baseline 88f9aa3a (runtime b904cf8d); executed candidate source 82f5a8f6, runtime pacing source 622fd68e. Status: rejected runtime experiment; active production code restored byte-identically to baseline. PR pending. Source/binary/harness hashes and environment are in [provenance](../../../../benchmarks/managed-admission-pacing/provenance.json).
+Date: 2026-11-14. Baseline 88f9aa3a (runtime b904cf8d); executed candidate source 82f5a8f6, runtime pacing source 622fd68e. Status: rejected runtime experiment; active production code restored byte-identically to baseline. Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440). Source/binary/harness hashes and environment are in [provenance](../../../../benchmarks/managed-admission-pacing/provenance.json).
 
 - Pacing unit contract and concurrent production-wrapper attribution unit passed in both frozen candidate builds. The pacing unit is now archived with the rejected runtime patch, outside the active Go tree.
 - Verified Software focused lifecycle run: all 12 top-level tests passed, no skips. Covered compaction-publication/full-lineage waits, SQL/Arrow pre-input waiting, cancellation/deadline/Close, lost admission replies without replay, expired owners, concurrent SQL/mixed DML and Arrow create_append.

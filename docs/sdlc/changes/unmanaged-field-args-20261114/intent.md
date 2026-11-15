@@ -15,4 +15,4 @@ The field-boxing source, ownership regression, patch and all observations are
 archived. New opt-in profiling and audit tools remain for follow-up. Scope excludes
 managed admission/point paths, approximate reducers, ClickBench and new upstream
 issues. [Specification](spec.md), [plan](plan.md), [validation](validation.md),
-[source API analysis](source-contract.md). PR: parent integration pending.
+[source API analysis](source-contract.md). Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

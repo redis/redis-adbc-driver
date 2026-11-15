@@ -1,5 +1,7 @@
 # Performance investigations — November 14, 2026
 
+[PR #440](https://github.com/redis/redis-adbc-driver/pull/440).
+
 Three parallel source investigations used one exclusively scheduled Redis
 Software fixture. Builds and live tests were serialized around timing windows.
 The [selected environment](environment.json) records the actual server versions,

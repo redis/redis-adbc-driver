@@ -4,3 +4,5 @@
 2. Run full SQL managed write trials with separate maintenance pools and complete final-state validation. `REDIS_MANAGED_TAIL_WRITES` permits a bounded multiple of 24, 48–1440 total writes per trial; default 144.
 3. Compare admission, catalog repetition, readiness, maintenance and GC timelines. Retain baseline evidence; optimize only with supporting measurements and lifecycle checks.
 4. Attach actual checks and limitations in [validation](validation.md). See [intent](intent.md) and [spec](spec.md).
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

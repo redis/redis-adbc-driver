@@ -7,3 +7,5 @@ Preserve fresh snapshot acquisition, target resolution/full validation and exist
 [Intent](intent.md), [plan](plan.md), [validation](validation.md).
 
 Outcome: this candidate contract was tested and rejected. It describes archived experimental source, not shipped runtime behavior; the active driver retains original bounded exponential pacing. [Evidence](../../../../benchmarks/managed-admission-pacing/report.md).
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).

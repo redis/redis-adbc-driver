@@ -1,6 +1,6 @@
 # Managed admission progress pacing experiment
 
-2026-11-14. Requestor: repository user via performance subagents. Baseline runtime b904cf8d plus attribution harness 88f9aa3a. Status: experiment rejected on measured throughput/tail/command regressions; runtime unchanged. PR pending.
+2026-11-14. Requestor: repository user via performance subagents. Baseline runtime b904cf8d plus attribution harness 88f9aa3a. Status: experiment rejected on measured throughput/tail/command regressions; runtime unchanged. Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).
 
 The [baseline](../../../../benchmarks/managed-writer-tail/report.md) observed multi-second admission tails with 56–95 acquire attempts. Older waiters keep the 100 ms exponential-backoff cap even while successful writers publish new target generations. Test whether resetting pacing after observed target publication reduces tails without materially increasing transport/command load or reducing throughput.
 

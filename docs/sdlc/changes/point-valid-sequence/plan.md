@@ -9,3 +9,5 @@ Source/date/status: [intent](intent.md); contract: [specification](spec.md).
 5. Archived sanitized raw observations, separate diagnostic hashes, original run gate and reproducible CSV. Source/runtime hashes for the earlier `7fc608ea` experiment remain unchanged. No broader live/race claim is attached to this test-only follow-up.
 
 The first valid delay reproduces after three native index/directory proofs on either client route, appears almost entirely in connection socket-read elapsed, and has zero observed pool wait. Optional SLOWLOG returned no sample at its 10 ms threshold; no server CPU/cause is established. The next FT.INFO-only/ZCARD-only control matrix remains a proposal. Human maintainer approval is outstanding.
+
+Review: [PR #440](https://github.com/redis/redis-adbc-driver/pull/440).
