@@ -1,0 +1,11 @@
+{
+  "package": "adbc-driver-manager",
+  "version": "1.13.0",
+  "files": {
+    "dbapi.py": "2d45918533eed6beaebe5f3ad14b52fdb6bce9feecd8d8e6a41471dfab5011ce",
+    "_lib.pyx": "d11f2681e5ae735846e8846ccde58b8d07b4b05b391c79db247e57466da9c0eb",
+    "_reader.pyx": "338f75735451cadbccec139f854c91f89624a539de0b708bb207d81b278a4a14",
+    "_blocking_impl.cc": "7efb12436216af64aa23063bbd8a12de1340d5a001ea7f4135e5e64f11c83b1b"
+  },
+  "inspection": "Read installed source files from actual benchmark Linux image with network disabled. No connection or workload executed."
+}

@@ -1,0 +1,17 @@
+{
+  "all_eight_windows_owned_marker_checked": true,
+  "final_database_empty_and_index_free": true,
+  "final_trusted_tls_resp3_probe": true,
+  "owned_server_removed": true,
+  "owned_network_removed": true,
+  "owned_client_image_tag_removed": true,
+  "preexisting_networks_present_and_unchanged": 29,
+  "unrelated_empty_inventory_networks_now_absent": 1,
+  "network_inventory_limitation": "One preexisting empty network from a different Compose project was absent at final inspection. Owned project-scoped teardown did not name it. Cause/timing unverified; do not claim every inventory network remained. No unrelated network recreated.",
+  "preexisting_containers_preserved": 0,
+  "all_preexisting_image_ids_preserved": true,
+  "generated_private_credentials_and_owner_files_removed": true,
+  "base_images_and_build_caches_preserved": true,
+  "cleanup_initial_inventory_check_failed": true,
+  "initial_failure_scope": "Post-teardown inventory assertion only. Owned fixture/image had already been successfully removed; subsequent inspection verified29 unchanged networks and documented1 unrelated absent network."
+}

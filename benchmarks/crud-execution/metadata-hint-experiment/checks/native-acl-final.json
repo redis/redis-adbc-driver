@@ -1,0 +1,35 @@
+{
+  "source_commit": "4871e159889eba104c5eb668d0718a3d67a904b6",
+  "status": "passed",
+  "race_enabled": true,
+  "counts_include_parent_and_subtest_events": true,
+  "event_counts": {
+    "pass": 10,
+    "skip": 0,
+    "fail": 0
+  },
+  "top_level_counts": {
+    "pass": 1,
+    "skip": 0,
+    "fail": 0
+  },
+  "tests": {
+    "pass": [
+      "TestSnapshotMetadataHintLiveNativeACL",
+      "TestSnapshotMetadataHintLiveNativeACL/get/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/get/bucket_corrupt",
+      "TestSnapshotMetadataHintLiveNativeACL/get/object_corrupt",
+      "TestSnapshotMetadataHintLiveNativeACL/exists/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/exists/bucket_corrupt",
+      "TestSnapshotMetadataHintLiveNativeACL/memory/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/hstrlen/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/strlen/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/evalsha/ordinary"
+    ],
+    "skip": [],
+    "fail": []
+  },
+  "ended_with_panic": false,
+  "scope": "Actual Software API principals deny GET, EXISTS, MEMORY, HSTRLEN, STRLEN or EVALSHA.",
+  "notes": "Nine passing subcases plus one parent pass event. Includes simultaneous bucket/object corruption, typed ACL preflights, pre-GET guard fallback and cold/warm public Code/SQLSTATE equality. Zero skips/failures."
+}

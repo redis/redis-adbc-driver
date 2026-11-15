@@ -1,0 +1,7 @@
+{
+  "base_source": "1e29f5d7a5bda3e95a6e3b7dff9aa2d80e0bf578",
+  "tested_source": "4871e159889eba104c5eb668d0718a3d67a904b6",
+  "status": "rejected_unapplied",
+  "reason": "Predeclared >=10% pooled one-client point-read elapsed reduction target not met independently for both modes.",
+  "scope": "Experimental bounded fresh-proof metadata routing hints plus final native ACL fixes. No runtime part of this patch is selected."
+}

@@ -1,0 +1,18 @@
+{
+  "README.md": "a0f658e3c702807149219add5fb9bb5ae61f532d2afbd4d2a635c7ac5671457e",
+  "candidate.patch.gz": "775209d79cf00dcb4fce242400dd8697b8c2d8af561531796eb10b0bd79f747b",
+  "checks/fixture-initial.json": "d19d63131ba2b3a3f09271fa51fb07bfd72751430366651b2e7869c23a0e72dc",
+  "checks/focused-race.json": "c1acc47fb97dc835b09ba669dccda6ac877b6ab48ec8954eeb4f27bd31a7c9ab",
+  "checks/native-acl-final.json": "54f42121b5dac4fd6ad56ad802013c378983b76ce70a8aaadc9af744b248d2cf",
+  "checks/native-acl-initial.json": "ea51357eb7acf523e32a3f0c9960903b7756e99e70b47051fda6fb1ad71ef642",
+  "frozen-builds.json": "6221fdd5f5597fb75262a13307d6c7bd2fbc57e45eb083a0b421da42d8ba84cf",
+  "screen/A1.json": "9ec7d8788086f6962cf15258a6f4c1a5293a84b77ba7d6c9588a20ba92726c13",
+  "screen/A2.json": "e43778fc1531318fcb91147d598eff8467a43c7d2d48b53bef88ad5d206a03fa",
+  "screen/B1.json": "cffc9d6287a1a75c9e7151c4eedce6de4448bf8c23e03af0d2a4a265fd0f11cd",
+  "screen/B2.json": "f1005c713008c8ed9d3823f5bfa40ec448dd12164ffdfef6c8fbe7767366f908",
+  "screen/comparison.csv": "fff1d1f1aa579f3165bdbee7090fd3cbe71f130a5c91cbc0618fdf892e6a34ff",
+  "screen/comparison.json": "574a7ffc49cfa2cc77c8d9a3ff26455560f4a01b0cc085ee0bb16482cf5d394e",
+  "screen/pairs.csv": "5f77e6aee42800cdd105747f2b9becc45e61894f9bb121c1a15f01b45c02cf76",
+  "screen/report.md": "d3fd9b428ebf4c08865053cdd48c979a8eee0aa3427a7e7c660022763a50d588",
+  "source.json": "a9b135fc4cf4b009da0e766b6bf310859622c8dc177afe3234c854e87de3f473"
+}

@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "source": "3b42245402a2d7cf6f363faf7ac713cd36621f90",
+    "library": "bc50f9039e55fe772d828db8042702d6d6ae24eb19ce159f22d5166d14fe98a2",
+    "cli": "5f97472d73528a8808bca6389a75b67b71a6c497e360a46b4a15d766727e419a",
+    "scenarios": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "helpers": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+    "width": "a2fb987ce380a9158cdeb550ddf7cd69000b52908aed1433b044b6a54e397d23"
+  },
+  "candidate": {
+    "source": "a944c99c500f2f5904ff669bea5cb9fb9b6b8e39",
+    "library": "76c6b3702829b55129c5a24bc13e4f38d5ae10aaba9f7c90b7e92190580e5497",
+    "cli": "92f6bf391480094b164f07a384f6a342118a47617051fc4261cea355131f2fbb",
+    "scenarios": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "helpers": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+    "width": "a2fb987ce380a9158cdeb550ddf7cd69000b52908aed1433b044b6a54e397d23"
+  }
+}

@@ -1,0 +1,198 @@
+[
+  {
+    "mode": "managed",
+    "operation": "delete",
+    "samples": 32,
+    "p50_ms": 5.2904375,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 4.800625
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.0082915
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.422209
+      }
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "insert",
+    "samples": 32,
+    "p50_ms": 5.855416,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 5.343625
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.010854
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.463583
+      }
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "point_read",
+    "samples": 32,
+    "p50_ms": 2.0015625,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 1.5220835
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.008479
+      },
+      "arrow_read_all": {
+        "samples": 32,
+        "p50_ms": 0.0066045
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.44675
+      }
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "update",
+    "samples": 32,
+    "p50_ms": 6.543646,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 6.083354
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.0100415
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.504334
+      }
+    }
+  },
+  {
+    "mode": "redis_py",
+    "operation": "delete",
+    "samples": 32,
+    "p50_ms": 0.0415625,
+    "nested_stages": {}
+  },
+  {
+    "mode": "redis_py",
+    "operation": "insert",
+    "samples": 32,
+    "p50_ms": 0.046688,
+    "nested_stages": {}
+  },
+  {
+    "mode": "redis_py",
+    "operation": "point_read",
+    "samples": 32,
+    "p50_ms": 0.0535,
+    "nested_stages": {}
+  },
+  {
+    "mode": "redis_py",
+    "operation": "update",
+    "samples": 32,
+    "p50_ms": 0.0438955,
+    "nested_stages": {}
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "delete",
+    "samples": 32,
+    "p50_ms": 2.249459,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 1.850917
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.006271
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.403333
+      }
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "insert",
+    "samples": 32,
+    "p50_ms": 2.305209,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 1.827229
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.008521
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.421291
+      }
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "point_read",
+    "samples": 32,
+    "p50_ms": 2.031833,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 1.509375
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.00875
+      },
+      "arrow_read_all": {
+        "samples": 32,
+        "p50_ms": 0.008333
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.438417
+      }
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "update",
+    "samples": 32,
+    "p50_ms": 2.205833,
+    "nested_stages": {
+      "adbc_execute_query": {
+        "samples": 32,
+        "p50_ms": 1.784792
+      },
+      "adbc_prepare": {
+        "samples": 32,
+        "p50_ms": 0.006583
+      },
+      "previous_result_close": {
+        "samples": 31,
+        "p50_ms": 0.424084
+      }
+    }
+  }
+]

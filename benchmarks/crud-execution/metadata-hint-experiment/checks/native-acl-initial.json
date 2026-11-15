@@ -1,0 +1,36 @@
+{
+  "source_commit": "8938e8441de013ff5639f62698f3bf4018b9043b",
+  "status": "failed",
+  "race_enabled": true,
+  "counts_include_parent_and_subtest_events": true,
+  "event_counts": {
+    "pass": 4,
+    "skip": 0,
+    "fail": 6
+  },
+  "top_level_counts": {
+    "pass": 0,
+    "skip": 0,
+    "fail": 1
+  },
+  "tests": {
+    "pass": [
+      "TestSnapshotMetadataHintLiveNativeACL/get/bucket_corrupt",
+      "TestSnapshotMetadataHintLiveNativeACL/get/object_corrupt",
+      "TestSnapshotMetadataHintLiveNativeACL/exists/bucket_corrupt",
+      "TestSnapshotMetadataHintLiveNativeACL/evalsha/ordinary"
+    ],
+    "skip": [],
+    "fail": [
+      "TestSnapshotMetadataHintLiveNativeACL",
+      "TestSnapshotMetadataHintLiveNativeACL/get/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/exists/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/memory/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/hstrlen/ordinary",
+      "TestSnapshotMetadataHintLiveNativeACL/strlen/ordinary"
+    ]
+  },
+  "ended_with_panic": false,
+  "scope": "Actual Software API principals deny GET, EXISTS, MEMORY, HSTRLEN, STRLEN or EVALSHA.",
+  "notes": "All nine native subcases completed; four passed, five failed, plus one failed parent event. Backend Lua ERR ACL format prevented intended compatibility handling; the failed attempt is retained."
+}

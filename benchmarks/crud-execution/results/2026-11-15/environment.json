@@ -1,0 +1,20 @@
+{
+  "host_cpu": "Apple M5 Max",
+  "host_logical_cpus": 18,
+  "host_memory_bytes": 38654705664,
+  "host_os": "macOS 26.7.3",
+  "docker_vm_logical_cpus": 18,
+  "docker_vm_memory_bytes": 25420967936,
+  "server_container_cpus": 4,
+  "server_container_memory_bytes": 8589934592,
+  "client_container_cpus": 4,
+  "client_container_memory_bytes": 4294967296,
+  "client_os_arch": "Linux/arm64",
+  "network_route": "Same server Linux network namespace, trusted localhost TLS/RESP3; no macOS published-port data route",
+  "go": "go version go1.27.3 linux/arm64",
+  "python": "3.14.10",
+  "redis_software": "8.2.6-25",
+  "redis": "8.8.0",
+  "search": "80808",
+  "client_platform": "Linux/aarch64"
+}

@@ -1,0 +1,344 @@
+[
+  {
+    "mode": "managed",
+    "operation": "point_read",
+    "p50_ms": 0.7295415,
+    "hook_calls_per_op": 10.0,
+    "commands_per_op": 19.0,
+    "metadata_commands_per_op": 6.0,
+    "categories_per_op": {
+      "control_acquire": 1.0,
+      "hget": 1.0,
+      "zcard": 2.0,
+      "metadata_root_hlen": 1.0,
+      "control_valid": 4.0,
+      "metadata_root_hgetall": 1.0,
+      "hmget": 3.0,
+      "metadata_bucket_hlen": 1.0,
+      "metadata_directory_zcard": 1.0,
+      "metadata_bucket_hget": 1.0,
+      "exists": 1.0,
+      "metadata_object_get": 1.0,
+      "ft.info": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 0.7257085,
+      "fetch_and_release": 0.001708,
+      "set_query": 6.25e-05,
+      "transport_acquire": 0.000542,
+      "transport_finish": 0.000479
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "insert",
+    "p50_ms": 4.2061875,
+    "hook_calls_per_op": 38.0,
+    "commands_per_op": 70.0,
+    "metadata_commands_per_op": 29.375,
+    "categories_per_op": {
+      "control_acquire": 1.75,
+      "hget": 1.5625,
+      "zcard": 14.46875,
+      "metadata_root_hlen": 1.5625,
+      "control_valid": 3.5625,
+      "metadata_root_hgetall": 2.5625,
+      "hmget": 6.125,
+      "metadata_bucket_hlen": 3.5625,
+      "metadata_directory_zcard": 3.5625,
+      "metadata_bucket_hget": 3.5625,
+      "exists": 2.5625,
+      "metadata_object_get": 5.5625,
+      "ft.info": 10.90625,
+      "control_admit_ingest": 1.0,
+      "control_reserve": 1.0,
+      "metadata_clone_root": 1.0,
+      "control_own_data": 1.0,
+      "metadata_clone_bucket": 2.0,
+      "metadata_own_value": 2.0,
+      "metadata_mutation": 4.0,
+      "multi": 1.0,
+      "exec": 1.0,
+      "row_batch": 1.0,
+      "eval": 2.0,
+      "ft.create": 1.0,
+      "zrangebylex": 1.0,
+      "index_notify": 1.0,
+      "ft.search": 1.0,
+      "control_publish": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 4.202354,
+      "set_query": 0.0001045,
+      "transport_acquire": 0.000916,
+      "transport_finish": 0.0009585
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "update",
+    "p50_ms": 4.715021,
+    "hook_calls_per_op": 51.0,
+    "commands_per_op": 77.0,
+    "metadata_commands_per_op": 22.1875,
+    "categories_per_op": {
+      "control_acquire": 1.84375,
+      "hget": 1.53125,
+      "zcard": 14.28125,
+      "metadata_root_hlen": 1.53125,
+      "control_valid": 4.53125,
+      "metadata_root_hgetall": 2.53125,
+      "hmget": 5.0625,
+      "metadata_bucket_hlen": 2.53125,
+      "metadata_directory_zcard": 2.53125,
+      "metadata_bucket_hget": 2.53125,
+      "exists": 2.53125,
+      "metadata_object_get": 4.53125,
+      "ft.info": 10.75,
+      "control_admit_ingest": 1.0,
+      "control_reserve": 1.0,
+      "metadata_clone_root": 1.0,
+      "control_own_data": 1.0,
+      "metadata_clone_bucket": 1.0,
+      "metadata_own_value": 1.0,
+      "metadata_mutation": 3.0,
+      "point_image_read": 13.0,
+      "row_batch": 1.0,
+      "eval": 2.0,
+      "ft.create": 1.0,
+      "zrangebylex": 1.0,
+      "index_notify": 1.0,
+      "ft.search": 1.0,
+      "control_publish": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 4.711667,
+      "set_query": 0.000167,
+      "transport_acquire": 0.0009165,
+      "transport_finish": 0.001
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "delete",
+    "p50_ms": 3.917583,
+    "hook_calls_per_op": 43.0,
+    "commands_per_op": 69.0,
+    "metadata_commands_per_op": 22.1875,
+    "categories_per_op": {
+      "control_acquire": 1.78125,
+      "hget": 1.53125,
+      "zcard": 14.1875,
+      "metadata_root_hlen": 1.53125,
+      "control_valid": 4.53125,
+      "metadata_root_hgetall": 2.53125,
+      "hmget": 5.0625,
+      "metadata_bucket_hlen": 2.53125,
+      "metadata_directory_zcard": 2.53125,
+      "metadata_bucket_hget": 2.53125,
+      "exists": 2.53125,
+      "metadata_object_get": 4.53125,
+      "ft.info": 10.65625,
+      "control_admit_ingest": 1.0,
+      "control_reserve": 1.0,
+      "metadata_clone_root": 1.0,
+      "control_own_data": 1.0,
+      "metadata_clone_bucket": 1.0,
+      "metadata_own_value": 1.0,
+      "metadata_mutation": 3.0,
+      "point_image_read": 6.40625,
+      "row_batch": 1.0,
+      "eval": 2.0,
+      "ft.create": 1.0,
+      "zrangebylex": 1.0,
+      "index_notify": 1.0,
+      "ft.search": 1.0,
+      "control_publish": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 3.91525,
+      "set_query": 8.3e-05,
+      "transport_acquire": 0.000791,
+      "transport_finish": 0.0006665
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "point_read",
+    "p50_ms": 0.6583755,
+    "hook_calls_per_op": 10.0,
+    "commands_per_op": 18.0,
+    "metadata_commands_per_op": 6.0,
+    "categories_per_op": {
+      "control_acquire": 1.0,
+      "hget": 1.0,
+      "zcard": 1.0,
+      "metadata_root_hlen": 1.0,
+      "control_valid": 4.0,
+      "metadata_root_hgetall": 1.0,
+      "hmget": 2.0,
+      "metadata_bucket_hlen": 1.0,
+      "metadata_directory_zcard": 1.0,
+      "metadata_bucket_hget": 1.0,
+      "exists": 1.0,
+      "metadata_object_get": 1.0,
+      "ft.info": 1.0,
+      "hgetall": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 0.655167,
+      "fetch_and_release": 0.0019165,
+      "set_query": 4.2e-05,
+      "transport_acquire": 0.0005,
+      "transport_finish": 0.000375
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "insert",
+    "p50_ms": 0.9041875,
+    "hook_calls_per_op": 15.0,
+    "commands_per_op": 23.0,
+    "metadata_commands_per_op": 7.0,
+    "categories_per_op": {
+      "control_acquire": 1.0,
+      "hget": 1.0,
+      "zcard": 1.0,
+      "metadata_root_hlen": 1.0,
+      "control_valid": 6.0,
+      "metadata_root_hgetall": 1.0,
+      "hmget": 2.0,
+      "metadata_bucket_hlen": 1.0,
+      "metadata_directory_zcard": 1.0,
+      "metadata_bucket_hget": 1.0,
+      "exists": 2.0,
+      "metadata_object_get": 2.0,
+      "ft.info": 2.0,
+      "eval": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 0.902062,
+      "set_query": 4.2e-05,
+      "transport_acquire": 0.0004585,
+      "transport_finish": 0.000375
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "update",
+    "p50_ms": 0.895646,
+    "hook_calls_per_op": 15.0,
+    "commands_per_op": 23.0,
+    "metadata_commands_per_op": 7.0,
+    "categories_per_op": {
+      "control_acquire": 1.0,
+      "hget": 1.0,
+      "zcard": 1.0,
+      "metadata_root_hlen": 1.0,
+      "control_valid": 6.0,
+      "metadata_root_hgetall": 1.0,
+      "hmget": 2.0,
+      "metadata_bucket_hlen": 1.0,
+      "metadata_directory_zcard": 1.0,
+      "metadata_bucket_hget": 1.0,
+      "exists": 1.0,
+      "metadata_object_get": 2.0,
+      "ft.info": 2.0,
+      "hgetall": 1.0,
+      "eval": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 0.893479,
+      "set_query": 8.3e-05,
+      "transport_acquire": 0.0005,
+      "transport_finish": 0.0004375
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "delete",
+    "p50_ms": 0.8879165,
+    "hook_calls_per_op": 15.0,
+    "commands_per_op": 23.0,
+    "metadata_commands_per_op": 7.0,
+    "categories_per_op": {
+      "control_acquire": 1.0,
+      "hget": 1.0,
+      "zcard": 1.0,
+      "metadata_root_hlen": 1.0,
+      "control_valid": 6.0,
+      "metadata_root_hgetall": 1.0,
+      "hmget": 2.0,
+      "metadata_bucket_hlen": 1.0,
+      "metadata_directory_zcard": 1.0,
+      "metadata_bucket_hget": 1.0,
+      "exists": 1.0,
+      "metadata_object_get": 2.0,
+      "ft.info": 2.0,
+      "hgetall": 1.0,
+      "eval": 1.0
+    },
+    "stage_p50_ms": {
+      "execute": 0.8864165,
+      "set_query": 4.2e-05,
+      "transport_acquire": 0.0005,
+      "transport_finish": 0.000416
+    }
+  },
+  {
+    "mode": "raw",
+    "operation": "point_read",
+    "p50_ms": 0.0433335,
+    "hook_calls_per_op": 1.0,
+    "commands_per_op": 1.0,
+    "metadata_commands_per_op": 0.0,
+    "categories_per_op": {
+      "hmget": 1.0
+    },
+    "stage_p50_ms": {
+      "raw_execute_and_convert": 0.0430415
+    }
+  },
+  {
+    "mode": "raw",
+    "operation": "insert",
+    "p50_ms": 0.0405415,
+    "hook_calls_per_op": 1.0,
+    "commands_per_op": 1.0,
+    "metadata_commands_per_op": 0.0,
+    "categories_per_op": {
+      "hset": 1.0
+    },
+    "stage_p50_ms": {
+      "raw_execute_and_convert": 0.040333
+    }
+  },
+  {
+    "mode": "raw",
+    "operation": "update",
+    "p50_ms": 0.040354,
+    "hook_calls_per_op": 1.0,
+    "commands_per_op": 1.0,
+    "metadata_commands_per_op": 0.0,
+    "categories_per_op": {
+      "hset": 1.0
+    },
+    "stage_p50_ms": {
+      "raw_execute_and_convert": 0.040125
+    }
+  },
+  {
+    "mode": "raw",
+    "operation": "delete",
+    "p50_ms": 0.0376875,
+    "hook_calls_per_op": 1.0,
+    "commands_per_op": 1.0,
+    "metadata_commands_per_op": 0.0,
+    "categories_per_op": {
+      "del": 1.0
+    },
+    "stage_p50_ms": {
+      "raw_execute_and_convert": 0.0375205
+    }
+  }
+]

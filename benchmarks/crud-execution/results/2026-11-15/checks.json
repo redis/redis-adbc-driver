@@ -1,0 +1,2843 @@
+{
+  "focused_unmanaged_race": {
+    "command": "go test -race -c -o build/crud-projection-final-race.test .; <binary> -test.v -test.count=1 -test.run ^(TestUnmanaged|TestScan.*Unmanaged) -test.timeout=15m",
+    "events": {
+      "pass": 254,
+      "skip": 6,
+      "fail": 0
+    },
+    "top_level": {
+      "pass": 91,
+      "skip": 6,
+      "fail": 0
+    },
+    "skipped_tests": [
+      "TestUnmanagedAggregateExecutionProfile",
+      "TestUnmanagedProjectionConcurrencyProfile",
+      "TestUnmanagedProjectionSQLConcurrencyProfile",
+      "TestUnmanagedPerformanceSample",
+      "TestUnmanagedProjectionSparseProfile",
+      "TestUnmanagedRetrievalProbe"
+    ],
+    "binary_sha256": "efc3ad6074f6a26af000084141a56948ed01d266c921c39c5b9127001efa620f"
+  },
+  "broad_software": {
+    "command": "REDIS_SNAPSHOT_URI= go -C go test -json -count=1 -p 1 -timeout 30m ./...",
+    "events": {
+      "pass": 2630,
+      "skip": 694
+    },
+    "packages": {
+      "github.com/adbc-drivers/redis/go": "pass",
+      "github.com/adbc-drivers/redis/go/benchmarks/upstreamalloc": "pass",
+      "github.com/adbc-drivers/redis/go/cmd/redis-adbc": "pass",
+      "github.com/adbc-drivers/redis/go/internal/benchproxy": "pass",
+      "github.com/adbc-drivers/redis/go/internal/cuda": "skip",
+      "github.com/adbc-drivers/redis/go/internal/intpredicate": "pass",
+      "github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait": "skip",
+      "github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait/extensions": "skip",
+      "github.com/adbc-drivers/redis/go/internal/testenv": "pass",
+      "github.com/adbc-drivers/redis/go/internal/tlstrust": "pass"
+    },
+    "skipped_tests": [
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLDriverUser"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLClientName"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLReadOnlyUser"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLExecAbort"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLSearchCommandsAndKeys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLAdopt"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestAggregateInputLoadProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestAggregatePagesProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRuntimeExactBigIntAggregates"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRuntimeExactBigIntFallbacks"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRuntimeExactBigIntGroupCapFallback"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLAppIndexReader"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestArrowKeyStreamingProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestClickBenchExecutionProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestCRUDExecutionProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestExactDistinctProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexComparativeProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexColdResourceProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexProbeNoMetadata"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexReadRobustness"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexServerRestart"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexServerFailover"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexLiveSearchCap"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexRowIDBoundary"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexConcurrentRowIDLimit"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexStopgap"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexTruncateOwnership"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexRekeyRollbackRows"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedSourceWrites/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedSourceWrites/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedForeignMembership"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedLookupChecksIndex"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedUnknownWriteAndEncoding"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/scan_permission"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/permission"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/transport"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/warning"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/duplicate"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/malformed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/hash_transport"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/hash_wrongtype_transport"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestFlexUnmanagedReadFailures/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLForeignIndexName"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLHashTools"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestIngestStringArenaMultiRecordValues/unmanaged_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestIngestStringArenaMultiRecordValues/unmanaged_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestIntegerSIMDPrefetchProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestIntegerSIMDProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLateProjectionRetainsDeletedRows"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestLateProjectionProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedCandidatePagesBoundedAndComplete"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedFollowupProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedSingleGenerationDirectoryScan"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedDirectoryPagesRetainTail"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedPerformanceProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedPublicationNextProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedHashReplyReleaseArrowOwnership/candidate_false/finish"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedHashReplyReleaseArrowOwnership/candidate_false/release"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedHashReplyReleaseArrowOwnership/candidate_false/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedHashReplyReleaseArrowOwnership/candidate_true/finish"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedHashReplyReleaseArrowOwnership/candidate_true/release"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedHashReplyReleaseArrowOwnership/candidate_true/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedWritePublicationProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLMatviewRetirementOpenRecovery"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestNarrowScanProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestNativeReaderCloseCancelsRead"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestNativeReaderPermissionRefusal"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestNativeReaderHashVisibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestNativeReaderFailureAndLifetime"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestOLTPStatementReadPoolProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBalancedPartitionCountBudget"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPartitionLegacyMetadataNotMigrated/source_index_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPartitionLegacyMetadataNotMigrated/source_index_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestPrunedPartitionPermissions"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestRangeReadinessChecksAllPrimaries"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestRetainedPartitionAPIProcessHelper"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestRetainedPartitionAPIIndependentProcessAndMinimalACL"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestRetainedPartitionAPIControlPolicyAdmission"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestRetainedPartitionAPICoordinatorDeathHelper"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRetainedSourceCaptureLegacyWithoutMigration/source_index_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRetainedSourceCaptureLegacyWithoutMigration/source_index_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestRetainedPartitionReaderProcessHelper"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestRetainedPartitionIndependentACL"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestPartitionReaderPermissions"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestPartitionRuntimeCapDiscovery"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestPerformance406Profile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLForeignIndexDiscovery"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestQ19Profile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSQLRBACSelect"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestPrefetchScreenSelection"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowInputActualNULSoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSearchReplyScanProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotMetadataAndSequentialReads"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotStreamOwnership"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotFailureAndCancellation/lease-loss"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotFailureAndCancellation/expiry"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotFailureAndCancellation/cancel-and-early-close"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotRejectsUnsupportedUse"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotQuota"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotProcessHelper"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotProcessDeath"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotSurvivesCompactionAndOptionContext"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotAdmissionDoesNotHoldBindingMutex/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotAdmissionDoesNotHoldBindingMutex/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotWriteAdmissionWaitsForCompactionPublication"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionWaitsForFullLineageWithoutReplay"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotAdmissionSocketTimeoutClassification/context_deadline_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotAdmissionSocketTimeoutClassification/context_deadline_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedAdmissionUnrelatedTrafficProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataOnlyAlterSharesRowsAndIndexes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataOnlyAlterStaysPrivateAndConflicts"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBatchScriptEvalOnlySoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionScriptCacheColdHotFlush"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBatchScriptCacheColdHotFlush"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBoundParametersRejectDeclaredSchemaChange"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCandidatesFilterBeforeHashFetch"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCandidatesRejectMissingShadowingVersion"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLookupJoinUsesVisibleCandidates"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterMetadataProofObserverCoversSQLExecution"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterRDBCheckpointWrites"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterManagedStatements"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterDirectNodeFences"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterRDBCheckpointProgress"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterRecovery"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterRowBatchOutcomes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterMetadataDirectoryAndRekey"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterReclaimsLateSearchCreate"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterImportsAcrossPrimaries"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterAutoAndPartitionProduction"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterReferenceAuditDetectsPositiveUndercount"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterMetadataProofObserverIsReadOnly"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicCopyBatch/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicCopyBatch/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicErrorDoesNotRewind"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicFencesAdvancedSuccessor"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/wrong_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/unregistered_hash"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/row_id"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/duplicate_field"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/tombstone"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/prefix_alias"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/checkpoint"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicPreflight/duplicate_member"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicAllDeletedPage"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicIncompleteCopyResumes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionAtomicCheckpointCannotRewind"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedCatalogAcquire"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedReplyLoss/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedReplyLoss/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedLateOriginal"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedRefusalIsUnchanged/foreign_owner"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedRefusalIsUnchanged/reader_limit"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedRetainsMetadataProof"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedEvalOnlySoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionBuildsIndexFromDirectory/dense_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionBuildsIndexFromDirectory/dense_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionLegacyUnindexedCopy/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionLegacyUnindexedCopy/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreindexInterrupted/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreindexInterrupted/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreindexAdmission/stale_owner"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreindexAdmission/populated"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreindexAdmission/advanced"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreindexAdmission/initial_scan"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreindexOldWorker"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionDirectoryReadsMatchCheckpointBatch"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCombinedDirectoryProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBackgroundCompactionSustainsWritesWithPinnedStream"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionBackpressureDoesNoRowWork"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionResumeFencesOldOwnerAndGraftsTail"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionDropAndTruncateDiscardObsoleteJob/DROP_TABLE_t"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionDropAndTruncateDiscardObsoleteJob/TRUNCATE_t"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionBatchesBoundBytes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionExceedsStatementRowBudgetInBatches"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCloseReleasesRecoverableJob"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPublicationYieldsToWriteIntent"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPhaseProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionIdleDoesNotReadTableDescriptors"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionQueuePublishesAtomicallyAndPreservesAge"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionQueueClaimsOnlyTargetAndRecoversLease"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionQueueDefersBrokenSourceWithoutBlockingOthers"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionQueueStalePeekCannotRemoveRecreatedTable"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionQueueSustainsTwoTablesWithoutCallerRetries"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionQueueClaimsPrefixAcrossConcurrentAppend"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionSmallReadsStaySerial"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionReadPipelines/failure_"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionReadPipelines/failure_rank_pipeline"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionReadPipelines/failure_rank_command"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionReadPipelines/failure_page_pipeline"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionReadPipelines/failure_page_command"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPrefetchBoundsAndSparseTails"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPrefetchRejectsChangedDirectory/missing"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPrefetchRejectsChangedDirectory/truncated_tail"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPrefetchRejectsChangedDirectory/malformed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionReleaseProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotAlterCompatibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotExternalCopyCompatibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLivePartitionCompatibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRetainedPartitionCompatibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLivePartitionPinsStream"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotTemporaryCompatibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportStartsBesideExternalData"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/6"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/7"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/8"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/9"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/10"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/11"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/12"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/13"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompatibilityRejectsPriorFormat/14"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotTemporarySweepProtectsRevivedOwner"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotControlScriptCacheColdHotAndFlush"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotControlScriptEvalOnlySoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotControlScriptPointLeaseSoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotControlScriptPointLeaseKeepsAdmissionBounds"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCopyChecklistBeforeCatalogCreation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDataReferencesPrivateCopySurvivesBaseRetirement"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDataReferencesDescriptorReplacementIsAtomic"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDataReferencesFollowMetadataAndCompaction"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDataReferencesMissingCopyEdgesFailClosed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDeltaOneRowWriteAndVisibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDeltaPredicatesAggregatesAndRepeatedChanges"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDeltaCompactionRetainsStreamingReader"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDeltaDirectoryDamageFailsClosed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDeltaFailedCompactionDoesNotPublish"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDeltaExactRowIDsBeyondDoublePrecision"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFinalIndexAvoidsUnrelatedDatabaseScan"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationBatchesPreserveValues"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationUnknownReplyAndCancellation/unknown_reply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationUnknownReplyAndCancellation/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationUnknownReplyAndCancellation/partial_index_proof"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/missing"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/wrong_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/wrong_id"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/score"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/duplicate"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/prefix_alias"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/aborted"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/expired"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationRejectsDamagedBatch/stale_token"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexProofPermissionFallback/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexProofPermissionFallback/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexNotificationsBoundLongKeys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirtyDescriptorReusePreservesHydrationAndFreshness"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirtyDescriptorReuseRetainsRefusals/first_get_error"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirtyDescriptorReuseRetainsRefusals/malformed_json"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirtyDescriptorReuseRetainsRefusals/wrong_name"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirtyDescriptorReuseRetainsRefusals/access_identity"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirtyDescriptorReuseRetainsRefusals/plain_index"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirtyDescriptorReuseRetainsRefusals/missing"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexLifecycle"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/stream_generation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/arrow_atomicity"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/arrow_modes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_images"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_unknown_and_cancel/unknown_reply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_unknown_and_cancel/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_unknown_and_cancel/partial_index_proof"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/missing"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/wrong_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/wrong_id"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/score"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/duplicate"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/prefix_alias"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/aborted"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/expired"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/index_damaged/stale_token"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/compaction/dense_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/compaction/dense_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/compaction_lost_reply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/publication_lost_reply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/independent_writers"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/source_conflict"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexContracts/expiry_and_cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexPublicationProofFailures/permission"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexPublicationProofFailures/transport"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexPublicationProofFailures/warning"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexRowCounterIsolationAndLimit"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexCompactionMissingIndexRecovery/uncheckpointed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexCompactionMissingIndexRecovery/index"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFlexPartitionsAndRekey"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotForegroundWritePhaseProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotForegroundFixedWriteProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotForegroundPublicationStageProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchProgressSurvivesLostReply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchAdmission/unclaimed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchAdmission/referenced"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchAdmission/missing_queue"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchAdmission/wrong_prefix"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchAdmission/bad_score"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchAdmission/bad_member"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchAdmission/wrong_key"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchExactIDsAndStaleCollectors"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchRepeatedInterruptions"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGCBatchPermissionPreflight"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGenerationAdmissionReclaimsRetiredWork"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGenerationAdmissionProtectsActiveWork"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGenerationAdmissionNeverReplaysUnknownReservation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGenerationAdmissionCompetingReservation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGenerationAdmissionNeverReplaysUnknownAfterReclaim"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGenerationAdmissionReclaimsReleasedUnknownOwner"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotGenerationAdmissionConcurrentRetirement"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepConcurrentManifestAccounting"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImplicitOrderUsesExactVisibilityWithoutReducers"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterIncompleteImportCaptureCannotEmitOrPublish/output"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterIncompleteImportCaptureCannotEmitOrPublish/plain_output"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterIncompleteImportCaptureCannotEmitOrPublish/raw_output"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterIncompleteImportCaptureCannotEmitOrPublish/seal"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterIncompleteImportCaptureCannotEmitOrPublish/publish"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterImportCaptureCompletion"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterEmptyImportCaptureCompletion"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterImportCaptureRejectsMismatchedMembership"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterImportCaptureWideKeyValidationBudget"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterImportCaptureLostCompletionReplyDoesNotReplay"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterImportCaptureReservesStableRowIDs"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportRejectsLegacyStorage/v0011_table"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportRejectsLegacyStorage/unfinished_reservation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/missing_input"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/duplicate_input"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/wrong_score"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/wrong_namespace"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/unregistered_journal"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/incomplete"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/wrong_ordinal"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/wrong_order"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchAdmission/missing_reservation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchPermissionPreflight/hdel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportBatchPermissionPreflight/zrem"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportOutputConsumesCaptureAtomic/lost_reply_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportOutputConsumesCaptureAtomic/lost_reply_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportOutputSplitsWideCapturePage"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportJournalInterruptedMutation/hset/after_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportJournalInterruptedMutation/hset/after_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportJournalInterruptedMutation/zadd/after_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportJournalInterruptedMutation/zadd/after_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotForeignImportBeyondCaptureQuota"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotHashImportBeyondCandidateQuota"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotForeignCaptureOverlappingPrefixes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportJournalCaptureAndCleanup/late_failure_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportJournalCaptureAndCleanup/late_failure_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexAggregatesMergeVisibleGroups"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexMaskBudgetFallsBackWithoutResurrection"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotContiguousMasksAvoidIDEnumeration"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndexDistinctUnionsVisibleTuples"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPartitionedTupleAggregatesResolveVisibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBuildsOnlySealedDMLIndex"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBuildsOnlySealedDDLAndIngestIndexes/INSERT_INTO_t_VALUES(101,101)"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBuildsOnlySealedDDLAndIngestIndexes/DELETE_FROM_t_WHERE_id=1"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBuildsOnlySealedDDLAndIngestIndexes/ALTER_TABLE_t_ADD_COLUMN_label_VARCHAR_DEFAULT_'x'"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBuildsOnlySealedDDLAndIngestIndexes/TRUNCATE_t"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBuildsOnlySealedDDLAndIngestIndexes/CREATE_TABLE_u_AS_SELECT_*_FROM_t"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotBuildsOnlySealedDDLAndIngestIndexes/CREATE_TABLE_empty(v_INTEGER)"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotNoopDMLDoesNotPublishOrBuildIndexes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDeferredBaselineKeepsPrivateTombstones"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIngestAdmissionWaitsBeforeInput"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIngestAdmissionCancellation/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIngestAdmissionCancellation/deadline"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIngestAdmissionCancellation/close"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIngestAdmissionLostReplyDoesNotReplay"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIngestAdmissionExpiredOwner"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIngestAdmissionConcurrentCreateAppend"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotStreamRetainsGeneration"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotConflictsAndExpiredWriterFence"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLostPublicationReply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPrivateReadsAndSealedIndexReadiness"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManagedStatements"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotJoinsViewsDDLAndCatalogs"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotArrowIngestAtomicity"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotArrowIngestModes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotExpiredReaderAndCancellation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRejectsUnsupportedAndLegacyAccess"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRejectsExistingFormatWithoutUpgrade"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCapacityAndMissingIndex"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotNestedReadsShareRoot"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPublicationOutcomeLookupIsReadOnly"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedInterleavedWriterTailProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/missing_manifest"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/invalid_manifest"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/not_committed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/missing_keys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/negative_keys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/wrong_keys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/missing_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/negative_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/oversized_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/wrong_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/directory_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/map_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsInvalidInputs/manifest_before_directory"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotManifestProofRejectsPipelineErrorWithHealthyValues"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataLookupDoesNotReadWholeBuckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataBucketCopyHasBoundedSteps"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataBucketConstructionResumesAfterScopeLoss"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataPartialBucketRetainsSourceAfterBaseRetires"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataPartialBucketExpiredWriterIsFenced"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataBucketCopyBoundsFieldBytes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataBucketLostStepReplyDoesNotDuplicateReferences"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDMLDoesNotCopyUnrelatedMetadata"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataValuesSurviveOriginalManifest"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataOldPinProtectsValuesAcrossDrop"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataSharingRejectsIncompleteObjects/root"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataSharingRejectsIncompleteObjects/bucket"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataSharingRejectsIncompleteObjects/directory"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataSharingRejectsIncompleteObjects/value"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataFenceRejectsSharedPhysicalMutation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataDeletedNamesDoNotAccumulate"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDMLDoesNotReadUnrelatedTableDescriptors"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotNewSQLSequenceResetAndStaleDefinition"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotNewSQLCTELateFailureAtomic"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotNewSQLSequenceVolatilityAndGC"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotNewSQLSequenceLostReply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotUnavailableObjects/lease-loss"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSharedSnapshotUnavailableObjects/expiry"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationRetentionTakeoverAndOutcomeGC"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationExclusiveOwnerAndStaleFence"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationIncompleteCaptureAndRuntimeFailure"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationSQLAPI"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationSQLDependencyConflict"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationNativeAdoption"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationNativeCopy"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationForeignRefresh"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationLostPublicationReply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationPlanIntegrityAndUnsafeIndexPhase"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationRecordLimitAndReadOnlyStatus"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationAlterAndTemporaryTarget"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationArrowAPI"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestOperationProcessHelper"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationSeparateProcesses"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationKilledOwner"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationRecovery"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterOperationProcessLostPublicationReply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotOrderedVisibilityAndGlobalLimit"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/missing_owner"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/wrong_prefix"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/zero_references"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/directory_count"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/missing_row"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/unregistered_row"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/nonzero_score"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectPartitionRejectsCorruptNativeState/rogue_newer_image"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotDirectProofDoesNotAuthorizeIndexScan"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotFinitePartitionDoesNotRequireSearchInfo"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPartitionLayoutOwnsUnderlyingPin"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPartitionsShareProducerGeneration"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPartitionReleasePreservesActiveReader"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPartitionExpiryAndTampering"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPinConcurrentFailedReleaseSharesOneBoundedAttempt"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPinReleaseAfterHeartbeatCleanupOutage/restricted_reader_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPinReleaseAfterHeartbeatCleanupOutage/restricted_reader_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPinNormalConcurrentReleaseIsOneCommand"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointProtocolProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadUsesExactSegmentProof"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadFailuresDoNotReplay/top_level_script_acl"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadFailuresDoNotReplay/inner_data_acl"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadFailuresDoNotReplay/unknown_reply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadRejectsCorruptNewerImages/missing_row"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadRejectsCorruptNewerImages/missing_row_and_directory"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadRejectsCorruptNewerImages/wrong_row_id"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadRejectsCorruptNewerImages/missing_row_id"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadRejectsCorruptNewerImages/wrong_hash_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadRejectsCorruptNewerImages/wrong_directory_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointReadEligibilityRetainsExistingPaths"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteReadKeepsLargeIDsAndBinaryValues"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointValidIsolationProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointValidSequenceProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestManagedKnownRowWriteProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationMergesCollidingBuckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationReadSourceConflicts"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationPreservesPreWorkspaceDependencies"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationStaleBaseCanStageOnce"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationSealedOutputsRejectMutation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationRetriesOnlyMetadataCAS"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationResolvesLostMergeReply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationConcurrentWriters"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationMergesDescriptorDeletion"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationRequiresBothPins/original"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotIndependentPublicationRequiresBothPins/latest"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/seal/missing_directory"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/seal/wrong_count"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/seal/missing_bucket"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/seal/missing_reference"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/publish/missing_directory"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/publish/wrong_count"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/publish/missing_bucket"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMetadataBucket/publish/missing_reference"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationAllowsValidEmptyBuckets/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationAllowsValidEmptyBuckets/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotClusterPublicationRejectsIncompleteMergedMetadata"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPublicationReusesAuthorizedDescriptors"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotConfirmedSQLPublicationSkipsAbort"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/missing_manifest"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/invalid_manifest"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/not_committed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/missing_keys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/negative_keys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/wrong_keys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/missing_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/negative_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/oversized_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/wrong_buckets"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/directory_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/map_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/actual_oversized_map"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/actual_map_mismatch"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCloneAtomicallyRejectsInvalidBase/missing_reference"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReadResourceProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderKeyCacheNativeMembership"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderKeyCacheNativeWarmResourceGuards/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderKeyCacheNativeWarmResourceGuards/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderKeyCacheNativeCountBeforeMemoryBudget"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderFormatFencesPreviousStorage"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderLeaseModelIsolationAndRetention"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderLeaseModelMembershipAndPartitions"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderLeaseModelQuotaAndExpiry"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderLeaseModelLegacyProducerAndPreflight"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderLeaseModelRejectsStaleOrEscapedState"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReaderLeaseModelLostReplyResolvesWithoutReplay"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReplyRoutingProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLargeRewriteBatches/update"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLargeRewriteBatches/delete"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLargeRewriteBatches/alter"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReplaceBatchPermissionPreflight"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRewriteBatchOutcomes/update/after_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRewriteBatchOutcomes/update/after_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRewriteBatchOutcomes/delete/after_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRewriteBatchOutcomes/delete/after_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRewriteBatchOutcomes/alter/after_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotRewriteBatchOutcomes/alter/after_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReplacementRequiresRegisteredPrivateImages/hash"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReplacementRequiresRegisteredPrivateImages/string"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReplacementRequiresRegisteredPrivateImages/missing"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReplacementRequiresRegisteredPrivateImages/score"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotReplacementRequiresRegisteredPrivateImages/alias"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSchemaRowsCompactionAndReclamation/private"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSchemaRowsCompactionAndReclamation/adbc"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSchemaRowsCompactionAndReclamation/tenant:{evil}*\u96ea"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSchemaPrefixAliasRejected"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreservesLargeBase/false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionPreservesLargeBase/true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSelectiveCompactionOldWorker"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSelectiveCompactionGraftsNewerTail"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSelectiveCompactionRepairsIncompleteTombstoneBatch"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCompactionCheckpointKeepsSourceIdentity"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSharesUnchangedTablesAndReclaimsReferences"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotMetadataAndTruncateReuseUnchangedData"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotStagingReferencesAndServerDataFence"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotExplicitOrderHiddenAggregateCap"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSortCapacityUnknownStopsBeforeSQL"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSortCapacityPrivateOutputHasNoIndex"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportedSourceKeyIdentity"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotImportedSourceKeyLateProjection"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionConcurrentDML/insert"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionConcurrentDML/update"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionConcurrentDML/delete"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionConcurrentDML/merge"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionConcurrentDML/mixed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionCancellation/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionCancellation/deadline"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionCancellation/close"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionLostReplyDoesNotExecuteOrReplay"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSQLAdmissionWaitsBeforeExecution"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitSegmentVisibility"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitRetainsGeneration/compact_drop"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitRetainsGeneration/alter"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitRetainsGeneration/truncate"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitRetainsGeneration/drop"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitMetadataAndCancellationReleaseLeases"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitRejectsExpiredReaderPin"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSubstraitConnectionCloseReleasesLease"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepReadyDataReport/apply_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepReadyDataReport/apply_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepLateFailureAndExplicitResume"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepPendingMetadata"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepProtectsPinnedAndCurrentRows"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepProtectsActiveWriter"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepDirectoryFailureAndResume"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotSweepConcurrentRetirement"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotCleanupPermissionRecovery"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilityCapabilityWorkIsBounded"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilityCapabilityUnknownReplyAborts"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilitySingleRowByteBoundary"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilityCopyBoundaries/row_boundary"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilityCopyBoundaries/beyond_row_boundary"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilityCopyBoundaries/beyond_total_bytes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilityCopyCancellationKeepsPriorTable"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotUtilityCopyBinaryValues"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotValidationBatchesPublishedGenerations"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotValidationOnlyTouchesReferencedTables"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotValidationCachesImmutableSourcesPerStatement"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointReadRejectsMissingBaselineRow"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotValidationWidthProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLargeArrowRecordAtomicity/late_failure_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotLargeArrowRecordAtomicity/late_failure_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertExceedsCumulativeRowBudget"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertExceedsCumulativeByteBudget"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchOutcomesAndAtomicity/after_execution_false"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchOutcomesAndAtomicity/after_execution_true"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchPermissionPreflight"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchRejectsBeforeMutation/key"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchRejectsBeforeMutation/rowid"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchRejectsBeforeMutation/duplicate"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchRejectsBeforeMutation/bytes"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotInsertBatchRejectsBeforeMutation/wrong_type"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteIndexWaitProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotPointWriteDirectoryIndexExperiment"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotWriterHandoffIndependentDatabases/handoff"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotWriterHandoffIndependentDatabases/close_queued"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotWriterHandoffUncoordinatedNativeGate/cancel"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotWriterHandoffUncoordinatedNativeGate/unknown_admission"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestSnapshotWriterHandoffOptionConnectionLifetime"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestStatementRepeatedSQLRebindsCatalog"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestStatisticsReadOnlyPermissions"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestKeyStreamingAcceptanceProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestDistinctStreamingAcceptanceProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestACLSweep"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestTimeoutServerPaused"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedAggregateInputVectors"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedAggregateExecutionProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedProjectionConcurrencyProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedProjectionSQLConcurrencyProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedUnknownWriteDoesNotReplay"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedForeignFilteredMembership"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedFilteredProjectionLiveMutation/changed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedFilteredProjectionLiveMutation/deleted"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedFilteredProjectionLiveMutation/wrongtype"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedFilteredArrowLifetime"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowAppend/adopt"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowAppend/foreign"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowRefusalsBeforeInput"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowKeyChecks"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowBoundedPartialFailure"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowUnknownReplyDoesNotReplay"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowReaderFailure"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCancellation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowInputSchemaChecks"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowFilteredForeignRefusal"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowDoesNotClaimManagedAdmission"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowRegisteredEncodings"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowStagedRefusal"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowChangedStreamSchema"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowExecuteQueryFailureCount"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowConcurrentWriters"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowDictionaryKeys"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateAndCreateAppend/adbc.ingest.mode.create"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateAndCreateAppend/adbc.ingest.mode.create_append"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateMembershipAndEncoding"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/prefix"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/nested"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/index"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/managed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/view"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/append_missing"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/replace"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/retained"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/shared"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/bad_encoding"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePreflight/index_columns"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateUnknownReply"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateAppendConcurrent"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateAppendIdentity/prefix"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateAppendIdentity/index"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateAppendIdentity/encoding"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePartialInput"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateCancellation"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateDoesNotRefreshRacingRegistration"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedSourceOptionClearManagedDefault"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreatePinsCreatedSchema"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedArrowCreateRefusesMissedInitialRow"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedLiveSourceWrites/adopt"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedLiveSourceWrites/foreign"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedEncodingAndMissingIndexDrop"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedInsertUsesBoundedPipelines"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedNumericRangeUsesIndexAndRechecks"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedCandidateRechecksLiveHASH/changed"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedCandidateRechecksLiveHASH/deleted"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedCandidateRechecksLiveHASH/wrongtype"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedRangeLargeIntegersAndIndexChanges"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedInsertRaceCountsAllAcknowledgments"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedInsertPipelineByteBound"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedRangePrunesCandidates"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedPerformanceSample"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedPointReadSelectedFieldsSoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedWideProjectionArrowLifetime"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedProjectionKeyAndPredicateFallback"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedProjectionReadSoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedProjectionReadValueBoundSoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedProjectionReadLiveChangeBeforeAllNullFallbackSoftware"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedProjectionSparseProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedRetrievalProbe"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUnmanagedStatementChecksIndexOncePerFreshPin"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestUsageHostedEndpoint"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestAggregateWorkerConcurrencyProfile"
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "test": "TestAggregateWorkerMixedProbe"
+      }
+    ],
+    "scope": "Ordinary Software suite; disposable snapshot suites disabled here, live unmanaged snapshot-harness cases run separately under race."
+  },
+  "source_commit": "a944c99c500f2f5904ff669bea5cb9fb9b6b8e39",
+  "policy": "Redis Software active/effective4xQPF;6workers;mnp32;4GiBnoeviction;trustedTLS/RESP3;serial live clients",
+  "python_unit_tests": {
+    "crud_execution": 14,
+    "width_audit": 4,
+    "failures": 0
+  },
+  "review": {
+    "reviewer": "subagent crud_unmanaged_executor",
+    "decision": "No actionable production correctness/lifecycle/ownership/security finding; agent review only, no human approval.",
+    "additional_independent_review": {
+      "reviewer": "subagent crud_managed_protocol",
+      "decision": "No actionable source-review findings; no additional live-test claim."
+    }
+  },
+  "post_matrix_python_tests": {
+    "source_commit": "937cbb6408b080b9fbef0acc39bd8530962a5c26",
+    "crud_execution": 14,
+    "width_audit_and_compare": 9,
+    "failures": 0
+  }
+}
