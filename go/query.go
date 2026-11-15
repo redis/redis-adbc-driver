@@ -551,7 +551,9 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 		}
 		var fetched []aggRow
 		var err error
-		if snapshotOf(ctx) != nil && snapshotDataID(req.meta.prefix()) != "" {
+		if read := newUnmanagedPointRead(e.store, req.meta, it.need); read != nil {
+			fetched, err = read.read(ctx, req.where.keys)
+		} else if snapshotOf(ctx) != nil && snapshotDataID(req.meta.prefix()) != "" {
 			fetched, err = e.store.fetchSnapshotVisible(ctx, req.meta, req.where.keys, fields)
 		} else {
 			fetched, err = fetch(ctx, req.where.keys, fields)
@@ -730,6 +732,7 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 	if req.where.keys != nil {
 		it, fields, _ := e.newScanIter(ctx, req, params)
 		it.store, it.fetch, it.directKeys = e.store, fields, req.where.keys
+		it.unmanagedRead = newUnmanagedPointRead(e.store, req.meta, it.need)
 		return it, nil
 	}
 
@@ -954,7 +957,9 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		}
 		var rows []aggRow
 		var err error
-		if snapshotOf(ctx) != nil && snapshotDataID(it.meta.prefix()) != "" {
+		if it.unmanagedRead != nil {
+			rows, err = it.unmanagedRead.read(ctx, keys)
+		} else if snapshotOf(ctx) != nil && snapshotDataID(it.meta.prefix()) != "" {
 			rows, err = it.store.fetchSnapshotVisible(ctx, it.meta, keys, it.fetch)
 		} else {
 			rows, err = fetch(ctx, keys, it.fetch)
