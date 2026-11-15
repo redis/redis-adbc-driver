@@ -3,7 +3,7 @@
 Date: 2026-11-14. Requestor: repository user asking for performance work with
 subagents. Driver baseline: merged PR #440, `d7c0978f`. Upstream Search source:
 `33d90342bc9c601d904fb58446f8bda4eaba5011` (master verified through GitHub).
-Status: uninstalled upstream library prototype; seven core tests and real native API type-check passed; live baseline repro pending.
+Status: uninstalled upstream library prototype; seven core tests, real native API type-check and Linux baseline RESP3/typed-ADBC repro passed.
 
 Filtered unmanaged aggregates still discover candidates through Search and read
 about 10,000 live HASHes per query in the existing benchmark. Argument boxing

@@ -1,0 +1,72 @@
+{
+  "scope": "Exact-source API contract/repro; no SQL timing, server CPU, or installed prototype capability claim",
+  "driver_source_commit": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+  "driver_sha256": "003e34aeddb149984794a2cda84881fb93bf27b6cc9c195796df38ed6d409816",
+  "cli_sha256": "b8cfbdb2f7e7b52a374e14b4bcd86914913d63d93392cfd43b04af59387d1272",
+  "harness_sha256": "8d1a686e26cd77711041af29d5d6fd18f04fc53ce22bbc7083290e22b9559ba3",
+  "prototype_installed": false,
+  "prototype_wire_command": "not implemented by the library prototype",
+  "qpf": 4,
+  "resp": 3,
+  "strict_tls": true,
+  "caller_retries": 0,
+  "packages": {
+    "pyarrow": "26.0.1",
+    "adbc-driver-manager": "1.13.0",
+    "redis": "8.1.0"
+  },
+  "validated": true,
+  "queries": [
+    {
+      "case": "int64_extrema_adjacent_null_empty_actual_nul",
+      "typed_projection_rows": 8,
+      "typed_aggregate_rows": 1,
+      "validated": true
+    },
+    {
+      "case": "existing_hash_all_selected_null",
+      "typed_projection_rows": 1,
+      "validated": true
+    },
+    {
+      "case": "source_change_between_statements",
+      "typed_projection_rows": 8,
+      "typed_aggregate_rows": 1,
+      "validated": true
+    },
+    {
+      "case": "deleted_and_non_hash_sources",
+      "typed_projection_rows": 6,
+      "typed_aggregate_rows": 1,
+      "validated": true
+    }
+  ],
+  "cleanup": true,
+  "all_null_projection_presence_ambiguity": {
+    "existing_hash_and_missing_key_have_same_hmget_vector": true,
+    "native_types_distinguish_them": true,
+    "interpretation": "Separate TYPE observations are controls, not an atomic projection/presence API"
+  },
+  "ordinary_aliased_load": {
+    "rows": 8,
+    "raw_byte_mismatch_case_ids": [
+      2,
+      4,
+      5
+    ],
+    "numeric_value_mismatch_case_ids": [
+      2,
+      4,
+      5
+    ],
+    "interpretation": "Observed native behavior, not an expected exact-source API"
+  },
+  "load_all": {
+    "rows": 8,
+    "selected_public_value_bytes": 126,
+    "returned_value_bytes_excluding_document_keys": 131230,
+    "unselected_wide_bytes_per_row": 16384,
+    "interpretation": "Raw projection preserves selected values but enumerates/returns unselected data"
+  },
+  "source_ownership_preserved_after_drop": true
+}

@@ -69,12 +69,40 @@ build/test is claimed.
 
 The [adapter harness](adapter-check/Cargo.toml) uses the pinned real native API,
 with a checked-in dependency lockfile. Its platform binding-generation features
-are recorded in the manifest. The installed server RESP3/typed-ADBC repro remains
-pending the coordinator's exclusive live slot and frozen baseline native build.
+are recorded in the manifest. The coordinator also completed the [Linux Software repro](live-evidence.json),
+using the frozen baseline native driver/CLI; see [live provenance](live-provenance.json).
+All seven SQL queries fully fetched and validated physical Arrow INT64/STRING
+arrays, exact values and NULLs: 23 projection rows and three aggregate rows.
+Independent raw HASH controls, live edits, deleted/non-HASH omission, application
+HASH/index ownership after DROP and owner-checked cleanup all passed.
+
+Ordinary aliased LOAD lost numeric precision for three of eight adversarial
+source cases: signed-int64 maximum, 2^53+1, and -(2^53)-1. Full LOAD* retained the
+selected source bytes but returned 131,230 value bytes (document keys excluded)
+when the three selected public fields totaled 126 bytes; each HASH also held an
+unregistered 16 KiB field. These are synthetic payload counts, not measured
+network traffic, server CPU or a SQL speedup. The existing driver returned all
+exact values correctly; this is an upstream API opportunity, not a newly found
+driver wrong-result regression.
+
+The all-selected-NULL HASH and a missing key produced identical HMGET vectors;
+separate native TYPE controls distinguished them. That does not make the two
+separate observations an atomic projection/presence primitive. The proposed
+native helper's single held handle is designed to supply that distinction.
+
+The repro client was Linux/Debian bookworm ARM64, Python 3.14.10, with a 4-CPU/
+4-GiB client container sharing the Software TLS network namespace. The verified
+server container retained 4 CPUs/8 GiB and active 4× QPF. This path does not
+traverse the macOS published-port forwarding used in earlier diagnostic rounds.
+No latency comparison is made across those paths. Actual driver/CLI/harness
+hashes, package versions, source and cleanup metadata are retained in the live
+records. The prototype remains uninstalled and untested inside the Search engine.
 
 ```sh
-rustc --edition=2024 --test benchmarks/unmanaged-source-projection/source_hash.rs -o /private/owned/source-core-test
-/private/owned/source-core-test
+source_projection_test_dir=$(mktemp -d)
+rustc --edition=2024 --test benchmarks/unmanaged-source-projection/source_hash.rs -o "$source_projection_test_dir/source-core-test"
+"$source_projection_test_dir/source-core-test"
+rm -rf -- "$source_projection_test_dir"
 cargo check --manifest-path benchmarks/unmanaged-source-projection/adapter-check/Cargo.toml --lib
 ```
 
@@ -88,5 +116,6 @@ Those existing APIs are observations, not an implementation of the prototype.
 The script performs no SQL timing and makes no client/server CPU or speedup claim.
 
 Read [SDLC intent](../../docs/sdlc/changes/unmanaged-source-prototype-20261114/intent.md),
-[contract](../../docs/sdlc/changes/unmanaged-source-prototype-20261114/spec.md), and
-[plan](../../docs/sdlc/changes/unmanaged-source-prototype-20261114/plan.md).
+[contract](../../docs/sdlc/changes/unmanaged-source-prototype-20261114/spec.md),
+[plan](../../docs/sdlc/changes/unmanaged-source-prototype-20261114/plan.md), and
+[validation](../../docs/sdlc/changes/unmanaged-source-prototype-20261114/validation.md).
