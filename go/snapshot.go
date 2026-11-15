@@ -613,23 +613,22 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 }
 
 type snapshotPin struct {
-	writerTurn     *snapshotWriterTurn // assigned before returning an admitted pin
-	shared         *sharedReadView
-	reader         bool
-	descriptorHint bool // ordinary read acquisition only; never writer/retained/shared pins
-	ctx            context.Context
-	store          *store
-	token, root    string
-	mu             sync.Mutex
-	workspace      string
-	err            error
-	materialized   bool // under mu; preserve the materialized-reader expiry SQLSTATE
-	stop           chan struct{}
-	done           chan struct{}
-	once           sync.Once
-	releaseMu      sync.Mutex
-	releaseErr     error         // releaseMu; failed heartbeat cleanup may be retried explicitly
-	releaseDone    chan struct{} // releaseMu; concurrent callers share one cleanup attempt
+	writerTurn   *snapshotWriterTurn // assigned before returning an admitted pin
+	shared       *sharedReadView
+	reader       bool
+	ctx          context.Context
+	store        *store
+	token, root  string
+	mu           sync.Mutex
+	workspace    string
+	err          error
+	materialized bool // under mu; preserve the materialized-reader expiry SQLSTATE
+	stop         chan struct{}
+	done         chan struct{}
+	once         sync.Once
+	releaseMu    sync.Mutex
+	releaseErr   error         // releaseMu; failed heartbeat cleanup may be retried explicitly
+	releaseDone  chan struct{} // releaseMu; concurrent callers share one cleanup attempt
 }
 
 func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.Context, *snapshotPin, error) {
@@ -664,7 +663,7 @@ func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...b
 		// unchanged and still use the same durable ownership checks.
 		s.reapSnapshot(ctx)
 	}
-	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{}), descriptorHint: !s.restrictedReader && (len(writing) == 0 || !writing[0])}
+	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{})}
 	mode := ""
 	if len(writing) > 0 && writing[0] {
 		mode = "write"
