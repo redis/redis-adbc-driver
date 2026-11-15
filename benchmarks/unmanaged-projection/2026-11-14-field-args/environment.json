@@ -1,0 +1,18 @@
+{
+  "qpf": 4,
+  "workers": 6,
+  "routing": "mnp",
+  "connections": 32,
+  "memory_bytes": 4294967296,
+  "tls_certificate_verified": true,
+  "resp": 3,
+  "distribution": "Redis Software",
+  "one_shard": true,
+  "eviction_policy": "noeviction",
+  "go": "go1.27.3",
+  "GOMAXPROCS": 4,
+  "GOOS": "darwin",
+  "GOARCH": "arm64",
+  "CPU": "Apple M5 Max",
+  "verification": "management active/effective settings and TLS RESP3 checked immediately before each live helper invocation"
+}

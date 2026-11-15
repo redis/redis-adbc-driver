@@ -1,0 +1,24 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M5 Max
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_2-4         	  885829	       251.0 ns/op	     712 B/op	      14 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_2-4         	  944587	       247.4 ns/op	     712 B/op	      14 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_2-4         	  967644	       250.2 ns/op	     712 B/op	      14 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_16-4        	  363922	       665.2 ns/op	    2320 B/op	      31 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_16-4        	  367521	       675.6 ns/op	    2320 B/op	      31 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_16-4        	  357200	       670.5 ns/op	    2320 B/op	      31 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_128-4       	   67191	      3530 ns/op	   16496 B/op	     143 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_128-4       	   68276	      3538 ns/op	   16496 B/op	     143 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1/fields_128-4       	   68202	      3534 ns/op	   16496 B/op	     143 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_2-4      	    1500	    156719 ns/op	  611697 B/op	    6019 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_2-4      	    1513	    161477 ns/op	  611697 B/op	    6019 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_2-4      	    1521	    157607 ns/op	  611698 B/op	    6019 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_16-4     	     580	    407599 ns/op	 1740179 B/op	    8034 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_16-4     	     576	    407618 ns/op	 1740180 B/op	    8034 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_16-4     	     578	    411501 ns/op	 1740179 B/op	    8034 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_128-4    	     126	   1879674 ns/op	12080035 B/op	    8146 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_128-4    	     127	   1863162 ns/op	12080032 B/op	    8146 allocs/op
+BenchmarkUnmanagedProjectionBatch/keys_1000/fields_128-4    	     128	   1865922 ns/op	12080033 B/op	    8146 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	6.051s

@@ -1,0 +1,15 @@
+=== RUN   TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder
+=== RUN   TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_false/wrapped_nil
+    snapshot_missing_row_test.go:121: uncertain absence exposed older image: err=<nil> older_reads=2
+=== RUN   TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_false/joined_nil_eof
+    snapshot_missing_row_test.go:121: uncertain absence exposed older image: err=<nil> older_reads=2
+=== RUN   TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_true/wrapped_nil
+    snapshot_missing_row_test.go:121: uncertain absence exposed older image: err=<nil> older_reads=2
+=== RUN   TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_true/joined_nil_eof
+    snapshot_missing_row_test.go:121: uncertain absence exposed older image: err=<nil> older_reads=2
+--- FAIL: TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder (0.01s)
+    --- FAIL: TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_false/wrapped_nil (0.00s)
+    --- FAIL: TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_false/joined_nil_eof (0.00s)
+    --- FAIL: TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_true/wrapped_nil (0.00s)
+    --- FAIL: TestSnapshotMissingRowUncertainAbsenceNeverReadsOlder/private_true/joined_nil_eof (0.00s)
+FAIL

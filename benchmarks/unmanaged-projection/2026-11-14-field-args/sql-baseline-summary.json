@@ -1,0 +1,27 @@
+{
+  "scope": "Descriptive cross-pair aggregate only. Forward used go test temporary binaries; reverse rebuilt both same-source binaries once before its direct-execution windows. Not one frozen-binary ABBA; inspect separate raw pairs for reproducibility.",
+  "summary": [
+    {
+      "clients": 1,
+      "trials": 6,
+      "queries": 192,
+      "p50_ms": 77.726375,
+      "p95_ms": 94.410208,
+      "median_trial_allocations": 10613382.0,
+      "median_trial_allocated_bytes": 644685916.0,
+      "median_trial_seconds": 2.5414800829999997,
+      "hmget_per_trial": 320064
+    },
+    {
+      "clients": 4,
+      "trials": 6,
+      "queries": 192,
+      "p50_ms": 88.31975,
+      "p95_ms": 125.558375,
+      "median_trial_allocations": 10619330.0,
+      "median_trial_allocated_bytes": 646403524.0,
+      "median_trial_seconds": 0.7283828960000001,
+      "hmget_per_trial": 320064
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "unit_initial": {
+    "pass": 17,
+    "skip": 3,
+    "fail": 0,
+    "source": "7831d016"
+  },
+  "race_initial": {
+    "pass": 17,
+    "skip": 3,
+    "fail": 0,
+    "source": "7831d016"
+  },
+  "race_final": {
+    "pass": 18,
+    "skip": 3,
+    "fail": 0,
+    "source": "6b1806b2"
+  },
+  "live_final": {
+    "pass": 21,
+    "skip": 0,
+    "fail": 0,
+    "source": "6b1806b2"
+  }
+}

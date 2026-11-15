@@ -1,0 +1,26 @@
+{
+  "baseline-red": {
+    "pass_events_including_subtests": 0,
+    "fail_events_including_subtests": 5,
+    "skip_events_including_subtests": 0,
+    "interpretation": "Expected failure: all four wrapped/joined Nil cases returned success and read two older images before the fix."
+  },
+  "candidate-green": {
+    "pass_events_including_subtests": 40,
+    "fail_events_including_subtests": 0,
+    "skip_events_including_subtests": 0
+  },
+  "candidate-software": {
+    "pass_events_including_subtests": 27,
+    "fail_events_including_subtests": 0,
+    "skip_events_including_subtests": 0
+  },
+  "ABBA": {
+    "runs": 4,
+    "measured_queries": 448,
+    "warmups": 112,
+    "validated": true,
+    "all_processes_exited": true,
+    "runtime_change": "native missing-row proof pipeline and exact Nil/no-retry safety; no Lua read extension"
+  }
+}

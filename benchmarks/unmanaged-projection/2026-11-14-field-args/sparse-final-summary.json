@@ -1,0 +1,136 @@
+{
+  "records": 64,
+  "total_reads": 512,
+  "measured_reads": 384,
+  "scope": "native source retrieval only; no SQL/Search/Arrow/C bridge; finite trial timings, not capacity or server CPU",
+  "summary": [
+    {
+      "shape": "all_null",
+      "clients": 1,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 0.456625,
+      "p95_ms": 2.051083
+    },
+    {
+      "shape": "all_null",
+      "clients": 1,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 1.398542,
+      "p95_ms": 3.158959
+    },
+    {
+      "shape": "all_null",
+      "clients": 4,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 1.919333,
+      "p95_ms": 3.985583
+    },
+    {
+      "shape": "all_null",
+      "clients": 4,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 3.394291,
+      "p95_ms": 5.034791
+    },
+    {
+      "shape": "dense",
+      "clients": 1,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 14.092104,
+      "p95_ms": 19.447959
+    },
+    {
+      "shape": "dense",
+      "clients": 1,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 1.3145005,
+      "p95_ms": 3.292208
+    },
+    {
+      "shape": "dense",
+      "clients": 4,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 3.879625,
+      "p95_ms": 13.150042
+    },
+    {
+      "shape": "dense",
+      "clients": 4,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 3.175291,
+      "p95_ms": 5.412709
+    },
+    {
+      "shape": "sparse90",
+      "clients": 1,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 0.5389995,
+      "p95_ms": 2.383917
+    },
+    {
+      "shape": "sparse90",
+      "clients": 1,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 1.411563,
+      "p95_ms": 3.089125
+    },
+    {
+      "shape": "sparse90",
+      "clients": 4,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 3.6521665,
+      "p95_ms": 54.988042
+    },
+    {
+      "shape": "sparse90",
+      "clients": 4,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 3.212854,
+      "p95_ms": 4.906917
+    },
+    {
+      "shape": "sparse90_wide",
+      "clients": 1,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 24.8256875,
+      "p95_ms": 29.988667
+    },
+    {
+      "shape": "sparse90_wide",
+      "clients": 1,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 26.234041,
+      "p95_ms": 32.292209
+    },
+    {
+      "shape": "sparse90_wide",
+      "clients": 4,
+      "mode": "native_hgetall",
+      "samples": 24,
+      "p50_ms": 30.303083,
+      "p95_ms": 62.041625
+    },
+    {
+      "shape": "sparse90_wide",
+      "clients": 4,
+      "mode": "projected_fields",
+      "samples": 24,
+      "p50_ms": 32.183938,
+      "p95_ms": 43.038
+    }
+  ]
+}

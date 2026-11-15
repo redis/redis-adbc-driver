@@ -6,7 +6,6 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -292,21 +291,8 @@ func (s *store) fetchSnapshotVisible(ctx context.Context, m *tableMeta, keys, fi
 					continue
 				}
 			} else if row == nil && !absenceVerified {
-				if !snapshotOwns(ctx, segments[seg].Prefix) {
-					count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(segments[seg].Prefix))).Result()
-					if err != nil {
-						return nil, wrapRedis(err, "failed to verify snapshot row directory")
-					}
-					if count != segments[seg].Rows {
-						return nil, errorf(adbc.StatusIO, "published snapshot row directory changed")
-					}
-				}
-				_, err := s.redis(ctx).ZScore(ctx, snapshotMembers(snapshotDataID(segments[seg].Prefix)), snapshotDirectoryMember(physical[j])).Result()
-				if err == nil {
-					return nil, errorf(adbc.StatusIO, "snapshot directory references a missing row")
-				}
-				if !errors.Is(err, goredis.Nil) {
-					return nil, wrapRedis(err, "failed to verify snapshot row directory")
+				if err := s.verifySnapshotMissingRow(ctx, segments[seg], physical[j]); err != nil {
+					return nil, err
 				}
 			}
 			if row != nil {

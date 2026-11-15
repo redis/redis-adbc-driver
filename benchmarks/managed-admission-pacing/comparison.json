@@ -1,0 +1,871 @@
+{
+  "matched_total_writes_per_trial": true,
+  "complete_validated_comparison": true,
+  "scope": "Go SQL execute/ack diagnostic, not native C-boundary performance or server CPU; all trial outcomes retained",
+  "baseline": {
+    "complete_validated_matrix": true,
+    "trial_outcomes": [
+      {
+        "trial": -1,
+        "writers": 1,
+        "warmup": true,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": -1,
+        "writers": 4,
+        "warmup": true,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": -1,
+        "writers": 8,
+        "warmup": true,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 0,
+        "writers": 4,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 0,
+        "writers": 8,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 0,
+        "writers": 1,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 1,
+        "writers": 8,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 1,
+        "writers": 1,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 1,
+        "writers": 4,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 2,
+        "writers": 1,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 2,
+        "writers": 4,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 2,
+        "writers": 8,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      }
+    ],
+    "writers": {
+      "1": {
+        "operations_per_second": 12.366682550719048,
+        "seconds": 69.865139374,
+        "foreground_commands": 81928,
+        "maintenance_commands": 126141,
+        "attributed_foreground_client_calls_per_operation": 48.692129629629626,
+        "acquire_attempts_per_operation": 2.5520833333333335,
+        "commands_per_operation": {
+          "foreground": 94.82407407407408,
+          "maintenance": 145.99652777777777
+        },
+        "trial_seconds": [
+          {
+            "trial": 0,
+            "seconds": 23.752941583
+          },
+          {
+            "trial": 1,
+            "seconds": 23.093308791
+          },
+          {
+            "trial": 2,
+            "seconds": 23.018889
+          }
+        ],
+        "operations": {
+          "insert": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 147.941667,
+              "p95": 239.43075,
+              "max": 314.362417
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 128.235667,
+              "p95": 216.295125,
+              "max": 303.3345
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 77.716248,
+              "p95": 155.538039,
+              "max": 232.288587
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 5.0,
+              "p95": 7.0,
+              "max": 8.0
+            }
+          },
+          "update": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 45.648833,
+              "p95": 151.793166,
+              "max": 217.144083
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 18.878292,
+              "p95": 125.257708,
+              "max": 193.233458
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.266332,
+              "p95": 78.184543,
+              "max": 126.907752
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 5.0,
+              "max": 7.0
+            }
+          },
+          "delete": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 39.216084,
+              "p95": 72.5145,
+              "max": 209.358875
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 14.309542,
+              "p95": 31.280125,
+              "max": 186.520167
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.213,
+              "p95": 0.64946,
+              "max": 117.13371
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 1.0,
+              "max": 7.0
+            }
+          }
+        }
+      },
+      "4": {
+        "operations_per_second": 12.507529059299419,
+        "seconds": 69.078392375,
+        "foreground_commands": 121846,
+        "maintenance_commands": 152548,
+        "attributed_foreground_client_calls_per_operation": 61.21296296296296,
+        "acquire_attempts_per_operation": 5.03125,
+        "commands_per_operation": {
+          "foreground": 141.02546296296296,
+          "maintenance": 176.5601851851852
+        },
+        "trial_seconds": [
+          {
+            "trial": 0,
+            "seconds": 23.874306042
+          },
+          {
+            "trial": 1,
+            "seconds": 22.779982541
+          },
+          {
+            "trial": 2,
+            "seconds": 22.424103792
+          }
+        ],
+        "operations": {
+          "insert": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 86.010125,
+              "p95": 1785.770916,
+              "max": 4166.8235
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 41.807916,
+              "p95": 1740.070292,
+              "max": 4142.828333
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 15.824959,
+              "p95": 1445.312384,
+              "max": 3475.469509
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 3.0,
+              "p95": 28.0,
+              "max": 55.0
+            }
+          },
+          "update": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 56.391,
+              "p95": 843.75625,
+              "max": 7053.855375
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 15.217584,
+              "p95": 819.063291,
+              "max": 7029.718375
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.242459,
+              "p95": 655.279795,
+              "max": 6040.926886
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 16.0,
+              "max": 79.0
+            }
+          },
+          "delete": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 53.646708,
+              "p95": 1126.215875,
+              "max": 3911.057666
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 16.552083,
+              "p95": 1100.611708,
+              "max": 3887.063458
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.257416,
+              "p95": 879.822243,
+              "max": 3270.679459
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 18.0,
+              "max": 54.0
+            }
+          }
+        }
+      },
+      "8": {
+        "operations_per_second": 12.586850703905696,
+        "seconds": 68.643064125,
+        "foreground_commands": 159502,
+        "maintenance_commands": 175965,
+        "attributed_foreground_client_calls_per_operation": 73.35185185185185,
+        "acquire_attempts_per_operation": 7.461805555555555,
+        "commands_per_operation": {
+          "foreground": 184.6087962962963,
+          "maintenance": 203.66319444444446
+        },
+        "trial_seconds": [
+          {
+            "trial": 0,
+            "seconds": 22.956324292
+          },
+          {
+            "trial": 1,
+            "seconds": 22.309379875
+          },
+          {
+            "trial": 2,
+            "seconds": 23.377359958
+          }
+        ],
+        "operations": {
+          "insert": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 62.755292,
+              "p95": 3196.478959,
+              "max": 12019.658292
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 22.615458,
+              "p95": 3144.375542,
+              "max": 11984.887834
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.271792,
+              "p95": 2710.525789,
+              "max": 10385.023703
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 45.0,
+              "max": 147.0
+            }
+          },
+          "update": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 73.898542,
+              "p95": 1800.130584,
+              "max": 17704.703042
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 22.040291,
+              "p95": 1736.622458,
+              "max": 17691.311375
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.269668,
+              "p95": 1442.730663,
+              "max": 15294.319712
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 24.0,
+              "max": 204.0
+            }
+          },
+          "delete": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 58.496041,
+              "p95": 1450.335542,
+              "max": 9383.166042
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 18.199125,
+              "p95": 1421.852208,
+              "max": 9318.683292
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.253333,
+              "p95": 1161.38338,
+              "max": 8123.630608
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 27.0,
+              "max": 116.0
+            }
+          }
+        }
+      }
+    }
+  },
+  "candidate": {
+    "complete_validated_matrix": true,
+    "trial_outcomes": [
+      {
+        "trial": -1,
+        "writers": 1,
+        "warmup": true,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": -1,
+        "writers": 4,
+        "warmup": true,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": -1,
+        "writers": 8,
+        "warmup": true,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 0,
+        "writers": 4,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 0,
+        "writers": 8,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 0,
+        "writers": 1,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 1,
+        "writers": 8,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 1,
+        "writers": 1,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 1,
+        "writers": 4,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 2,
+        "writers": 1,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 2,
+        "writers": 4,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      },
+      {
+        "trial": 2,
+        "writers": 8,
+        "warmup": false,
+        "complete_final_oracle": true,
+        "missing_operations": 0,
+        "failed_operations": 0,
+        "missing_admission": 0
+      }
+    ],
+    "writers": {
+      "1": {
+        "operations_per_second": 12.1018444020964,
+        "seconds": 71.394076084,
+        "foreground_commands": 84034,
+        "maintenance_commands": 126575,
+        "attributed_foreground_client_calls_per_operation": 49.219907407407405,
+        "acquire_attempts_per_operation": 2.576388888888889,
+        "commands_per_operation": {
+          "foreground": 97.26157407407408,
+          "maintenance": 146.49884259259258
+        },
+        "trial_seconds": [
+          {
+            "trial": 0,
+            "seconds": 24.161906209
+          },
+          {
+            "trial": 1,
+            "seconds": 23.789937292
+          },
+          {
+            "trial": 2,
+            "seconds": 23.442232583
+          }
+        ],
+        "operations": {
+          "insert": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 163.068875,
+              "p95": 237.255959,
+              "max": 310.381917
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 140.478584,
+              "p95": 216.218166,
+              "max": 272.663875
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 82.993581,
+              "p95": 154.918041,
+              "max": 224.38621
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 5.0,
+              "p95": 7.0,
+              "max": 8.0
+            }
+          },
+          "update": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 44.684,
+              "p95": 115.832791,
+              "max": 189.50225
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 16.873125,
+              "p95": 93.052083,
+              "max": 159.477916
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.223834,
+              "p95": 39.342374,
+              "max": 100.135957
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 4.0,
+              "max": 7.0
+            }
+          },
+          "delete": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 39.161875,
+              "p95": 68.652333,
+              "max": 210.679333
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 13.825375,
+              "p95": 36.036792,
+              "max": 198.425792
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.19279,
+              "p95": 17.179917,
+              "max": 144.322248
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 3.0,
+              "max": 8.0
+            }
+          }
+        }
+      },
+      "4": {
+        "operations_per_second": 11.574818572099504,
+        "seconds": 74.644798501,
+        "foreground_commands": 220551,
+        "maintenance_commands": 184525,
+        "attributed_foreground_client_calls_per_operation": 91.76967592592592,
+        "acquire_attempts_per_operation": 10.773148148148149,
+        "commands_per_operation": {
+          "foreground": 255.26736111111111,
+          "maintenance": 213.57060185185185
+        },
+        "trial_seconds": [
+          {
+            "trial": 0,
+            "seconds": 25.645786334
+          },
+          {
+            "trial": 1,
+            "seconds": 24.72321575
+          },
+          {
+            "trial": 2,
+            "seconds": 24.275796417
+          }
+        ],
+        "operations": {
+          "insert": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 78.838458,
+              "p95": 1685.322209,
+              "max": 4466.837791
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 30.735083,
+              "p95": 1658.3905,
+              "max": 4433.582458
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.271124,
+              "p95": 809.444384,
+              "max": 2005.677404
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 65.0,
+              "max": 169.0
+            }
+          },
+          "update": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 86.656666,
+              "p95": 1143.3325,
+              "max": 3284.872458
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 22.444833,
+              "p95": 1116.077958,
+              "max": 3268.571833
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.224041,
+              "p95": 513.841717,
+              "max": 1550.639375
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 41.0,
+              "max": 127.0
+            }
+          },
+          "delete": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 82.108833,
+              "p95": 1247.776,
+              "max": 3158.275917
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 26.143208,
+              "p95": 1185.391875,
+              "max": 3117.262667
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.231001,
+              "p95": 616.953909,
+              "max": 1629.520927
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 46.0,
+              "max": 122.0
+            }
+          }
+        }
+      },
+      "8": {
+        "operations_per_second": 12.436963827862634,
+        "seconds": 69.470331502,
+        "foreground_commands": 414544,
+        "maintenance_commands": 268826,
+        "attributed_foreground_client_calls_per_operation": 152.44907407407408,
+        "acquire_attempts_per_operation": 22.221064814814813,
+        "commands_per_operation": {
+          "foreground": 479.7962962962963,
+          "maintenance": 311.1412037037037
+        },
+        "trial_seconds": [
+          {
+            "trial": 0,
+            "seconds": 23.606651834
+          },
+          {
+            "trial": 1,
+            "seconds": 23.577721084
+          },
+          {
+            "trial": 2,
+            "seconds": 22.285958584
+          }
+        ],
+        "operations": {
+          "insert": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 107.866958,
+              "p95": 2913.374792,
+              "max": 5142.202917
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 58.34325,
+              "p95": 2884.340667,
+              "max": 5127.187792
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 35.57625,
+              "p95": 1553.460914,
+              "max": 3199.382872
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 4.0,
+              "p95": 117.0,
+              "max": 209.0
+            }
+          },
+          "update": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 81.914709,
+              "p95": 2301.155416,
+              "max": 6355.11025
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 16.408875,
+              "p95": 2267.558833,
+              "max": 6283.909166
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 0.143959,
+              "p95": 1253.776459,
+              "max": 3278.887946
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 1.0,
+              "p95": 94.0,
+              "max": 258.0
+            }
+          },
+          "delete": {
+            "latency_ms": {
+              "n": 288,
+              "p50": 101.595708,
+              "p95": 2273.778416,
+              "max": 5865.193917
+            },
+            "admission_ms": {
+              "n": 288,
+              "p50": 51.61275,
+              "p95": 2231.10275,
+              "max": 5835.907084
+            },
+            "admission_off_transport_ms": {
+              "n": 288,
+              "p50": 35.290625,
+              "p95": 1238.76617,
+              "max": 2954.393736
+            },
+            "acquire_attempts": {
+              "n": 288,
+              "p50": 4.0,
+              "p95": 97.0,
+              "max": 255.0
+            }
+          }
+        }
+      }
+    }
+  }
+}

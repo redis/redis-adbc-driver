@@ -1,0 +1,40 @@
+{
+  "baseline": "b904cf8d",
+  "runtime_candidate": [
+    "snapshot_delta.go",
+    "snapshot_missing_row.go"
+  ],
+  "binaries": {
+    "baseline": "79caa6e568c5df295aea0ea3785acc5b075de762d3deed1b4c1c09a9d96dae51",
+    "candidate": "00630de70f7bfe32b845959d0f93871c869ef9949fba0abfaac3a0926d3eba9e"
+  },
+  "environment": {
+    "qpf": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "tls_certificate_verified": true,
+    "resp": 3,
+    "go": "1.27.3",
+    "GOMAXPROCS": 4,
+    "telemetry_disabled": true,
+    "system": "Darwin",
+    "release": "25.6.0",
+    "machine": "arm64",
+    "host_cpu_count": 18
+  },
+  "measured_candidate_source_sha256": {
+    "snapshot_delta.go": "fed8fc97e26923df847e29b33bb51a4d24fe5b1c8dae7e18dc29d4acab69b387",
+    "snapshot_missing_row.go": "9b4fa4d0e45e7b7d4bbf9a731a92d859f2e8b047ba4a2facc7f4cf255c8b1563",
+    "snapshot_missing_row_test.go": "a4bb8c63932b6c37e31e746b7b6688179de616291a84eadcb70c2d6c18e73b29",
+    "snapshot_point_protocol_profile_test.go": "37b4b8c3894edd28d4869eb840ac10cd3d4ac7255ffeafb29717ea9042082c6e"
+  },
+  "final_candidate_source_sha256": {
+    "snapshot_delta.go": "fed8fc97e26923df847e29b33bb51a4d24fe5b1c8dae7e18dc29d4acab69b387",
+    "snapshot_missing_row.go": "9b4fa4d0e45e7b7d4bbf9a731a92d859f2e8b047ba4a2facc7f4cf255c8b1563",
+    "snapshot_missing_row_test.go": "a4bb8c63932b6c37e31e746b7b6688179de616291a84eadcb70c2d6c18e73b29",
+    "snapshot_point_protocol_profile_test.go": "4d17bf7f7dc12e5792d8ed17b086a48f9b356ca101bad469aeb0ad8347351119"
+  },
+  "post_measurement_changes": "Diagnostic test comments and emitted scope label corrected to disclose pre-acquired transport; runtime and test logic unchanged. Raw historical labels preserved with added offline scope correction. JSON formatting and CSV line endings normalized without changing values."
+}

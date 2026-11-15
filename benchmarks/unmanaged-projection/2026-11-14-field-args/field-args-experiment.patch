@@ -1,0 +1,23 @@
+diff --git a/go/unmanaged_projection_read.go b/go/unmanaged_projection_read.go
+index c7f3d4d8..4621d8ef 100644
+--- a/go/unmanaged_projection_read.go
++++ b/go/unmanaged_projection_read.go
+@@ -168,0 +169,4 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]a
++	// Box each immutable field name once into the first command's owned args.
++	// Later commands copy that field tail into independent argument slices.
++	// Avoid a separate template allocation, including for the single-key probe.
++	var fields []any
+@@ -170,4 +174,9 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]a
+-		args := make([]any, 0, 2+len(r.fields))
+-		args = append(args, "HMGET", key)
+-		for _, field := range r.fields {
+-			args = append(args, field)
++		args := make([]any, 2+len(r.fields))
++		args[0], args[1] = "HMGET", key
++		if i == 0 {
++			for j, field := range r.fields {
++				args[2+j] = field
++			}
++			fields = args[2:]
++		} else {
++			copy(args[2:], fields)
