@@ -1,5 +1,7 @@
 # Plan: performance-slide benchmark refresh
 
+[PR #442](https://github.com/redis/redis-adbc-driver/pull/442).
+
 See [intent](intent.md) and [spec](spec.md).
 
 1. Create an isolated branch at current main; preserve unrelated working trees.

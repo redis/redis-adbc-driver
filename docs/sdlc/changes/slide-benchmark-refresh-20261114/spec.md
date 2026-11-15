@@ -1,5 +1,7 @@
 # Specification: current performance evidence for the slides
 
+[PR #442](https://github.com/redis/redis-adbc-driver/pull/442).
+
 See [intent](intent.md) and [plan](plan.md).
 
 - Build the Linux native library and CLI once from clean main `34f4c829`; use the same exact library/version/source for both benchmark matrices. Keep `adbc.redis.writer_admission_queue` at its default false.
