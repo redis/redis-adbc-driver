@@ -1,0 +1,16 @@
+{
+  "scope": "Selected CPU counters around the complete diagnostic subprocess including fixture/SQL setup and cleanup; not aligned per native sequence or server CPU attribution",
+  "delta": {
+    "usage_usec": 280973,
+    "user_usec": 159600,
+    "system_usec": 121373,
+    "nr_periods": 25,
+    "nr_throttled": 0,
+    "throttled_usec": 0
+  },
+  "docker_vm_logical_cpus": 18,
+  "docker_vm_memory_bytes": 25420967936,
+  "container_nano_cpus": 4000000000,
+  "container_memory_bytes": 8589934592,
+  "exit_code": 0
+}

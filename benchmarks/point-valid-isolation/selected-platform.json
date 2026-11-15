@@ -1,0 +1,8 @@
+{
+  "server_image_architecture": "arm64",
+  "server_image_os": "linux",
+  "docker_vm_cpus": 18,
+  "docker_vm_memory_bytes": 25420967936,
+  "server_cpu_quota": 4.0,
+  "server_memory_bytes": 8589934592
+}

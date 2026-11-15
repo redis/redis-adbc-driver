@@ -1,0 +1,115 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+
+package redis
+
+import (
+	"context"
+	"strings"
+
+	"github.com/apache/arrow-adbc/go/adbc"
+	goredis "github.com/redis/go-redis/v9"
+)
+
+type snapshotSegmentProbe struct {
+	segment snapshotSegment
+	proof   *snapshotSegmentValidation
+	info    *goredis.Cmd
+	count   *goredis.IntCmd
+}
+
+// Keep at most two Search responses in each native proof pipeline. On the
+// measured Software TLS endpoint, larger FT.INFO response groups delayed the
+// following response. Every command, permission/readiness/cardinality proof and
+// whole-operation unknown-outcome check remains required; existing statement-local
+// proof lifetimes are unchanged.
+const snapshotValidationSegmentsPerPipeline = 2
+
+type snapshotSegmentCountCmd struct{ *goredis.IntCmd }
+
+func (snapshotSegmentCountCmd) NoRetry() bool { return true }
+
+// A descriptor bounds total work to snapshotMaxSegments. Every registered index
+// and row directory has {meta}; select that primary explicitly, as searchDo does,
+// rather than let Cluster command-key inference route an FT.INFO elsewhere.
+// This is a read pipeline, not a transaction or a retry of SQL.
+func (s *store) validateSnapshotSegments(ctx context.Context, probes []snapshotSegmentProbe) {
+	defer func() {
+		for _, probe := range probes {
+			close(probe.proof.done)
+		}
+	}()
+	fail := func(err error) {
+		for _, probe := range probes {
+			probe.proof.err = err
+		}
+	}
+	node, err := s.search(ctx, snapshotCatalogKey)
+	if err != nil {
+		fail(err)
+		return
+	}
+	client, ok := node.c.(interface{ Pipeline() goredis.Pipeliner })
+	if !ok {
+		fail(errorf(adbc.StatusIO, "snapshot validation requires a pipeline-capable primary"))
+		return
+	}
+	for i := range probes {
+		probe := &probes[i]
+		probe.info = goredis.NewCmd(ctx, "FT.INFO", probe.segment.Index)
+		probe.count = goredis.NewIntCmd(ctx, "ZCARD", snapshotMembers(snapshotDataID(probe.segment.Prefix)))
+	}
+	var execErr error
+	for offset := 0; offset < len(probes); offset += snapshotValidationSegmentsPerPipeline {
+		if err := ctx.Err(); err != nil {
+			fail(wrapRedis(err, "snapshot validation batch canceled"))
+			return
+		}
+		pipe := client.Pipeline()
+		for i := offset; i < min(offset+snapshotValidationSegmentsPerPipeline, len(probes)); i++ {
+			probe := &probes[i]
+			for _, cmd := range []goredis.Cmder{onceCmd{probe.info}, snapshotSegmentCountCmd{probe.count}} {
+				if err := pipe.Process(ctx, cmd); err != nil {
+					pipe.Discard()
+					fail(wrapRedis(err, "snapshot validation batch queue is unavailable"))
+					return
+				}
+			}
+		}
+		_, execErr = pipe.Exec(ctx)
+		if execErr != nil || ctx.Err() != nil {
+			// Do not issue another request after an uncertain batch. Previously read
+			// replies stay unpublished until every batch and the caller context pass.
+			break
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		fail(wrapRedis(err, "snapshot validation batch canceled"))
+		return
+	}
+	for _, probe := range probes {
+		var err error
+		switch {
+		case probe.info.Err() != nil:
+			err = wrapRedis(probe.info.Err(), "published snapshot index is unavailable")
+			if native, ok := probe.info.Err().(interface {
+				error
+				RedisError()
+			}); ok && strings.HasPrefix(native.Error(), "NOPERM ") {
+				err = wrapErr(adbc.StatusUnauthorized, probe.info.Err(), "snapshot index reads require FT.INFO permission to verify readiness")
+			}
+		case probe.count.Err() != nil:
+			err = wrapRedis(probe.count.Err(), "snapshot row directory is unavailable")
+		case execErr != nil:
+			// A transport/hook error must not turn default/partial replies into
+			// a successful proof, even if individual command errors are absent.
+			err = wrapRedis(execErr, "snapshot validation batch is unavailable")
+		default:
+			info, seg := indexInfoOf(probe.info.Val()), probe.segment
+			if probe.count.Val() != seg.Rows || info.indexing || info.percent < 1 || info.failures != 0 || info.numDocs != seg.Rows || len(info.prefixes) != 1 || info.prefixes[0] != seg.Prefix {
+				err = errorf(adbc.StatusIO, "published snapshot segment is incomplete or rebuilding")
+			}
+		}
+		probe.proof.err = err
+	}
+}

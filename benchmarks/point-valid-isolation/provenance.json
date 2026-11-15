@@ -1,0 +1,31 @@
+{
+  "baseline": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+  "v1": {
+    "baseline": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+    "new_diagnostic_source_sha256": "d1f6ff82eed9d7d7448acc614edd350466fbbb9ce8412a8ee34ba37ec39836a0",
+    "binary_sha256": "f5d93c6dd104f4a8db561ab6b0901b36d4f954d8f8ee34e10cb2648827447039",
+    "build_exit_code": 0
+  },
+  "v2": {
+    "baseline": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+    "new_diagnostic_source_sha256": "f420d128c0b87873ce26e54791ea05bc33d1adfd742340b284ec5c84f917859c",
+    "binary_sha256": "446d48401e109f85afc2d0577016abafb93219c3fc07d42d8df57a8f765ce0ea",
+    "build_exit_code": 0
+  },
+  "post_run_binary_hashes_match": true,
+  "runtime_change": "none in v1/v2 diagnostics",
+  "environment_gate": {
+    "distribution": "Redis Software",
+    "active_qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "eviction": "noeviction",
+    "data_tls": "certificate and hostname verified",
+    "resp": 3,
+    "Go": "1.27.3",
+    "GOMAXPROCS": 4
+  },
+  "scope": "Single-source helper diagnostics, not native Python/ADBC latency or server CPU; original earlier evidence/source remains unchanged."
+}

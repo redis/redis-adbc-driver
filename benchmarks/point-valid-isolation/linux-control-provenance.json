@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "validated_sequences": 448,
+  "wall_seconds": 0.36134954198496416,
+  "client_os": "linux",
+  "client_arch": "arm64",
+  "client_cpus": 2,
+  "client_memory_bytes": 268435456,
+  "network": "shared owned Software network namespace; localhost TLS with certificate and hostname verification; bypasses host published-port path",
+  "same_server_configuration": true,
+  "client_container_removed": true,
+  "private_client_environment_removed": true,
+  "binary_sha256": "2178efa150fd2c63630cd309bb516c85d9445f207e52aa2d6c758c53d2a62d94",
+  "same_go_source_sha256": "d6c348074c26e02137fc8e70b7306cdd071d8f0d1eba0df38230e85d8340ef55",
+  "coordinator_collected": true,
+  "topology_scope": "Client OS and route both differ from host published-port observation; this does not identify which network/OS/proxy mechanism caused the host wait."
+}

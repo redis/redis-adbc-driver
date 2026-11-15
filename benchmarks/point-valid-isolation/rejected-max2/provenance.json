@@ -1,0 +1,22 @@
+{
+  "baseline": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+  "candidate_runtime_sha256": {
+    "snapshot_validation_batch.go": "d99c456dbfa96110a90e75b513d00658155655bc9f9d685e5b549f952cbdfb8e"
+  },
+  "matched_harness_sha256": {
+    "snapshot_point_valid_isolation_profile_test.go": "f420d128c0b87873ce26e54791ea05bc33d1adfd742340b284ec5c84f917859c",
+    "snapshot_validation_width_profile_test.go": "b0cffb6334e3ed30a4170df3e8123dfe7497d8ec4b48b2770a6db65662ba2056",
+    "snapshot_validation_chunks_test.go": "97a43538365fa45f6279296362f13c20d0593dd7109dc8b969f290baba154c86",
+    "snapshot_validation_batch_test.go": "820f08af6025bbf5f309e06a62cc4c9e23b4bbbb2c7b6e70943ace663e78ab76",
+    "snapshot_validation_batch_integration_test.go": "ca3b4b9e2b74bb1053066234bb0fe6dac7eb1f051f2da34e2e1dbfc57ecba2bd"
+  },
+  "binary_sha256": {
+    "baseline": "61bbe1c76930aad857a1544d938224dcb06e77e681be0976f0bc273f92306bc8",
+    "candidate": "f57d1629aaa5e40ff4be78d08cbf65ee896133f263303f983476ab8241a18f26"
+  },
+  "pre_timing_test_correction": "Scoped NoRetry tracker checks to actual FT.INFO-containing validation pipelines, preserving unrelated metadata pipeline behavior; corrected before all width timings.",
+  "patch_sha256": "2940d9b2875394c5799c4028da974c1aac6cf67f5339d92b9caa84c09343e67c",
+  "compressed_patch_sha256": "6abcf1d6d25028544f3ee3e582827c190af79e3a13f1b85aa317382648e7b6c0",
+  "selection": "rejected on broad-width amplification, no native Python confirmation run",
+  "raw_proof_scope": "1/2/3/8 pendingprobes on real3segmenttable;8 repeatsrealimmutableindexes, not8segmentSQL"
+}
