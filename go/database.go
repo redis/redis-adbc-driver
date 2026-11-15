@@ -29,6 +29,7 @@ import (
 )
 
 type databaseImpl struct {
+	writerAdmissionQueue        bool // process-local managed writer scheduling, opt-in
 	snapshots                   bool
 	snapshotCompactionDisabled  bool // internal deterministic protocol-test fixture only
 	flex                        bool
@@ -131,7 +132,9 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 		cfg.cluster.DialerRetryTimeout = extra.DialerRetryTimeout
 		cfg.cluster.FailingTimeoutSeconds = extra.FailingTimeoutSeconds
 	}
-	cfg.writerDomain = snapshotWriterDomain(cfg, caPath)
+	if d.writerAdmissionQueue {
+		cfg.writerDomain = snapshotWriterDomain(cfg, caPath)
+	}
 	return cfg, nil
 }
 
@@ -491,6 +494,8 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 	switch key {
 	case OptionStringStatementSnapshots:
 		return strconv.FormatBool(d.snapshots), nil
+	case OptionStringWriterAdmissionQueue:
+		return strconv.FormatBool(d.writerAdmissionQueue), nil
 	case OptionStringPartitionControlPersistence:
 		if d.partitionControlPersistence == "" {
 			return "auto", nil
@@ -565,6 +570,11 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		return d.usage.set(key, value)
 	}
 	switch key {
+	case OptionStringWriterAdmissionQueue:
+		if value != "true" && value != "false" {
+			return errorf(adbc.StatusInvalidArgument, "%s must be true or false", key)
+		}
+		d.writerAdmissionQueue = value == "true"
 	case OptionStringStatementSnapshots:
 		if value != "true" {
 			return errorf(adbc.StatusInvalidArgument, "managed-table statement snapshots are always enabled; %s cannot be disabled", key)

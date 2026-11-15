@@ -7,15 +7,19 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -182,15 +186,42 @@ func TestSnapshotWriterDomainIdentity(t *testing.T) {
 	if snapshotWriterDomain(cb, path) != ([32]byte{}) {
 		t.Fatal("different trust roots conflated")
 	}
-	for _, change := range []func(*tls.Config){func(c *tls.Config) { c.Certificates = []tls.Certificate{{}} }, func(c *tls.Config) {
-		c.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { panic("must not invoke") }
-	}, func(c *tls.Config) { c.VerifyConnection = func(tls.ConnectionState) error { panic("must not invoke") } }, func(c *tls.Config) { c.InsecureSkipVerify = true }} {
-		c := makeTLS()
-		change(c.single.TLSConfig)
-		if snapshotWriterDomain(c, path) != ([32]byte{}) {
-			t.Fatal("custom TLS behavior retained")
-		}
+	customTLS := map[string]func(*tls.Config){
+		"certificates": func(c *tls.Config) { c.Certificates = []tls.Certificate{{}} },
+		"get_client_certificate": func(c *tls.Config) {
+			c.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { panic("must not invoke") }
+		},
+		"get_certificate": func(c *tls.Config) {
+			c.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) { panic("must not invoke") }
+		},
+		"get_config": func(c *tls.Config) {
+			c.GetConfigForClient = func(*tls.ClientHelloInfo) (*tls.Config, error) { panic("must not invoke") }
+		},
+		"verify_peer": func(c *tls.Config) {
+			c.VerifyPeerCertificate = func([][]byte, [][]*x509.Certificate) error { panic("must not invoke") }
+		},
+		"verify_connection": func(c *tls.Config) { c.VerifyConnection = func(tls.ConnectionState) error { panic("must not invoke") } },
+		"insecure":          func(c *tls.Config) { c.InsecureSkipVerify = true },
+		"session_cache":     func(c *tls.Config) { c.ClientSessionCache = tls.NewLRUClientSessionCache(1) },
+		"next_protocols":    func(c *tls.Config) { c.NextProtos = []string{"example"} },
+		"cipher_suites":     func(c *tls.Config) { c.CipherSuites = []uint16{tls.TLS_AES_128_GCM_SHA256} },
+		"curves":            func(c *tls.Config) { c.CurvePreferences = []tls.CurveID{tls.X25519} },
+		"max_version":       func(c *tls.Config) { c.MaxVersion = tls.VersionTLS13 },
+		"tickets_disabled":  func(c *tls.Config) { c.SessionTicketsDisabled = true },
+		"random":            func(c *tls.Config) { c.Rand = strings.NewReader("not used") },
+		"clock":             func(c *tls.Config) { c.Time = func() time.Time { panic("must not invoke") } },
+		"keylog":            func(c *tls.Config) { c.KeyLogWriter = io.Discard },
 	}
+	for name, change := range customTLS {
+		t.Run(name, func(t *testing.T) {
+			c := makeTLS()
+			change(c.single.TLSConfig)
+			if snapshotWriterDomain(c, path) != ([32]byte{}) {
+				t.Fatal("custom TLS behavior retained")
+			}
+		})
+	}
+
 	// Cancellation must not keep queue state if registered while already canceled.
 	var r snapshotWriterRegistry
 	for i := 0; i < 100; i++ {
@@ -218,4 +249,45 @@ func waitWriterRegistryRequests(t *testing.T, n int) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatal("writer registry did not reach expected request count", n)
+}
+
+func TestSnapshotWriterHandoffOption(t *testing.T) {
+	ctx := context.Background()
+	d, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, testUsageOptions(map[string]string{adbc.OptionKeyURI: "redis://unused.invalid:1/0?protocol=3"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close(ctx)
+	value, err := d.GetOption(ctx, OptionStringWriterAdmissionQueue)
+	if err != nil || value != "false" {
+		t.Fatal("queue must default false", value, err)
+	}
+	cfg, err := d.clientConfig()
+	if err != nil || cfg.writerDomain != ([32]byte{}) {
+		t.Fatal("default unexpectedly fingerprinted identity", err)
+	}
+	for _, value := range []string{"TRUE", "1", "", "yes"} {
+		if err := d.SetOption(ctx, OptionStringWriterAdmissionQueue, value); !isStatus(err, adbc.StatusInvalidArgument) {
+			t.Fatal("invalid queue option accepted", value, err)
+		}
+	}
+	if err := d.SetOption(ctx, OptionStringWriterAdmissionQueue, "true"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = d.clientConfig()
+	if err != nil || cfg.writerDomain == ([32]byte{}) {
+		t.Fatal("enabled static identity not fingerprinted", err)
+	}
+	value, err = d.GetOption(ctx, OptionStringWriterAdmissionQueue)
+	if err != nil || value != "true" {
+		t.Fatal(value, err)
+	}
+	prior := cfg.writerDomain
+	if err := d.SetOption(ctx, OptionStringWriterAdmissionQueue, "false"); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := d.clientConfig()
+	if err != nil || fresh.writerDomain != ([32]byte{}) || cfg.writerDomain != prior {
+		t.Fatal("option changed an existing config or failed to disable future configs", err)
+	}
 }

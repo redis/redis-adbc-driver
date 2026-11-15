@@ -22,8 +22,10 @@ const snapshotWriterRequestLimit = 1024
 
 // A turn is a bounded process-local scheduling hint, never an admission,
 // catalog, permission or lease proof. Different processes and bounded overflow
-// retain the original server-controlled admission path. No client, store,
-// transport, raw endpoint/credential or table name is retained here.
+// retain the original server-controlled admission path. There are no explicit
+// client/catalog/credential fields. Active cancellation registration can retain
+// the parent execution context indirectly; it is detached and cleared when the
+// turn is released. Cardinality bounds do not bound caller-owned context memory.
 var snapshotWriteTurns snapshotWriterRegistry
 
 type snapshotWriterRegistry struct {

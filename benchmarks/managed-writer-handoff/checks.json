@@ -1,0 +1,64 @@
+{
+  "writer-handoff-unit": {
+    "exit_code": 0,
+    "events_including_subtests": {
+      "pass": 4,
+      "fail": 0,
+      "skip": 0
+    },
+    "command": "go test -race -json -count=1 -p 1 -run ^TestSnapshotWriter(Handoff(FIFO|Bounded|Cancellation)|Domain) ."
+  },
+  "writer-handoff-software": {
+    "exit_code": 0,
+    "events_including_subtests": {
+      "pass": 28,
+      "fail": 0,
+      "skip": 0
+    },
+    "command": "go test -race -json -count=1 -p 1 -timeout 10m -run ^TestSnapshot(WriterHandoffIndependentDatabases|SQLAdmission|IngestAdmission|WriteAdmissionWaitsForCompactionPublication|AdmissionSocketTimeoutClassification) ."
+  },
+  "writer-handoff-crossdomain": {
+    "exit_code": 0,
+    "events_including_subtests": {
+      "pass": 3,
+      "fail": 0,
+      "skip": 0
+    },
+    "command": "go test -race -json -count=1 -p 1 -timeout 5m -run ^TestSnapshotWriterHandoffUncoordinatedNativeGate$ ."
+  },
+  "writer-handoff-option-unit": {
+    "exit_code": 0,
+    "events_including_subtests": {
+      "pass": 21,
+      "fail": 0,
+      "skip": 0
+    },
+    "command": "go test -race -json -count=1 -p 1 -timeout 10m -run ^TestSnapshotWriter(Handoff(FIFO|Bounded|Cancellation|Option$)|Domain) .",
+    "source_scope": "Actualpost-measurementgatedcandidate; doesnotrelabel03eperformance"
+  },
+  "writer-handoff-option-default": {
+    "exit_code": 0,
+    "events_including_subtests": {
+      "pass": 36,
+      "fail": 0,
+      "skip": 0
+    },
+    "command": "go test -race -json -count=1 -p 1 -timeout 10m -run ^TestSnapshot(WriterHandoff|SQLAdmission|IngestAdmission|WriteAdmissionWaitsForCompactionPublication|AdmissionSocketTimeoutClassification) .",
+    "source_scope": "Actualpost-measurementgatedcandidate; doesnotrelabel03eperformance"
+  },
+  "writer-handoff-option-enabled": {
+    "exit_code": 0,
+    "events_including_subtests": {
+      "pass": 25,
+      "fail": 0,
+      "skip": 0
+    },
+    "command": "go test -race -json -count=1 -p 1 -timeout 10m -run ^TestSnapshot(SQLAdmission|IngestAdmission|WriteAdmissionWaitsForCompactionPublication|AdmissionSocketTimeoutClassification) .",
+    "source_scope": "Actualpost-measurementgatedcandidate; doesnotrelabel03eperformance"
+  },
+  "expanded_TLS_cases": {
+    "status": "PASS",
+    "cases": 16,
+    "scope": "Post-measurement test-only coverage in final gated candidate; not claimed for frozen03eperformance binaries."
+  }
+}

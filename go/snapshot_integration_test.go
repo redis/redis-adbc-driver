@@ -38,7 +38,13 @@ func newSnapshotHarness(t *testing.T) (*sqlHarness, *goredis.Client, adbc.Databa
 // races with deliberately corrupted indexes/leases remain deterministic. The
 // background integration/native tests use automatic production workers.
 func newSnapshotHarnessMode(t *testing.T, background, drain bool) (*sqlHarness, *goredis.Client, adbc.DatabaseWithContext) {
-	return newSnapshotHarnessOptions(t, background, drain, map[string]string{OptionStringFlex: fmt.Sprint(os.Getenv("REDIS_SNAPSHOT_FLEX") == "true")})
+	options := map[string]string{OptionStringFlex: fmt.Sprint(os.Getenv("REDIS_SNAPSHOT_FLEX") == "true")}
+	// Explicit test-only switch exercises unchanged SQL/Arrow safety suites with
+	// the public opt-in; absent means the production default remains false.
+	if value := os.Getenv("REDIS_SNAPSHOT_WRITER_QUEUE"); value != "" {
+		options[OptionStringWriterAdmissionQueue] = value
+	}
+	return newSnapshotHarnessOptions(t, background, drain, options)
 }
 
 func newSnapshotHarnessOptions(t *testing.T, background, drain bool, options map[string]string) (*sqlHarness, *goredis.Client, adbc.DatabaseWithContext) {

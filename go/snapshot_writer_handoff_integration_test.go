@@ -16,7 +16,7 @@ import (
 func TestSnapshotWriterHandoffIndependentDatabases(t *testing.T) {
 	for _, closeQueued := range []bool{false, true} {
 		t.Run(map[bool]string{false: "handoff", true: "close_queued"}[closeQueued], func(t *testing.T) {
-			h, raw, db := newSnapshotHarnessMode(t, false, false)
+			h, raw, db := newSnapshotHarnessOptions(t, false, false, map[string]string{OptionStringWriterAdmissionQueue: "true"})
 			h.exec("CREATE SEQUENCE handoff_q CACHE 1")
 			h.exec("CREATE TABLE handoff_t(id BIGINT)")
 			foreign := snapshotTestStore(t, raw) // Represents an owner outside the local registry.
@@ -25,7 +25,7 @@ func TestSnapshotWriterHandoffIndependentDatabases(t *testing.T) {
 			first := admissionConnection(t, db)
 			o1 := &ingestAdmissionObserver{busy: make(chan struct{})}
 			s1 := sqlAdmissionStatement(t, first, "INSERT INTO handoff_t VALUES(NEXTVAL('handoff_q'))", o1)
-			impl2, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(h.ctx, testUsageOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI")}))
+			impl2, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(h.ctx, testUsageOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI"), OptionStringWriterAdmissionQueue: "true"}))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -109,7 +109,7 @@ func TestSnapshotWriterHandoffIndependentDatabases(t *testing.T) {
 func TestSnapshotWriterHandoffUncoordinatedNativeGate(t *testing.T) {
 	for _, unknown := range []bool{false, true} {
 		t.Run(map[bool]string{false: "cancel", true: "unknown_admission"}[unknown], func(t *testing.T) {
-			h, raw, db := newSnapshotHarnessMode(t, false, false)
+			h, raw, db := newSnapshotHarnessOptions(t, false, false, map[string]string{OptionStringWriterAdmissionQueue: "true"})
 			h.exec("CREATE SEQUENCE outside_q CACHE 1")
 			h.exec("CREATE TABLE outside_t(id BIGINT)")
 			holder := admissionConnection(t, db)
@@ -169,5 +169,46 @@ func TestSnapshotWriterHandoffUncoordinatedNativeGate(t *testing.T) {
 			h.expectRows("SELECT id FROM outside_t", "2")
 			noAdmissionPins(t, h, raw)
 		})
+	}
+}
+
+func TestSnapshotWriterHandoffOptionConnectionLifetime(t *testing.T) {
+	h, _, _ := newSnapshotHarnessMode(t, false, false)
+	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(h.ctx, testUsageOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI"), OptionStringWriterAdmissionQueue: "true"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer impl.Close(h.ctx)
+	impl.snapshotCompactionDisabled = true
+	enabled, err := impl.openConnection(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer enabled.Close(h.ctx)
+	prior := enabled.store.writerDomain
+	if prior == ([32]byte{}) {
+		t.Fatal("enabled connection did not capture identity")
+	}
+	if err := impl.SetOption(h.ctx, OptionStringWriterAdmissionQueue, "false"); err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := impl.openConnection(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer disabled.Close(h.ctx)
+	if disabled.store.writerDomain != ([32]byte{}) || enabled.store.writerDomain != prior {
+		t.Fatal("database option mutated an existing connection or failed to preserve default")
+	}
+	if err := impl.SetOption(h.ctx, OptionStringWriterAdmissionQueue, "true"); err != nil {
+		t.Fatal(err)
+	}
+	again, err := impl.openConnection(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer again.Close(h.ctx)
+	if again.store.writerDomain != prior {
+		t.Fatal("enabled subsequent connection failed to share identity")
 	}
 }

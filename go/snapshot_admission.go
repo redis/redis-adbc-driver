@@ -51,7 +51,7 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 		if meta != nil && meta.Unmanaged {
 			return sctx, pin, nil // Catalog pin only; application writers coordinate themselves.
 		}
-		if meta != nil {
+		if meta != nil && s.writerDomain != ([32]byte{}) {
 			target := snapshotIngestAdmissionTarget(meta)
 			if turn != nil && turnTarget != target {
 				turn.release()

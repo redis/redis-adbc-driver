@@ -65,6 +65,36 @@ unnecessary.
 For an explicit read view reused across native connection metadata and SELECTs,
 see [connection-scoped shared read snapshots](shared-read-snapshots.md).
 
+## Optional process-local writer scheduling
+
+Managed writes use the existing native server admission by default. A database
+may opt newly opened connections into `adbc.redis.writer_admission_queue=true`
+(the default is `false`; only those exact boolean strings are accepted). This is
+an option within managed mode, not another table mode. It does not affect live
+unmanaged writes.
+
+The option adds bounded, best-effort FIFO turns among eligible managed writers
+in the same loaded driver process, including independent database handles with
+matching static routing, credentials and TLS trust. It can improve contended
+whole-workload completion and high-percentile latency while increasing typical
+per-operation latency. The [measured candidate tradeoff](https://github.com/redis/redis-adbc-driver/blob/main/benchmarks/managed-writer-handoff/report.md)
+is diagnostic Go evidence pending normal native confirmation; no general speedup
+or fairness guarantee follows from enabling it.
+
+Every turn still needs fresh catalog, target, lease and native admission proofs.
+Waiters release their snapshot pins before waiting. Cancellation/Close releases
+local coordination without authorizing a subsequent writer to bypass an existing
+server owner. There is no cached authorization or SQL/Arrow replay. Other
+processes, identity aliases, custom/dynamic identities and bounded overflow use
+native server coordination; strict/global FIFO is not promised. The queue is
+bounded to 256 target entries and 1,024 requests. An active cancellation callback
+can retain its parent operation context; it is detached and cleared on release.
+These are cardinality limits, not bounds on caller-owned context memory.
+
+Changing the database option affects future connections only. Existing
+connections retain their selection. Custom credential providers/dialers and
+unrepresentable custom TLS behavior conservatively bypass the local queue.
+
 ## Explicit retained operations
 
 Ordinary statements still publish synchronously. An application may explicitly
