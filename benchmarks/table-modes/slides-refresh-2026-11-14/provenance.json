@@ -1,0 +1,83 @@
+{
+  "source_commit": "34f4c82972c7a059f045f1fb65bdfc2ce4adfce9",
+  "source_clean_before_timing": true,
+  "version": "v0.1.0-dev.slide-refresh-20261114",
+  "sha256": {
+    "library": "25b6d2900a7ffb787021db23af371f4ef8ecd8758e0dcaa0b60bb1d45bdf29e2",
+    "cli": "cfbf7db1282a10340ac517afb4b51e7c5ffd0c3eb08ba7d340eda4aa4d498a4f",
+    "arrow_compare.py": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+    "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+    "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "owner_recording_wrapper": "bc432b589b655b2e759c3072845a2d72ca333244857d8b29cfc0779cbe755b0d",
+    "source_fixture": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2"
+  },
+  "driver_options": {
+    "adbc.redis.stream_batch_rows": 4096,
+    "adbc.redis.writer_admission_queue": false
+  },
+  "client": {
+    "os": "Linux",
+    "architecture": "arm64",
+    "cpu_limit": 4,
+    "memory_bytes": 4294967296,
+    "route": "client shares Software server network namespace; localhost trusted TLS",
+    "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.36",
+    "python": "3.14.10",
+    "go": "go version go1.27.3 linux/arm64",
+    "packages": {
+      "pyarrow": "26.0.1",
+      "adbc-driver-manager": "1.13.0",
+      "redis": "8.1.0",
+      "hiredis": "3.5.0",
+      "requests": "2.34.2"
+    }
+  },
+  "server": {
+    "distribution": "Redis Software",
+    "cpu_limit": 4,
+    "container_memory_bytes": 8589934592,
+    "database_memory_bytes": 4294967296,
+    "shards": 1,
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "eviction": "noeviction",
+    "tls_certificate_and_hostname_verified": true,
+    "protocol": 3,
+    "redis_version": "8.8.0",
+    "modules": [
+      {
+        "name": "bf",
+        "version": 80801
+      },
+      {
+        "name": "search",
+        "version": 80808
+      },
+      {
+        "name": "ReJSON",
+        "version": 80802
+      },
+      {
+        "name": "vectorset",
+        "version": 1
+      },
+      {
+        "name": "timeseries",
+        "version": 80808
+      }
+    ],
+    "resource_limits_verified": true,
+    "software_version": "8.2.6-25"
+  },
+  "host": {
+    "platform": "macOS-26.7.3-arm64-arm-64bit-Mach-O",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664,
+    "cpu": "Apple M5 Max",
+    "docker_vm_cpus": 18
+  },
+  "scope": "One current-main reference. Existing per-case timing/validation unchanged; wrapper records ownership outside timing. No matched historical performance gain claim. No ClickBench rerun. No optional writer queue enabled.",
+  "final_empty_and_resp_verified": true
+}
