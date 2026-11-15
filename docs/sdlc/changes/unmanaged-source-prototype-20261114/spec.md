@@ -34,3 +34,5 @@ prerequisites. A library prototype is not permission to enable LOAD aliases,
 unknown capabilities or approximate integer reducers in the driver. Source reads
 would still occur on the server; the intended reduction is client-command fanout,
 not elimination of source-data work or proof of an end-to-end speedup.
+
+Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).

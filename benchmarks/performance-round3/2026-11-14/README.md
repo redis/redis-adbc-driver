@@ -1,5 +1,7 @@
 # Performance work — November 14, 2026
 
+[PR #441](https://github.com/redis/redis-adbc-driver/pull/441).
+
 Three subagents investigated read response waits, managed writer coordination
 and exact unmanaged source projection. Live work used an exclusively scheduled
 owned Redis Software fixture with active/effective 4× QPF. The

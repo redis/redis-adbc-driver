@@ -17,3 +17,5 @@ The existing [Search #12334](https://github.com/RediSearch/RediSearch/issues/123
 already covers the requested source/reduction boundary; no duplicate issue or
 external comment is created here. See [contract](spec.md), [plan](plan.md), and
 [prototype/repro](../../../../benchmarks/unmanaged-source-projection/README.md).
+
+Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).

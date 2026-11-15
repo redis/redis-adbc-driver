@@ -20,3 +20,5 @@ upstream post, release or merge is part of this prototype. Human maintainer
 review is required before any production adoption; agent review is not approval.
 
 Actual outcomes and remaining engine-integration gaps: [validation](validation.md).
+
+Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).

@@ -54,3 +54,5 @@ All task-owned clients/processes closed and independent fixture verification
 observed empty after each exclusive slot. No external issue/comment or PR was
 created by this subagent. Human maintainer approval is not inferred. See the
 [complete evidence](../../../../benchmarks/point-valid-isolation/README.md).
+
+Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).

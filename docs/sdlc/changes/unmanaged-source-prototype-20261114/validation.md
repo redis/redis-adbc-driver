@@ -89,3 +89,5 @@ or UB test was executed. [Final source/binary hashes and outcomes](../../../../b
 match the regenerated patch; initial source hashes remain separately recorded.
 The SQL repro source and its earlier Linux results are unchanged. No Redis
 operation or Go/native benchmark was rerun for this comment/contract clarification.
+
+Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).

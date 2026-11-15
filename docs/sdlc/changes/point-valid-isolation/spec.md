@@ -42,3 +42,5 @@ dedicated-pool opt-out. It tests native FT.INFO and exact application-owned GET
 values around 8 KiB. A separate frozen standalone Go executable uses only
 go-redis RESP3/TLS GET/PING with owned expiring keys: no ADBC, SQL, Search, Lua or
 managed metadata. Independent client/topology controls remain separately labeled.
+
+Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).

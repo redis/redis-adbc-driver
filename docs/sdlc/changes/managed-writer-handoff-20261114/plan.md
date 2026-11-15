@@ -54,3 +54,5 @@ connection management/reconnect behavior. Object setup is excluded, but lazy
 first-operation network/execution-pool work remains included. New clients per
 trial mean warmups do not prewarm later clients. No timing code changed after
 freezing. Human approval is not inferred.
+
+Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).

@@ -3,7 +3,7 @@
 Date: 2026-11-14. Requestor: repository user asking for performance work with
 subagents. Baseline: `d7c0978f` (merged PR #440). Status: native and standalone
 diagnostics executed; fixed-grouping candidate rejected on wide-response
-regressions; runtime unchanged. Integration PR pending.
+regressions; runtime unchanged. Integration Review: [PR #441](https://github.com/redis/redis-adbc-driver/pull/441).
 
 The earlier [native sequence](../../../../benchmarks/point-valid-sequence/README.md)
 reproduced a roughly 13 ms first validation response after three native index
