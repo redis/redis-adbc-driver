@@ -35,6 +35,9 @@ func snapshotIngestAdmissionTarget(meta *tableMeta) string {
 
 func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
 	delay := 5 * time.Millisecond
+	var turn *snapshotWriterTurn
+	var turnTarget string
+	defer func() { turn.release() }()
 	for {
 		sctx, pin, err := s.acquireSnapshot(ctx, true)
 		if err != nil || target == nil {
@@ -47,6 +50,32 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 		}
 		if meta != nil && meta.Unmanaged {
 			return sctx, pin, nil // Catalog pin only; application writers coordinate themselves.
+		}
+		if meta != nil {
+			target := snapshotIngestAdmissionTarget(meta)
+			if turn != nil && turnTarget != target {
+				turn.release()
+				turn = nil
+			}
+			if turn == nil {
+				turn, err = snapshotWriteTurns.join(ctx, s.writerDomain, target)
+				if err != nil {
+					pin.release()
+					return ctx, nil, err
+				}
+				turnTarget = target
+				if turn != nil {
+					select {
+					case <-turn.ready:
+					default:
+						pin.release()
+						if err := turn.wait(ctx); err != nil {
+							return ctx, nil, err
+						}
+						continue // Handoff requires a fresh pin and target validation.
+					}
+				}
+			}
 		}
 		s.mu.Lock()
 		worker := s.compactor != nil
@@ -64,6 +93,7 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 				return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to admit snapshot table write before execution or input consumption")
 			}
 			if n == 1 {
+				pin.writerTurn, turn = turn, nil
 				return sctx, pin, nil
 			}
 			if n != 0 {

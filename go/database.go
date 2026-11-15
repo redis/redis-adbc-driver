@@ -67,7 +67,8 @@ type databaseImpl struct {
 // go-redis's options for both kinds of client, from the URI (or the address
 // and database) and the credentials.
 type clientConfig struct {
-	diagnostics atomic.Pointer[executionDiagnostics]
+	writerDomain [32]byte // opaque, process-local scheduling identity only
+	diagnostics  atomic.Pointer[executionDiagnostics]
 	// single are a single-endpoint client's options.
 	single *goredis.Options
 	// cluster are an OSS Cluster API client's: the same, the URI's address
@@ -130,6 +131,7 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 		cfg.cluster.DialerRetryTimeout = extra.DialerRetryTimeout
 		cfg.cluster.FailingTimeoutSeconds = extra.FailingTimeoutSeconds
 	}
+	cfg.writerDomain = snapshotWriterDomain(cfg, caPath)
 	return cfg, nil
 }
 
@@ -311,7 +313,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 	if err != nil {
 		return nil, err
 	}
-	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username)}
+	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username), writerDomain: cfg.writerDomain}
 	if !d.readerOnly {
 		if err := st.searchDo(ctx, "", "FT._LIST").Err(); err != nil {
 			_ = client.Close()
