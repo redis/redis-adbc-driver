@@ -94,7 +94,10 @@ pub trait SourceHashBackend {
 
 /// Read each requested field at most once from one verified HASH handle. The
 /// caller must hold the Redis module execution lock for the entire invocation;
-/// checkpoints must not yield/unlock that handle. Expiry follows native key-open
+/// checkpoints must not yield/unlock or mutate/delete/replace/expire the held
+/// source key or its storage. They must not run commands/APIs that invalidate
+/// that handle or borrowed storage, even while the module lock stays held.
+/// Expiry follows native key-open
 /// semantics. No unselected-field enumeration or numeric conversion occurs.
 pub fn project_source_hash<B: SourceHashBackend>(
     backend: &mut B,

@@ -36,8 +36,12 @@ Field/request limits are checked before opening the source. Selected-byte limits
 admit the accepted result after native get returns an owned RedisString. They
 are not a peak-allocation bound: one oversized selected value may materialize
 before rejection. The native entry point is unsafe with an explicit context,
-thread/lock and non-yielding/non-mutating callback lifetime contract. Debug output
-redacts projected source values.
+thread/lock and callback lifetime contract. While the source handle is open,
+callbacks must not yield/unlock, mutate/delete/replace/expire the source key or
+its HASH field/value storage, or run commands/module APIs that invalidate the
+held RedisKey or borrowed storage—even if the module lock remains held. These
+are caller safety obligations, not properties established by the generic mock
+tests. Debug output redacts projected source values.
 
 ## Deliberately missing production integration
 
@@ -65,7 +69,11 @@ ignored tests), and the native adapter type-checked against the real pinned
 redismodule-rs dependency. The core tests compile the exact proposed production
 file, not a parallel reference algorithm. Applied patch files match those
 compiled source hashes. No full Search workspace, module or engine integration
-build/test is claimed.
+build/test is claimed. A [final callback-contract recheck](final-safety-checks.json)
+recompiled and reran the exact final files after explicitly prohibiting source-key
+mutation/invalidation even under the module lock: seven core tests and the
+locked/offline native adapter check passed. No invalid-pointer/UB tests ran;
+the callback requirements remain unsafe caller obligations.
 
 The [adapter harness](adapter-check/Cargo.toml) uses the pinned real native API,
 with a checked-in dependency lockfile. Its platform binding-generation features

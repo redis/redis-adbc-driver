@@ -11,7 +11,7 @@
 +pub use source_hash_native::project_native_source_hash;
 --- /dev/null
 +++ b/src/redisearch_rs/rlookup/src/source_hash.rs
-@@ -0,0 +1,375 @@
+@@ -0,0 +1,378 @@
 +/*
 + * Copyright (c) 2006-Present, Redis Ltd.
 + * All rights reserved.
@@ -108,7 +108,10 @@
 +
 +/// Read each requested field at most once from one verified HASH handle. The
 +/// caller must hold the Redis module execution lock for the entire invocation;
-+/// checkpoints must not yield/unlock that handle. Expiry follows native key-open
++/// checkpoints must not yield/unlock or mutate/delete/replace/expire the held
++/// source key or its storage. They must not run commands/APIs that invalidate
++/// that handle or borrowed storage, even while the module lock stays held.
++/// Expiry follows native key-open
 +/// semantics. No unselected-field enumeration or numeric conversion occurs.
 +pub fn project_source_hash<B: SourceHashBackend>(
 +    backend: &mut B,
@@ -389,7 +392,7 @@
 +}
 --- /dev/null
 +++ b/src/redisearch_rs/rlookup/src/source_hash_native.rs
-@@ -0,0 +1,125 @@
+@@ -0,0 +1,129 @@
 +/*
 + * Copyright (c) 2006-Present, Redis Ltd.
 + * All rights reserved.
@@ -491,7 +494,11 @@
 +///
 +/// `ctx` must reference a valid live Redis module context on its owning thread.
 +/// The caller must hold the Redis module execution lock for the entire call;
-+/// neither callback may release it or invalidate/mutate an open key handle.
++/// neither callback may yield or release it. While the source handle is open,
++/// callbacks must not mutate, delete, replace, expire or otherwise invalidate
++/// the source key, its HASH fields or its value storage. They must not execute
++/// Redis commands or module APIs that could invalidate the held RedisKey or
++/// borrowed storage, even when the module execution lock remains held.
 +/// Context lifetime must cover this call and destruction of returned RedisStrings.
 +pub unsafe fn project_native_source_hash<A, C>(
 +    ctx: NonNull<redis_module::RedisModuleCtx>,

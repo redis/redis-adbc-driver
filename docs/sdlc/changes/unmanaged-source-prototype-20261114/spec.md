@@ -14,8 +14,12 @@ runs before opening the key. Callers must provide actual current-user ACL checks
 not assume OpenKey checks permissions. Gate/native failures propagate as errors,
 without partial row publication, retry or conversion to absence. The unsafe native
 entry point requires a live context, its owning thread/module lock, and callbacks
-that neither yield/unlock nor invalidate the key handle. Returned RedisStrings
-must be destroyed before the context expires.
+that neither yield/unlock nor mutate, delete, replace, expire or otherwise
+invalidate the held source key, its HASH fields/value storage, or the native key
+handle. Commands/module APIs that can invalidate the handle or borrowed storage
+are forbidden even while the module lock remains held. Returned RedisStrings
+must be destroyed before the context expires. These are unsafe caller obligations;
+the generic callback tests cannot prove arbitrary callback behavior meets them.
 
 Field count and request bytes are admitted before key opening. Selected result
 bytes are checked after native get returns an owned value: this is an accepted

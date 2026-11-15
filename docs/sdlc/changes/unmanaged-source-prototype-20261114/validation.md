@@ -71,3 +71,21 @@ Root source review identified the unsafe-context and post-materialization-budget
 clarifications before accepting the prototype. Actual core/native API checks and
 baseline repro were audited; no human maintainer approval or merge is inferred.
 No upstream issue/comment, release, new driver mode or ClickBench run was created.
+
+### Final callback-contract review
+
+Root review requested an explicit prohibition on source-key mutation while its
+native handle is open, even if the module lock stays held. The unsafe #Safety
+contract, shared core docs and integration contract now forbid callbacks from
+mutating/deleting/replacing/expiring the source key or its HASH field/value
+storage, or executing commands/module APIs that invalidate the held RedisKey or
+borrowed storage. This is a caller obligation, not something arbitrary callbacks
+can be proven to obey by mock tests.
+
+The exact final Rust files were reformatted, recompiled and rerun: seven core
+tests passed, zero failed/ignored; the native adapter passed locked/offline
+Cargo check against the same real pinned dependency. No invalid pointer/handle
+or UB test was executed. [Final source/binary hashes and outcomes](../../../../benchmarks/unmanaged-source-projection/final-safety-checks.json)
+match the regenerated patch; initial source hashes remain separately recorded.
+The SQL repro source and its earlier Linux results are unchanged. No Redis
+operation or Go/native benchmark was rerun for this comment/contract clarification.

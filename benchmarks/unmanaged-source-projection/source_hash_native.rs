@@ -99,7 +99,11 @@ where
 ///
 /// `ctx` must reference a valid live Redis module context on its owning thread.
 /// The caller must hold the Redis module execution lock for the entire call;
-/// neither callback may release it or invalidate/mutate an open key handle.
+/// neither callback may yield or release it. While the source handle is open,
+/// callbacks must not mutate, delete, replace, expire or otherwise invalidate
+/// the source key, its HASH fields or its value storage. They must not execute
+/// Redis commands or module APIs that could invalidate the held RedisKey or
+/// borrowed storage, even when the module execution lock remains held.
 /// Context lifetime must cover this call and destruction of returned RedisStrings.
 pub unsafe fn project_native_source_hash<A, C>(
     ctx: NonNull<redis_module::RedisModuleCtx>,

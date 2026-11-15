@@ -1,8 +1,8 @@
 {
   "rustc_version": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
   "source_sha256": {
-    "source_hash.rs": "9bed44915161da1defa805a82337d45601bd9676df1bff19c42d80bb6fb23131",
-    "source_hash_native.rs": "162d8b95961c9d877817be870bc3ae2ec905314a20c8b1c241da1d835a772e64"
+    "source_hash.rs": "e96e3ac88f56bbb1eacc0bbf6fbe690e5acb2e253bd8524cee65974122ad5922",
+    "source_hash_native.rs": "273bfbcd85f093f07d9b64ca258ad8a5d13e2e6ff371f4080d3a52b2936a1966"
   },
   "commands": [
     {
@@ -106,7 +106,12 @@
   ],
   "adapter_cargo_lock_sha256": "d9fcda7695559e14663118c53ad0b9c05081665d3ecc320537150521835a2d53",
   "native_adapter_cargo_check_passed": true,
-  "patch_sha256": "aa80a282e33171236c2563d698028184d82f5352319693d84b0a77e201560aa8",
+  "patch_sha256": "2e8f3b2392fa2e6c476c1c9599f79864c448809333a15c8a976ef4237318c8b6",
   "patched_lib_rs_sha256": "f5760e012d39d37351502fbed1b142536d056ebaba9492fad25efd19c3b08f1c",
-  "patch_application": "git apply --unidiff-zero"
+  "patch_application": "git apply --unidiff-zero",
+  "initial_source_sha256": {
+    "source_hash.rs": "9bed44915161da1defa805a82337d45601bd9676df1bff19c42d80bb6fb23131",
+    "source_hash_native.rs": "162d8b95961c9d877817be870bc3ae2ec905314a20c8b1c241da1d835a772e64"
+  },
+  "final_contract_recheck": "Source comments/doc contract strengthened after review; exact final files recompiled/core-tested/native-API-typechecked. Logic unchanged. See final-safety-checks.json; initial hashes retained."
 }
