@@ -102,30 +102,37 @@ if not id(root) or not id(bucket) or not id(value) or #slot~=2 or not string.mat
  KEYS[5]~='` + snapshotPrefix + `workspace:'..value..':'..suffix then
  return redis.error_reply('invalid snapshot metadata read keys')
 end
-local function call(...) local r=redis.pcall(...);if type(r)=='table' and r.err then return false,r.err end;return r,false end
+local function call(...)
+ -- Preflight the exact command/key/arguments in the current principal. Never
+ -- parse backend-specific Lua ACL error text or cache a permission result.
+ if not redis.acl_check_cmd(...) then return false,{'permission',string.lower(select(1,...))} end
+ local r=redis.pcall(...)
+ if type(r)=='table' and r.err then return false,{'native',r.err} end
+ return r,false
+end
 local n,e=call('HLEN',KEYS[1]);if e then
- if string.sub(e,1,7)=='NOPERM ' then return {'decline'} end
- return {'native',e}
+ if e[1]=='permission' then return {'decline'} end
+ return e
 end
 if n>256 then return {'root'} end
 -- Bound actual root bytes before Lua materializes any fields or values.
 local memory;memory,e=call('MEMORY','USAGE',KEYS[1],'SAMPLES',0)
 if e then
- if string.sub(e,1,7)=='NOPERM ' then return {'decline'} end
- return {'native',e}
+ if e[1]=='permission' then return {'decline'} end
+ return e
 end
 if memory and memory>1048576 then return {'decline'} end
 local function proof_fields(a,b)
  for _,field in ipairs({a,b}) do
   local length,err=call('HSTRLEN',KEYS[2],field)
   if err then
-   if string.sub(err,1,7)=='NOPERM ' then return false,{'decline'} end
-   return false,{'native',err}
+   if err[1]=='permission' then return false,{'decline'} end
+   return false,err
   end
   if length>64 then return false,{'decline'} end
  end
  local value,err=call('HMGET',KEYS[2],a,b)
- if err then return false,{'native',err} end
+ if err then return false,err end
  return value,false
 end
 local function integer(value,positive)
@@ -138,14 +145,14 @@ local function integer(value,positive)
  if #value>19 or (#value==19 and value>maximum) or (negative and value~='0') or (positive and value=='0') then return false end
  return value
 end
-local entries;entries,e=call('HGETALL',KEYS[1]);if e then return {'native',e} end
+local entries;entries,e=call('HGETALL',KEYS[1]);if e then return e end
 local current=false
 for i=1,#entries,2 do if entries[i]==slot then current=entries[i+1] end end
 if current~=bucket then return {'miss'} end
 local bp;bp,e=proof_fields('n:'..bucket..':'..slot,'b:'..bucket..':'..slot);if e then return e end
-local count;count,e=call('HLEN',KEYS[3]);if e then return {'native',e} end
-local fields;fields,e=call('ZCARD',KEYS[4]);if e then return {'native',e} end
-local owner;owner,e=call('HGET',KEYS[3],suffix);if e then return {'native',e} end
+local count;count,e=call('HLEN',KEYS[3]);if e then return e end
+local fields;fields,e=call('ZCARD',KEYS[4]);if e then return e end
+local owner;owner,e=call('HGET',KEYS[3],suffix);if e then return e end
 -- The original resolver stops at an invalid bucket before accessing the
 -- object. Validate exact signed-int64 spelling/range without rounding strings
 -- through Lua numbers, before a later object native error can mask it.
@@ -154,14 +161,14 @@ local expected=integer(bp[1],false)
 if not expected or not integer(bp[2],true) or expected~=string.format('%.0f',count) or expected~=string.format('%.0f',fields) then return {'bucket'} end
 if owner~=value then return {'miss'} end
 local vp;vp,e=proof_fields('e:'..KEYS[5],'v:'..KEYS[5]);if e then return e end
-local present;present,e=call('EXISTS',KEYS[5]);if e then return {'native',e} end
+local present;present,e=call('EXISTS',KEYS[5]);if e then return e end
 local kind,payload='value',false
 local length;length,e=call('STRLEN',KEYS[5])
 if e then
- if string.sub(e,1,7)=='NOPERM ' then kind='decline' else kind='error';payload=e end
+ if e[1]=='permission' then kind='decline' else kind='error';payload=e[2] end
 elseif length>limit then kind='decline'
 else
- payload,e=call('GET',KEYS[5]);if e then kind='error';payload=e elseif payload==false then kind='absent' end
+ payload,e=call('GET',KEYS[5]);if e then kind=e[1]=='permission' and 'permission' or 'error';payload=e[2] elseif payload==false then kind='absent' end
 end
 return {'ready',entries,bp,count,fields,vp,present,kind,payload}
 `
@@ -239,6 +246,15 @@ func (s *store) resolveSnapshotMetadataHintReply(ctx context.Context, scope *sna
 			return bad()
 		}
 		return "", true, errorf(adbc.StatusIO, "invalid snapshot metadata root")
+	case "permission":
+		if len(reply) != 2 {
+			return bad()
+		}
+		command, ok := reply[1].(string)
+		if !ok || !snapshotMetadataPermissionCommand(command) {
+			return bad()
+		}
+		return "", true, snapshotMetadataPermission(command)
 	case "native":
 		if len(reply) != 2 {
 			return bad()
@@ -297,6 +313,12 @@ func (s *store) resolveSnapshotMetadataHintReply(ctx context.Context, scope *sna
 		}
 		return "", false, nil
 	}
+	if kind == "permission" {
+		if command, ok := reply[8].(string); !ok || command != "get" {
+			return bad()
+		}
+		return "", true, snapshotMetadataPermission("get")
+	}
 	if kind == "error" {
 		message, ok := reply[8].(string)
 		if !ok || message == "" {
@@ -345,4 +367,16 @@ func (s *store) resolveSnapshotMetadataHintReply(ctx context.Context, scope *sna
 	m.checked[snapshotWorkspace(hint.value)+suffix] = true
 	m.reads[suffix] = hint.value
 	return value, true, nil
+}
+
+func snapshotMetadataPermissionCommand(command string) bool {
+	switch command {
+	case "hgetall", "hmget", "hlen", "zcard", "hget", "exists":
+		return true
+	default:
+		return false
+	}
+}
+func snapshotMetadataPermission(command string) error {
+	return snapshotMetadataNativeError("NOPERM snapshot metadata read requires " + command + " permission")
 }

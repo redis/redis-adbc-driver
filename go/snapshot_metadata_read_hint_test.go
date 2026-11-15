@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -264,6 +265,52 @@ func TestSnapshotMetadataHintCacheBoundedAndThreadSafe(t *testing.T) {
 				key := fmt.Sprintf("table:%d:%d", i, j)
 				cache.put(key, hint)
 				cache.get(key)
+			}
+		})
+	}
+}
+
+func TestSnapshotMetadataHintTypedPermissionStatus(t *testing.T) {
+	for _, kind := range []string{"exists", "hgetall", "get", "object_proof_before_get", "bad_outer_tag", "bad_get_tag", "untagged_native_acl"} {
+		t.Run(kind, func(t *testing.T) {
+			s, ctx, h, _ := metadataHintFixture(t)
+			permission := true
+			switch kind {
+			case "exists", "hgetall":
+				h.reply = []any{"permission", kind}
+			case "get":
+				h.reply[7] = "permission"
+				h.reply[8] = "get"
+			case "object_proof_before_get":
+				h.reply[5] = []any{"1", "0"}
+				h.reply[7] = "permission"
+				h.reply[8] = "get"
+				permission = false
+			case "bad_outer_tag":
+				h.reply = []any{"permission", "memory"}
+				permission = false
+			case "bad_get_tag":
+				h.reply[7] = "permission"
+				h.reply[8] = "exists"
+				permission = false
+			case "untagged_native_acl":
+				h.reply = []any{"native", "ERR ACL failure in script: backend-specific text"}
+				permission = false
+			}
+			value, err := s.getTableMetadata(ctx, "public", "target")
+			if err == nil || value != nil || h.calls != 1 || h.native.gets != 0 {
+				t.Fatal("permission reply accepted/replayed", value, err, h.calls, h.native.gets)
+			}
+			// Cold native backend errors pass through the existing public wrapRedis IO
+			// classification. Cache warmness must not introduce a different SQLSTATE.
+			if !isStatus(err, adbc.StatusIO) || sqlState(err) != "" {
+				t.Fatal("public native compatibility changed", err, sqlState(err))
+			}
+			if permission && !strings.Contains(err.Error(), "NOPERM") {
+				t.Fatal("typed native permission tag lost", err)
+			}
+			if kind == "object_proof_before_get" && !strings.Contains(err.Error(), "object is missing or corrupt") {
+				t.Fatal("GET permission hid object corruption", err)
 			}
 		})
 	}

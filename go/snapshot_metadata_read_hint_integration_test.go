@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -448,6 +449,20 @@ func TestSnapshotMetadataHintLiveNativeACL(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
+				// Compare public classification against the actual original native
+				// resolver, not merely a simulated RedisError in a helper unit.
+				limited.metadataReadHints = snapshotMetadataReadHints{}
+				cold := context.WithValue(h.ctx, snapshotContextKey{}, &snapshotScope{id: pin.root, pin: limitedPin, store: limited})
+				_, coldErr := limited.getTableMetadata(cold, "public", "metadata_hint")
+				limited.metadataReadHints.put(suffix, hint)
+				warm := context.WithValue(h.ctx, snapshotContextKey{}, &snapshotScope{id: pin.root, pin: limitedPin, store: limited})
+				_, warmErr := limited.getTableMetadata(warm, "public", "metadata_hint")
+				if (coldErr == nil) != (warmErr == nil) || sqlState(coldErr) != sqlState(warmErr) {
+					t.Fatal("cache warmness changed public error SQLSTATE", denied, variant, coldErr, warmErr)
+				}
+				if coldErr != nil && (!isStatus(coldErr, adbc.StatusIO) || !isStatus(warmErr, adbc.StatusIO)) {
+					t.Fatal("cache warmness changed public native error status", denied, variant, coldErr, warmErr)
+				}
 				actual, err := limited.readSnapshotMetadataString(ctx, key)
 				want := ""
 				if denied == "get" || denied == "exists" {
@@ -462,6 +477,9 @@ func TestSnapshotMetadataHintLiveNativeACL(t *testing.T) {
 				if want != "" {
 					if err == nil || actual != "" || !strings.Contains(err.Error(), want) {
 						t.Fatal("native ACL/proof precedence changed", denied, variant, err)
+					}
+					if variant != "ordinary" && !isStatus(err, adbc.StatusIO) {
+						t.Fatal("proof failure lost precedence to native permission", denied, variant, err)
 					}
 				} else {
 					if err != nil || actual != expected {
