@@ -1,5 +1,7 @@
 # Plan and selection decisions: CRUD execution refactoring
 
+PR: [#443](https://github.com/redis/redis-adbc-driver/pull/443). Human review is pending.
+
 See [intent](intent.md) and [spec](spec.md).
 
 ## Completed investigation and selection
@@ -87,5 +89,5 @@ not named by the scoped teardown. Cause/timing is unverified. The initial
 post-teardown inventory assertion failure and follow-up limitation are retained
 in the cleanup record. No unrelated resources were recreated.
 
-PR publication is the remaining administrative step; no merge or release is
-performed by this change. Human acceptance is pending.
+PR #443 is open with the complete evidence. No merge or release is performed
+by this change. Human acceptance is pending.

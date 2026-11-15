@@ -1,5 +1,7 @@
 # Specification: selected unmanaged known-key row projection
 
+PR: [#443](https://github.com/redis/redis-adbc-driver/pull/443). Human review is pending.
+
 See [intent](intent.md) and [plan](plan.md).
 
 ## Selected runtime contract

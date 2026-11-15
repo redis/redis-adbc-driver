@@ -1,5 +1,7 @@
 # Intent: reduce single-row CRUD execution overhead
 
+PR: [#443](https://github.com/redis/redis-adbc-driver/pull/443). Human review is pending.
+
 Requested by the user on November 15, 2026: implement the proposed performance
 refactoring with subagents. The clean baseline is merged main
 `3b42245402a2d7cf6f363faf7ac713cd36621f90` (PR #442); its production driver code
