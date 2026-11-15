@@ -10,4 +10,6 @@ Date: 2026-11-14. Runtime source b904cf8d, with new test-only instrumentation. P
 
 Cross-review by the unmanaged-fanout subagent found a production-wrapper instrumentation error before accepting evidence; the initial stopped run is invalid attribution and remains private. Corrected full evidence is in [report](../../../../benchmarks/managed-writer-tail/report.md), [sanitized complete samples](../../../../benchmarks/managed-writer-tail/observations.json.gz), and [trial summaries](../../../../benchmarks/managed-writer-tail/summary.json). No credentials, endpoints, SQL, keys or infrastructure identifiers appear in those artifacts.
 
+Post-measurement source clarification: an idle execution pool is pre-created for hooks; cold pool-object creation is excluded. Normal per-statement transport acquisition/registration/finish remains inside ExecuteUpdate timing. Per-call observer allocation/locking can affect scheduling and GC; native/observer-free confirmation is required before adopting a runtime performance claim. Original source labels/raw evidence remain unchanged.
+
 Review: cross-review addressed production-wrapper handling and trial-grid completeness; row mapping, oracle and scope labels inspected. Human review/approval is not inferred. See [intent](intent.md), [spec](spec.md), and [plan](plan.md).

@@ -2,6 +2,8 @@
 
 2026-11-14; driver runtime b904cf8d with test-only instrumentation. This is Go ADBC SQL execute/acknowledgement timing, including cleanup, rather than Python/C-boundary latency or Redis server CPU. No runtime optimization is included and these numbers are not a before/after improvement claim.
 
+Post-measurement scope clarification: the harness creates an idle execution pool before timing to install hooks, so cold pool-object creation is excluded. Each measured `ExecuteUpdate` still acquires/registers its normal per-statement execution transport and finishes it before returning. It does not pre-acquire an execution context. Instrumentation adds per-call category/timeline allocation and locking; scheduling/GC may differ from uninstrumented/native-C calls. Historical raw labels and source hashes are unchanged.
+
 Verified Redis Software: active 4× QPF, six Search workers, `mnp` routing, 4 GiB database, certificate-verified TLS and RESP3. The runner set `GOMAXPROCS=4`. Infrastructure identities and connection details are private. No ClickBench was run.
 
 One warmup plus three measured trials rotate 1/4/8 writers. Every trial starts from 1,000 rows and performs 144 total writes (48 INSERT, 48 UPDATE, 48 DELETE), interleaved per writer against one shared table with disjoint row IDs. All 12 trials passed complete ordered final-row/type/value checks: 1,728 acknowledged writes, zero errors, conflicts, caller retries or missing admission observations. Warmup is retained in the artifacts and excluded from the following pooled measured statistics. Each table cell has 144 observations across three trials.

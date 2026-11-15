@@ -52,6 +52,7 @@ type managedTailHook struct {
 	maintenance bool
 	mu          sync.Mutex
 	calls       []managedTailCall
+	commands    map[string]int
 }
 
 func (*managedTailHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
@@ -67,6 +68,14 @@ func (h *managedTailHook) observe(ctx context.Context, started time.Time, cmds [
 			}
 		}
 	}
+	h.mu.Lock()
+	if h.commands == nil {
+		h.commands = map[string]int{}
+	}
+	for _, category := range categories {
+		h.commands[category]++
+	}
+	h.mu.Unlock()
 	category := compactionProfilePipelineShape(categories)
 	call := managedTailCall{Category: category, StartNS: started.Sub(h.epoch).Nanoseconds(), ElapsedNS: time.Since(started).Nanoseconds(), Commands: len(cmds), Failed: err != nil, AdmissionGranted: granted}
 	if sample, ok := ctx.Value(managedTailOperationKey{}).(*managedTailSample); ok && !h.maintenance {
@@ -158,6 +167,8 @@ func TestManagedInterleavedWriterTailProfile(t *testing.T) {
 					t.Cleanup(func() { _ = st.Close(h.ctx) })
 					impl := st.(*statementImpl).conn
 					impl.store.client.AddHook(foreground)
+					// Pre-create an idle pool for hooks; each ExecuteUpdate still runs
+					// normal executionContext registration and transport.finish.
 					pool := impl.newExecutionPool(impl.timeouts)
 					pool.client.AddHook(foreground)
 					impl.store.idleExecution = pool
@@ -234,8 +245,18 @@ func TestManagedInterleavedWriterTailProfile(t *testing.T) {
 				}
 				maintenance.mu.Lock()
 				calls := append([]managedTailCall(nil), maintenance.calls...)
+				maintenanceCounts := make(map[string]int, len(maintenance.commands))
+				for key, n := range maintenance.commands {
+					maintenanceCounts[key] = n
+				}
 				maintenance.mu.Unlock()
-				payload, err := json.Marshal(map[string]any{"scope": "Go SQL execute/ack; shared table; disjoint rows; maintenance overlap is not causal attribution; client elapsed is not server CPU", "trial": trial, "warmup": trial < 0, "writers": writers, "operations_per_writer": operations, "seed_rows": 1000, "caller_retries": 0, "elapsed_ns": elapsed.Nanoseconds(), "samples": samples, "maintenance_calls": calls, "go_gc_cycles": after.NumGC - before.NumGC, "go_gc_definition": "sum of STW pause durations for GC cycles completed during each operation; association, not exact pause overlap or concurrent GC CPU", "go_gc_pause_ring_complete": after.NumGC-before.NumGC <= uint32(len(after.PauseNs)), "allocated_bytes": after.TotalAlloc - before.TotalAlloc, "admission_definition": "operation start through successful admit_ingest; off-transport includes timer sleep, Go work and scheduling; pin release uses background context and is excluded from command attribution"})
+				foreground.mu.Lock()
+				foregroundCounts := make(map[string]int, len(foreground.commands))
+				for key, n := range foreground.commands {
+					foregroundCounts[key] = n
+				}
+				foreground.mu.Unlock()
+				payload, err := json.Marshal(map[string]any{"scope": "Go SQL execute/ack; shared table; disjoint rows; maintenance overlap is not causal attribution; client elapsed is not server CPU", "trial": trial, "warmup": trial < 0, "writers": writers, "operations_per_writer": operations, "seed_rows": 1000, "caller_retries": 0, "elapsed_ns": elapsed.Nanoseconds(), "samples": samples, "maintenance_calls": calls, "foreground_command_counts": foregroundCounts, "maintenance_command_counts": maintenanceCounts, "go_gc_cycles": after.NumGC - before.NumGC, "go_gc_definition": "sum of STW pause durations for GC cycles completed during each operation; association, not exact pause overlap or concurrent GC CPU", "go_gc_pause_ring_complete": after.NumGC-before.NumGC <= uint32(len(after.PauseNs)), "allocated_bytes": after.TotalAlloc - before.TotalAlloc, "admission_definition": "operation start through successful admit_ingest; off-transport includes timer sleep, Go work and scheduling; pin release uses background context and is excluded from command attribution"})
 				if err != nil {
 					t.Fatal(err)
 				}

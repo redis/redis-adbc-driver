@@ -1,0 +1,44 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+
+package redis
+
+import (
+	"fmt"
+	"testing"
+	"time"
+)
+
+func TestSnapshotWriteAdmissionPacing(t *testing.T) {
+	var pacing snapshotWriteAdmissionPacing
+	// Different global roots with the same target data keep the existing capped
+	// schedule. Root identities are intentionally not inputs to the policy.
+	for i, want := range []time.Duration{5, 10, 20, 40, 80, 100, 100, 100} {
+		t.Run(fmt.Sprintf("unrelated_global_publication_%d", i), func(t *testing.T) {
+			if got := pacing.next("target-prefix", 8); got != want*time.Millisecond {
+				t.Fatalf("unchanged target delay %s, want %d ms", got, want)
+			}
+		})
+	}
+	// Ordinary writes and replacements allocate a fresh latest physical prefix.
+	if got := pacing.next("new-prefix", 8); got != 5*time.Millisecond {
+		t.Fatal("target publication did not reset pacing", got)
+	}
+	if got := pacing.next("new-prefix", 8); got != 10*time.Millisecond {
+		t.Fatal("unchanged target did not resume backoff", got)
+	}
+	for i := 0; i < 10000; i++ {
+		got := pacing.next("new-prefix", 8)
+		if got < 5*time.Millisecond || got > 100*time.Millisecond {
+			t.Fatal("unbounded polling delay", got)
+		}
+	}
+	// Selective compaction can preserve the latest prefix while merging an older
+	// source range. Reduced segment count must still reset accumulated pacing.
+	if got := pacing.next("new-prefix", 5); got != 5*time.Millisecond {
+		t.Fatal("selective compaction did not reset", got)
+	}
+	if got := pacing.next("new-prefix", 5); got != 10*time.Millisecond {
+		t.Fatal("unchanged compacted target did not resume backoff", got)
+	}
+}

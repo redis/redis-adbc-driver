@@ -1,0 +1,69 @@
+{
+  "baseline_runtime_commit": "88f9aa3aa924bd1eb1d839aa46f72cb83c090d82",
+  "candidate_executed_source_commit": "82f5a8f63529acd7442264c9a3554fe3c325f3b2",
+  "candidate_runtime_source_commit": "622fd68e7f8f959ee4fb3d79bc947f06cf95bc09",
+  "baseline_test_instrumentation": "Byte-identical executed candidate attribution/control sources, copied into baseline worktree; runtime snapshot_admission.go unchanged from88f9aa3a",
+  "binary_sha256": {
+    "baseline": "7575810413ddffc7213b6546d79601b1042839b9286bb037db0c129537ec48f6",
+    "candidate": "02f65154858cd1ed44de713fbb1ec04287247864b8e48730bfe4c7bcc6c4f3cd"
+  },
+  "executed_source_sha256": {
+    "snapshot_admission.go.txt": "c90514b6c7e8bd4bd37e64186d75a97c3cabda791ef7205b2ba850f543af23ef",
+    "snapshot_admission_pacing_profile_test.go.txt": "a7789a04ce24ed5e117f95294685b71f3941f42cfa77f362b5b611d40944724f",
+    "snapshot_admission_pacing_test.go.txt": "edb20805044a7fb4edb59fd9df61608704c0a87e4a921d709f62b52874852839",
+    "snapshot_managed_tail_profile_test.go.txt": "14aec3c44bba55b4ba2fdc6373c69fb4e82d24c5a3b8e13e6bb74875727bda22"
+  },
+  "builds_before_clean_controls_and_timing": true,
+  "software_verified_before_every_block": {
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "noeviction": true,
+    "certificate_verified_tls": true,
+    "resp": 3
+  },
+  "runtime_env": {
+    "GOMAXPROCS": 4,
+    "GOTOOLCHAIN": "go1.27.3"
+  },
+  "writes_per_trial": 288,
+  "block_order": [
+    "B warmup",
+    "C warmup",
+    "B0",
+    "C0",
+    "C1",
+    "B1",
+    "B2",
+    "C2"
+  ],
+  "per_block_writer_order": {
+    "-1": [
+      1,
+      4,
+      8
+    ],
+    "0": [
+      4,
+      8,
+      1
+    ],
+    "1": [
+      8,
+      1,
+      4
+    ],
+    "2": [
+      1,
+      4,
+      8
+    ]
+  },
+  "method_scope": "Instrumented Go SQL execute/ack with ordinary statement transport lifecycle; idle pool objects pre-created for hooks. Per-trial clients/data fresh, and each paired block a separate frozen-binary process. Warmup warms server/cache, not later process heap. Not native C-boundary performance or server CPU.",
+  "environment_observation": "environment.json; same owned fixture observed after timed windows; active configuration gates ran before every invocation",
+  "rejected_runtime_restored_to_baseline": true,
+  "candidate_patch_uncompressed_sha256": "7fe7a44a7dbf135900b749769a788b991f8a8fb091df75d0d56a1cc287fdb0a7",
+  "candidate_patch_gzip_sha256": "6a9a058d1adf65d5a45ef32dbfc6733f728fb941a9a5e4973c34579bcb4e29ab"
+}

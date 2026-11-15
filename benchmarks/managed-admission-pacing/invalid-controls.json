@@ -1,0 +1,11 @@
+{
+  "status": "excluded: invalid instrument/control execution; not comparison evidence",
+  "baseline_exit": 1,
+  "candidate_exit": -2,
+  "source": "622fd68e7f8f959ee4fb3d79bc947f06cf95bc09",
+  "binary_sha256": {
+    "baseline": "e765fdbcc15ce0a9004e49c7df0b483e322f2f9450d0832f1ceef5f9fb01c632",
+    "candidate": "7d6f2dea9e79288dd1eb0bd60f499bcc6871a1dd60e80ae9db78d94ca90ad2aa"
+  },
+  "reason": "Initial six-INSERT control could trigger unrelated compaction under a held full-catalog pin and exceeded its deadline. Candidate was mistakenly started before baseline exited, contaminating both controls. Both processes terminated; disposable harness cleared data/indexes, independent verification observed empty before revised run. No causal/performance conclusion is taken from these invalid controls."
+}
