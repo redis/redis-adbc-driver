@@ -1,0 +1,8 @@
+case,samples,p50_ms,p95_ms_nearest_rank,rtt_min,rtt_max,commands_min,commands_max,control_p50_ms,standalone_valid_mean_ms
+single_segment_hit,16,2.341,2.499,11,11,20,20,0.191,0.582
+single_segment_null,16,1.977,2.788,11,11,20,20,0.157,0.542
+single_segment_absent,16,2.277,2.449,13,13,22,22,0.161,0.503
+overlay_newest,16,16.485,17.636,11,11,24,24,0.272,13.466
+overlay_tombstone,16,16.439,17.736,14,14,27,27,0.253,12.652
+overlay_oldest,16,16.984,29.835,17,17,30,30,0.248,14.989
+overlay_absent,16,17.087,29.675,19,19,32,32,0.246,14.766
