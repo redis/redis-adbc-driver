@@ -86,9 +86,40 @@ func crudProfileCategory(cmd goredis.Cmder) string {
 // Counts payload values only: not RESP framing, keys, Lua internal bytes, or
 // server allocation. No response content is retained.
 func crudProfileValueBytes(cmd goredis.Cmder) int {
-	if cmd.Err() != nil {
-		return 0
+	// This observer runs after the command. Strip only our known no-retry
+	// wrappers; do not execute a command, inspect arguments or estimate RESP.
+	for depth := 0; depth < 8; depth++ {
+		if cmd == nil {
+			return 0
+		}
+		switch c := cmd.(type) {
+		case unmanagedProjectionCmd:
+			cmd = c.Cmder
+		case *unmanagedProjectionCmd:
+			if c == nil {
+				return 0
+			}
+			cmd = c.Cmder
+		case onceCmd:
+			if c.Cmd == nil {
+				return 0
+			}
+			cmd = c.Cmd
+		case *onceCmd:
+			if c == nil || c.Cmd == nil {
+				return 0
+			}
+			cmd = c.Cmd
+		default:
+			if cmd.Err() != nil {
+				return 0
+			}
+			return crudProfileUnwrappedValueBytes(cmd)
+		}
 	}
+	return 0 // Defensive bound for an unexpected cyclic/nested observer wrapper.
+}
+func crudProfileUnwrappedValueBytes(cmd goredis.Cmder) int {
 	switch c := cmd.(type) {
 	case *goredis.StringCmd:
 		return len(c.Val())
@@ -108,6 +139,26 @@ func crudProfileValueBytes(cmd goredis.Cmder) int {
 			n += len(v)
 		}
 		return n
+	case *goredis.Cmd:
+		// onceCmd carries the generic result type. Count only known flat
+		// returned values; nested script responses remain deliberately partial.
+		switch value := c.Val().(type) {
+		case string:
+			return len(value)
+		case []byte:
+			return len(value)
+		case []any:
+			n := 0
+			for _, value := range value {
+				switch value := value.(type) {
+				case string:
+					n += len(value)
+				case []byte:
+					n += len(value)
+				}
+			}
+			return n
+		}
 	}
 	return 0
 }
@@ -457,5 +508,26 @@ func TestCRUDProfileCategoriesAndValueBytes(t *testing.T) {
 	}
 	if len(sample.Calls) != 2 || len(obs.calls) != 1 || !reflect.DeepEqual(obs.calls[0].Categories, []string{"metadata_object_get"}) || obs.calls[0].Role != "worker" {
 		t.Fatal("operation/client-role separation")
+	}
+}
+
+// Observer-only follow-up. Earlier profiles retain their original observer hash
+// and counts; this does not retroactively fill unsupported historical counters.
+func TestCRUDProfileWrappedValueBytes(t *testing.T) {
+	ctx := context.Background()
+	values := goredis.NewSliceCmd(ctx, "HMGET", "synthetic", "a", "b")
+	values.SetVal([]any{"one", []byte{'a', 0, 'b'}, nil})
+	generic := goredis.NewCmd(ctx, "EVAL", "synthetic", 0)
+	generic.SetVal([]any{"one", []byte{'a', 0, 'b'}, nil, []any{"not counted"}})
+	projected := unmanagedProjectionCmd{Cmder: values}
+	wrappedOnce := onceCmd{Cmd: generic}
+	for _, cmd := range []goredis.Cmder{projected, &projected, unmanagedProjectionCmd{Cmder: projected}, wrappedOnce, &wrappedOnce, unmanagedProjectionCmd{Cmder: wrappedOnce}} {
+		if got := crudProfileValueBytes(cmd); got != 6 {
+			t.Fatalf("wrapped flat value bytes=%d, want 6", got)
+		}
+	}
+	values.SetErr(fmt.Errorf("synthetic incomplete reply"))
+	if got := crudProfileValueBytes(projected); got != 0 {
+		t.Fatal("failed reply counted", got)
 	}
 }

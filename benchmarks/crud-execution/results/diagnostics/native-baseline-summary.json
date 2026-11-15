@@ -1,0 +1,110 @@
+[
+  {
+    "mode": "managed",
+    "operation": "delete",
+    "samples": 32,
+    "p50_ms": 5.963896,
+    "stage_p50_ms": {
+      "execute": 5.95525,
+      "rowcount": 0.000458
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "insert",
+    "samples": 32,
+    "p50_ms": 5.693188,
+    "stage_p50_ms": {
+      "execute": 5.675459,
+      "rowcount": 0.0005415
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "point_read",
+    "samples": 32,
+    "p50_ms": 2.056479,
+    "stage_p50_ms": {
+      "execute": 2.0379165,
+      "fetch_arrow_table": 0.016417
+    }
+  },
+  {
+    "mode": "managed",
+    "operation": "update",
+    "samples": 32,
+    "p50_ms": 6.124646,
+    "stage_p50_ms": {
+      "execute": 6.115458,
+      "rowcount": 0.0004795
+    }
+  },
+  {
+    "mode": "redis_py",
+    "operation": "delete",
+    "samples": 32,
+    "p50_ms": 0.0417915,
+    "stage_p50_ms": {}
+  },
+  {
+    "mode": "redis_py",
+    "operation": "insert",
+    "samples": 32,
+    "p50_ms": 0.0452295,
+    "stage_p50_ms": {}
+  },
+  {
+    "mode": "redis_py",
+    "operation": "point_read",
+    "samples": 32,
+    "p50_ms": 0.0552295,
+    "stage_p50_ms": {}
+  },
+  {
+    "mode": "redis_py",
+    "operation": "update",
+    "samples": 32,
+    "p50_ms": 0.0437505,
+    "stage_p50_ms": {}
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "delete",
+    "samples": 32,
+    "p50_ms": 2.295125,
+    "stage_p50_ms": {
+      "execute": 2.289604,
+      "rowcount": 0.000291
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "insert",
+    "samples": 32,
+    "p50_ms": 2.3672295,
+    "stage_p50_ms": {
+      "execute": 2.3569585,
+      "rowcount": 0.000292
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "point_read",
+    "samples": 32,
+    "p50_ms": 2.1797915,
+    "stage_p50_ms": {
+      "execute": 2.1460835,
+      "fetch_arrow_table": 0.024104
+    }
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "update",
+    "samples": 32,
+    "p50_ms": 2.2733335,
+    "stage_p50_ms": {
+      "execute": 2.268479,
+      "rowcount": 0.0003125
+    }
+  }
+]

@@ -29,10 +29,14 @@ ExecuteUpdate, and fetch/release wall times, plus ordered command/pipeline shape
 command counts and hook elapsed time. A hook invocation is **not a measured
 packet round trip or server CPU duration**. It can include connection/pool wait,
 transport, server work and decoding. Pipeline command counts remain distinct
-from hook invocations. Value-byte counters cover returned String/Slice/map values
-only: no RESP framing, keys, Lua-internal values or generic/nested replies. A
-zero counter for unsupported reply types does not establish zero transferred
-bytes. Neither command counts nor durations are a causal CPU decomposition.
+from hook invocations. The frozen baseline value-byte observer covers returned
+String/Slice/map values only. A later observer-only correction unwraps the known
+unmanagedProjectionCmd/onceCmd no-retry wrappers and counts flat generic string/
+byte values; generic nested replies remain deliberately partial. Earlier counts
+retain their original observer hash and are not retroactively corrected. These
+counters exclude RESP framing, keys and Lua-internal values; zero for unsupported
+reply types does not establish zero transfer. Neither command counts nor
+client durations are a causal CPU decomposition.
 
 The explicit outer execution scope permits hooks to be attached before its first
 command; normal SQL acquires fresh catalog/row proofs inside that scope. This is

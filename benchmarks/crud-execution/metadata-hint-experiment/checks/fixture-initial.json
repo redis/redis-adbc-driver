@@ -1,0 +1,38 @@
+{
+  "source_commit": "8780f2a9dfbea35b039df9db9bdb009a92600a0c",
+  "status": "failed_incomplete",
+  "race_enabled": true,
+  "counts_include_parent_and_subtest_events": true,
+  "event_counts": {
+    "pass": 11,
+    "skip": 0,
+    "fail": 1
+  },
+  "top_level_counts": {
+    "pass": 3,
+    "skip": 0,
+    "fail": 1
+  },
+  "tests": {
+    "pass": [
+      "TestSnapshotDescriptorReadSharesNativePresenceProof",
+      "TestSnapshotDescriptorReadRejectsFailureWithoutReplay",
+      "TestSnapshotDescriptorReadRejectsFailureWithoutReplay/permission",
+      "TestSnapshotDescriptorReadRejectsFailureWithoutReplay/pipeline_only",
+      "TestSnapshotDescriptorReadRejectsFailureWithoutReplay/proof",
+      "TestSnapshotDescriptorReadMissingAndNativeErrorPrecedence",
+      "TestSnapshotDescriptorReadMissingAndNativeErrorPrecedence/missing",
+      "TestSnapshotDescriptorReadMissingAndNativeErrorPrecedence/missing_referenced",
+      "TestSnapshotDescriptorReadMissingAndNativeErrorPrecedence/wrongtype",
+      "TestSnapshotDescriptorReadMissingAndNativeErrorPrecedence/badproof_and_denied",
+      "TestSnapshotDescriptorReadMissingAndNativeErrorPrecedence/badproof_and_pipeline_loss"
+    ],
+    "skip": [],
+    "fail": [
+      "TestSnapshotMetadataHintLiveFreshReadAndKnownKeys"
+    ]
+  },
+  "ended_with_panic": true,
+  "scope": "Verified Software 4x QPF, first focused metadata-hint race attempt; incomplete due to fixture panic.",
+  "notes": "Incorrect direct connection cast in test fixture. Corrected in7f0f8234; no runtime result is inferred from the interrupted suite."
+}

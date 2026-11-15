@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "runtime_source": "3b42245402a2d7cf6f363faf7ac713cd36621f90",
+  "go_profile": {
+    "observer_implementation_commit": "1d0d05d9bd869d6bb4cb51f3918a86f65e6d327a",
+    "observer_file_sha256": "272b0ce84ddc5c573dd5aa6e501b751cf6d0e7391d85b3c78d8afe209eba4e7f",
+    "retained_observations_sha256": "252fda8a8d7fd5441c85a6ab6cf1510e4007731a044be9f9b6c3aa91ffad9327",
+    "cases": 12,
+    "warmups": 12,
+    "measured_operations": 384,
+    "complete_operations": 396,
+    "source_scope": "Baseline runtime plus opt-in diagnostic test implementation; observer implementation identity is separate from native runtime build and does not assert a clean whole-tree test build.",
+    "test_binary_sha256_observed_after_run": "c66fe43c542386dd2aa7eca6921e3df66ffe9a4897192da60ecc874ef337b5be"
+  },
+  "native_diagnostics": [
+    {
+      "kind": "native-stage-baseline",
+      "runtime_source": "3b42245402a2d7cf6f363faf7ac713cd36621f90",
+      "native_library_sha256": "bc50f9039e55fe772d828db8042702d6d6ae24eb19ce159f22d5166d14fe98a2",
+      "native_version": "v0.1.0-dev.crud-refactor-base",
+      "observer_implementation_commit": "71e4b9505b672e749faa765f5e280fcfe0939503",
+      "observer_sha256": "d02517a84895c87a1c15fb81aeed6c754a4c406952a5234724165b685b9b4234",
+      "scenario_harness_sha256": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+      "packages": {
+        "pyarrow": "26.0.1",
+        "adbc-driver-manager": "1.13.0",
+        "redis": "8.1.0",
+        "hiredis": "3.5.0"
+      },
+      "original_results_sha256": "0cd86103d5d8bd9a0bbc22506f66333303be22d51de564a273563d00fefec540",
+      "operation_observations_sha256": "6e2f56c9d23b93ea4f69711acc530e7ce95d1efb3eded787bdc57af853df1c42",
+      "nested_substages": false,
+      "summary_scope": "One-client measured observations only; full diagnostic includes one/four clients and all warmups."
+    },
+    {
+      "kind": "native-stage-baseline-nested",
+      "runtime_source": "3b42245402a2d7cf6f363faf7ac713cd36621f90",
+      "native_library_sha256": "bc50f9039e55fe772d828db8042702d6d6ae24eb19ce159f22d5166d14fe98a2",
+      "native_version": "v0.1.0-dev.crud-refactor-base",
+      "observer_implementation_commit": "9d4a43996265f1dbe7b1b8837346b9f7c8d62c32",
+      "observer_sha256": "b16deaa53ce87ceb1d4f43668b5feda9f6ccc12a237c1a29e2c1de5e207f276a",
+      "scenario_harness_sha256": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+      "packages": {
+        "pyarrow": "26.0.1",
+        "adbc-driver-manager": "1.13.0",
+        "redis": "8.1.0",
+        "hiredis": "3.5.0"
+      },
+      "original_results_sha256": "8b65a0f30edc7b7d71e702f5c9c8fed4f2d5d60aa0aa3b5dc9bb73c0e1ebfde3",
+      "operation_observations_sha256": "b3ed952e10628b991a825462b20ca9d2bfb9cd054bc24b4dae5fed2799446c3d",
+      "nested_substages": true,
+      "summary_scope": "One-client measured observations only; full diagnostic includes one/four clients and all warmups."
+    }
+  ],
+  "summary_input_sha256": {
+    "go-baseline-summary.json": "ac19a9cd1757bee4f0aa3986e8ef378122fd3525bc67dcd4eb9906d590f7da0e",
+    "native-baseline-summary.json": "2cdfb29e21e4d03d2bac2e8ea6c9c6c0aad561ec7eae76bb00a11bc21c679d1e",
+    "native-nested-summary.json": "e36cad8f10df9c8118b614ee8a2b3ca7d7e8ab2883bdb3eeca32d9d89bd8455f",
+    "dbapi-pinned-source-inspection.json": "e906269526892e9a89c68abed2a0fcaa11e0810d39163af035e3cb8267689469"
+  },
+  "limits": [
+    "Go diagnostic uses ExecuteUpdate for mutations and explicit execution-scope observation; ordinary Python DBAPI uses ExecuteQuery for mutations. They are separate workloads and not additive attribution.",
+    "Client hook counts are not packet round trips. Hook elapsed and previous-result close are not exclusive Redis/server CPU or pure GC time.",
+    "Nested native spans overlap outer cursor spans. Do not sum them or subtract separately pooled Go/native medians.",
+    "The previous-result close median uses 31 one-client observations or 28 four-client observations per trial; the first call has no previous result and final cursor cleanup is outside operation timing.",
+    "Observer overhead is included. Use complete uninstrumented native comparison for headline performance claims.",
+    "No prepared-vs-literal live run, GC policy change, lifetime/sanitizer proof, ClickBench rerun, SLA or capacity result follows from these diagnostics."
+  ],
+  "environment": "Owned native Linux/arm64 clients on Redis Software, verified active/effective 4\u00d7 QPF, six Search workers, mnp/32, one 4-GiB noeviction RAM shard, trusted TLS/RESP3. Full owner-verified environment belongs in final run provenance.",
+  "retained_raw_inputs": {
+    "go-baseline-observations.json.gz": {
+      "original_source_sha256": "252fda8a8d7fd5441c85a6ab6cf1510e4007731a044be9f9b6c3aa91ffad9327",
+      "json_bytes_sha256": "41c542c5cd4efef0ffda5f11c7e59e09c13fe0a311be834f54d55a9d0cdb1cbb",
+      "published_gzip_sha256": "eaa0efaf42fc3886dae8f9e39598f168edf34f2c333643282c44ea766af590eb",
+      "original_source_was_gzip": true,
+      "published_bytes_identical_to_original_source": false,
+      "json_bytes_preserved_exactly": true,
+      "gzip_mtime": 0,
+      "gzip_original_filename": null
+    },
+    "native-baseline-results.json.gz": {
+      "original_source_sha256": "0cd86103d5d8bd9a0bbc22506f66333303be22d51de564a273563d00fefec540",
+      "json_bytes_sha256": "0cd86103d5d8bd9a0bbc22506f66333303be22d51de564a273563d00fefec540",
+      "published_gzip_sha256": "2d2d58b9f5dc775bf487b9901ddd3b0ac5c10d09f7ec9a2d6535f406cfa9c42a",
+      "original_source_was_gzip": false,
+      "published_bytes_identical_to_original_source": false,
+      "json_bytes_preserved_exactly": true,
+      "gzip_mtime": 0,
+      "gzip_original_filename": null
+    },
+    "native-baseline-operations.json.gz": {
+      "original_source_sha256": "6e2f56c9d23b93ea4f69711acc530e7ce95d1efb3eded787bdc57af853df1c42",
+      "json_bytes_sha256": "6e2f56c9d23b93ea4f69711acc530e7ce95d1efb3eded787bdc57af853df1c42",
+      "published_gzip_sha256": "bcf29f161d1a4b72931d4f24668e9f4d666ee7cbbac5220bc3a2f75f468c95f5",
+      "original_source_was_gzip": false,
+      "published_bytes_identical_to_original_source": false,
+      "json_bytes_preserved_exactly": true,
+      "gzip_mtime": 0,
+      "gzip_original_filename": null
+    },
+    "native-nested-results.json.gz": {
+      "original_source_sha256": "8b65a0f30edc7b7d71e702f5c9c8fed4f2d5d60aa0aa3b5dc9bb73c0e1ebfde3",
+      "json_bytes_sha256": "8b65a0f30edc7b7d71e702f5c9c8fed4f2d5d60aa0aa3b5dc9bb73c0e1ebfde3",
+      "published_gzip_sha256": "4b74fe6d2b09926706fe652ef4366fb508f2d9b2e6c450843ad634f29ea8af42",
+      "original_source_was_gzip": false,
+      "published_bytes_identical_to_original_source": false,
+      "json_bytes_preserved_exactly": true,
+      "gzip_mtime": 0,
+      "gzip_original_filename": null
+    },
+    "native-nested-operations.json.gz": {
+      "original_source_sha256": "b3ed952e10628b991a825462b20ca9d2bfb9cd054bc24b4dae5fed2799446c3d",
+      "json_bytes_sha256": "b3ed952e10628b991a825462b20ca9d2bfb9cd054bc24b4dae5fed2799446c3d",
+      "published_gzip_sha256": "1dbb1b93a4eea8d20dae23247d43aed4e87f2bb898cdd05b2e73b2d3edd5524c",
+      "original_source_was_gzip": false,
+      "published_bytes_identical_to_original_source": false,
+      "json_bytes_preserved_exactly": true,
+      "gzip_mtime": 0,
+      "gzip_original_filename": null
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "go_profile_complete_grid_and_oracles_passed": true,
+  "go_operations": 396,
+  "native": [
+    {
+      "kind": "native-stage-baseline",
+      "trials": 48,
+      "operation_records": 1536,
+      "measured_operations": 768,
+      "warmup_operations": 768,
+      "all_trial_oracles_passed": true,
+      "complete_unique_operation_indexes": true,
+      "metadata_matches_original_results": true,
+      "observer_elapsed_not_greater_than_original_timer": true,
+      "outer_spans_fit_operation_total": true,
+      "nested_spans_positive_not_added_to_outer_spans": true,
+      "previous_close_observations_per_trial": {}
+    },
+    {
+      "kind": "native-stage-baseline-nested",
+      "trials": 48,
+      "operation_records": 1536,
+      "measured_operations": 768,
+      "warmup_operations": 768,
+      "all_trial_oracles_passed": true,
+      "complete_unique_operation_indexes": true,
+      "metadata_matches_original_results": true,
+      "observer_elapsed_not_greater_than_original_timer": true,
+      "outer_spans_fit_operation_total": true,
+      "nested_spans_positive_not_added_to_outer_spans": true,
+      "previous_close_observations_per_trial": {
+        "1": [
+          31
+        ],
+        "4": [
+          28
+        ]
+      }
+    }
+  ],
+  "independent_data_audit": "Recomputed from published sanitized deterministic-gzip operation observations/results. These baseline diagnostics do not replace final selected-build correctness/performance validation."
+}

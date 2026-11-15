@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "source": "3b42245402a2d7cf6f363faf7ac713cd36621f90",
+    "library": "bc50f9039e55fe772d828db8042702d6d6ae24eb19ce159f22d5166d14fe98a2",
+    "cli": "5f97472d73528a8808bca6389a75b67b71a6c497e360a46b4a15d766727e419a",
+    "wrapper": "5eee22728d6dc80046a0fde787868e9f0a92cc16068904cadb9e16487d61186e",
+    "scenarios": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "helpers": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642"
+  },
+  "candidate": {
+    "source": "4871e159889eba104c5eb668d0718a3d67a904b6",
+    "library": "f760230cbda582c078cf221068c6449df2d0eb70f6157b4c93c02eb9af25722c",
+    "cli": "a33ee820b302e6d45cc88688eefbdaab90404f8fb21858e814b3421716d5d8a0",
+    "wrapper": "5eee22728d6dc80046a0fde787868e9f0a92cc16068904cadb9e16487d61186e",
+    "scenarios": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "helpers": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642"
+  }
+}
