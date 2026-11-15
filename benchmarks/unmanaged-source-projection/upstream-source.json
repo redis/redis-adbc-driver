@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/RediSearch/RediSearch",
+  "base_commit": "33d90342bc9c601d904fb58446f8bda4eaba5011",
+  "base_lib_rs_sha256": "0652a2974fc2c63c9516447a4cad61983cd65ff28921b4d0607061e08988bf06",
+  "native_dependency": {
+    "repository": "https://github.com/RedisLabsModules/redismodule-rs",
+    "commit": "a808377ffde496d2cb8bcf26ee76a52080da9d89"
+  },
+  "prototype_scope": "Uninstalled rlookup library core/native adapter; no parser/coordinator/cursor/RBAC implementation or driver capability."
+}

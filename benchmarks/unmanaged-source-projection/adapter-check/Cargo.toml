@@ -1,0 +1,11 @@
+[package]
+name = "source-projection-native-api-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies.redis-module]
+git = "https://github.com/RedisLabsModules/redismodule-rs.git"
+rev = "a808377ffde496d2cb8bcf26ee76a52080da9d89"
+default-features = false
+features = ["bindgen-runtime", "min-redis-compatibility-version-8-0"]

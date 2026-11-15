@@ -1,0 +1,517 @@
+--- a/src/redisearch_rs/rlookup/src/lib.rs
++++ b/src/redisearch_rs/rlookup/src/lib.rs
+@@ -14,0 +15,2 @@
++mod source_hash;
++mod source_hash_native;
+@@ -36,0 +39,5 @@
++pub use source_hash::{
++    SourceHashBackend, SourceHashError, SourceHashKind, SourceHashLimits, SourceHashProjection,
++    project_source_hash,
++};
++pub use source_hash_native::project_native_source_hash;
+--- /dev/null
++++ b/src/redisearch_rs/rlookup/src/source_hash.rs
+@@ -0,0 +1,375 @@
++/*
++ * Copyright (c) 2006-Present, Redis Ltd.
++ * All rights reserved.
++ *
++ * Licensed under your choice of the Redis Source Available License 2.0
++ * (RSALv2); or (b) the Server Side Public License v1 (SSPLv1); or (c) the
++ * GNU Affero General Public License v3 (AGPLv3).
++ */
++
++//! Bounded source-only HASH projection; never consults a schema or sorting vector.
++//!
++//! This is a server-primitive prototype, not an aggregate grammar or wire command.
++//! Integrators must supply real per-row authorization and cancellation gates.
++//! A result is published only after all selected fields and the final gate pass.
++
++/// Present includes HASHes whose selected fields are all absent, and zero-field
++/// presence probes. Neither is interchangeable with a missing/wrong-type source.
++#[derive(PartialEq, Eq)]
++pub enum SourceHashProjection<V> {
++    Missing,
++    WrongType,
++    Present(Vec<Option<V>>),
++}
++
++impl<V> std::fmt::Debug for SourceHashProjection<V> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        match self {
++            Self::Missing => f.write_str("Missing"),
++            Self::WrongType => f.write_str("WrongType"),
++            Self::Present(values) => f
++                .debug_struct("Present")
++                .field("slots", &values.len())
++                .finish(),
++        }
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum SourceHashKind {
++    Missing,
++    WrongType,
++    Hash,
++}
++
++#[derive(Debug, Clone, Copy)]
++pub struct SourceHashLimits {
++    pub fields: usize,
++    pub request_bytes: usize,
++    /// Accepted result-byte limit, checked after native get returns an owned
++    /// value. This is not a peak-allocation ceiling: rejecting an oversized
++    /// field may first materialize that one field. A borrowed/length-only native
++    /// API would be needed to enforce a hard pre-materialization memory bound.
++    pub selected_value_bytes: usize,
++}
++
++impl Default for SourceHashLimits {
++    fn default() -> Self {
++        Self {
++            fields: 256,
++            request_bytes: 1 << 20,
++            selected_value_bytes: 1 << 20,
++        }
++    }
++}
++
++/// Errors are never converted into absence or partial rows. E preserves the
++/// caller's typed error, without requiring value/key data in diagnostic text.
++#[derive(Debug, PartialEq, Eq)]
++pub enum SourceHashError<E> {
++    TooManyFields,
++    RequestTooLarge,
++    SelectedValuesTooLarge,
++    Authorization(E),
++    Checkpoint(E),
++    Native(E),
++}
++
++/// Native adapters retain an open HASH handle and return owned, binary-safe
++/// values. Authorization/checkpoint have no default implementation: a future
++/// query integration cannot silently inherit an allow-all/no-cancellation gate.
++pub trait SourceHashBackend {
++    type Value;
++    type Error;
++
++    fn key_name_bytes(&self) -> usize;
++    fn field_count(&self) -> usize;
++    fn field_name_bytes(&self, index: usize) -> usize;
++    fn authorize(&mut self) -> Result<(), Self::Error>;
++    fn checkpoint(&mut self) -> Result<(), Self::Error>;
++    fn open(&mut self) -> Result<SourceHashKind, Self::Error>;
++    fn get(&mut self, index: usize) -> Result<Option<Self::Value>, Self::Error>;
++    fn value_bytes(&self, value: &Self::Value) -> usize;
++}
++
++/// Read each requested field at most once from one verified HASH handle. The
++/// caller must hold the Redis module execution lock for the entire invocation;
++/// checkpoints must not yield/unlock that handle. Expiry follows native key-open
++/// semantics. No unselected-field enumeration or numeric conversion occurs.
++pub fn project_source_hash<B: SourceHashBackend>(
++    backend: &mut B,
++    limits: SourceHashLimits,
++) -> Result<SourceHashProjection<B::Value>, SourceHashError<B::Error>> {
++    let count = backend.field_count();
++    if count > limits.fields {
++        return Err(SourceHashError::TooManyFields);
++    }
++    let mut request = backend.key_name_bytes();
++    for index in 0..count {
++        // Conservative per-argument framing allowance, in addition to raw bytes.
++        request = request
++            .checked_add(backend.field_name_bytes(index))
++            .and_then(|n| n.checked_add(16))
++            .ok_or(SourceHashError::RequestTooLarge)?;
++    }
++    if request > limits.request_bytes {
++        return Err(SourceHashError::RequestTooLarge);
++    }
++    backend.checkpoint().map_err(SourceHashError::Checkpoint)?;
++    backend
++        .authorize()
++        .map_err(SourceHashError::Authorization)?;
++    backend.checkpoint().map_err(SourceHashError::Checkpoint)?;
++    let kind = backend.open().map_err(SourceHashError::Native)?;
++    backend.checkpoint().map_err(SourceHashError::Checkpoint)?;
++    match kind {
++        SourceHashKind::Missing => return Ok(SourceHashProjection::Missing),
++        SourceHashKind::WrongType => return Ok(SourceHashProjection::WrongType),
++        SourceHashKind::Hash => {}
++    }
++
++    let mut values = Vec::with_capacity(count);
++    let mut bytes = 0usize;
++    for index in 0..count {
++        backend.checkpoint().map_err(SourceHashError::Checkpoint)?;
++        let value = backend.get(index).map_err(SourceHashError::Native)?;
++        if let Some(ref value) = value {
++            bytes = bytes
++                .checked_add(backend.value_bytes(value))
++                .ok_or(SourceHashError::SelectedValuesTooLarge)?;
++            if bytes > limits.selected_value_bytes {
++                return Err(SourceHashError::SelectedValuesTooLarge);
++            }
++        }
++        values.push(value);
++    }
++    backend.checkpoint().map_err(SourceHashError::Checkpoint)?;
++    Ok(SourceHashProjection::Present(values))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    struct Hash {
++        fields: Vec<Vec<u8>>,
++        // Entries outside fields are deliberately unselected.
++        source: Vec<(Vec<u8>, Vec<u8>)>,
++        kind: SourceHashKind,
++        denied: bool,
++        cancel_at: Option<usize>,
++        native_error_at: Option<usize>,
++        checkpoints: usize,
++        opens: usize,
++        reads: Vec<usize>,
++    }
++
++    impl Hash {
++        fn new(fields: &[&[u8]], source: &[(&[u8], &[u8])]) -> Self {
++            Self {
++                fields: fields.iter().map(|x| x.to_vec()).collect(),
++                source: source
++                    .iter()
++                    .map(|(k, v)| (k.to_vec(), v.to_vec()))
++                    .collect(),
++                kind: SourceHashKind::Hash,
++                denied: false,
++                cancel_at: None,
++                native_error_at: None,
++                checkpoints: 0,
++                opens: 0,
++                reads: vec![],
++            }
++        }
++    }
++
++    impl SourceHashBackend for Hash {
++        type Value = Vec<u8>;
++        type Error = &'static str;
++        fn key_name_bytes(&self) -> usize {
++            5
++        }
++        fn field_count(&self) -> usize {
++            self.fields.len()
++        }
++        fn field_name_bytes(&self, index: usize) -> usize {
++            self.fields[index].len()
++        }
++        fn authorize(&mut self) -> Result<(), Self::Error> {
++            if self.denied {
++                Err("NoPermission")
++            } else {
++                Ok(())
++            }
++        }
++        fn checkpoint(&mut self) -> Result<(), Self::Error> {
++            self.checkpoints += 1;
++            if self.cancel_at == Some(self.checkpoints) {
++                Err("Cancelled")
++            } else {
++                Ok(())
++            }
++        }
++        fn open(&mut self) -> Result<SourceHashKind, Self::Error> {
++            self.opens += 1;
++            Ok(self.kind)
++        }
++        fn get(&mut self, index: usize) -> Result<Option<Self::Value>, Self::Error> {
++            self.reads.push(index);
++            if self.native_error_at == Some(index) {
++                return Err("UnknownReadOutcome");
++            }
++            Ok(self
++                .source
++                .iter()
++                .find(|(key, _)| *key == self.fields[index])
++                .map(|(_, v)| v.clone()))
++        }
++        fn value_bytes(&self, value: &Self::Value) -> usize {
++            value.len()
++        }
++    }
++
++    #[test]
++    fn exact_source_bytes_include_int64_endpoints_nuls_and_empty() {
++        let fields: &[&[u8]] = &[
++            b"lo",
++            b"hi",
++            b"adjacent",
++            b"binary\0field",
++            b"empty",
++            b"null",
++        ];
++        let source: &[(&[u8], &[u8])] = &[
++            (b"lo", b"-9223372036854775808"),
++            (b"hi", b"9223372036854775807"),
++            (b"adjacent", b"9007199254740993"),
++            (b"binary\0field", b"a\0b\xff"),
++            (b"empty", b""),
++            (b"unselected", b"not returned"),
++        ];
++        assert!(fields[3].contains(&0) && source[3].1.contains(&0));
++        let mut hash = Hash::new(fields, source);
++        let got = project_source_hash(&mut hash, SourceHashLimits::default()).unwrap();
++        assert_eq!(
++            got,
++            SourceHashProjection::Present(vec![
++                Some(source[0].1.to_vec()),
++                Some(source[1].1.to_vec()),
++                Some(source[2].1.to_vec()),
++                Some(source[3].1.to_vec()),
++                Some(vec![]),
++                None,
++            ])
++        );
++        assert_eq!(hash.opens, 1);
++        assert_eq!(hash.reads, vec![0, 1, 2, 3, 4, 5]);
++    }
++
++    #[test]
++    fn all_null_and_zero_fields_still_distinguish_source_presence_and_type() {
++        for fields in [vec![b"absent".as_slice()], vec![]] {
++            for kind in [
++                SourceHashKind::Hash,
++                SourceHashKind::Missing,
++                SourceHashKind::WrongType,
++            ] {
++                let mut hash = Hash::new(&fields, &[(b"other", b"value")]);
++                hash.kind = kind;
++                let got = project_source_hash(&mut hash, SourceHashLimits::default()).unwrap();
++                match kind {
++                    SourceHashKind::Hash => {
++                        assert_eq!(got, SourceHashProjection::Present(vec![None; fields.len()]))
++                    }
++                    SourceHashKind::Missing => assert_eq!(got, SourceHashProjection::Missing),
++                    SourceHashKind::WrongType => assert_eq!(got, SourceHashProjection::WrongType),
++                }
++                assert_eq!(hash.opens, 1);
++                assert_eq!(
++                    hash.reads.len(),
++                    if kind == SourceHashKind::Hash {
++                        fields.len()
++                    } else {
++                        0
++                    }
++                );
++            }
++        }
++    }
++
++    #[test]
++    fn denied_source_is_never_opened() {
++        let mut hash = Hash::new(&[b"n"], &[(b"n", b"1")]);
++        hash.denied = true;
++        assert_eq!(
++            project_source_hash(&mut hash, SourceHashLimits::default()),
++            Err(SourceHashError::Authorization("NoPermission"))
++        );
++        assert_eq!(hash.opens, 0);
++        assert!(hash.reads.is_empty());
++    }
++
++    #[test]
++    fn cancellation_at_every_gate_emits_no_partial_row_or_replay() {
++        for checkpoint in 1..=6 {
++            let mut hash = Hash::new(&[b"a", b"b"], &[(b"a", b"1"), (b"b", b"2")]);
++            hash.cancel_at = Some(checkpoint);
++            assert_eq!(
++                project_source_hash(&mut hash, SourceHashLimits::default()),
++                Err(SourceHashError::Checkpoint("Cancelled"))
++            );
++            assert!(hash.opens <= 1);
++            assert!(hash.reads.len() <= 2);
++        }
++    }
++
++    #[test]
++    fn uncertain_native_read_discards_partial_values_without_retry() {
++        let mut hash = Hash::new(&[b"a", b"b", b"c"], &[(b"a", b"1")]);
++        hash.native_error_at = Some(1);
++        assert_eq!(
++            project_source_hash(&mut hash, SourceHashLimits::default()),
++            Err(SourceHashError::Native("UnknownReadOutcome"))
++        );
++        assert_eq!(hash.reads, vec![0, 1]);
++        assert_eq!(hash.opens, 1);
++    }
++
++    #[test]
++    fn request_limits_are_checked_before_authorization_or_native_open() {
++        let mut hash = Hash::new(&[b"a", b"b"], &[]);
++        let mut limit = SourceHashLimits::default();
++        limit.fields = 1;
++        assert_eq!(
++            project_source_hash(&mut hash, limit),
++            Err(SourceHashError::TooManyFields)
++        );
++        limit.fields = 2;
++        limit.request_bytes = 1;
++        assert_eq!(
++            project_source_hash(&mut hash, limit),
++            Err(SourceHashError::RequestTooLarge)
++        );
++        assert_eq!(hash.checkpoints, 0);
++        assert_eq!(hash.opens, 0);
++        assert!(hash.reads.is_empty());
++    }
++
++    #[test]
++    fn selected_byte_budget_drops_partial_row_but_ignores_unselected_values() {
++        let large = vec![b'x'; 4096];
++        let mut hash = Hash::new(&[b"a"], &[(b"a", b"1"), (b"large", &large)]);
++        let mut limits = SourceHashLimits::default();
++        limits.selected_value_bytes = 1;
++        assert!(matches!(
++            project_source_hash(&mut hash, limits),
++            Ok(SourceHashProjection::Present(_))
++        ));
++        let mut hash = Hash::new(&[b"a", b"b"], &[(b"a", b"1"), (b"b", b"2")]);
++        assert_eq!(
++            project_source_hash(&mut hash, limits),
++            Err(SourceHashError::SelectedValuesTooLarge)
++        );
++        assert_eq!(hash.reads, vec![0, 1]);
++    }
++}
+--- /dev/null
++++ b/src/redisearch_rs/rlookup/src/source_hash_native.rs
+@@ -0,0 +1,125 @@
++/*
++ * Copyright (c) 2006-Present, Redis Ltd.
++ * All rights reserved.
++ *
++ * Licensed under your choice of the Redis Source Available License 2.0
++ * (RSALv2); or (b) the Server Side Public License v1 (SSPLv1); or (c) the
++ * GNU Affero General Public License v3 (AGPLv3).
++ */
++
++//! Native Redis module adapter for the shared bounded source-projection core.
++//! No query grammar, coordinator, cursor, or caller ACL implementation is wired
++//! here. In particular, RedisModule_OpenKey is not an authorization check.
++
++use crate::source_hash::{
++    SourceHashBackend, SourceHashError, SourceHashKind, SourceHashLimits, SourceHashProjection,
++    project_source_hash,
++};
++use redis_module::{
++    KeyType, RedisError, RedisString,
++    key::{KeyFlags, RedisKey},
++};
++use std::ptr::NonNull;
++
++struct NativeHash<'a, A, C> {
++    ctx: NonNull<redis_module::RedisModuleCtx>,
++    name: &'a RedisString,
++    fields: &'a [RedisString],
++    key: Option<RedisKey>,
++    authorize: A,
++    checkpoint: C,
++}
++
++impl<A, C> SourceHashBackend for NativeHash<'_, A, C>
++where
++    A: FnMut(&RedisString) -> Result<(), RedisError>,
++    C: FnMut() -> Result<(), RedisError>,
++{
++    type Value = RedisString;
++    type Error = RedisError;
++
++    fn key_name_bytes(&self) -> usize {
++        self.name.as_slice().len()
++    }
++    fn field_count(&self) -> usize {
++        self.fields.len()
++    }
++    fn field_name_bytes(&self, index: usize) -> usize {
++        self.fields[index].as_slice().len()
++    }
++    fn authorize(&mut self) -> Result<(), Self::Error> {
++        (self.authorize)(self.name)
++    }
++    fn checkpoint(&mut self) -> Result<(), Self::Error> {
++        (self.checkpoint)()
++    }
++
++    fn open(&mut self) -> Result<SourceHashKind, Self::Error> {
++        // Empty extra flags retain native expiry behavior. Do not use the
++        // index loader's ACCESS_EXPIRED/NOEXPIRE flags for live source reads.
++        let key = RedisKey::open_with_flags(self.ctx.as_ptr(), self.name, KeyFlags::empty());
++        let kind = if key.is_null() || key.key_type() == KeyType::Empty {
++            SourceHashKind::Missing
++        } else if key.key_type() == KeyType::Hash {
++            SourceHashKind::Hash
++        } else {
++            SourceHashKind::WrongType
++        };
++        self.key = Some(key);
++        Ok(kind)
++    }
++
++    fn get(&mut self, index: usize) -> Result<Option<Self::Value>, Self::Error> {
++        // Both names and values are length-aware RedisStrings. There is no
++        // C-string truncation, schema lookup, sort-vector access or f64 step.
++        self.key
++            .as_ref()
++            .expect("source HASH opened before reads")
++            .hash_get_by_string(&self.fields[index])
++    }
++    fn value_bytes(&self, value: &Self::Value) -> usize {
++        value.as_slice().len()
++    }
++}
++
++/// Project authoritative source fields using one native HASH handle.
++///
++/// `authorize` must check the current query user's source-key read permission,
++/// not only index-prefix membership; callers must never pass an allow-all gate
++/// for untrusted queries. `checkpoint` must enforce query cancellation/budgets
++/// without yielding the Redis module execution lock or executing reentrant
++/// keyspace mutations. Neither callback is cached.
++/// The owned RedisStrings in a successful result outlive the open key handle.
++///
++/// This low-level prototype is not callable through a public Search command.
++/// Query planning, warning/error propagation, distributed serialization and
++/// cursor integration remain separate prerequisites before driver adoption.
++///
++/// # Safety
++///
++/// `ctx` must reference a valid live Redis module context on its owning thread.
++/// The caller must hold the Redis module execution lock for the entire call;
++/// neither callback may release it or invalidate/mutate an open key handle.
++/// Context lifetime must cover this call and destruction of returned RedisStrings.
++pub unsafe fn project_native_source_hash<A, C>(
++    ctx: NonNull<redis_module::RedisModuleCtx>,
++    name: &RedisString,
++    fields: &[RedisString],
++    limits: SourceHashLimits,
++    authorize: A,
++    checkpoint: C,
++) -> Result<SourceHashProjection<RedisString>, SourceHashError<RedisError>>
++where
++    A: FnMut(&RedisString) -> Result<(), RedisError>,
++    C: FnMut() -> Result<(), RedisError>,
++{
++    let mut native = NativeHash {
++        ctx,
++        name,
++        fields,
++        key: None,
++        authorize,
++        checkpoint,
++    };
++    project_source_hash(&mut native, limits)
++}
