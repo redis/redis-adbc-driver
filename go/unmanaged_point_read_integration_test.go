@@ -156,3 +156,96 @@ func TestUnmanagedPointReadSelectedFieldsSoftware(t *testing.T) {
 		t.Fatal("point read changed source payload")
 	}
 }
+
+// DML shares matchRows/scan with SELECT. RETURNING and SET dependencies must
+// stay in the projection even when unrelated application fields are omitted.
+func TestUnmanagedPointDMLReturningDependenciesSoftware(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stream=%v", stream), func(t *testing.T) {
+			h, raw, _ := unmanagedIngestFixture(t, false)
+			text := string([]byte{'r', 0, 't'})
+			if !strings.ContainsRune(text, 0) {
+				t.Fatal("fixture lacks NUL")
+			}
+			if err := raw.HSet(h.ctx, "app:seed", "n", "9007199254740993", "extra", text, "unregistered", "preserve until DELETE").Err(); err != nil {
+				t.Fatal(err)
+			}
+			if err := raw.HSet(h.ctx, "app:other", "n", "17", "extra", "other source", "unregistered", "never change").Err(); err != nil {
+				t.Fatal(err)
+			}
+			root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+			observer := &unmanagedPointNativeReads{}
+			ctx, _ := statisticsHookedTransport(t, h, observer)
+			returning := func(query string, want int64) {
+				t.Helper()
+				stmt, err := h.conn.NewStatement(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer stmt.Close(ctx)
+				if err := stmt.SetOption(ctx, OptionStringStreamResults, fmt.Sprint(stream)); err != nil {
+					t.Fatal(err)
+				}
+				if err := stmt.SetSqlQuery(ctx, query); err != nil {
+					t.Fatal(err)
+				}
+				observer.reset()
+				reader, _, err := stmt.ExecuteQuery(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer reader.Release()
+				count := 0
+				for reader.Next() {
+					rec := reader.RecordBatch()
+					if rec.NumCols() != 2 {
+						t.Fatal("RETURNING schema changed", rec.Schema())
+					}
+					nums, nok := rec.Column(0).(*array.Int64)
+					texts, tok := rec.Column(1).(*array.String)
+					if !nok || !tok {
+						t.Fatal("RETURNING physical type changed", rec.Schema())
+					}
+					for i := 0; i < int(rec.NumRows()); i++ {
+						count++
+						if nums.IsNull(i) || texts.IsNull(i) || nums.Value(i) != want || texts.Value(i) != text {
+							t.Fatal("RETURNING lost exact old/new dependency", nums.Value(i), texts.Value(i))
+						}
+					}
+				}
+				if err := reader.Err(); err != nil || count != 1 {
+					t.Fatal("incomplete RETURNING result", count, err)
+				}
+				observer.mu.Lock()
+				defer observer.mu.Unlock()
+				if len(observer.commands) != 1 || observer.commands[0] != "hmget" {
+					t.Fatal("DML did not use exact projected known-key image", observer.commands)
+				}
+				fields := map[any]bool{}
+				for _, field := range observer.fields[0] {
+					fields[field] = true
+				}
+				if len(fields) != 2 || !fields["n"] || !fields["extra"] {
+					t.Fatal("DML projection omitted SET/RETURNING dependency or fetched unmodeled data", observer.fields)
+				}
+			}
+			returning("UPDATE live SET n=n+1 WHERE __key='app:seed' RETURNING n,extra", 9007199254740994)
+			if got := raw.HGet(h.ctx, "app:seed", "n").Val(); got != "9007199254740994" {
+				t.Fatal("incorrect exact source mutation", got)
+			}
+			if raw.HGet(h.ctx, "app:seed", "extra").Val() != text || raw.HGet(h.ctx, "app:seed", "unregistered").Val() != "preserve until DELETE" {
+				t.Fatal("projected UPDATE lost unrelated source fields")
+			}
+			returning("DELETE FROM live WHERE __key='app:seed' RETURNING n,extra", 9007199254740994)
+			if raw.Exists(h.ctx, "app:seed").Val() != 0 {
+				t.Fatal("DELETE did not remove complete source HASH")
+			}
+			if raw.HGet(h.ctx, "app:other", "n").Val() != "17" || raw.HGet(h.ctx, "app:other", "unregistered").Val() != "never change" {
+				t.Fatal("DML changed a different application HASH")
+			}
+			if got := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val(); got != root {
+				t.Fatal("unmanaged DML unexpectedly published managed rows")
+			}
+		})
+	}
+}
