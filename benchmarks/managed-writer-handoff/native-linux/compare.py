@@ -99,7 +99,7 @@ def main():
                             {k: row[k] for k in ('throughput_C_over_B', 'p50_C_over_B', 'p95_C_over_B', 'mean_C_over_B')})
     (bundle / 'comparison.json').write_text(json.dumps(result, indent=2) + '\n')
     with (bundle / 'comparison.csv').open('w', newline='') as output:
-        writer = csv.DictWriter(output, fieldnames=list(csv_rows[0]))
+        writer = csv.DictWriter(output, fieldnames=list(csv_rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(csv_rows)
     print('Validated all 192 records/6144 operations; retained all 36 pooled/per-pair case comparisons and raw controls.')

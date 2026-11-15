@@ -1,0 +1,9 @@
+{
+  "commands": [
+    "python scripts/prepare_docs.py",
+    "python -m mkdocs build --strict",
+    "python scripts/check_docs.py"
+  ],
+  "exit_code": 0,
+  "selected_public_pages": 45
+}
