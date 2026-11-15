@@ -1,0 +1,52 @@
+{
+  "slide_count": 29,
+  "updated_slides": [
+    4,
+    19,
+    20,
+    21,
+    22,
+    25
+  ],
+  "unchanged_slides_verified": [
+    1,
+    2,
+    3,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    23,
+    24,
+    26,
+    27,
+    28,
+    29
+  ],
+  "numeric_tables_match_chart_data": true,
+  "all_six_speaker_notes_updated": true,
+  "historical_slides_23_24_unchanged": true,
+  "shape_geometry_styles_and_media_preserved": true,
+  "placeholder_markers_remaining": false,
+  "table_style_definitions_verified_ignoring_export_generated_GUIDs": true,
+  "all_29_slides_rendered": true,
+  "other_23_slides_pixel_identical": true,
+  "historical_slides_pixel_identical": true,
+  "consolidated_visual_repair_passes": 1,
+  "final_repair_scope": [
+    22
+  ],
+  "archived_note_evidence_links_preserved": 6,
+  "data_commit_linked_from_notes": "a88353d374cc7703f4937724461fa1b266276e3d",
+  "export_fallback": "Native get_presentation unavailable; inspected editable PPTX structure and native PDF export; preserved native text/tables."
+}

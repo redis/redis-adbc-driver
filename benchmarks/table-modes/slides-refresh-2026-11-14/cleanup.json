@@ -1,0 +1,11 @@
+{
+  "all_benchmark_clients_exited": true,
+  "bulk_and_scenario_owner_markers_verified_before_flush": true,
+  "database_empty_and_index_free_verified_over_tls_resp3": true,
+  "owned_server_container_and_network_removed": true,
+  "preexisting_container_inventory_preserved": true,
+  "unowned_network_ids_and_configuration_preserved_from_after_setup_inventory": true,
+  "new_client_image_tag_removed": true,
+  "generated_tls_and_environment_files_removed": true,
+  "generated_credential_and_owner_files_removed": true
+}

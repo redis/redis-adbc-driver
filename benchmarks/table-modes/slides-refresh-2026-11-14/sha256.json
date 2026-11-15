@@ -1,0 +1,14 @@
+{
+  "aggregate-historical.csv": "44613c23ab7f3b03217e2284bd053dcd5bd2fb082b2dbafb1bdcbf95479dc35d",
+  "audit.py": "31f3e97452b7af62b22fa8c83c47998cd303bb49416b6a812c0e6c9da6169507",
+  "charts.csv": "ea6bac0b85c29083d487775acfdf320836f9599e998b10fdae8efa5decc4e07b",
+  "charts.json": "d94d5ce1004946b7af888b4712de25c3a33e0bcb6008c1faf3e11f702be2e729",
+  "cleanup.json": "f19c73849a9e3f7225b79dd3466054e76cf7fee567b80a790e4e6cebcf05ff0f",
+  "clickbench-historical.csv": "7bd6fa1ca00efe541a9d0c313808462a5d0b91723c61dea35fff2775ca451fc5",
+  "provenance.json": "5c0b4231faf9ec9963122fb64e8d23b18094dd596fe9ccfad33d44875ef03f19",
+  "report.md": "548801e849006814afcc7cd61b2667f7dffd2fe8db68031d4191d15b59f7b3e5",
+  "scenarios.json": "fb0ba3024968c86d0c13394cc8ef698652562f0527b283bd5bf12af05884582a",
+  "slides-verification.json": "ab400c4e06d569b97672a7b09956031bda0b0fcdb86f70552dcf8184044025ce",
+  "summary.json": "398b63cc4b50fb768654088c8f87f590c2b3b127742cc206e015894387937a84",
+  "table-modes.json": "0a1c7ef78242c572a8501289301dea7995ecd5cc34f5fe7e5e4edb0d17274cb2"
+}

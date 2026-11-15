@@ -1,5 +1,13 @@
 # Managed/unmanaged table comparison
 
+[Current Linux slide refresh](slides-refresh-2026-11-14/report.md) reruns the full
+156-trial bulk/read/creation and 168-trial OLTP/OLAP matrices on clean main
+`34f4c829`, using the same native library with the optional writer queue off.
+All 324 trials validated. Generated chart data retain all modes, one/four clients,
+units and redis-py multiples; historical ClickBench remains separate. This is
+a new Linux reference, not a matched speedup comparison with older macOS runs.
+Audit with `python3 benchmarks/table-modes/slides-refresh-2026-11-14/audit.py`.
+
 [November 12 v0.0.26 results](2026-11-12/report.md) compare managed SQL,
 unmanaged SQL and redis-py+hiredis on Redis Software with verified active 4x QPF.
 This directory changes benchmark tooling/evidence, not production driver behavior.
