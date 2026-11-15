@@ -73,7 +73,12 @@ func metadataHintLiveFixture(t *testing.T) (*sqlHarness, *goredis.Client, *store
 	h, raw, _ := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE TABLE metadata_hint(id BIGINT,label TEXT)")
 	h.exec("INSERT INTO metadata_hint VALUES(1,'original')")
-	s := h.conn.(*connectionImpl).store
+	o := &metadataHintLiveObserver{}
+	transportCtx, impl := statisticsHookedTransport(t, h, o)
+	prior := h.ctx
+	h.ctx = transportCtx
+	t.Cleanup(func() { h.ctx = prior })
+	s := impl.store
 	key := metaKey("public", "metadata_hint")
 	first, p, err := s.acquireSnapshot(h.ctx)
 	if err != nil {
@@ -88,8 +93,8 @@ func metadataHintLiveFixture(t *testing.T) (*sqlHarness, *goredis.Client, *store
 	if !ok {
 		t.Fatal("successful native descriptor read did not warm address hint")
 	}
-	o := &metadataHintLiveObserver{physical: snapshotWorkspace(hint.value) + strings.TrimPrefix(key, metaPrefix)}
-	s.client.AddHook(o)
+	o.physical = snapshotWorkspace(hint.value) + strings.TrimPrefix(key, metaPrefix)
+	o.reset()
 	ctx, p, err := s.acquireSnapshot(h.ctx)
 	if err != nil {
 		t.Fatal(err)
