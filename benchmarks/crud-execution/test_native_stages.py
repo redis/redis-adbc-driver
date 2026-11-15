@@ -45,3 +45,38 @@ class CursorStageTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class NativeSubstageTest(unittest.TestCase):
+    def test_nested_callbacks_preserve_actual_result_cancel_and_error(self):
+        import types
+        import native_stages as stages
+        calls = []
+        class Result:
+            def close(self):
+                calls.append('close')
+        def blocking(function, args, kwargs, cancel):
+            calls.append(cancel)
+            return function(*args, **kwargs)
+        dbapi = types.SimpleNamespace(_RowIterator=Result, _blocking_call=blocking)
+        stages.install_native_substages(dbapi)
+        value = object()
+        cancel = object()
+        record = {'stage_ns': {}}
+        stages._active_record.record = record
+        try:
+            def execute_query():
+                return value
+            self.assertIs(dbapi._blocking_call(execute_query, (), {}, cancel), value)
+            dbapi._RowIterator().close()
+            failure = RuntimeError('same failure')
+            def prepare():
+                raise failure
+            with self.assertRaises(RuntimeError) as raised:
+                dbapi._blocking_call(prepare, (), {}, cancel)
+            self.assertIs(raised.exception, failure)
+        finally:
+            stages._active_record.record = None
+        self.assertEqual(calls, [cancel, 'close', cancel])
+        self.assertEqual(set(record['native_stage_ns']),
+                         {'adbc_execute_query', 'previous_result_close', 'adbc_prepare'})
+        self.assertTrue(all(value > 0 for value in record['native_stage_ns'].values()))

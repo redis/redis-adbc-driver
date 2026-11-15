@@ -12,6 +12,40 @@ import threading
 import time
 
 
+_active_record = threading.local()
+
+
+def install_native_substages(dbapi):
+    """Optional nested spans on the pinned DBAPI's unchanged real operations."""
+    original_close = dbapi._RowIterator.close
+    original_blocking = dbapi._blocking_call
+
+    def timed(name, function, *args, **kwargs):
+        record = getattr(_active_record, 'record', None)
+        if record is None:
+            return function(*args, **kwargs)
+        started = time.perf_counter_ns()
+        try:
+            return function(*args, **kwargs)
+        finally:
+            spans = record.setdefault('native_stage_ns', {})
+            spans[name] = spans.get(name, 0) + time.perf_counter_ns() - started
+
+    def close(self):
+        return timed('previous_result_close', original_close, self)
+
+    def blocking(function, args, kwargs, cancel):
+        name = getattr(function, '__name__', '')
+        category = {'prepare': 'adbc_prepare', 'execute_query': 'adbc_execute_query',
+                    'read_all': 'arrow_read_all'}.get(name)
+        if category is None:
+            return original_blocking(function, args, kwargs, cancel)
+        return timed(category, original_blocking, function, args, kwargs, cancel)
+
+    dbapi._RowIterator.close = close
+    dbapi._blocking_call = blocking
+
+
 class CursorStages:
     """Transparent methods used by scenarios.operation_call; same real cursor."""
     def __init__(self, cursor, record):
@@ -20,10 +54,13 @@ class CursorStages:
 
     def _call(self, name, function, *args, **kwargs):
         started = time.perf_counter_ns()
+        previous = getattr(_active_record, 'record', None)
+        _active_record.record = self._record
         try:
             return function(*args, **kwargs)
         finally:
             self._record['stage_ns'][name] = time.perf_counter_ns() - started
+            _active_record.record = previous
 
     def execute(self, *args, **kwargs):
         return self._call('execute', self._cursor.execute, *args, **kwargs)
@@ -47,6 +84,9 @@ def install(scenarios):
     original_trial = scenarios.ScenarioBenchmark.run_trial
     original_init = scenarios.ScenarioBenchmark.__init__
     original_save = scenarios.ScenarioBenchmark.save
+    nested = os.environ.get('REDIS_CRUD_NATIVE_SUBSTAGES') == '1'
+    if nested:
+        install_native_substages(scenarios.base.adbc)
 
     def call(cfg, mode, operation, index, rows, rowids, q, r):
         trial = current_trial
@@ -86,6 +126,7 @@ def install(scenarios):
                 'wrapper_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 'metadata': self.results.get('metadata'),
                 'status': self.results.get('status'),
+                'nested_native_substages': nested,
                 'records': list(records),
                 'scope': ('Instrumented ordinary Python/ADBC scenarios.operation_call. '
                           'Transparent cursor proxy measures execute, complete fetch_arrow_table '
@@ -95,7 +136,10 @@ def install(scenarios):
                           'for headline comparisons. Execute may include prior-result cleanup; '
                           'fetch may include stream release. These spans do not isolate C ABI, '
                           'forced GC, Redis/server CPU or wire retries. Raw operations retain '
-                          'their entire command/typed-conversion elapsed span.'),
+                          'their entire command/typed-conversion elapsed span. Optional '
+                          'native_stage_ns are NESTED inside cursor spans, never additive: '
+                          'actual DBAPI previous-result close, blocking prepare/execute_query '
+                          'and Arrow read_all, with original cancellation and lifetime unchanged.'),
             }
         path = self.work / 'native-stages.json'
         temporary = path.with_suffix('.tmp')
