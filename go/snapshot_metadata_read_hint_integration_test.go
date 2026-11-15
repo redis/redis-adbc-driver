@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -368,5 +369,106 @@ func TestSnapshotMetadataHintLiveExactBucketIntegerProof(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Software does not expose ACL SETUSER. The owner provisions these principals
+// through the Software management API, on the same disposable strict-TLS DB.
+func TestSnapshotMetadataHintLiveNativeACL(t *testing.T) {
+	for _, denied := range []string{"get", "exists", "memory", "hstrlen", "strlen", "evalsha"} {
+		variants := []string{"ordinary"}
+		if denied == "get" {
+			variants = append(variants, "bucket_corrupt", "object_corrupt")
+		}
+		if denied == "exists" {
+			variants = append(variants, "bucket_corrupt")
+		}
+		for _, variant := range variants {
+			t.Run(denied+"/"+variant, func(t *testing.T) {
+				uri := os.Getenv("REDIS_METADATA_HINT_NO_" + strings.ToUpper(denied) + "_URI")
+				if uri == "" {
+					t.Skip("requires owned Software API principal denying " + denied)
+				}
+				h, raw, admin, _, pin, key, _ := metadataHintLiveFixture(t)
+				opts, err := goredis.ParseURL(uri)
+				if err != nil || opts.Addr != raw.Options().Addr || opts.DB != raw.Options().DB || opts.Username == "" || opts.TLSConfig == nil || raw.Options().TLSConfig == nil {
+					t.Fatal("private operator endpoint differs from owned strict-TLS fixture")
+				}
+				opts.TLSConfig = raw.Options().TLSConfig.Clone()
+				opts.Protocol = 3
+				opts.ContextTimeoutEnabled = true
+				client := goredis.NewClient(opts)
+				t.Cleanup(func() { _ = client.Close() })
+				client.AddHook(snapshotHook{})
+				if err := client.Ping(h.ctx).Err(); err != nil {
+					t.Fatal("operator authentication control failed")
+				}
+				suffix := strings.TrimPrefix(key, metaPrefix)
+				slot := snapshotMetadataSlot(suffix)
+				hint, _ := admin.metadataReadHints.get(suffix)
+				physical := snapshotWorkspace(hint.value) + suffix
+				expected, err := raw.Get(h.ctx, physical).Result()
+				if err != nil {
+					t.Fatal(err)
+				}
+				command := []any{}
+				switch denied {
+				case "get":
+					command = []any{"GET", physical}
+				case "exists":
+					command = []any{"EXISTS", physical}
+				case "memory":
+					command = []any{"MEMORY", "USAGE", snapshotMetadataMap(pin.root), "SAMPLES", 0}
+				case "hstrlen":
+					command = []any{"HSTRLEN", snapshotMetadataGraph, "e:" + physical}
+				case "strlen":
+					command = []any{"STRLEN", physical}
+				case "evalsha":
+					command = []any{"EVALSHA", snapshotMetadataReadHintDigest, 0}
+				}
+				if err := client.Do(h.ctx, command...).Err(); err == nil || !strings.HasPrefix(err.Error(), "NOPERM ") {
+					t.Fatal("operator command was not actually denied")
+				}
+				limited := &store{client: client, snapshots: true}
+				limited.metadataReadHints.put(suffix, hint)
+				limitedPin := &snapshotPin{ctx: h.ctx, store: limited, root: pin.root, token: pin.token, descriptorHint: true}
+				ctx := context.WithValue(h.ctx, snapshotContextKey{}, &snapshotScope{id: pin.root, pin: limitedPin, store: limited})
+				// The real admin-held pin protects this root; all limited-principal catalog
+				// and lease proofs must still work before testing the descriptor primitive.
+				if err := limited.validateSnapshotRead(ctx); err != nil {
+					t.Fatal("operator catalog/lease positive control failed", err)
+				}
+				if variant == "bucket_corrupt" {
+					if err := raw.HSet(h.ctx, snapshotMetadataGraph, "b:"+hint.bucket+":"+slot, 0).Err(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if variant == "object_corrupt" {
+					if err := raw.HSet(h.ctx, snapshotMetadataGraph, "v:"+physical, 0).Err(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				actual, err := limited.readSnapshotMetadataString(ctx, key)
+				want := ""
+				if denied == "get" || denied == "exists" {
+					want = "NOPERM"
+				}
+				if variant == "bucket_corrupt" {
+					want = "bucket is incomplete"
+				}
+				if variant == "object_corrupt" {
+					want = "object is missing or corrupt"
+				}
+				if want != "" {
+					if err == nil || actual != "" || !strings.Contains(err.Error(), want) {
+						t.Fatal("native ACL/proof precedence changed", denied, variant, err)
+					}
+				} else {
+					if err != nil || actual != expected {
+						t.Fatal("pre-GET guard refusal did not preserve native read", denied, err)
+					}
+				}
+			})
+		}
 	}
 }
