@@ -108,16 +108,52 @@ local n,e=call('HLEN',KEYS[1]);if e then
  return {'native',e}
 end
 if n>256 then return {'root'} end
+-- Bound actual root bytes before Lua materializes any fields or values.
+local memory;memory,e=call('MEMORY','USAGE',KEYS[1],'SAMPLES',0)
+if e then
+ if string.sub(e,1,7)=='NOPERM ' then return {'decline'} end
+ return {'native',e}
+end
+if memory and memory>1048576 then return {'decline'} end
+local function proof_fields(a,b)
+ for _,field in ipairs({a,b}) do
+  local length,err=call('HSTRLEN',KEYS[2],field)
+  if err then
+   if string.sub(err,1,7)=='NOPERM ' then return false,{'decline'} end
+   return false,{'native',err}
+  end
+  if length>64 then return false,{'decline'} end
+ end
+ local value,err=call('HMGET',KEYS[2],a,b)
+ if err then return false,{'native',err} end
+ return value,false
+end
+local function integer(value,positive)
+ if type(value)~='string' or #value>64 then return false end
+ local negative=string.sub(value,1,1)=='-'
+ if negative or string.sub(value,1,1)=='+' then value=string.sub(value,2) end
+ if value=='' or not string.match(value,'^%d+$') then return false end
+ value=string.gsub(value,'^0+','');if value=='' then value='0' end
+ local maximum=negative and '9223372036854775808' or '9223372036854775807'
+ if #value>19 or (#value==19 and value>maximum) or (negative and value~='0') or (positive and value=='0') then return false end
+ return value
+end
 local entries;entries,e=call('HGETALL',KEYS[1]);if e then return {'native',e} end
 local current=false
 for i=1,#entries,2 do if entries[i]==slot then current=entries[i+1] end end
 if current~=bucket then return {'miss'} end
-local bp;bp,e=call('HMGET',KEYS[2],'n:'..bucket..':'..slot,'b:'..bucket..':'..slot);if e then return {'native',e} end
+local bp;bp,e=proof_fields('n:'..bucket..':'..slot,'b:'..bucket..':'..slot);if e then return e end
 local count;count,e=call('HLEN',KEYS[3]);if e then return {'native',e} end
 local fields;fields,e=call('ZCARD',KEYS[4]);if e then return {'native',e} end
 local owner;owner,e=call('HGET',KEYS[3],suffix);if e then return {'native',e} end
+-- The original resolver stops at an invalid bucket before accessing the
+-- object. Validate exact signed-int64 spelling/range without rounding strings
+-- through Lua numbers, before a later object native error can mask it.
+if count>=9007199254740992 or fields>=9007199254740992 then return {'decline'} end
+local expected=integer(bp[1],false)
+if not expected or not integer(bp[2],true) or expected~=string.format('%.0f',count) or expected~=string.format('%.0f',fields) then return {'bucket'} end
 if owner~=value then return {'miss'} end
-local vp;vp,e=call('HMGET',KEYS[2],'e:'..KEYS[5],'v:'..KEYS[5]);if e then return {'native',e} end
+local vp;vp,e=proof_fields('e:'..KEYS[5],'v:'..KEYS[5]);if e then return e end
 local present;present,e=call('EXISTS',KEYS[5]);if e then return {'native',e} end
 local kind,payload='value',false
 local length;length,e=call('STRLEN',KEYS[5])
@@ -161,7 +197,7 @@ func (s *store) readSnapshotMetadataHint(ctx context.Context, key string) (strin
 	args := []any{"EVAL", snapshotMetadataReadHintLua, 5, snapshotMetadataMap(scope.id), snapshotMetadataGraph,
 		snapshotMetadataBucket(hint.bucket, slot), snapshotMetadataDirectory(hint.bucket, slot), snapshotWorkspace(hint.value) + suffix,
 		scope.id, slot, suffix, hint.bucket, hint.value, snapshotMetadataHintValueBytes}
-	reply, err := s.metadataReadScript.runScript(ctx, s.client, snapshotMetadataReadHintDigest, args).Slice()
+	reply, err := s.metadataReadScript.runScript(ctx, s.redis(ctx), snapshotMetadataReadHintDigest, args).Slice()
 	if err != nil {
 		if native, ok := err.(interface {
 			error
@@ -193,6 +229,11 @@ func (s *store) resolveSnapshotMetadataHintReply(ctx context.Context, scope *sna
 			return bad()
 		}
 		return "", false, nil
+	case "bucket":
+		if len(reply) != 1 {
+			return bad()
+		}
+		return "", true, errorf(adbc.StatusIO, "snapshot metadata bucket is incomplete")
 	case "root":
 		if len(reply) != 1 {
 			return bad()
