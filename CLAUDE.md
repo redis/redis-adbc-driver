@@ -251,6 +251,14 @@ Redis Software compatibility checks.
 Require RESP3 for single-endpoint and Cluster API clients. Do not support RESP2
 or offer `protocol=2` as a compatibility option. Reject failed RESP3 negotiation.
 
+Benchmark provenance must include the client OS and network route, including
+whether it uses a Docker published port or the server's Linux network namespace.
+The [2026-11-14 transport controls](benchmarks/point-valid-isolation/README.md)
+found a large-reply delay on the macOS published-port route that disappeared with
+the unchanged Software endpoint and a Linux client. Check standalone transport
+and topology controls before changing driver proofs; keep historical results
+labeled with their actual environment.
+
 Keep Go packages sequential (`-p 1`) against a shared Redis: opening a connection
 can recover another package's abandoned move. Disable test caching (`-count=1`).
 Software blocks some protocol ACL and command-counter checks; OSS covers them.
