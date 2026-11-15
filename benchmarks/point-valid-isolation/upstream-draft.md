@@ -69,6 +69,12 @@ change is performed.
 - That comparison changed both client OS and route. It narrows the observation
   to the actual host/topology combination; it does not identify which forwarding,
   OS, TLS, proxy or scheduling mechanism caused it.
+- Supplemental Linux RedisPy 8.1.0 ran the exact host-control source and passed
+  224 sequences without the cliff: medians approximately 0.018 ms and maximum
+  first PING 0.0445 ms. This phase used Python 3.14.10 and client four CPUs/4 GiB;
+  host Python was 3.15.2. The separate Go Linux phase used two CPUs/256 MiB.
+  These client resource/runtime differences remain explicit; the Software
+  server and verified TLS configuration were unchanged.
 
 ## Useful next controls
 

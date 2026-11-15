@@ -1,10 +1,13 @@
 {
   "benchmarks/point-valid-isolation/executed-isolation-v1.go.txt": "d1f6ff82eed9d7d7448acc614edd350466fbbb9ce8412a8ee34ba37ec39836a0",
   "benchmarks/point-valid-isolation/executed-isolation-v2.go.txt": "f420d128c0b87873ce26e54791ea05bc33d1adfd742340b284ec5c84f917859c",
+  "benchmarks/point-valid-isolation/independent-redispy-linux.csv": "a0201f8a474e61ac9e453b497ae580f1e8e8ae9fb36fe36610220724711d60a7",
+  "benchmarks/point-valid-isolation/independent-redispy-linux.json": "b3c5e4efb73af0c5435b2d069691150fbd5dbbe639c14f665b8a1f38d630e54d",
   "benchmarks/point-valid-isolation/independent-redispy.csv": "7259b2e9d094ad0cf6622b7ce48ad5b586ead08316fa4d3c8a0f4eb56f17ce77",
   "benchmarks/point-valid-isolation/independent-redispy.json": "e86f60bc2d50c98fb3177a56af1b767f677c2921f85350cde01866a86565d506",
   "benchmarks/point-valid-isolation/linux-control-provenance.json": "df6453f526167e2162e65f723a076fb3c34f36dd7816eae1bb689ef968e74119",
   "benchmarks/point-valid-isolation/provenance.json": "a31aa21eca37d91a7ae777e7dfaf76fd8f791fe43cd9657724e7ea03b924deac",
+  "benchmarks/point-valid-isolation/redispy-linux-control-provenance.json": "7e0ad3eb0611f7c81ae1d33be6b07f87fc2328ae4944abc0ff1810e0cf0ac33f",
   "benchmarks/point-valid-isolation/rejected-max2/A1.json": "04ed155ed63e15971f9e4dec4d1b7d353cfc5bc1780de367d652bd43eb93fb05",
   "benchmarks/point-valid-isolation/rejected-max2/A2.json": "c6997b52f174e1609f1ec81517cb68a9c83312129f039410f3e512a0f6cc12c4",
   "benchmarks/point-valid-isolation/rejected-max2/B1.json": "e8a931632006b1cdecc9a958425668286a2e2d935f6222732fa09d008d7be82e",

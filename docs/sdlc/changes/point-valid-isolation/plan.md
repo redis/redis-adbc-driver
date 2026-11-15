@@ -42,6 +42,13 @@ Source/requestor: [intent](intent.md); contract: [spec](spec.md).
     below 0.1 ms. Client OS and network route changed together: this identifies a
     topology confound, not a driver/client/server algorithm cause. Exact source,
     selected resources, complete data, cleanup and binary hashes are retained.
+11. Supplemental Linux RedisPy control passed 224 sequences with the exact same
+    source hash and RedisPy 8.1.0 as the host control, without the cliff. Linux
+    Python was 3.14.10/client four CPUs/4 GiB; host Python was 3.15.2. First PING
+    medians were approximately 0.018 ms, maximum 0.0445 ms. The earlier Go Linux
+    phase remains separately labeled two CPUs/256 MiB. Both kept the same
+    Software server/TLS configuration. No unique OS/network/runtime cause or
+    production driver speedup follows from these topology controls.
 
 All task-owned clients/processes closed and independent fixture verification
 observed empty after each exclusive slot. No external issue/comment or PR was

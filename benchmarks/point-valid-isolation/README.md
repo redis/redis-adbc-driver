@@ -166,24 +166,38 @@ All 448 sequences passed in 0.36 seconds; all first-PING observations were below
 [client cleanup/source/binary provenance](linux-control-provenance.json) and
 [selected server/VM platform](selected-platform.json) retain the actual settings.
 
-Matched default-policy scalar-PING-on-proof-client medians (ms, eight per cell):
+The supplemental pure-RedisPy Linux control also passed all 224 sequences using
+the exact same Python source and RedisPy 8.1.0 as the host control. It used
+Python 3.14.10 on Linux/arm64 with four client CPUs/4 GiB, whereas the host control
+used Python 3.15.2. First-PING medians were approximately 0.018 ms and the maximum
+was 0.0445 ms. [Complete data](independent-redispy-linux.json),
+[summary](independent-redispy-linux.csv) and
+[selected provenance/cleanup](redispy-linux-control-provenance.json) retain these
+phase-specific resources. This is distinct from the earlier Go Linux client,
+which used two CPUs/256 MiB. Both used the unchanged Software server and verified
+TLS in its network namespace; neither weakened certificate/hostname checks.
 
-| GET bytes | macOS host/published port, Go | Same host route, RedisPy held connection | Linux/server namespace, identical Go source |
-|---:|---:|---:|---:|
-| 8,000 | 0.266 | 0.243 | 0.017 |
-| 8,191 | 14.850 | 15.931 | 0.017 |
-| 8,192 | 15.038 | 15.320 | 0.016 |
-| 8,193 | 14.614 | 15.543 | 0.017 |
-| 16,384 | 15.724 | 15.080 | 0.017 |
-| 32,768 | 15.544 | 15.517 | 0.018 |
+Go columns use default-policy scalar PING on the proof client; RedisPy columns
+use one GET and the same held connection. Medians are milliseconds, eight per cell:
+
+| GET bytes | macOS host/published port, Go | Same host route, RedisPy held connection | Linux/server namespace, identical Go source | Linux/server namespace, identical RedisPy source |
+|---:|---:|---:|---:|---:|
+| 8,000 | 0.266 | 0.243 | 0.017 | 0.018 |
+| 8,191 | 14.850 | 15.931 | 0.017 | 0.018 |
+| 8,192 | 15.038 | 15.320 | 0.016 | 0.018 |
+| 8,193 | 14.614 | 15.543 | 0.017 | 0.018 |
+| 16,384 | 15.724 | 15.080 | 0.017 | 0.018 |
+| 32,768 | 15.544 | 15.517 | 0.018 | 0.019 |
 
 This does not isolate which OS, port-forwarding, TCP/proxy or scheduling detail
 caused the host wait. It rules out treating that wait as inherently ADBC, Lua,
 Search or go-redis algorithm time, or as a universal property of this Software
 server. Historical results retain their actual macOS/port-forwarded topology;
 do not rewrite them or compose source ratios across these topology controls.
-The temporary Linux client and its environment file were removed; certificate
-and hostname verification were never weakened.
+The temporary Linux clients and their environment files were removed;
+certificate and hostname verification were never weakened. The RedisPy control
+also changed Python runtime and client resource limits; no individual OS,
+forwarding, proxy, TLS or runtime mechanism is assigned from these comparisons.
 
 The standalone program deletes only its own seven expiring keys; deletion is
 best effort in the program, and independent coordinator verification observed an
@@ -204,5 +218,6 @@ python3 benchmarks/point-valid-isolation/summarize_width.py
 python3 benchmarks/point-valid-isolation/summarize_routing.py benchmarks/point-valid-isolation/standalone-go.json.gz
 python3 benchmarks/point-valid-isolation/summarize_routing.py benchmarks/point-valid-isolation/standalone-linux.json.gz
 python3 benchmarks/point-valid-isolation/summarize_redispy.py
+python3 benchmarks/point-valid-isolation/summarize_redispy.py benchmarks/point-valid-isolation/independent-redispy-linux.json
 python3 -m unittest discover -s benchmarks/point-valid-isolation -p test_summarize_routing.py -v
 ```
