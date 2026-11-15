@@ -1,0 +1,10 @@
+{
+  "commands": [
+    "python scripts/prepare_docs.py",
+    "python -m mkdocs build --strict",
+    "python scripts/check_docs.py"
+  ],
+  "exit_code": 0,
+  "verified_selected_pages": 45,
+  "scope": "Selected public documentation build/local links/assets/canonicals/sitemap/search/publication scope; supplemental benchmark/SDLC links checked separately."
+}

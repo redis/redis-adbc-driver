@@ -1,0 +1,8 @@
+{
+  "measured_candidate_match": true,
+  "sha256": {
+    "snapshot_delta.go": "fed8fc97e26923df847e29b33bb51a4d24fe5b1c8dae7e18dc29d4acab69b387",
+    "snapshot_missing_row.go": "9b4fa4d0e45e7b7d4bbf9a731a92d859f2e8b047ba4a2facc7f4cf255c8b1563"
+  },
+  "production_scope": "Only snapshot_delta.go and new snapshot_missing_row.go differ from b904cf8d. Admission pacing and unmanaged source reader remain baseline."
+}

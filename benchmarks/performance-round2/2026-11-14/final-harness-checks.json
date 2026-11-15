@@ -1,0 +1,9 @@
+{
+  "source_commit": "696c9174",
+  "command": "go test -race -json -count=1 -p 1 -run ^Test(ManagedTailProfileAttribution|SnapshotMissingRow) .",
+  "exit_code": 0,
+  "test_events_including_parents": {
+    "pass": 17
+  },
+  "scope": "Final evidence-only harness integration compile and focused race-enabled missing-row/attribution units; endpoints empty."
+}

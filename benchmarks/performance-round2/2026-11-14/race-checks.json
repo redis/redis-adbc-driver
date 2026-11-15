@@ -1,0 +1,12 @@
+{
+  "source_commit": "84aaccea",
+  "command": "go test -race -json -count=1 -p 1 -timeout 15m -run ^Test(Snapshot(MissingRow|PointWriteRead|PointReadEligibility|PointReadRejectsMissingBaselineRow|DeltaDirectoryDamageFailsClosed|DeltaExactRowIDsBeyondDoublePrecision|DirectPartitionRejectsCorruptNativeState|DirectProofDoesNotAuthorizeIndexScan|SQLAdmission|IngestAdmission|WriteAdmissionWaitsForCompactionPublication)|ManagedTailProfileAttribution) .",
+  "exit_code": 0,
+  "wall_seconds": 33.459619207977084,
+  "test_events_including_parents": {
+    "pass": 66
+  },
+  "failed_tests": [],
+  "environment_gate": "Redis Software active4QPF/sixSearchworkers/mnp32/noeviction/strictTLS/RESP3 verified immediately before invocation",
+  "scope": "Focused race-enabled unit and live snapshot proofs, corruption, visibility, admission/cancellation/unknown-outcome checks; not full integration/cluster suite."
+}

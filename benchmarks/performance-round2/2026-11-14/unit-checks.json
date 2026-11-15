@@ -1,0 +1,23 @@
+{
+  "source_commit": "924e0fda",
+  "command": "env -u REDIS_URI -u REDIS_SNAPSHOT_URI go test -json -count=1 -p 1 -timeout 30m ./...",
+  "exit_code": 0,
+  "test_events_including_parents": {
+    "pass": 1616,
+    "skip": 1337
+  },
+  "packages": {
+    "github.com/adbc-drivers/redis/go": "pass",
+    "github.com/adbc-drivers/redis/go/benchmarks/upstreamalloc": "pass",
+    "github.com/adbc-drivers/redis/go/cmd/redis-adbc": "pass",
+    "github.com/adbc-drivers/redis/go/internal/benchproxy": "pass",
+    "github.com/adbc-drivers/redis/go/internal/cuda": "skip",
+    "github.com/adbc-drivers/redis/go/internal/intpredicate": "pass",
+    "github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait": "skip",
+    "github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait/extensions": "skip",
+    "github.com/adbc-drivers/redis/go/internal/testenv": "pass",
+    "github.com/adbc-drivers/redis/go/internal/tlstrust": "pass"
+  },
+  "failed_tests": [],
+  "scope": "Broad unit-only pass; Redis integration tests skipped because both endpoint variables were empty. This does not establish server compatibility."
+}
