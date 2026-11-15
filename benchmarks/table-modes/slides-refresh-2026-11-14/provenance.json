@@ -79,5 +79,9 @@
     "docker_vm_cpus": 18
   },
   "scope": "One current-main reference. Existing per-case timing/validation unchanged; wrapper records ownership outside timing. No matched historical performance gain claim. No ClickBench rerun. No optional writer queue enabled.",
-  "final_empty_and_resp_verified": true
+  "final_empty_and_resp_verified": true,
+  "statement_read_stream_batch_rows": [
+    512,
+    4096
+  ]
 }
