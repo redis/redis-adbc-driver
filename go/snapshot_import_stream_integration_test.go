@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -348,10 +349,29 @@ func TestSnapshotForeignImportBeyondCaptureQuota(t *testing.T) {
 	if err := raw.Do(h.ctx, "FT.CREATE", "large_foreign_source", "ON", "HASH", "PREFIX", 1, prefix, "SCHEMA", "n", "NUMERIC").Err(); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "source index ready", func() bool {
-		r, err := raw.Do(h.ctx, "FT.INFO", "large_foreign_source").Result()
-		return err == nil && indexInfoOf(r).numDocs == 100001 && !indexInfoOf(r).indexing
-	})
+	// This initial scan indexes more than 100K existing HASHes. The shared
+	// five-second waitFor budget is for small fixtures and can expire under
+	// race-enabled CI. Wait only for indexing progress; native command errors
+	// and indexing failures remain terminal, and the exact count stays required.
+	readyCtx, cancelReady := context.WithTimeout(h.ctx, time.Minute)
+	defer cancelReady()
+	var sourceInfo indexInfo
+	if err := waitIndexReady(readyCtx, func(ctx context.Context) error {
+		r, err := raw.Do(ctx, "FT.INFO", "large_foreign_source").Result()
+		if err != nil {
+			return err
+		}
+		sourceInfo = indexInfoOf(r)
+		if sourceInfo.failures != 0 {
+			return fmt.Errorf("source index has %d indexing failures", sourceInfo.failures)
+		}
+		if sourceInfo.numDocs != 100001 || sourceInfo.indexing {
+			return errorf(adbc.StatusInvalidState, "source index still building")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("source index readiness: docs=%d want=100001 indexing=%t failures=%d: %v", sourceInfo.numDocs, sourceInfo.indexing, sourceInfo.failures, err)
+	}
 	if err := h.setConnOption(OptionStringForeignIndexes, "true"); err != nil {
 		t.Fatal(err)
 	}

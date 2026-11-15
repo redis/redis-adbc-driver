@@ -91,3 +91,26 @@ in the cleanup record. No unrelated resources were recreated.
 
 PR #443 is open with the complete evidence. No merge or release is performed
 by this change. Human acceptance is pending.
+
+## PR CI follow-up: large source-index fixture readiness
+
+The [initial snapshot CI job](https://github.com/redis/redis-adbc-driver/actions/runs/43759567914/job/132951244784)
+failed `TestSnapshotForeignImportBeyondCaptureQuota` while waiting for the
+100,001-row application index to finish its initial scan. The shared `waitFor`
+helper allowed only 100 polls separated by 50 ms; the import never began.
+The failed run remains the before-fix evidence, rather than a discarded rerun.
+
+Only this large test fixture now uses the existing context-aware readiness loop
+with a one-minute deadline. It still requires exactly 100,001 documents and
+completed indexing, rejects indexing failures, and stops immediately on command
+errors. The later exact COUNT/MIN/MAX and unchanged-source assertions remain.
+The shared small-fixture wait, production code, SQL deadlines and frozen
+benchmark sources/results are unchanged.
+
+Local endpoint-free validation passed:
+`env -u REDIS_URI -u REDIS_SNAPSHOT_URI go -C go test -race -count=1 -p 1 -run '^TestWaitIndexReady$' .`.
+That existing regression verifies pending-to-ready transitions, terminal errors
+and cancellation/deadlines. Live validation is the PR's full race-enabled
+snapshot CI job, whose owned Software fixture is created and verified with
+active/effective 4× QPF by `make redis-up`/`make test-software`. Its actual outcome
+is recorded in the [PR checks](https://github.com/redis/redis-adbc-driver/pull/443/checks).
