@@ -29,7 +29,7 @@ as a demonstrated win.
 
 Root owns exclusively scheduled Software fixtures, final integration, correctness
 checks, matched native/width measurements and cleanup. Final selected-build
-validation and measurements must be recorded before completion. No relaxed
+validation and measurements are recorded in the [report](../../../../benchmarks/crud-execution/results/2026-11-15/README.md); the broad CRUD latency objective remains unmet. No relaxed
 consistency mode, mutation/input replay, authority cache, ClickBench rerun or
 historical-result relabeling is part of this work. See [spec](spec.md) and
 [plan](plan.md).

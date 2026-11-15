@@ -1,0 +1,13 @@
+{
+  "source_commit": "814e6b11efbf6254f0c458950d4434d7334353ff",
+  "runtime_equivalent_source": "a944c99c500f2f5904ff669bea5cb9fb9b6b8e39",
+  "command": "<race binary> -test.v -test.count=1 -test.run ^TestUnmanagedPointDMLReturningDependenciesSoftware$ -test.timeout=5m",
+  "exit_code": 0,
+  "events": {
+    "pass": 3,
+    "skip": 0,
+    "fail": 0
+  },
+  "binary_sha256": "6e87b96b8912cfab789ffc48d9360af575f34d834aa4247023b44283ccf5fd54",
+  "scope": "Test-only follow-up; native benchmark libraries frozen at runtime-equivalent a944c99c."
+}

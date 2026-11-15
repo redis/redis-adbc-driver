@@ -78,5 +78,15 @@ the gate after observing the results, or ship a new flag for the rejected idea.
   owned cleanup, keep operational identifiers/credentials/licenses/logs private,
   and record actual final checks rather than infer human maintainer approval.
 
-Final selected-code correctness and performance results remain pending until
-recorded in the final validation/report artifacts.
+Final selected-code checks, complete measurements and limitations are recorded
+in the final report linked below; human acceptance remains pending.
+
+## Measured acceptance decision
+
+The [complete final report](../../../../benchmarks/crud-execution/results/2026-11-15/README.md)
+records the failed shared-path latency target and mixed final latency results.
+No general CRUD speedup or regression-free claim is accepted. Required-field
+projection is selected for excluding irrelevant source values with command/
+value/source-preservation proofs. Wide value-byte arithmetic is not measured
+wire-byte evidence. Every slower result remains published for human review.
+The larger metadata-hint experiment remains archived and unapplied.

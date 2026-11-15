@@ -1,0 +1,11 @@
+{
+  "command": "REDIS_URI= REDIS_SNAPSHOT_URI= go -C go test -json -race -count=1 -p 1 -run ^TestCRUDProfile(CategoriesAndValueBytes|WrappedValueBytes)$ .",
+  "events": {
+    "pass": 2,
+    "skip": 0,
+    "fail": 0
+  },
+  "source_scope": "Diagnostic-only helper correction after frozen native benchmarks; production source unchanged.",
+  "source_commit": "e25874f02bd78365a251d49ea26c47a8cdffffe3",
+  "diagnostic_file_sha256": "01d86080e827983a38fbf266a71345fe1391dd773b3abfd1b13054c91ae3ef63"
+}
