@@ -15,6 +15,7 @@ from pathlib import Path
 import subprocess
 import time
 import uuid
+from urllib.parse import parse_qs, urlsplit
 
 import adbc_driver_manager.dbapi as adbc
 import pyarrow as pa
@@ -90,6 +91,7 @@ def main():
     assert 0 <= time.time() - a.gate.stat().st_mtime < 60, 'run the coordinator gate immediately before invocation'
     uri, ca = os.environ['REDIS_URI'], os.environ['SSL_CERT_FILE']
     assert uri.startswith('rediss://')
+    assert parse_qs(urlsplit(uri).query).get('protocol', ['3']) == ['3']
     token = uuid.uuid4().hex
     prefix = 'projection_source_' + token + ':'
     index, table = 'projection_source_' + token, 'projection_source_' + token
@@ -106,7 +108,7 @@ def main():
               'validated': False, 'queries': [], 'cleanup': False}
     r = redis.Redis.from_url(uri, ssl_ca_certs=ca, ssl_cert_reqs='required',
                             ssl_check_hostname=True, socket_timeout=30,
-                            retry=Retry(NoBackoff(), 0), retry_on_error=[])
+                            retry=Retry(NoBackoff(), 0), retry_on_error=[], protocol=3)
     started = False
     try:
         assert r.dbsize() == 0 and not r.execute_command('FT._LIST')
@@ -225,21 +227,26 @@ def main():
         assert r.get(prefix + '4') == b'wrongtype'
         assert r.hget(prefix + '8', 'n') == str((1 << 53) + 3).encode()
         assert r.hget(prefix + '5', b'binary' + bytes([0]) + b'field') == b'a' + bytes([0, 255]) + b'b'
+        assert index.encode() in r.execute_command('FT._LIST'), 'DROP removed the application index'
         report['source_ownership_preserved_after_drop'] = True
         report['validated'] = True
     finally:
-        if started and r.get(marker) == owner:
-            # The flag, initially empty database, exclusive coordinator slot and
-            # owner marker jointly authorize clearing only this disposable run.
-            indexes = r.execute_command('FT._LIST')
-            assert set(indexes) <= {index.encode()}, 'unexpected index; preserve resources for inspection'
-            if index.encode() in indexes:
-                r.execute_command('FT.DROPINDEX', index)
-            r.flushdb()
-            report['cleanup'] = r.dbsize() == 0 and not r.execute_command('FT._LIST')
-        r.close()
-        a.output.parent.mkdir(parents=True, exist_ok=True)
-        a.output.write_text(json.dumps(report, indent=2) + '\n')
+        try:
+            if started and r.get(marker) == owner:
+                # The flag, initially empty database, exclusive coordinator slot and
+                # owner marker jointly authorize clearing only this disposable run.
+                indexes = r.execute_command('FT._LIST')
+                assert set(indexes) <= {index.encode()}, 'unexpected index; preserve resources for inspection'
+                if index.encode() in indexes:
+                    r.execute_command('FT.DROPINDEX', index)
+                r.flushdb()
+                report['cleanup'] = r.dbsize() == 0 and not r.execute_command('FT._LIST')
+        finally:
+            try:
+                r.close()
+            finally:
+                a.output.parent.mkdir(parents=True, exist_ok=True)
+                a.output.write_text(json.dumps(report, indent=2) + '\n')
     assert report['validated'] and report['cleanup']
     print('Exact driver/raw oracles and cleanup passed; no installed prototype or performance claim.')
 
