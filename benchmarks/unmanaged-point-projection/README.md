@@ -65,3 +65,46 @@ in `owner-private.json`. After all clients exit, the owner must verify that exac
 marker before emptying the dedicated database and removing owned resources.
 Never publish owner/endpoint/credential/certificate files or raw operational
 logs. Keep historical measurements scoped to their actual source/environment.
+
+## Complete four-window width comparison
+
+`compare.py` audits and compares baseline A1, candidate B1, candidate B2 and
+baseline A2. It requires the **default complete 128-record/32-case grid** in each
+window (1K rows, 32 calls, warmup plus three measured rounds), using `audit.py`
+for independent per-trial arithmetic and complete-source/value-byte checks.
+There are **512 records total**, including 128 warmups and 384 measured trials.
+Each pooled build/case has 192 latency observations; each forward/reverse pair
+has 96. All 32 pooled cases, both 32-case pairs and all raw Redis controls remain
+visible, including slower observations.
+
+```sh
+python3 benchmarks/unmanaged-point-projection/compare.py \
+  --a1 /private/A1/results.json --b1 /private/B1/results.json \
+  --b2 /private/B2/results.json --a2 /private/A2/results.json \
+  --harness-sha256 FROZEN_EXECUTED_HARNESS_SHA256 \
+  --out /private/new-width-comparison
+```
+
+The CLI defaults expected baseline/candidate sources to clean `3b422454` and
+shipping runtime `a944c99c`; override their full source arguments for a new
+experiment. Build identity (native library, source, version, CLI) must remain
+identical within A1/A2 and B1/B2. Between builds only those four fields may
+differ; complete metadata, packages, scenario/base-helper identities, payloads,
+fixture dimensions and timing scopes must match. The measured harness hash is
+preserved even when later comment-only edits change the local source hash;
+`--harness-sha256` can enforce the separately frozen executed file explicitly.
+Actual build/environment/helper freeze and chronological sequencing provenance
+still need to accompany the raw files.
+
+Fresh-output JSON/CSVs and Markdown retain p50/p95/operation means, both finite
+throughput metrics, each build's own Redis-client controls, and the independently
+recomputed selected/full-source **value-byte oracles**. Ratios use unrounded
+samples; only rendered Markdown rounds values. No causal normalization, measured
+wire-byte claim, server CPU attribution, statistical confidence or production
+capacity claim follows. An identical index definition does not guarantee
+identical volatile FT.INFO statistics/reply lengths.
+
+NULL/ACL latency is not measured by this width grid. All-selected-NULL rows and
+HGETALL-only principals can need an additional HMGET refusal/NULL observation
+before complete-HASH fallback, including the full payload transfer. Correctness
+coverage and performance tradeoffs for those cases must remain separate.

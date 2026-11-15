@@ -116,8 +116,8 @@ class Benchmark(scenarios.ScenarioBenchmark):
         schema = SCHEMA
         if width in ('registered', 'both'):
             schema = schema.append(pa.field(REGISTERED, pa.string()))
-        # Every width uses the same index definition; payload size cannot change
-        # FT.INFO reply bytes or indexed term work in this experiment.
+        # Every width uses the same index definition, with payloads unindexed.
+        # Volatile FT.INFO statistics/reply lengths can still differ.
         with base.client(self.cfg) as r:
             r.execute_command('FT.CREATE', base.INDEX, 'ON', 'HASH', 'PREFIX', 1,
                               base.PREFIX, 'SCHEMA', 'id', 'NUMERIC')
