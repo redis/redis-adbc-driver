@@ -1,0 +1,90 @@
+[
+  {
+    "sequence": 0,
+    "mode": "baseline",
+    "source": "b904cf8d0d85686b4b1b7adc0aa72dbe954866a4",
+    "harness_sha256": "308e0889ca3aeaecfc4bbf641acb939532063e8618cc9ff96466428ea5814f50",
+    "command": [
+      "go",
+      "test",
+      "-count=3",
+      "-p",
+      "1",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkUnmanagedProjectionBatch$",
+      "-benchmem",
+      "-benchtime=200ms",
+      "."
+    ],
+    "wall_seconds": 8.93321591700078,
+    "exit_code": 0
+  },
+  {
+    "sequence": 1,
+    "mode": "candidate",
+    "source": "6b1806b2bd8c1731d28f033dee7d393f9d798a89",
+    "harness_sha256": "308e0889ca3aeaecfc4bbf641acb939532063e8618cc9ff96466428ea5814f50",
+    "command": [
+      "go",
+      "test",
+      "-count=3",
+      "-p",
+      "1",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkUnmanagedProjectionBatch$",
+      "-benchmem",
+      "-benchtime=200ms",
+      "."
+    ],
+    "wall_seconds": 15.70734520899714,
+    "exit_code": 0
+  },
+  {
+    "sequence": 2,
+    "mode": "candidate",
+    "source": "6b1806b2bd8c1731d28f033dee7d393f9d798a89",
+    "harness_sha256": "308e0889ca3aeaecfc4bbf641acb939532063e8618cc9ff96466428ea5814f50",
+    "command": [
+      "go",
+      "test",
+      "-count=3",
+      "-p",
+      "1",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkUnmanagedProjectionBatch$",
+      "-benchmem",
+      "-benchtime=200ms",
+      "."
+    ],
+    "wall_seconds": 7.927045459015062,
+    "exit_code": 0
+  },
+  {
+    "sequence": 3,
+    "mode": "baseline",
+    "source": "b904cf8d0d85686b4b1b7adc0aa72dbe954866a4",
+    "harness_sha256": "308e0889ca3aeaecfc4bbf641acb939532063e8618cc9ff96466428ea5814f50",
+    "command": [
+      "go",
+      "test",
+      "-count=3",
+      "-p",
+      "1",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkUnmanagedProjectionBatch$",
+      "-benchmem",
+      "-benchtime=200ms",
+      "."
+    ],
+    "wall_seconds": 7.5932319999847095,
+    "exit_code": 0
+  }
+]

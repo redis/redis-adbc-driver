@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "baseline",
+    "source": "b904cf8d0d85686b4b1b7adc0aa72dbe954866a4",
+    "binary_sha256": "621fcfb61ab768deb7b21e94d058f1c48c59fd2d3300d7af318cdba151713fab",
+    "binary_sha256_after": "621fcfb61ab768deb7b21e94d058f1c48c59fd2d3300d7af318cdba151713fab"
+  },
+  {
+    "mode": "final",
+    "source": "6b1806b2bd8c1731d28f033dee7d393f9d798a89",
+    "binary_sha256": "5192291891269e32899eabdb1338dab1af7daf61fcde3481837791aa8dbe1e55",
+    "binary_sha256_after": "5192291891269e32899eabdb1338dab1af7daf61fcde3481837791aa8dbe1e55"
+  }
+]
