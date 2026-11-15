@@ -1,0 +1,36 @@
+{
+  "scope": "Post-run source/policy clarification. No frozen wrapper/harness/library/raw record changed. Local installed8.1.0 source was inspected; actual Linux8.1.0 fresh no-network connection introspection independently confirmed budget0/empty retry_on_error. This is not a historical live retry/reconnect counter.",
+  "original_raw_field": {
+    "automatic_retries": 0,
+    "preserved": true,
+    "interpretation": "Harness caller-retry intent; not a measured all-library/network retry/reconnect count."
+  },
+  "caller_operation_retry_loops": 0,
+  "redis_py_version": "8.1.0",
+  "source_inferred_from_url_command_retry_budget": 0,
+  "ordinary_Redis_constructor_default_retry_budget": 10,
+  "source_chain": [
+    "Redis.from_url creates ConnectionPool.from_url, then Redis(connection_pool=pool).",
+    "Redis.__init__ only injects its default retry object when no connection pool is supplied.",
+    "The pool forwards URL/kwargs; this harness supplies no retry/retry_on_error/retry_on_timeout policy and requires protocol=3.",
+    "AbstractConnection defaults retry=None and empty retry_on_error, selecting Retry(NoBackoff(),0).",
+    "Command and pipeline execution call connection.retry.call_with_retry; zero retries raises after the first supported failure instead of replaying the operation."
+  ],
+  "reconnect_scope": "Pool checkout can disconnect/reconnect and revalidate a dirty/disconnected connection before sending a command; maintenance notifications can mark/reconnect connections. This is separate from replaying SQL/a Redis operation.",
+  "fault_observation_scope": "All native trial success markers passed, but no dedicated wire-level retry/reconnect/fault counter was instrumented; do not equate successful operations with a universal zero-network-retry guarantee.",
+  "future_harness_followup": "Explicitly configure Retry(NoBackoff(),0), record/verify the resolved command policy, rename metadata to caller_operation_retries, and label connection/reconnect policy separately. Any client warmup/PING change is a new timed harness/source and needs new frozen comparisons; never silently rewrite these raw labels.",
+  "source_files_sha256": {
+    "client.py": "dd4f59277910f1df863e73f6b95d584a7c6a8717e298c0649c914adb2cae77a6",
+    "connection.py": "f036b858c369b423d05e161e46f12820455fe24dac9fc450d0831d96df91651b",
+    "retry.py": "65546f2ba5f32b751019df770c74bccee29c435aca77b664cf0b821c4caf743d",
+    "_defaults.py": "b5df52a83c2e532f14cd24ab8bc29a358c303a34e506ba615c294f256be8144c"
+  },
+  "post_run_Linux_observation": {
+    "redis_py_version": "8.1.0",
+    "command_retry_budget": 0,
+    "retry_on_error": [],
+    "network_connected": false,
+    "scope": "post-run no-network connection policy introspection; reconnect management differs from command replay"
+  },
+  "source_files_sha256_scope": "Files from local installed8.1.0 source inspection, not asserted as measured Linux source hashes."
+}

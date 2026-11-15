@@ -63,6 +63,9 @@ const (
 
 	// OptionStringQueryWorkers is the per-query ceiling (auto = bounded CPU headroom).
 	OptionStringQueryWorkers = "adbc.redis.query_workers"
+	// OptionStringWriterAdmissionQueue (database) opts managed writes into a
+	// bounded best-effort process-local FIFO turn queue. Defaults to false.
+	OptionStringWriterAdmissionQueue = "adbc.redis.writer_admission_queue"
 	// OptionStringQueryWorkerBudget (database) caps active eligible aggregate
 	// workers across its connections. Auto learns within runtime CPU bounds.
 	OptionStringQueryWorkerBudget = "adbc.redis.query_worker_budget"

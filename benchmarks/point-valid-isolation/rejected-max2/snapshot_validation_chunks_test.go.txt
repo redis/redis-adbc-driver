@@ -1,0 +1,198 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+package redis
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+	"testing"
+
+	goredis "github.com/redis/go-redis/v9"
+)
+
+type validationChunkReplies struct {
+	*validationBatchReplies
+	sizes      []int
+	afterBatch func(int) error
+	unmarked   int
+}
+
+func (h *validationChunkReplies) ProcessPipelineHook(_ goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		h.sizes = append(h.sizes, len(cmds))
+		for _, cmd := range cmds {
+			if marker, ok := cmd.(interface{ NoRetry() bool }); !ok || !marker.NoRetry() {
+				h.unmarked++
+			}
+		}
+		if err := h.validationBatchReplies.ProcessPipelineHook(nil)(ctx, cmds); err != nil {
+			return err
+		}
+		if h.afterBatch != nil {
+			return h.afterBatch(len(h.sizes))
+		}
+		return nil
+	}
+}
+
+func validationChunkFixture(t *testing.T, n int) (*store, []snapshotSegmentProbe, *validationChunkReplies) {
+	t.Helper()
+	hook := &validationChunkReplies{validationBatchReplies: &validationBatchReplies{segments: map[string]snapshotSegment{}}}
+	client := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1", MaxRetries: -1})
+	client.AddHook(hook)
+	t.Cleanup(func() { _ = client.Close() })
+	var probes []snapshotSegmentProbe
+	for range n {
+		id := snapshotID()
+		seg := snapshotSegment{Prefix: snapshotRows(id, defaultSchema, snapshotID()), Index: snapshotIndexPrefix(id) + "working", Rows: 1}
+		hook.segments[seg.Index] = seg
+		probes = append(probes, snapshotSegmentProbe{segment: seg, proof: &snapshotSegmentValidation{done: make(chan struct{})}})
+	}
+	return &store{client: client, snapshots: true}, probes, hook
+}
+
+func TestSnapshotValidationBoundsSearchPipelines(t *testing.T) {
+	for _, n := range []int{1, 2, 3, 8} {
+		t.Run(fmt.Sprint(n), func(t *testing.T) {
+			s, probes, hook := validationChunkFixture(t, n)
+			s.validateSnapshotSegments(context.Background(), probes)
+			if len(hook.sizes) != (n+1)/2 || hook.infos.Load() != int64(n) || hook.directories.Load() != int64(n) {
+				t.Fatal("native proof omitted or response group unbounded", n, hook.sizes, hook.infos.Load(), hook.directories.Load())
+			}
+			if hook.unmarked != 0 {
+				t.Fatal("a native proof command lost its NoRetry marker", hook.unmarked)
+			}
+			for _, size := range hook.sizes {
+				if size < 2 || size > 4 || size%2 != 0 {
+					t.Fatal("validation must retain one/two complete native proof pairs", hook.sizes)
+				}
+			}
+			for _, probe := range probes {
+				if probe.proof.err != nil {
+					t.Fatal(probe.proof.err)
+				}
+				select {
+				case <-probe.proof.done:
+				default:
+					t.Fatal("native proof owner was not released")
+				}
+			}
+		})
+	}
+}
+
+type validationQueueClient struct {
+	goredis.UniversalClient
+	failAt, queued, executed int
+	discarded                bool
+}
+type validationQueuePipeline struct {
+	goredis.Pipeliner
+	owner *validationQueueClient
+}
+
+func (c *validationQueueClient) Pipeline() goredis.Pipeliner {
+	return &validationQueuePipeline{Pipeliner: c.UniversalClient.Pipeline(), owner: c}
+}
+func (p *validationQueuePipeline) Process(ctx context.Context, cmd goredis.Cmder) error {
+	p.owner.queued++
+	if p.owner.queued == p.owner.failAt {
+		return io.ErrUnexpectedEOF
+	}
+	return p.Pipeliner.Process(ctx, cmd)
+}
+func (p *validationQueuePipeline) Discard() {
+	p.owner.discarded = true
+	p.Pipeliner.Discard()
+}
+func (p *validationQueuePipeline) Exec(ctx context.Context) ([]goredis.Cmder, error) {
+	p.owner.executed++
+	return p.Pipeliner.Exec(ctx)
+}
+
+func TestSnapshotValidationChunkQueueFailureDoesNotExecute(t *testing.T) {
+	for _, failAt := range []int{1, 2, 3, 5} {
+		t.Run(fmt.Sprint(failAt), func(t *testing.T) {
+			s, probes, _ := validationChunkFixture(t, 5)
+			client := &validationQueueClient{UniversalClient: s.client, failAt: failAt}
+			s.client = client
+			s.validateSnapshotSegments(context.Background(), probes)
+			if !client.discarded || client.executed != (failAt-1)/4 || client.queued != failAt {
+				t.Fatal("failed queue was executed or replayed", client.discarded, client.executed, client.queued)
+			}
+			for _, probe := range probes {
+				if probe.proof.err == nil || !strings.Contains(probe.proof.err.Error(), "unexpected EOF") {
+					t.Fatal("queue failure admitted a reserved proof", probe.proof.err)
+				}
+				select {
+				case <-probe.proof.done:
+				default:
+					t.Fatal("failed queue left owner blocked")
+				}
+			}
+		})
+	}
+}
+
+func TestSnapshotValidationChunkOuterLossFailsClosed(t *testing.T) {
+	for _, kind := range []string{"direct_eof", "wrapped_eof", "joined_nil_eof"} {
+		t.Run(kind, func(t *testing.T) {
+			s, probes, hook := validationChunkFixture(t, 5)
+			hook.afterBatch = func(batch int) error {
+				if batch != 2 {
+					return nil
+				}
+				if kind == "wrapped_eof" {
+					return fmt.Errorf("outer proof loss: %w", io.ErrUnexpectedEOF)
+				}
+				if kind == "joined_nil_eof" {
+					return errors.Join(goredis.Nil, io.ErrUnexpectedEOF)
+				}
+				return io.ErrUnexpectedEOF
+			}
+			s.validateSnapshotSegments(context.Background(), probes)
+			if len(hook.sizes) != 2 {
+				t.Fatal("unknown batch reply was replayed or later work issued", hook.sizes)
+			}
+			for i, probe := range probes {
+				if probe.proof.err == nil || !strings.Contains(probe.proof.err.Error(), "unexpected EOF") {
+					t.Fatal("whole-operation unknown outcome admitted an earlier/later proof", i, probe.proof.err)
+				}
+				select {
+				case <-probe.proof.done:
+				default:
+					t.Fatal("failed proof owner remained blocked")
+				}
+			}
+		})
+	}
+}
+
+func TestSnapshotValidationChunkCancellationFailsAllOwners(t *testing.T) {
+	s, probes, hook := validationChunkFixture(t, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	hook.afterBatch = func(batch int) error {
+		if batch == 2 {
+			cancel()
+		}
+		return nil
+	}
+	s.validateSnapshotSegments(ctx, probes)
+	if len(hook.sizes) != 2 {
+		t.Fatal("canceled operation issued later batch", hook.sizes)
+	}
+	for i, probe := range probes {
+		if probe.proof.err == nil || !strings.Contains(probe.proof.err.Error(), "canceled") {
+			t.Fatal("cancellation admitted reserved proof", i, probe.proof.err)
+		}
+		select {
+		case <-probe.proof.done:
+		default:
+			t.Fatal("canceled proof owner remained blocked")
+		}
+	}
+}

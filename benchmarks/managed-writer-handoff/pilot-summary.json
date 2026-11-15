@@ -1,0 +1,193 @@
+{
+  "scope": "Frozen-binary ABBA pilot,48mixedwrites/trial,1/4/8writers,trial0 only,no explicit warmup; finite diagnostic Go timing, not native C boundary or server CPU; p99 equals max at this sample count.",
+  "complete_pilot": true,
+  "acknowledged_writes": 576,
+  "writers": {
+    "1": {
+      "baseline": {
+        "throughput_ops_s": 17.154224239449952,
+        "trial_seconds": [
+          2.77042725,
+          2.825861959
+        ],
+        "foreground_commands_per_ack": 78.40625,
+        "maintenance_commands_per_ack": 89.26041666666667,
+        "acquire_attempts_per_ack": 2.0729166666666665,
+        "operations": {
+          "insert": {
+            "p50_ms": 102.815167,
+            "p95_ms": 148.743,
+            "p99_ms": 154.147916,
+            "max_ms": 154.147916
+          },
+          "update": {
+            "p50_ms": 41.098833,
+            "p95_ms": 116.030792,
+            "p99_ms": 133.263334,
+            "max_ms": 133.263334
+          },
+          "delete": {
+            "p50_ms": 36.10575,
+            "p95_ms": 49.048084,
+            "p99_ms": 49.068208,
+            "max_ms": 49.068208
+          }
+        }
+      },
+      "candidate": {
+        "throughput_ops_s": 17.066106012468932,
+        "trial_seconds": [
+          2.794498959,
+          2.830685833
+        ],
+        "foreground_commands_per_ack": 78.40625,
+        "maintenance_commands_per_ack": 89.07291666666667,
+        "acquire_attempts_per_ack": 2.0833333333333335,
+        "operations": {
+          "insert": {
+            "p50_ms": 47.773,
+            "p95_ms": 165.889334,
+            "p99_ms": 173.62825,
+            "max_ms": 173.62825
+          },
+          "update": {
+            "p50_ms": 43.537583,
+            "p95_ms": 128.577292,
+            "p99_ms": 128.90975,
+            "max_ms": 128.90975
+          },
+          "delete": {
+            "p50_ms": 35.3875,
+            "p95_ms": 49.46725,
+            "p99_ms": 63.446375,
+            "max_ms": 63.446375
+          }
+        }
+      }
+    },
+    "4": {
+      "baseline": {
+        "throughput_ops_s": 15.557810717840628,
+        "trial_seconds": [
+          3.083402625,
+          3.087131375
+        ],
+        "foreground_commands_per_ack": 112.625,
+        "maintenance_commands_per_ack": 126.21875,
+        "acquire_attempts_per_ack": 4.427083333333333,
+        "operations": {
+          "insert": {
+            "p50_ms": 49.404042,
+            "p95_ms": 1752.23125,
+            "p99_ms": 1819.765917,
+            "max_ms": 1819.765917
+          },
+          "update": {
+            "p50_ms": 50.754542,
+            "p95_ms": 1051.667667,
+            "p99_ms": 1066.256417,
+            "max_ms": 1066.256417
+          },
+          "delete": {
+            "p50_ms": 57.827958,
+            "p95_ms": 318.9065,
+            "p99_ms": 543.19475,
+            "max_ms": 543.19475
+          }
+        }
+      },
+      "candidate": {
+        "throughput_ops_s": 18.95011759440202,
+        "trial_seconds": [
+          2.599717083,
+          2.466214541
+        ],
+        "foreground_commands_per_ack": 105.16666666666667,
+        "maintenance_commands_per_ack": 112.76041666666667,
+        "acquire_attempts_per_ack": 3.5416666666666665,
+        "operations": {
+          "insert": {
+            "p50_ms": 183.10325,
+            "p95_ms": 273.6855,
+            "p99_ms": 305.165875,
+            "max_ms": 305.165875
+          },
+          "update": {
+            "p50_ms": 205.803833,
+            "p95_ms": 285.040458,
+            "p99_ms": 318.358833,
+            "max_ms": 318.358833
+          },
+          "delete": {
+            "p50_ms": 245.2605,
+            "p95_ms": 331.318542,
+            "p99_ms": 374.253709,
+            "max_ms": 374.253709
+          }
+        }
+      }
+    },
+    "8": {
+      "baseline": {
+        "throughput_ops_s": 17.35022616608992,
+        "trial_seconds": [
+          2.787029,
+          2.746040084
+        ],
+        "foreground_commands_per_ack": 134.76041666666666,
+        "maintenance_commands_per_ack": 143.34375,
+        "acquire_attempts_per_ack": 5.479166666666667,
+        "operations": {
+          "insert": {
+            "p50_ms": 256.887541,
+            "p95_ms": 2172.6125,
+            "p99_ms": 2349.591708,
+            "max_ms": 2349.591708
+          },
+          "update": {
+            "p50_ms": 43.866042,
+            "p95_ms": 525.874209,
+            "p99_ms": 1222.679208,
+            "max_ms": 1222.679208
+          },
+          "delete": {
+            "p50_ms": 40.053417,
+            "p95_ms": 610.240667,
+            "p99_ms": 1739.373333,
+            "max_ms": 1739.373333
+          }
+        }
+      },
+      "candidate": {
+        "throughput_ops_s": 18.82916200420657,
+        "trial_seconds": [
+          2.628520542,
+          2.469953834
+        ],
+        "foreground_commands_per_ack": 102.375,
+        "maintenance_commands_per_ack": 111.47916666666667,
+        "acquire_attempts_per_ack": 3.4270833333333335,
+        "operations": {
+          "insert": {
+            "p50_ms": 282.390416,
+            "p95_ms": 475.222667,
+            "p99_ms": 478.705459,
+            "max_ms": 478.705459
+          },
+          "update": {
+            "p50_ms": 492.420417,
+            "p95_ms": 610.784458,
+            "p99_ms": 614.914875,
+            "max_ms": 614.914875
+          },
+          "delete": {
+            "p50_ms": 465.16275,
+            "p95_ms": 544.025959,
+            "p99_ms": 604.821334,
+            "max_ms": 604.821334
+          }
+        }
+      }
+    }
+  }
+}

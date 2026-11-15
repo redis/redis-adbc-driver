@@ -1,0 +1,1432 @@
+[
+  {
+    "background_compaction": "production workers enabled, unchanged four-segment trigger",
+    "caller_retries": 0,
+    "columns": 3,
+    "real_segments": 3,
+    "rounds": 8,
+    "samples": [
+      {
+        "round": 0,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.594375,
+        "connection_socket_read_milliseconds": 0.5493330000000001,
+        "connection_resp_read_bytes": 2968,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.335917,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.246708,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 0,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.679584,
+        "connection_socket_read_milliseconds": 0.624667,
+        "connection_resp_read_bytes": 5875,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.368375,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.296208,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 0,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 10.587208,
+        "connection_socket_read_milliseconds": 10.289916,
+        "connection_resp_read_bytes": 8799,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.607,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 9.928459,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 0,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 11.73275,
+        "connection_socket_read_milliseconds": 11.585833000000001,
+        "connection_resp_read_bytes": 23467,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.798917,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 10.888584,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 17.011125,
+        "connection_socket_read_milliseconds": 16.856708,
+        "connection_resp_read_bytes": 23470,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.796417,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.168042,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 17.371583,
+        "connection_socket_read_milliseconds": 17.278291000000003,
+        "connection_resp_read_bytes": 8801,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.492958,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.851375,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.716208,
+        "connection_socket_read_milliseconds": 0.6357090000000001,
+        "connection_resp_read_bytes": 5877,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.407042,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.280958,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.546208,
+        "connection_socket_read_milliseconds": 0.506834,
+        "connection_resp_read_bytes": 2969,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.311791,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.2225,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.615542,
+        "connection_socket_read_milliseconds": 0.545833,
+        "connection_resp_read_bytes": 2969,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.332084,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.263708,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.688375,
+        "connection_socket_read_milliseconds": 0.5936659999999999,
+        "connection_resp_read_bytes": 5877,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.399375,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.25925,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 13.666709,
+        "connection_socket_read_milliseconds": 13.527583,
+        "connection_resp_read_bytes": 8801,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.470625,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 13.151667,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 16.914917,
+        "connection_socket_read_milliseconds": 16.743417,
+        "connection_resp_read_bytes": 23473,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.788542,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.070584,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 18.172959,
+        "connection_socket_read_milliseconds": 17.687541,
+        "connection_resp_read_bytes": 23473,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.105,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.902083,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 17.931459,
+        "connection_socket_read_milliseconds": 17.732333999999998,
+        "connection_resp_read_bytes": 8802,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.538834,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 17.324625,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.967292,
+        "connection_socket_read_milliseconds": 0.785875,
+        "connection_resp_read_bytes": 5877,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.565,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.342,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.745541,
+        "connection_socket_read_milliseconds": 0.62075,
+        "connection_resp_read_bytes": 2969,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.421208,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.287042,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.710542,
+        "connection_socket_read_milliseconds": 0.5878329999999999,
+        "connection_resp_read_bytes": 2969,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.390583,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.282583,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.863334,
+        "connection_socket_read_milliseconds": 0.657041,
+        "connection_resp_read_bytes": 5877,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.528375,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.270292,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 12.022083,
+        "connection_socket_read_milliseconds": 11.808375,
+        "connection_resp_read_bytes": 8802,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.573834,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 11.377042,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 14.756916,
+        "connection_socket_read_milliseconds": 14.241916999999999,
+        "connection_resp_read_bytes": 23473,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.136625,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 13.445292,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 24.43325,
+        "connection_socket_read_milliseconds": 23.94025,
+        "connection_resp_read_bytes": 23473,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.320667,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 22.955208,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 14.367541,
+        "connection_socket_read_milliseconds": 14.140082999999999,
+        "connection_resp_read_bytes": 8802,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.622833,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 13.674834,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.888584,
+        "connection_socket_read_milliseconds": 0.726168,
+        "connection_resp_read_bytes": 5877,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.526792,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.30975,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.707,
+        "connection_socket_read_milliseconds": 0.601667,
+        "connection_resp_read_bytes": 2969,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.404666,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.272542,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.696625,
+        "connection_socket_read_milliseconds": 0.607875,
+        "connection_resp_read_bytes": 2969,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.389958,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.280417,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.8655,
+        "connection_socket_read_milliseconds": 0.6699590000000001,
+        "connection_resp_read_bytes": 5877,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.473542,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.296959,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 12.606917,
+        "connection_socket_read_milliseconds": 12.311417,
+        "connection_resp_read_bytes": 8802,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.671292,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 11.859125,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 16.91725,
+        "connection_socket_read_milliseconds": 16.461792,
+        "connection_resp_read_bytes": 23473,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.128083,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 15.646958,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 16.453542,
+        "connection_socket_read_milliseconds": 16.005875,
+        "connection_resp_read_bytes": 23473,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.216458,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 15.096458,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 18.087958,
+        "connection_socket_read_milliseconds": 17.989041,
+        "connection_resp_read_bytes": 8802,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.703667,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 17.351458,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 0.911,
+        "connection_socket_read_milliseconds": 0.748542,
+        "connection_resp_read_bytes": 5877,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.550708,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.30775,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 0.758084,
+        "connection_socket_read_milliseconds": 0.661709,
+        "connection_resp_read_bytes": 2969,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.438583,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 0.293917,
+            "failed": false
+          }
+        ]
+      }
+    ],
+    "scope": "native proof width/count diagnostic; real three-segment table, eight pending probes repeat real immutable sources; pre-acquired transport; not SQL latency/server CPU",
+    "socket_scope": "connection-scoped RESP/socket counters may include concurrent maintenance I/O"
+  },
+  {
+    "background_compaction": "production workers enabled, unchanged four-segment trigger",
+    "caller_retries": 0,
+    "columns": 24,
+    "real_segments": 3,
+    "rounds": 8,
+    "samples": [
+      {
+        "round": 0,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 23.812584,
+        "connection_socket_read_milliseconds": 23.680124,
+        "connection_resp_read_bytes": 8193,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.464,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 23.309042,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 0,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 17.331917,
+        "connection_socket_read_milliseconds": 17.034833,
+        "connection_resp_read_bytes": 16327,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.772542,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.475083,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 0,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 17.299208,
+        "connection_socket_read_milliseconds": 16.76275,
+        "connection_resp_read_bytes": 24497,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.122334,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.021791,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 0,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 17.34775,
+        "connection_socket_read_milliseconds": 16.298375,
+        "connection_resp_read_bytes": 65315,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.927416,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 15.124584,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 17.232834,
+        "connection_socket_read_milliseconds": 16.193125,
+        "connection_resp_read_bytes": 65318,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.940167,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 15.003708,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 18.11825,
+        "connection_socket_read_milliseconds": 17.691168,
+        "connection_resp_read_bytes": 24499,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.060084,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.937458,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 17.315959,
+        "connection_socket_read_milliseconds": 16.638001,
+        "connection_resp_read_bytes": 16329,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.111416,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.018667,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 15.454959,
+        "connection_socket_read_milliseconds": 15.275291999999999,
+        "connection_resp_read_bytes": 8194,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.589834,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 14.815667,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 17.535792,
+        "connection_socket_read_milliseconds": 17.350875000000002,
+        "connection_resp_read_bytes": 8194,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.659334,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.825209,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 18.064375,
+        "connection_socket_read_milliseconds": 17.750917,
+        "connection_resp_read_bytes": 16329,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 0.881791,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 17.09025,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 17.400083,
+        "connection_socket_read_milliseconds": 16.904666,
+        "connection_resp_read_bytes": 24499,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.270833,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 15.9855,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 19.005333,
+        "connection_socket_read_milliseconds": 17.855208,
+        "connection_resp_read_bytes": 65321,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 2.362208,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.347125,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 18.940083,
+        "connection_socket_read_milliseconds": 17.815875,
+        "connection_resp_read_bytes": 65321,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 2.417542,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.214125,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 16.277333,
+        "connection_socket_read_milliseconds": 15.817042,
+        "connection_resp_read_bytes": 24500,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.273625,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 14.877042,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 15.508625,
+        "connection_socket_read_milliseconds": 15.150666,
+        "connection_resp_read_bytes": 16329,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.007084,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 14.398583,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 17.439208,
+        "connection_socket_read_milliseconds": 17.250875,
+        "connection_resp_read_bytes": 8194,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.714833,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.671292,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 18.016292,
+        "connection_socket_read_milliseconds": 17.791459,
+        "connection_resp_read_bytes": 8194,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.714083,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 17.236,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 18.10875,
+        "connection_socket_read_milliseconds": 17.777959,
+        "connection_resp_read_bytes": 16329,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.163875,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.855625,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 16.888375,
+        "connection_socket_read_milliseconds": 16.443207,
+        "connection_resp_read_bytes": 24500,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.254375,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 15.499875,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 18.950625,
+        "connection_socket_read_milliseconds": 17.882875,
+        "connection_resp_read_bytes": 65321,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 2.302917,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.324625,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 18.915708,
+        "connection_socket_read_milliseconds": 17.890751,
+        "connection_resp_read_bytes": 65321,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 2.257792,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.363,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 18.524708,
+        "connection_socket_read_milliseconds": 17.683042,
+        "connection_resp_read_bytes": 24500,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.317083,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.723208,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 17.5325,
+        "connection_socket_read_milliseconds": 17.212000000000003,
+        "connection_resp_read_bytes": 16329,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.047292,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.395,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 18.196917,
+        "connection_socket_read_milliseconds": 17.994625,
+        "connection_resp_read_bytes": 8194,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.75175,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 17.3895,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 18.244958,
+        "connection_socket_read_milliseconds": 18.054792,
+        "connection_resp_read_bytes": 8194,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.720625,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 17.46975,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 17.592417,
+        "connection_socket_read_milliseconds": 17.274416000000002,
+        "connection_resp_read_bytes": 16329,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.083,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.42525,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 17.421334,
+        "connection_socket_read_milliseconds": 16.946583,
+        "connection_resp_read_bytes": 24500,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.407917,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 15.88975,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 6,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 19.179,
+        "connection_socket_read_milliseconds": 18.082291,
+        "connection_resp_read_bytes": 65321,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 2.63075,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.25075,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 8,
+        "proof_plus_valid_milliseconds": 19.2785,
+        "connection_socket_read_milliseconds": 18.0845,
+        "connection_resp_read_bytes": 65321,
+        "connection_resp_written_bytes": 2017,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 2.766917,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.191666,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 3,
+        "proof_plus_valid_milliseconds": 16.252292,
+        "connection_socket_read_milliseconds": 15.741792,
+        "connection_resp_read_bytes": 24500,
+        "connection_resp_written_bytes": 1027,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.519875,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 14.587875,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 2,
+        "proof_plus_valid_milliseconds": 17.553959,
+        "connection_socket_read_milliseconds": 17.205123999999998,
+        "connection_resp_read_bytes": 16329,
+        "connection_resp_written_bytes": 829,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard,ft.info,zcard",
+            "milliseconds": 1.172792,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.2805,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "round": 7,
+        "pending_probes": 1,
+        "proof_plus_valid_milliseconds": 17.125,
+        "connection_socket_read_milliseconds": 16.904249999999998,
+        "connection_resp_read_bytes": 8194,
+        "connection_resp_written_bytes": 631,
+        "requests": [
+          {
+            "route": "execution",
+            "shape": "ft.info,zcard",
+            "milliseconds": 0.799208,
+            "failed": false
+          },
+          {
+            "route": "maintenance",
+            "shape": "control_valid",
+            "milliseconds": 16.261291,
+            "failed": false
+          }
+        ]
+      }
+    ],
+    "scope": "native proof width/count diagnostic; real three-segment table, eight pending probes repeat real immutable sources; pre-acquired transport; not SQL latency/server CPU",
+    "socket_scope": "connection-scoped RESP/socket counters may include concurrent maintenance I/O"
+  }
+]

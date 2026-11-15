@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "source_commit": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+    "binary_sha256": "88fbd1637c9c262f7b4a8b24552293abb90752219eee467156d48519acacce50",
+    "profile_harness_sha256": "14aec3c44bba55b4ba2fdc6373c69fb4e82d24c5a3b8e13e6bb74875727bda22"
+  },
+  "candidate": {
+    "source_commit": "03e04002d9d0bb6dac228e6b4f6690fbab2c418b",
+    "binary_sha256": "793bec6d90501247d306f95e76092368514a88e42a1ffbbbf452ce0b61cec5b4",
+    "profile_harness_sha256": "14aec3c44bba55b4ba2fdc6373c69fb4e82d24c5a3b8e13e6bb74875727bda22"
+  },
+  "baseline_source": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+  "measured_candidate_source": "03e04002",
+  "measured_candidate_source_sha256": {
+    "go/database.go": "54c41531fee7ea01963e6aa18b8d86a3869ea3e4ff844636825099387f2ce8a2",
+    "go/store.go": "36e1463b5663e43717246cdd578a8eec74c316aa84f8470bd1c16fa398296cca",
+    "go/snapshot.go": "3de62fe2b106c7f71202b4524035af7431c2ff3ce75b3d971d3c633aea66b8bf",
+    "go/snapshot_admission.go": "19c285f463966d7b76b5492c389864503dfbcae1390082d493b8a505055cee37",
+    "go/snapshot_writer_handoff.go": "74793c77ba62be87923dd9b328e7057549120764538d0ac6ae6a3897f7a098fb",
+    "go/snapshot_writer_handoff_test.go": "864e0bcde9424123f4656bcd5d73756fae51bc257358888446a2985c96b28516",
+    "go/snapshot_writer_handoff_integration_test.go": "98b9ae6751f834df2cf7f7e433867d0cef9428768d2e79a2e2f5a46c72991e54"
+  },
+  "candidate_patch_sha256": "aed46d11cfa7c8286368700ba28012d8fbbba9a01fcb1ff52c0c148e7c0e4216",
+  "long_phase_order": [
+    "Bwarm",
+    "Cwarm",
+    "B0",
+    "C0",
+    "C1",
+    "B1",
+    "B2",
+    "C2"
+  ],
+  "long_writes_per_trial": 288,
+  "pilot_phase_order": [
+    "B0",
+    "C0",
+    "C0",
+    "B0"
+  ],
+  "pilot_writes_per_trial": 48,
+  "pilot_scope": "trial0 only,48writes/trial,12trialrecords/576acks,no explicitwarmup; finite Go diagnostic,notnative",
+  "go": "1.27.3",
+  "GOMAXPROCS": 4,
+  "telemetry_disabled": true,
+  "client_scope": "Go execute/update/ack diagnostic; ordinary per-statement acquire/register/finish timed; idlepoolprecreated forhooks; observerallocation/locking mayaffectscheduling/GC",
+  "server_gate": "Beforeeveryliveinvocation:RedisSoftwareactive/effective4QPF,sixSearchworkers,mnp32,one4GiBRAMshard,noeviction,strictTLS/RESP3",
+  "binary_hashes_verified_before_after_pilot_and_long": true,
+  "post_measurement_changes": "Functional public default-false writer_admission_queue option added afteralways-on03eprototype timing, with actualdefault/enabled safetychecks. Also clarifiedcomment/context retention and expanded16TLSopt-outunitcases. No timings of finalgatedbuild are claimed. New native candidate must use actualsource/binaries and enable+verify publicoption.",
+  "final_gated_production_source_sha256": {
+    "go/driver.go": "8e6e17b222135fa5b7c202418de1ae325b8202b72c1bfcf68dd211c85789fd0b",
+    "go/database.go": "882a2ad7553cf90e8fa81fd7034fadf29142be7e8f8eb04d93713076e3711b21",
+    "go/store.go": "36e1463b5663e43717246cdd578a8eec74c316aa84f8470bd1c16fa398296cca",
+    "go/snapshot.go": "3de62fe2b106c7f71202b4524035af7431c2ff3ce75b3d971d3c633aea66b8bf",
+    "go/snapshot_admission.go": "0ea05b2cb4d61c95805c709777d9d2ffb54c11d289ff5572239dd56f1d0ae80a",
+    "go/snapshot_writer_handoff.go": "74e0441a1b1d6a0969ced2404694a6b300017f004685bf485b81ae294eaf0815"
+  },
+  "final_test_source_sha256": {
+    "go/snapshot_integration_test.go": "e6721484f70b1f6c0230ec2ad9151a8d986dd9c908f1cf4d8546a751a6869bc8",
+    "go/snapshot_writer_handoff_test.go": "b56ae6f043ce4998ac8756d004604c2d469c30750866859421f615bf7d87491b",
+    "go/snapshot_writer_handoff_integration_test.go": "09e48c8ee65841e3efe5dc35c65a6ca91c069d4750d28e9fef1544120f172a4b"
+  },
+  "native_wrapper_sha256": "161a25f5f10855ad5d43001c2070e0a9e04b5398223c0c36deaa1d3b02332bbe",
+  "native_candidate_option": "REDIS_WRITER_QUEUE=true passes adbc.redis.writer_admission_queue=true and verifies GetOption;baselinefalsepassesnone",
+  "native_confirmation": {
+    "actual_candidate_source": "0884e3c893e9c7517a9f686492204b55d1fb6eec",
+    "baseline_source": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+    "source_and_binary_provenance": "native-linux/frozen-builds.json",
+    "report": "native-linux/README.md",
+    "scope": "Linux/arm64 ordinary Python/ADBC; default/legacy baseline vs explicit public opt-in candidate. Does not relabel03eMacGo data. Complete192records/6144ops; large negative median/mean tradeoffs retained."
+  }
+}

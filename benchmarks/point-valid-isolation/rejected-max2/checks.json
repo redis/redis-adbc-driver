@@ -1,0 +1,29 @@
+{
+  "read-validation-baseline-red": {
+    "exit_code": 1,
+    "counts": {
+      "fail_including_subtests": 5
+    }
+  },
+  "read-validation-candidate-green": {
+    "exit_code": 0,
+    "counts": {
+      "skip_including_subtests": 1,
+      "pass_including_subtests": 27
+    }
+  },
+  "read-validation-candidate-software": {
+    "exit_code": 1,
+    "counts": {
+      "top_level_pass": 15,
+      "top_level_fail": 1
+    }
+  },
+  "read-validation-published-green": {
+    "exit_code": 0,
+    "counts": {
+      "top_level_pass": 1
+    }
+  },
+  "notes": "Baseline RED is the new grouping/explicit-NoRetry contract, not evidence of an old wrong-row/replay defect. Initial Software failure was an overbroad test observer inspecting unrelated metadata ZCARD markers; scoped before timing; focused corrected published-generation test passes."
+}

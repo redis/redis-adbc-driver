@@ -613,6 +613,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 }
 
 type snapshotPin struct {
+	writerTurn   *snapshotWriterTurn // assigned before returning an admitted pin
 	shared       *sharedReadView
 	reader       bool
 	ctx          context.Context
@@ -809,6 +810,7 @@ func (p *snapshotPin) release() {
 	if p == nil {
 		return
 	}
+	defer p.writerTurn.release()
 	p.once.Do(func() {
 		close(p.stop)
 		<-p.done

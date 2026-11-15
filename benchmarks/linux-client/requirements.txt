@@ -1,0 +1,5 @@
+adbc-driver-manager==1.13.0
+pyarrow==26.0.1
+redis==8.1.0
+requests==2.34.2
+hiredis==3.5.0

@@ -1,0 +1,130 @@
+[
+  {
+    "mode": "baseline",
+    "trial": -1,
+    "exit_code": 0,
+    "wall_seconds": 68.7465120840061,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 14012142,
+      "user_usec": 8824138,
+      "system_usec": 5188004,
+      "nr_periods": 687,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  },
+  {
+    "mode": "candidate",
+    "trial": -1,
+    "exit_code": 0,
+    "wall_seconds": 66.08440145800705,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 12042082,
+      "user_usec": 7685704,
+      "system_usec": 4356379,
+      "nr_periods": 661,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  },
+  {
+    "mode": "baseline",
+    "trial": 0,
+    "exit_code": 0,
+    "wall_seconds": 69.85769645898836,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 14486236,
+      "user_usec": 9096602,
+      "system_usec": 5389633,
+      "nr_periods": 699,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  },
+  {
+    "mode": "candidate",
+    "trial": 0,
+    "exit_code": 0,
+    "wall_seconds": 65.85675350000383,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 12104117,
+      "user_usec": 7650902,
+      "system_usec": 4453215,
+      "nr_periods": 658,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  },
+  {
+    "mode": "candidate",
+    "trial": 1,
+    "exit_code": 0,
+    "wall_seconds": 65.88211345899617,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 11998846,
+      "user_usec": 7550773,
+      "system_usec": 4448073,
+      "nr_periods": 659,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  },
+  {
+    "mode": "baseline",
+    "trial": 1,
+    "exit_code": 0,
+    "wall_seconds": 73.28559345801477,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 14721078,
+      "user_usec": 9344297,
+      "system_usec": 5376782,
+      "nr_periods": 733,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  },
+  {
+    "mode": "baseline",
+    "trial": 2,
+    "exit_code": 0,
+    "wall_seconds": 71.59999037501984,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 14525574,
+      "user_usec": 9075533,
+      "system_usec": 5450041,
+      "nr_periods": 716,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  },
+  {
+    "mode": "candidate",
+    "trial": 2,
+    "exit_code": 0,
+    "wall_seconds": 68.01142754100147,
+    "server_cgroup_cpu_delta": {
+      "usage_usec": 12071078,
+      "user_usec": 7635250,
+      "system_usec": 4435829,
+      "nr_periods": 681,
+      "nr_throttled": 0,
+      "throttled_usec": 0
+    },
+    "docker_vm_logical_cpus": 18,
+    "scope": "Cgroup counters sampled outside trial clocks; all server/container activity, not query CPU."
+  }
+]

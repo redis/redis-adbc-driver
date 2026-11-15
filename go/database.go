@@ -29,6 +29,7 @@ import (
 )
 
 type databaseImpl struct {
+	writerAdmissionQueue        bool // process-local managed writer scheduling, opt-in
 	snapshots                   bool
 	snapshotCompactionDisabled  bool // internal deterministic protocol-test fixture only
 	flex                        bool
@@ -67,7 +68,8 @@ type databaseImpl struct {
 // go-redis's options for both kinds of client, from the URI (or the address
 // and database) and the credentials.
 type clientConfig struct {
-	diagnostics atomic.Pointer[executionDiagnostics]
+	writerDomain [32]byte // opaque, process-local scheduling identity only
+	diagnostics  atomic.Pointer[executionDiagnostics]
 	// single are a single-endpoint client's options.
 	single *goredis.Options
 	// cluster are an OSS Cluster API client's: the same, the URI's address
@@ -129,6 +131,9 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 		cfg.cluster.DialerRetries = extra.DialerRetries
 		cfg.cluster.DialerRetryTimeout = extra.DialerRetryTimeout
 		cfg.cluster.FailingTimeoutSeconds = extra.FailingTimeoutSeconds
+	}
+	if d.writerAdmissionQueue {
+		cfg.writerDomain = snapshotWriterDomain(cfg, caPath)
 	}
 	return cfg, nil
 }
@@ -311,7 +316,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 	if err != nil {
 		return nil, err
 	}
-	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username)}
+	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username), writerDomain: cfg.writerDomain}
 	if !d.readerOnly {
 		if err := st.searchDo(ctx, "", "FT._LIST").Err(); err != nil {
 			_ = client.Close()
@@ -489,6 +494,8 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 	switch key {
 	case OptionStringStatementSnapshots:
 		return strconv.FormatBool(d.snapshots), nil
+	case OptionStringWriterAdmissionQueue:
+		return strconv.FormatBool(d.writerAdmissionQueue), nil
 	case OptionStringPartitionControlPersistence:
 		if d.partitionControlPersistence == "" {
 			return "auto", nil
@@ -563,6 +570,11 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		return d.usage.set(key, value)
 	}
 	switch key {
+	case OptionStringWriterAdmissionQueue:
+		if value != "true" && value != "false" {
+			return errorf(adbc.StatusInvalidArgument, "%s must be true or false", key)
+		}
+		d.writerAdmissionQueue = value == "true"
 	case OptionStringStatementSnapshots:
 		if value != "true" {
 			return errorf(adbc.StatusInvalidArgument, "managed-table statement snapshots are always enabled; %s cannot be disabled", key)

@@ -1,0 +1,20 @@
+{
+  "exit_code": 0,
+  "wall_seconds": 0.3089680419943761,
+  "client_os": "linux",
+  "client_arch": "arm64",
+  "client_cpus": 4,
+  "client_memory_bytes": 4294967296,
+  "client_container_removed": true,
+  "private_environment_removed": true,
+  "validated_sequences": 224,
+  "source_sha256": "af1113b57697e91a7fe2707d8a84daf619e401053538e4d99831d2f21a955255",
+  "source_identical_to_host_redispy_control": true,
+  "redis_py_version": "8.1.0",
+  "python_version": "3.14.10",
+  "host_python_version": "3.15.2",
+  "network": "Linux client shares unchanged Software server network namespace; certificate and hostname verified localhost TLS with same trusted CA; host published-port route bypassed.",
+  "server_configuration": "Same Software server4CPU/8GiB/verified activeeffective4QPF; unchanged TLS and Search configuration.",
+  "phase_scope": "Supplemental pureRedisPy Linux control; client4CPU/4GiB. Separate earlier pureGo Linux control used2CPU/256MiB.",
+  "attribution_limits": "Client OS, route, Python runtime and resource limits differ from host observation; no unique network/OS/runtime cause is inferred."
+}

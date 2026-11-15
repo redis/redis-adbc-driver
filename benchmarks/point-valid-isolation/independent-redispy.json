@@ -1,0 +1,3147 @@
+{
+  "scope": "Raw redis-py RESP3/TLS transport control; held explicit same/different connections; no ADBC, SQL, snapshot, server CPU or production speedup claim. No raw-connection send/read retry. All GET bytes and PONG replies checked.",
+  "samples": [
+    {
+      "repeat": 0,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 302667,
+      "ping_ns": [
+        204041,
+        189541,
+        179833
+      ],
+      "sequence_ns": 880625,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 242375,
+      "ping_ns": [
+        180000,
+        178917,
+        200833
+      ],
+      "sequence_ns": 804291,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 247459,
+      "ping_ns": [
+        10274417,
+        208084,
+        180667
+      ],
+      "sequence_ns": 10913375,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 308042,
+      "ping_ns": [
+        14259458,
+        215375,
+        197708
+      ],
+      "sequence_ns": 14982584,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 255750,
+      "ping_ns": [
+        210417,
+        208292,
+        207417
+      ],
+      "sequence_ns": 883291,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 226375,
+      "ping_ns": [
+        170042,
+        180416,
+        181042
+      ],
+      "sequence_ns": 759250,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 289041,
+      "ping_ns": [
+        13313708,
+        217208,
+        218958
+      ],
+      "sequence_ns": 14040458,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 431417,
+      "ping_ns": [
+        16034042,
+        240417,
+        226458
+      ],
+      "sequence_ns": 16934958,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 314708,
+      "ping_ns": [
+        16326833,
+        294709,
+        324083
+      ],
+      "sequence_ns": 17262417,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 476750,
+      "ping_ns": [
+        15620542,
+        516708,
+        410584
+      ],
+      "sequence_ns": 17027750,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 794500,
+      "ping_ns": [
+        14399416,
+        518625,
+        262958
+      ],
+      "sequence_ns": 15979125,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 576958,
+      "ping_ns": [
+        13336750,
+        263750,
+        268875
+      ],
+      "sequence_ns": 14448750,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 414125,
+      "ping_ns": [
+        14068791,
+        258542,
+        239459
+      ],
+      "sequence_ns": 14983333,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 415375,
+      "ping_ns": [
+        12555459,
+        384083,
+        424250
+      ],
+      "sequence_ns": 13781333,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 726958,
+      "ping_ns": [
+        13367542,
+        336542,
+        366291
+      ],
+      "sequence_ns": 14801875,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 548917,
+      "ping_ns": [
+        15571666,
+        297542,
+        339167
+      ],
+      "sequence_ns": 16763292,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 477291,
+      "ping_ns": [
+        16070458,
+        343333,
+        216416
+      ],
+      "sequence_ns": 17114416,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 453417,
+      "ping_ns": [
+        15633541,
+        427459,
+        612459
+      ],
+      "sequence_ns": 17134625,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 1128834,
+      "ping_ns": [
+        11272542,
+        403458,
+        413958
+      ],
+      "sequence_ns": 13227417,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 628667,
+      "ping_ns": [
+        15529542,
+        403459,
+        368083
+      ],
+      "sequence_ns": 16938083,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 597666,
+      "ping_ns": [
+        15848792,
+        279667,
+        310833
+      ],
+      "sequence_ns": 17041958,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 603625,
+      "ping_ns": [
+        15459667,
+        398416,
+        235625
+      ],
+      "sequence_ns": 16702250,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 672000,
+      "ping_ns": [
+        14065958,
+        224125,
+        205250
+      ],
+      "sequence_ns": 15171041,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 605542,
+      "ping_ns": [
+        15914750,
+        311125,
+        254458
+      ],
+      "sequence_ns": 17090000,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 571167,
+      "ping_ns": [
+        15064375,
+        510709,
+        434375
+      ],
+      "sequence_ns": 16587500,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 580417,
+      "ping_ns": [
+        14047125,
+        457583,
+        429167
+      ],
+      "sequence_ns": 15520083,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 752417,
+      "ping_ns": [
+        15028959,
+        441083,
+        361250
+      ],
+      "sequence_ns": 16593667,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 816917,
+      "ping_ns": [
+        14687083,
+        474291,
+        378750
+      ],
+      "sequence_ns": 16368500,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 1097625,
+      "ping_ns": [
+        10922625,
+        410875,
+        376458
+      ],
+      "sequence_ns": 12812917,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 666542,
+      "ping_ns": [
+        14406250,
+        327542,
+        343458
+      ],
+      "sequence_ns": 15749583,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 680209,
+      "ping_ns": [
+        13630458,
+        487625,
+        396084
+      ],
+      "sequence_ns": 15199750,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 780542,
+      "ping_ns": [
+        15264375,
+        447291,
+        439084
+      ],
+      "sequence_ns": 16938167,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 553958,
+      "ping_ns": [
+        14790750,
+        452459,
+        389750
+      ],
+      "sequence_ns": 16191958,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 549791,
+      "ping_ns": [
+        15408584,
+        518083,
+        424750
+      ],
+      "sequence_ns": 16906541,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 580708,
+      "ping_ns": [
+        11853833,
+        368042,
+        375292
+      ],
+      "sequence_ns": 13185416,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 599417,
+      "ping_ns": [
+        14564667,
+        414250,
+        535291
+      ],
+      "sequence_ns": 16118500,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 817000,
+      "ping_ns": [
+        15126583,
+        439417,
+        374292
+      ],
+      "sequence_ns": 16763333,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 460917,
+      "ping_ns": [
+        14342208,
+        373709,
+        449208
+      ],
+      "sequence_ns": 15630959,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 349584,
+      "ping_ns": [
+        15104500,
+        1373583,
+        705625
+      ],
+      "sequence_ns": 17537584,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 633417,
+      "ping_ns": [
+        15008875,
+        445250,
+        522125
+      ],
+      "sequence_ns": 16617292,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 618042,
+      "ping_ns": [
+        12521500,
+        1455791,
+        427000
+      ],
+      "sequence_ns": 15032708,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 673167,
+      "ping_ns": [
+        11957000,
+        266208,
+        269083
+      ],
+      "sequence_ns": 13171958,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 275333,
+      "ping_ns": [
+        13428833,
+        246042,
+        276375
+      ],
+      "sequence_ns": 14231458,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 379209,
+      "ping_ns": [
+        13995750,
+        244083,
+        234834
+      ],
+      "sequence_ns": 14859959,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 379125,
+      "ping_ns": [
+        12147375,
+        246917,
+        239667
+      ],
+      "sequence_ns": 13018750,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 401625,
+      "ping_ns": [
+        15526125,
+        195542,
+        204209
+      ],
+      "sequence_ns": 16330500,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 308333,
+      "ping_ns": [
+        13897792,
+        188500,
+        196916
+      ],
+      "sequence_ns": 14594041,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 314375,
+      "ping_ns": [
+        16093333,
+        247917,
+        289333
+      ],
+      "sequence_ns": 16949917,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 475041,
+      "ping_ns": [
+        13956916,
+        263958,
+        262042
+      ],
+      "sequence_ns": 14962333,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 421209,
+      "ping_ns": [
+        15953125,
+        270750,
+        271541
+      ],
+      "sequence_ns": 16921959,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 352250,
+      "ping_ns": [
+        264792,
+        260458,
+        258708
+      ],
+      "sequence_ns": 1140416,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 317417,
+      "ping_ns": [
+        259375,
+        224250,
+        280708
+      ],
+      "sequence_ns": 1086625,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 390458,
+      "ping_ns": [
+        10988500,
+        222292,
+        220708
+      ],
+      "sequence_ns": 11825125,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 377500,
+      "ping_ns": [
+        13728542,
+        292000,
+        282083
+      ],
+      "sequence_ns": 14687750,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 384542,
+      "ping_ns": [
+        282500,
+        259500,
+        267042
+      ],
+      "sequence_ns": 1198458,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 302625,
+      "ping_ns": [
+        251334,
+        229083,
+        284625
+      ],
+      "sequence_ns": 1070792,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 268750,
+      "ping_ns": [
+        229458,
+        227625,
+        223416
+      ],
+      "sequence_ns": 951625,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 278833,
+      "ping_ns": [
+        215959,
+        209750,
+        230875
+      ],
+      "sequence_ns": 937666,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 331291,
+      "ping_ns": [
+        16608375,
+        248791,
+        243000
+      ],
+      "sequence_ns": 17433458,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 325750,
+      "ping_ns": [
+        15223833,
+        237958,
+        241875
+      ],
+      "sequence_ns": 16031584,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 321333,
+      "ping_ns": [
+        237042,
+        223667,
+        220458
+      ],
+      "sequence_ns": 1004833,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 279708,
+      "ping_ns": [
+        203584,
+        200875,
+        222916
+      ],
+      "sequence_ns": 908917,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 388750,
+      "ping_ns": [
+        12622875,
+        239625,
+        210792
+      ],
+      "sequence_ns": 13466292,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 375583,
+      "ping_ns": [
+        15706083,
+        284958,
+        258375
+      ],
+      "sequence_ns": 16630458,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 383750,
+      "ping_ns": [
+        15983125,
+        316375,
+        290042
+      ],
+      "sequence_ns": 16978667,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 392166,
+      "ping_ns": [
+        15901792,
+        267833,
+        298917
+      ],
+      "sequence_ns": 16865083,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 474250,
+      "ping_ns": [
+        14176875,
+        308542,
+        332625
+      ],
+      "sequence_ns": 15296459,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 503667,
+      "ping_ns": [
+        14262459,
+        298708,
+        332625
+      ],
+      "sequence_ns": 15401792,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 412417,
+      "ping_ns": [
+        14498833,
+        331625,
+        346958
+      ],
+      "sequence_ns": 15594334,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 468417,
+      "ping_ns": [
+        17444875,
+        394042,
+        366791
+      ],
+      "sequence_ns": 18681583,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 634916,
+      "ping_ns": [
+        17404250,
+        389208,
+        392292
+      ],
+      "sequence_ns": 18825208,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 539750,
+      "ping_ns": [
+        17567750,
+        419541,
+        390625
+      ],
+      "sequence_ns": 18920917,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 493958,
+      "ping_ns": [
+        14497875,
+        313542,
+        466167
+      ],
+      "sequence_ns": 15775125,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 428042,
+      "ping_ns": [
+        15252875,
+        316083,
+        330292
+      ],
+      "sequence_ns": 16332000,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 561208,
+      "ping_ns": [
+        15689625,
+        344500,
+        318791
+      ],
+      "sequence_ns": 16920458,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 557042,
+      "ping_ns": [
+        15909750,
+        358167,
+        391541
+      ],
+      "sequence_ns": 17223625,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 506541,
+      "ping_ns": [
+        14275792,
+        412166,
+        339417
+      ],
+      "sequence_ns": 15539708,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 604459,
+      "ping_ns": [
+        16718834,
+        485375,
+        288792
+      ],
+      "sequence_ns": 18101459,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 534959,
+      "ping_ns": [
+        15545083,
+        348375,
+        307083
+      ],
+      "sequence_ns": 16739417,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 499292,
+      "ping_ns": [
+        15753791,
+        294541,
+        282875
+      ],
+      "sequence_ns": 16832667,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 448417,
+      "ping_ns": [
+        13792708,
+        299375,
+        245667
+      ],
+      "sequence_ns": 14789208,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 445833,
+      "ping_ns": [
+        13419333,
+        251125,
+        252708
+      ],
+      "sequence_ns": 14371417,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 583209,
+      "ping_ns": [
+        14915083,
+        278708,
+        252875
+      ],
+      "sequence_ns": 16032167,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 674500,
+      "ping_ns": [
+        15669333,
+        279250,
+        266375
+      ],
+      "sequence_ns": 16891875,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 591417,
+      "ping_ns": [
+        15870417,
+        356084,
+        322916
+      ],
+      "sequence_ns": 17148125,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 716917,
+      "ping_ns": [
+        15737750,
+        364875,
+        349584
+      ],
+      "sequence_ns": 17173333,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 565667,
+      "ping_ns": [
+        13071916,
+        347833,
+        317125
+      ],
+      "sequence_ns": 14306583,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 565667,
+      "ping_ns": [
+        15863208,
+        312417,
+        266833
+      ],
+      "sequence_ns": 17012375,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 720500,
+      "ping_ns": [
+        13307833,
+        271833,
+        283084
+      ],
+      "sequence_ns": 14588209,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 534583,
+      "ping_ns": [
+        15096333,
+        289959,
+        244375
+      ],
+      "sequence_ns": 16169125,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 320875,
+      "ping_ns": [
+        13538250,
+        258916,
+        243042
+      ],
+      "sequence_ns": 14363375,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 283375,
+      "ping_ns": [
+        14646125,
+        266667,
+        284750
+      ],
+      "sequence_ns": 15483541,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 538625,
+      "ping_ns": [
+        10326417,
+        338541,
+        216417
+      ],
+      "sequence_ns": 11423167,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 374375,
+      "ping_ns": [
+        15853042,
+        247917,
+        230750
+      ],
+      "sequence_ns": 16708750,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 389875,
+      "ping_ns": [
+        13159167,
+        313083,
+        266375
+      ],
+      "sequence_ns": 14131250,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 365959,
+      "ping_ns": [
+        16118084,
+        507750,
+        361292
+      ],
+      "sequence_ns": 17355000,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 761250,
+      "ping_ns": [
+        13542125,
+        429958,
+        362291
+      ],
+      "sequence_ns": 15096958,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 4750042,
+      "ping_ns": [
+        10584542,
+        282750,
+        307375
+      ],
+      "sequence_ns": 15927792,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 450583,
+      "ping_ns": [
+        11791250,
+        319917,
+        220292
+      ],
+      "sequence_ns": 12784417,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 373584,
+      "ping_ns": [
+        16063458,
+        245375,
+        314417
+      ],
+      "sequence_ns": 16999125,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 489500,
+      "ping_ns": [
+        14769208,
+        303750,
+        228166
+      ],
+      "sequence_ns": 15792000,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 499042,
+      "ping_ns": [
+        12805833,
+        324250,
+        242917
+      ],
+      "sequence_ns": 13873417,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 430625,
+      "ping_ns": [
+        14078417,
+        278875,
+        253000
+      ],
+      "sequence_ns": 15042584,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 388708,
+      "ping_ns": [
+        12224667,
+        301916,
+        357167
+      ],
+      "sequence_ns": 13273833,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 468750,
+      "ping_ns": [
+        15839291,
+        427000,
+        400791
+      ],
+      "sequence_ns": 17137417,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 745458,
+      "ping_ns": [
+        14016541,
+        280125,
+        316875
+      ],
+      "sequence_ns": 15360542,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 558583,
+      "ping_ns": [
+        301417,
+        276958,
+        279083
+      ],
+      "sequence_ns": 1417125,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 365209,
+      "ping_ns": [
+        232791,
+        216500,
+        277667
+      ],
+      "sequence_ns": 1093334,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 428167,
+      "ping_ns": [
+        11227708,
+        236333,
+        242791
+      ],
+      "sequence_ns": 12136334,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 482875,
+      "ping_ns": [
+        18364875,
+        270583,
+        325583
+      ],
+      "sequence_ns": 19445458,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 439709,
+      "ping_ns": [
+        313750,
+        258625,
+        268375
+      ],
+      "sequence_ns": 1281917,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 3,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 353167,
+      "ping_ns": [
+        246417,
+        238833,
+        228333
+      ],
+      "sequence_ns": 1067959,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 329083,
+      "ping_ns": [
+        585750,
+        405875,
+        330167
+      ],
+      "sequence_ns": 1652542,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 702917,
+      "ping_ns": [
+        424333,
+        421417,
+        344375
+      ],
+      "sequence_ns": 1896083,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 555750,
+      "ping_ns": [
+        18521125,
+        356583,
+        385500
+      ],
+      "sequence_ns": 19828000,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 481833,
+      "ping_ns": [
+        15782250,
+        467041,
+        363916
+      ],
+      "sequence_ns": 17101625,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 543041,
+      "ping_ns": [
+        341333,
+        337500,
+        392583
+      ],
+      "sequence_ns": 1620500,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 449667,
+      "ping_ns": [
+        307708,
+        332416,
+        313500
+      ],
+      "sequence_ns": 1407750,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 587584,
+      "ping_ns": [
+        20682125,
+        558958,
+        311958
+      ],
+      "sequence_ns": 22145250,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 631792,
+      "ping_ns": [
+        13454125,
+        377209,
+        333209
+      ],
+      "sequence_ns": 14801833,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 360791,
+      "ping_ns": [
+        15879583,
+        461416,
+        344750
+      ],
+      "sequence_ns": 17053458,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 528000,
+      "ping_ns": [
+        15951291,
+        359750,
+        296375
+      ],
+      "sequence_ns": 17142000,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 576875,
+      "ping_ns": [
+        13796250,
+        406208,
+        310209
+      ],
+      "sequence_ns": 15098500,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 617042,
+      "ping_ns": [
+        15056750,
+        323250,
+        358416
+      ],
+      "sequence_ns": 16359083,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 501042,
+      "ping_ns": [
+        16554500,
+        325583,
+        329875
+      ],
+      "sequence_ns": 17714125,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 505667,
+      "ping_ns": [
+        13581250,
+        386959,
+        317000
+      ],
+      "sequence_ns": 14797125,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 540000,
+      "ping_ns": [
+        14447458,
+        429833,
+        380292
+      ],
+      "sequence_ns": 15802917,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 591292,
+      "ping_ns": [
+        15123542,
+        332041,
+        320500
+      ],
+      "sequence_ns": 16372083,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 467583,
+      "ping_ns": [
+        15795416,
+        402708,
+        384666
+      ],
+      "sequence_ns": 17055416,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 498167,
+      "ping_ns": [
+        15647000,
+        407666,
+        347042
+      ],
+      "sequence_ns": 16904875,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 579792,
+      "ping_ns": [
+        12485625,
+        376458,
+        375541
+      ],
+      "sequence_ns": 13822375,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 567125,
+      "ping_ns": [
+        15118250,
+        368167,
+        345833
+      ],
+      "sequence_ns": 16402792,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 584792,
+      "ping_ns": [
+        13216709,
+        416792,
+        333083
+      ],
+      "sequence_ns": 14556083,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 547125,
+      "ping_ns": [
+        14950083,
+        323542,
+        319750
+      ],
+      "sequence_ns": 16144750,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 679667,
+      "ping_ns": [
+        15697625,
+        340875,
+        366625
+      ],
+      "sequence_ns": 17090167,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 683541,
+      "ping_ns": [
+        15450959,
+        327292,
+        336666
+      ],
+      "sequence_ns": 16802916,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 580333,
+      "ping_ns": [
+        16695209,
+        261000,
+        307125
+      ],
+      "sequence_ns": 17846875,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 969125,
+      "ping_ns": [
+        14856833,
+        263958,
+        261792
+      ],
+      "sequence_ns": 16356750,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 654916,
+      "ping_ns": [
+        11920542,
+        263917,
+        270500
+      ],
+      "sequence_ns": 13113708,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 4,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 737292,
+      "ping_ns": [
+        14894250,
+        312750,
+        280875
+      ],
+      "sequence_ns": 16230208,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 819041,
+      "ping_ns": [
+        15761833,
+        446417,
+        421166
+      ],
+      "sequence_ns": 17454458,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 816041,
+      "ping_ns": [
+        14258250,
+        332084,
+        336459
+      ],
+      "sequence_ns": 15747125,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 727000,
+      "ping_ns": [
+        14358416,
+        246917,
+        215125
+      ],
+      "sequence_ns": 15552625,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 423458,
+      "ping_ns": [
+        16919916,
+        292166,
+        225250
+      ],
+      "sequence_ns": 17865417,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 535250,
+      "ping_ns": [
+        12836209,
+        275583,
+        312000
+      ],
+      "sequence_ns": 13963208,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 580208,
+      "ping_ns": [
+        14981708,
+        407000,
+        446000
+      ],
+      "sequence_ns": 16419333,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 587875,
+      "ping_ns": [
+        12788792,
+        342875,
+        343792
+      ],
+      "sequence_ns": 14067542,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 407042,
+      "ping_ns": [
+        15512917,
+        430708,
+        350125
+      ],
+      "sequence_ns": 16704833,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 731250,
+      "ping_ns": [
+        13303250,
+        466333,
+        425459
+      ],
+      "sequence_ns": 14931833,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 524292,
+      "ping_ns": [
+        13385417,
+        377833,
+        365959
+      ],
+      "sequence_ns": 14659833,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 666792,
+      "ping_ns": [
+        14045459,
+        443209,
+        402208
+      ],
+      "sequence_ns": 15562875,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 474458,
+      "ping_ns": [
+        15426375,
+        473083,
+        406125
+      ],
+      "sequence_ns": 16787666,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 651250,
+      "ping_ns": [
+        12976875,
+        419917,
+        336792
+      ],
+      "sequence_ns": 14392459,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 498000,
+      "ping_ns": [
+        14882083,
+        487750,
+        389667
+      ],
+      "sequence_ns": 16264375,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 485875,
+      "ping_ns": [
+        14769084,
+        466958,
+        409583
+      ],
+      "sequence_ns": 16138667,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 413459,
+      "ping_ns": [
+        15552250,
+        491583,
+        413417
+      ],
+      "sequence_ns": 16878875,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 745083,
+      "ping_ns": [
+        12867625,
+        595000,
+        373291
+      ],
+      "sequence_ns": 14586042,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 534083,
+      "ping_ns": [
+        13847208,
+        384750,
+        460042
+      ],
+      "sequence_ns": 15230958,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 369375,
+      "ping_ns": [
+        15340834,
+        371333,
+        378583
+      ],
+      "sequence_ns": 16464917,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 647458,
+      "ping_ns": [
+        14144000,
+        398958,
+        381458
+      ],
+      "sequence_ns": 15577042,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 462500,
+      "ping_ns": [
+        15608625,
+        438042,
+        356000
+      ],
+      "sequence_ns": 16869333,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 738500,
+      "ping_ns": [
+        13490041,
+        427083,
+        407458
+      ],
+      "sequence_ns": 15068333,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 393917,
+      "ping_ns": [
+        224584,
+        195916,
+        200208
+      ],
+      "sequence_ns": 1017417,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 326042,
+      "ping_ns": [
+        249000,
+        204917,
+        211125
+      ],
+      "sequence_ns": 994334,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 353708,
+      "ping_ns": [
+        10840542,
+        244917,
+        250750
+      ],
+      "sequence_ns": 11692375,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 376208,
+      "ping_ns": [
+        23615208,
+        409625,
+        393833
+      ],
+      "sequence_ns": 24799083,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 583375,
+      "ping_ns": [
+        405458,
+        209875,
+        222958
+      ],
+      "sequence_ns": 1424375,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 5,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 352916,
+      "ping_ns": [
+        215375,
+        203333,
+        203417
+      ],
+      "sequence_ns": 977708,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 273458,
+      "ping_ns": [
+        194917,
+        225791,
+        207875
+      ],
+      "sequence_ns": 903958,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 279084,
+      "ping_ns": [
+        205834,
+        184709,
+        176792
+      ],
+      "sequence_ns": 848084,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 1197625,
+      "ping_ns": [
+        18421625,
+        305834,
+        216375
+      ],
+      "sequence_ns": 20146250,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 481666,
+      "ping_ns": [
+        16907875,
+        256042,
+        247125
+      ],
+      "sequence_ns": 17895958,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 447166,
+      "ping_ns": [
+        215917,
+        228167,
+        210333
+      ],
+      "sequence_ns": 1105208,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 352667,
+      "ping_ns": [
+        243166,
+        202667,
+        219083
+      ],
+      "sequence_ns": 1020583,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 378458,
+      "ping_ns": [
+        10925208,
+        190917,
+        190292
+      ],
+      "sequence_ns": 11687166,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 416417,
+      "ping_ns": [
+        14983959,
+        316417,
+        238459
+      ],
+      "sequence_ns": 15958375,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 466417,
+      "ping_ns": [
+        14846125,
+        355917,
+        333167
+      ],
+      "sequence_ns": 16006958,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 417042,
+      "ping_ns": [
+        11936084,
+        308875,
+        326917
+      ],
+      "sequence_ns": 12992334,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 590292,
+      "ping_ns": [
+        13289708,
+        427875,
+        374167
+      ],
+      "sequence_ns": 14687292,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 710791,
+      "ping_ns": [
+        13176000,
+        266583,
+        251583
+      ],
+      "sequence_ns": 14409041,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 455583,
+      "ping_ns": [
+        15474125,
+        563750,
+        431208
+      ],
+      "sequence_ns": 16930625,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 622334,
+      "ping_ns": [
+        13840083,
+        346500,
+        321125
+      ],
+      "sequence_ns": 15136542,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 553875,
+      "ping_ns": [
+        13055125,
+        285583,
+        345500
+      ],
+      "sequence_ns": 14244292,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 473917,
+      "ping_ns": [
+        15258542,
+        355750,
+        288375
+      ],
+      "sequence_ns": 16380958,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 422000,
+      "ping_ns": [
+        13736708,
+        366917,
+        315167
+      ],
+      "sequence_ns": 14845459,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 432250,
+      "ping_ns": [
+        13850458,
+        289750,
+        285333
+      ],
+      "sequence_ns": 14860125,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 452958,
+      "ping_ns": [
+        15511166,
+        328875,
+        301500
+      ],
+      "sequence_ns": 16597750,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 522208,
+      "ping_ns": [
+        14060375,
+        290334,
+        300583
+      ],
+      "sequence_ns": 15176708,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 488875,
+      "ping_ns": [
+        15565875,
+        357333,
+        376875
+      ],
+      "sequence_ns": 16803375,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 479500,
+      "ping_ns": [
+        15744958,
+        391125,
+        358334
+      ],
+      "sequence_ns": 16979417,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 549666,
+      "ping_ns": [
+        17358125,
+        318584,
+        372083
+      ],
+      "sequence_ns": 18603250,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 594458,
+      "ping_ns": [
+        15637709,
+        339166,
+        360875
+      ],
+      "sequence_ns": 16936666,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 513209,
+      "ping_ns": [
+        15769417,
+        352083,
+        409625
+      ],
+      "sequence_ns": 17048959,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 548334,
+      "ping_ns": [
+        14895167,
+        385083,
+        323500
+      ],
+      "sequence_ns": 16155875,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 752792,
+      "ping_ns": [
+        15841916,
+        301167,
+        334709
+      ],
+      "sequence_ns": 17234417,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 6,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 820375,
+      "ping_ns": [
+        16638917,
+        347125,
+        332000
+      ],
+      "sequence_ns": 18142084,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 800875,
+      "ping_ns": [
+        14727916,
+        312250,
+        237791
+      ],
+      "sequence_ns": 16082375,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 32768,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 1565541,
+      "ping_ns": [
+        14992625,
+        218250,
+        229458
+      ],
+      "sequence_ns": 17008458,
+      "estimated_get_resp_bytes": 98334
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 463750,
+      "ping_ns": [
+        19915250,
+        523625,
+        375083
+      ],
+      "sequence_ns": 21287875,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 32768,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 625583,
+      "ping_ns": [
+        13450708,
+        267875,
+        217334
+      ],
+      "sequence_ns": 14566750,
+      "estimated_get_resp_bytes": 32778
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 765083,
+      "ping_ns": [
+        13002792,
+        220666,
+        206833
+      ],
+      "sequence_ns": 14199083,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 16384,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 476791,
+      "ping_ns": [
+        13518375,
+        206041,
+        211584
+      ],
+      "sequence_ns": 14415791,
+      "estimated_get_resp_bytes": 49182
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 417667,
+      "ping_ns": [
+        13612042,
+        274416,
+        267292
+      ],
+      "sequence_ns": 14576083,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 16384,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 490417,
+      "ping_ns": [
+        15857042,
+        219791,
+        217250
+      ],
+      "sequence_ns": 16788417,
+      "estimated_get_resp_bytes": 16394
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 515542,
+      "ping_ns": [
+        13172875,
+        503583,
+        412333
+      ],
+      "sequence_ns": 14608625,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8193,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 692667,
+      "ping_ns": [
+        10728042,
+        426167,
+        352417
+      ],
+      "sequence_ns": 12203875,
+      "estimated_get_resp_bytes": 24606
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 471709,
+      "ping_ns": [
+        14989417,
+        375208,
+        349208
+      ],
+      "sequence_ns": 16190750,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8193,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 507417,
+      "ping_ns": [
+        15659583,
+        378500,
+        349084
+      ],
+      "sequence_ns": 16899792,
+      "estimated_get_resp_bytes": 8202
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 695125,
+      "ping_ns": [
+        14978291,
+        318833,
+        398875
+      ],
+      "sequence_ns": 16395459,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8192,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 600875,
+      "ping_ns": [
+        15320292,
+        361667,
+        383875
+      ],
+      "sequence_ns": 16670625,
+      "estimated_get_resp_bytes": 24603
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 466334,
+      "ping_ns": [
+        16837583,
+        338083,
+        337000
+      ],
+      "sequence_ns": 17983334,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8192,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 478625,
+      "ping_ns": [
+        15166041,
+        381833,
+        347833
+      ],
+      "sequence_ns": 16377917,
+      "estimated_get_resp_bytes": 8201
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 640584,
+      "ping_ns": [
+        15359541,
+        352833,
+        390541
+      ],
+      "sequence_ns": 16747625,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8191,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 529125,
+      "ping_ns": [
+        12840375,
+        348875,
+        354125
+      ],
+      "sequence_ns": 14075625,
+      "estimated_get_resp_bytes": 24600
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 451333,
+      "ping_ns": [
+        17460292,
+        378583,
+        364708
+      ],
+      "sequence_ns": 18662708,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8191,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 443750,
+      "ping_ns": [
+        17456208,
+        379334,
+        379250
+      ],
+      "sequence_ns": 18667500,
+      "estimated_get_resp_bytes": 8200
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 576083,
+      "ping_ns": [
+        17541375,
+        788292,
+        457042
+      ],
+      "sequence_ns": 19371208,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8000,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 518834,
+      "ping_ns": [
+        14062459,
+        333500,
+        279291
+      ],
+      "sequence_ns": 15200542,
+      "estimated_get_resp_bytes": 24027
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 335625,
+      "ping_ns": [
+        260833,
+        218875,
+        220209
+      ],
+      "sequence_ns": 1040833,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 8000,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 375625,
+      "ping_ns": [
+        290417,
+        263792,
+        271541
+      ],
+      "sequence_ns": 1204667,
+      "estimated_get_resp_bytes": 8009
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "different_connection",
+      "proof_ns": 392958,
+      "ping_ns": [
+        11327875,
+        261417,
+        273166
+      ],
+      "sequence_ns": 12259541,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 4096,
+      "get_commands": 3,
+      "route": "same_connection",
+      "proof_ns": 436167,
+      "ping_ns": [
+        14804750,
+        356333,
+        316458
+      ],
+      "sequence_ns": 15918209,
+      "estimated_get_resp_bytes": 12315
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "different_connection",
+      "proof_ns": 396792,
+      "ping_ns": [
+        281167,
+        291084,
+        323708
+      ],
+      "sequence_ns": 1296167,
+      "estimated_get_resp_bytes": 4105
+    },
+    {
+      "repeat": 7,
+      "payload_bytes": 4096,
+      "get_commands": 1,
+      "route": "same_connection",
+      "proof_ns": 375708,
+      "ping_ns": [
+        274458,
+        252084,
+        290333
+      ],
+      "sequence_ns": 1197000,
+      "estimated_get_resp_bytes": 4105
+    }
+  ],
+  "complete": true,
+  "caller_retries": 0,
+  "wall_seconds": 3.330852874991251,
+  "redis_py_version": "8.1.0",
+  "python_version": "3.15.2",
+  "source_sha256": "af1113b57697e91a7fe2707d8a84daf619e401053538e4d99831d2f21a955255"
+}

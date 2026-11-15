@@ -1,0 +1,10 @@
+{
+  "source_commit": "18e0888b",
+  "command": "go test -race -json -count=1 -p 1 -timeout 15m -run ^TestSnapshot(Writer|MissingRow|PointWriteRead|PointReadEligibility|PointReadRejectsMissingBaselineRow|SQLAdmission|IngestAdmission|WriteAdmissionWaitsForCompactionPublication|DeltaDirectoryDamageFailsClosed) .",
+  "exit_code": 0,
+  "test_events_including_parents": {
+    "pass": 82
+  },
+  "scope": "Focused race-enabled tests on verified Redis Software active4QPF/sixworkers/mnp32/noeviction/strictTLS/RESP3; not full local integration/cluster suite.",
+  "writer_queue_test_selection": "default false plus explicit opt-in integration cases"
+}

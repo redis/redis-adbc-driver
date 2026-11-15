@@ -1,0 +1,117 @@
+{
+  "rustc_version": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+  "source_sha256": {
+    "source_hash.rs": "e96e3ac88f56bbb1eacc0bbf6fbe690e5acb2e253bd8524cee65974122ad5922",
+    "source_hash_native.rs": "273bfbcd85f093f07d9b64ca258ad8a5d13e2e6ff371f4080d3a52b2936a1966"
+  },
+  "commands": [
+    {
+      "label": "rust-install-rustc",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 1.686284416995477
+    },
+    {
+      "label": "rust-install-rust-std",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 2.475523917004466
+    },
+    {
+      "label": "rust-install-cargo",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 1.664733499987051
+    },
+    {
+      "label": "rust-install-rustfmt-preview",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.6107924589887261
+    },
+    {
+      "label": "unmanaged-rust-version",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 1.6630004170001484
+    },
+    {
+      "label": "unmanaged-source-rustfmt",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.32056004100013524
+    },
+    {
+      "label": "unmanaged-source-core-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.3669343749934342
+    },
+    {
+      "label": "unmanaged-source-core-tests",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.35391445897403173
+    },
+    {
+      "label": "unmanaged-source-native-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 9.245231708016945
+    }
+  ],
+  "core_tests": [
+    "tests::denied_source_is_never_opened",
+    "tests::all_null_and_zero_fields_still_distinguish_source_presence_and_type",
+    "tests::request_limits_are_checked_before_authorization_or_native_open",
+    "tests::exact_source_bytes_include_int64_endpoints_nuls_and_empty",
+    "tests::cancellation_at_every_gate_emits_no_partial_row_or_replay",
+    "tests::uncertain_native_read_discards_partial_values_without_retry",
+    "tests::selected_byte_budget_drops_partial_row_but_ignores_unselected_values"
+  ],
+  "core_pass": 7,
+  "core_failed": 0,
+  "core_ignored": 0,
+  "full_search_workspace_built": false,
+  "module_engine_integration_tested": false,
+  "prototype_installed": false,
+  "patch_applies_to_pinned_base": true,
+  "total_setup_and_check_seconds": 22.928441291005583,
+  "scope": "Exact proposed source core tests plus separate real pinned redis-module native API typecheck; not full Search workspace/module/integration tests.",
+  "official_components": [
+    {
+      "package": "rustc",
+      "url": "https://static.rust-lang.org/dist/2026-11-12/rustc-1.100.0-aarch64-apple-darwin.tar.xz",
+      "sha256": "3fcd7f1709f62dda58bf4db2dcfd630a451e750aadaaa551a21cc4a627a37b4c",
+      "download_bytes": 51389176
+    },
+    {
+      "package": "rust-std",
+      "url": "https://static.rust-lang.org/dist/2026-11-12/rust-std-1.100.0-aarch64-apple-darwin.tar.xz",
+      "sha256": "9345645b6f56eea28bf8cc2c0f628a61d507a688f91c1bec5ae6bfad216a16c7",
+      "download_bytes": 30458808
+    },
+    {
+      "package": "cargo",
+      "url": "https://static.rust-lang.org/dist/2026-11-12/cargo-1.100.0-aarch64-apple-darwin.tar.xz",
+      "sha256": "7e18265d2d2cda8dec6cac4d0faa3bbafe927b401e5185350abc7d669f9adafb",
+      "download_bytes": 8911696
+    },
+    {
+      "package": "rustfmt-preview",
+      "url": "https://static.rust-lang.org/dist/2026-11-12/rustfmt-1.100.0-aarch64-apple-darwin.tar.xz",
+      "sha256": "dd5f60c6b87c9fae4bfa706d3b20ce648f9e5c595473aa9a4cfb31cec7a7a8fa",
+      "download_bytes": 1541816
+    }
+  ],
+  "adapter_cargo_lock_sha256": "d9fcda7695559e14663118c53ad0b9c05081665d3ecc320537150521835a2d53",
+  "native_adapter_cargo_check_passed": true,
+  "patch_sha256": "2e8f3b2392fa2e6c476c1c9599f79864c448809333a15c8a976ef4237318c8b6",
+  "patched_lib_rs_sha256": "f5760e012d39d37351502fbed1b142536d056ebaba9492fad25efd19c3b08f1c",
+  "patch_application": "git apply --unidiff-zero",
+  "initial_source_sha256": {
+    "source_hash.rs": "9bed44915161da1defa805a82337d45601bd9676df1bff19c42d80bb6fb23131",
+    "source_hash_native.rs": "162d8b95961c9d877817be870bc3ae2ec905314a20c8b1c241da1d835a772e64"
+  },
+  "final_contract_recheck": "Source comments/doc contract strengthened after review; exact final files recompiled/core-tested/native-API-typechecked. Logic unchanged. See final-safety-checks.json; initial hashes retained."
+}

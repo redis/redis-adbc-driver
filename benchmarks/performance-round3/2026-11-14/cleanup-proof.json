@@ -1,0 +1,20 @@
+{
+  "owned_container_and_network_removed": true,
+  "preexisting_containers_preserved": true,
+  "preexisting_networks_preserved": false,
+  "preexisting_container_count": 0,
+  "preexisting_network_count": 30,
+  "generated_environment_removed": true,
+  "tls_generated_by_this_task": false,
+  "preexisting_tls_preserved": true,
+  "private_generated_credentials_removed": true,
+  "preexisting_custom_networks_preserved": true,
+  "strict_network_id_check_passed": false,
+  "builtin_bridge_identity_changed": true,
+  "builtin_bridge_configuration_preserved": true,
+  "builtin_bridge_initially_and_finally_unused": true,
+  "builtin_bridge_change_cause": "Unassigned; strict identity check initially stopped cleanup. Audited unchanged configuration and no attached containers. Owned compose cleanup removed only the owned project network; no attempt was made to recreate or change the built-in bridge.",
+  "owned_client_image_tag_removed": true,
+  "preexisting_base_images_and_build_caches_preserved": true,
+  "builtin_bridge_creation_predates_first_timed_read": true
+}

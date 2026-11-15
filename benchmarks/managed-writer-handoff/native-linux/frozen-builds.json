@@ -1,0 +1,24 @@
+{
+  "harness_sha256": {
+    "native_run.py": "161a25f5f10855ad5d43001c2070e0a9e04b5398223c0c36deaa1d3b02332bbe",
+    "benchmarks/table-modes/scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "benchmarks/table-modes/run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642"
+  },
+  "builds": {
+    "baseline": {
+      "commit": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+      "library_sha256": "003e34aeddb149984794a2cda84881fb93bf27b6cc9c195796df38ed6d409816",
+      "cli_sha256": "b8cfbdb2f7e7b52a374e14b4bcd86914913d63d93392cfd43b04af59387d1272",
+      "version": "v0.0.0-perf.round3.baseline",
+      "option_requested": false
+    },
+    "candidate": {
+      "commit": "0884e3c893e9c7517a9f686492204b55d1fb6eec",
+      "library_sha256": "9f9675632641d160c2fde5b624da2028a4d934039adf0df3a6d1f1787b01c058",
+      "cli_sha256": "9f3abf0c5a833ef776d2f856fa300b4689b0bd5cdf422749101563162a845058",
+      "version": "v0.0.0-perf.round3.candidate",
+      "option_requested": true
+    }
+  },
+  "scope": "Frozen Linux/arm64 native libraries/CLI and unchanged public Python harness; baseline legacy/default vs candidate explicit writer_admission_queue=true; both builds complete before all native timing."
+}

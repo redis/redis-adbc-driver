@@ -1,0 +1,23 @@
+{
+  "exit_code": 0,
+  "wall_seconds": 0.4210848340007942,
+  "client_os": "linux",
+  "client_arch": "arm64",
+  "client_cpus": 4,
+  "client_memory_bytes": 4294967296,
+  "client_container_removed": true,
+  "private_environment_removed": true,
+  "source_commit": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+  "harness_source_commit": "186439ca",
+  "client_distribution": "Debian bookworm",
+  "python": "3.14.10",
+  "go": "1.27.3",
+  "additional_client_packages": {
+    "hiredis": "3.5.0",
+    "requests": "2.34.2"
+  },
+  "software_fixture": "Same owned verified Redis Software fixture as the coordinator; server container4CPU/8GiB, active4QPF/sixSearchworkers/mnp32/noeviction/strictTLS/RESP3",
+  "client_network": "Linux client joined the Software TLS network namespace; does not traverse macOS published-port forwarding",
+  "command": "python3 benchmarks/unmanaged-source-projection/repro.py --driver <frozen-baseline.so> --cli <frozen-baseline-cli> --source-commit d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab --gate <fresh-verified-gate> --output <evidence> --dedicated-empty-server",
+  "scope": "Complete exactness/ownership/repro validation including setup/cleanup; wall time is not a query latency or performance comparison. Prototype is uninstalled; no full Search module integration tested."
+}

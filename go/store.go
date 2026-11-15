@@ -984,6 +984,7 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	writerDomain       [32]byte // scheduling hint only, never a Redis proof
 	sharedMu           sync.Mutex
 	sharedAcquiring    bool
 	sharedView         *sharedReadView

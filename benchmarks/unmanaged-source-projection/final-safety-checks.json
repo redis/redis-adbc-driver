@@ -1,0 +1,42 @@
+{
+  "scope": "Final source-only unsafe callback-contract clarification; exact shared core tests and native-adapter typecheck, no Redis or UB invocation",
+  "commands": [
+    {
+      "label": "unmanaged-safety-rustfmt",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.2073545409948565
+    },
+    {
+      "label": "unmanaged-safety-core-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.4735484999837354
+    },
+    {
+      "label": "unmanaged-safety-core-tests",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.38212554101482965
+    },
+    {
+      "label": "unmanaged-safety-native-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "wall_seconds": 0.3898550829908345
+    }
+  ],
+  "source_sha256": {
+    "source_hash.rs": "e96e3ac88f56bbb1eacc0bbf6fbe690e5acb2e253bd8524cee65974122ad5922",
+    "source_hash_native.rs": "273bfbcd85f093f07d9b64ca258ad8a5d13e2e6ff371f4080d3a52b2936a1966"
+  },
+  "binary_sha256": "14485747c082fac11491c06e9403c21c04d4f7fa6e25b9fba7c9c3b864b48810",
+  "core_passed": 7,
+  "core_failed": 0,
+  "core_ignored": 0,
+  "prototype_installed": false,
+  "full_engine_integration_tested": false,
+  "unsafe_pointer_or_invalid_handle_tests_executed": false,
+  "patch_applies_to_pinned_base": true,
+  "patch_sha256": "2e8f3b2392fa2e6c476c1c9599f79864c448809333a15c8a976ef4237318c8b6"
+}

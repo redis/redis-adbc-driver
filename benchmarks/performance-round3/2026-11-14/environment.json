@@ -1,0 +1,93 @@
+{
+  "server_versions": {
+    "redis_version": "8.8.0",
+    "modules": [
+      {
+        "name": "bf",
+        "version": 80801
+      },
+      {
+        "name": "vectorset",
+        "version": 1
+      },
+      {
+        "name": "timeseries",
+        "version": 80808
+      },
+      {
+        "name": "ReJSON",
+        "version": 80802
+      },
+      {
+        "name": "search",
+        "version": 80808
+      }
+    ]
+  },
+  "software_node_versions": [
+    {
+      "software_version": "8.2.6-25",
+      "os_version": "Red Hat Enterprise Linux 9.8 (Plow)"
+    }
+  ],
+  "server_container_cpus": 4,
+  "server_container_memory_bytes": 8589934592,
+  "host_cpu": "Apple M5 Max",
+  "host_logical_cpus": 18,
+  "host_memory_bytes": 38654705664,
+  "host_os": "macOS 26.7.3",
+  "host_architecture": "arm64",
+  "distribution": "Redis Software RAM, one shard; not Redis Community, Flex or a Cluster API topology.",
+  "qpf": 4,
+  "search_workers": 6,
+  "routing": "mnp",
+  "routing_connections": 32,
+  "shard_memory_bytes": 4294967296,
+  "eviction_policy": "noeviction",
+  "data_tls": "Certificate and hostname verified",
+  "protocol": 3,
+  "management_tls": "Local fixture self-signed bootstrap trust mode",
+  "observation_utc": "2026-11-15T02:22:14.562033+00:00",
+  "observation_scope": "Same owned Software fixture; management/QPF/noeviction gates also ran immediately before every live invocation. Server/container allocation stayed unchanged.",
+  "server_platform": {
+    "server_image_architecture": "arm64",
+    "server_image_os": "linux",
+    "docker_vm_cpus": 18,
+    "docker_vm_memory_bytes": 25420967936,
+    "server_cpu_quota": 4.0,
+    "server_memory_bytes": 8589934592
+  },
+  "native_client": {
+    "os": "Linux",
+    "arch": "aarch64",
+    "python": "3.14.10",
+    "go": "go version go1.27.3 linux/arm64",
+    "packages": {
+      "adbc-driver-manager": "1.13.0",
+      "pyarrow": "26.0.1",
+      "redis": "8.1.0",
+      "hiredis": "3.5.0",
+      "requests": "2.34.2"
+    },
+    "cpus": 4,
+    "memory_bytes": 4294967296,
+    "GOMAXPROCS": 4,
+    "network_route": "Linux client shares the owned Software network namespace; certificate/hostname verified TLS at localhost; bypasses macOS published-port path."
+  },
+  "go_diagnostic_client": {
+    "os": "macOS",
+    "GOMAXPROCS": 4,
+    "network_route": "Host loopback to Docker published TLS port. Diagnostic profiles, including mixed writer pilot/long, retain this actual environment; do not relabel them as Linux native timings."
+  },
+  "topology_control_resources": {
+    "go_linux": {
+      "cpus": 2,
+      "memory_bytes": 268435456
+    },
+    "redispy_linux": {
+      "cpus": 4,
+      "memory_bytes": 4294967296
+    },
+    "scope": "OS/route/runtime/resources are explicit controlled-run differences; no single OS or network component is assigned the cause."
+  }
+}
