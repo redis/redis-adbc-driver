@@ -28,3 +28,25 @@ default/enabled option, lifecycle and safety checks are recorded separately, and
 a new frozen native candidate must enable/verify the public option before any
 final selection claim. The preceding Go measurements must not be relabeled as
 timings of the final gated build.
+
+## Separate final gated Linux native confirmation
+
+The [frozen Linux/arm64 Python/ADBC ABBA report](../../../../benchmarks/managed-writer-handoff/native-linux/README.md)
+uses actual baseline `d7c0978f` and candidate `0884e3c8`, with the public option
+explicitly enabled and GetOption-verified on every candidate driver connection.
+All 192 records/6,144 operations passed complete original typed/final-state
+oracles. Independent offline audits verify exact grids, counts, markers,
+statistics, source/library/wrapper identities and cleanup; raw bytes are retained.
+Four-writer completion throughput/p95 improve, while medians and means worsen
+substantially. All slower cases and raw control drift remain visible. The option
+stays default false; no general/default speedup or global FIFO is claimed.
+
+The macOS Go prototype observations remain historical and separate. A Linux
+control did not reproduce the macOS post-proof response delay, so no general
+Software/driver cause is established. The native data has its own topology and
+source/binary labels. Raw automatic_retries labels are unchanged; post-run notes
+separate caller intent, verified zero redis-py command retry budget and uncounted
+connection management/reconnect behavior. Object setup is excluded, but lazy
+first-operation network/execution-pool work remains included. New clients per
+trial mean warmups do not prewarm later clients. No timing code changed after
+freezing. Human approval is not inferred.

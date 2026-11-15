@@ -1,0 +1,82 @@
+[
+  {
+    "build": "baseline",
+    "label": "A1",
+    "validated_records": 48,
+    "measured_records": 36,
+    "warmup_records": 12,
+    "measured_operations": 1152,
+    "all_results_and_final_states_validated": true,
+    "cleanup": true,
+    "exit_code": 0,
+    "whole_process_seconds_not_query_throughput": 14.07084921500018,
+    "client_environment": {
+      "client_os": "linux",
+      "client_arch": "arm64",
+      "client_cpus": 4,
+      "client_memory_bytes": 4294967296,
+      "client_container_removed": true,
+      "private_environment_removed": true
+    }
+  },
+  {
+    "build": "candidate",
+    "label": "B1",
+    "validated_records": 48,
+    "measured_records": 36,
+    "warmup_records": 12,
+    "measured_operations": 1152,
+    "all_results_and_final_states_validated": true,
+    "cleanup": true,
+    "exit_code": 0,
+    "whole_process_seconds_not_query_throughput": 13.36469325600001,
+    "client_environment": {
+      "client_os": "linux",
+      "client_arch": "arm64",
+      "client_cpus": 4,
+      "client_memory_bytes": 4294967296,
+      "client_container_removed": true,
+      "private_environment_removed": true
+    }
+  },
+  {
+    "build": "candidate",
+    "label": "B2",
+    "validated_records": 48,
+    "measured_records": 36,
+    "warmup_records": 12,
+    "measured_operations": 1152,
+    "all_results_and_final_states_validated": true,
+    "cleanup": true,
+    "exit_code": 0,
+    "whole_process_seconds_not_query_throughput": 13.42520300599972,
+    "client_environment": {
+      "client_os": "linux",
+      "client_arch": "arm64",
+      "client_cpus": 4,
+      "client_memory_bytes": 4294967296,
+      "client_container_removed": true,
+      "private_environment_removed": true
+    }
+  },
+  {
+    "build": "baseline",
+    "label": "A2",
+    "validated_records": 48,
+    "measured_records": 36,
+    "warmup_records": 12,
+    "measured_operations": 1152,
+    "all_results_and_final_states_validated": true,
+    "cleanup": true,
+    "exit_code": 0,
+    "whole_process_seconds_not_query_throughput": 14.153426673000013,
+    "client_environment": {
+      "client_os": "linux",
+      "client_arch": "arm64",
+      "client_cpus": 4,
+      "client_memory_bytes": 4294967296,
+      "client_container_removed": true,
+      "private_environment_removed": true
+    }
+  }
+]

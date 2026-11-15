@@ -1,0 +1,14 @@
+{
+  "candidate_source": "0884e3c893e9c7517a9f686492204b55d1fb6eec",
+  "baseline_source": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+  "candidate_production_sha256": {
+    "go/driver.go": "8e6e17b222135fa5b7c202418de1ae325b8202b72c1bfcf68dd211c85789fd0b",
+    "go/database.go": "882a2ad7553cf90e8fa81fd7034fadf29142be7e8f8eb04d93713076e3711b21",
+    "go/store.go": "36e1463b5663e43717246cdd578a8eec74c316aa84f8470bd1c16fa398296cca",
+    "go/snapshot.go": "3de62fe2b106c7f71202b4524035af7431c2ff3ce75b3d971d3c633aea66b8bf",
+    "go/snapshot_admission.go": "0ea05b2cb4d61c95805c709777d9d2ffb54c11d289ff5572239dd56f1d0ae80a",
+    "go/snapshot_writer_handoff.go": "74e0441a1b1d6a0969ced2404694a6b300017f004685bf485b81ae294eaf0815"
+  },
+  "matches_final_gated_agent_production_hashes": true,
+  "scope": "Actual Linux native build source and related writer scheduling/option/lifecycle production changes. No Go prototype source label substituted."
+}

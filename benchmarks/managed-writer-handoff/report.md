@@ -1,7 +1,7 @@
 # Bounded process-local managed writer handoff
 
 Date: 2026-11-14. Baseline runtime `d7c0978f`; measured candidate `03e04002`.
-Status: **opt-in measured candidate, pending native confirmation and human review**.
+Status: **opt-in measured candidate, Linux native confirmation complete; human review pending**.
 The existing native server admission and protocol 17 remain authoritative.
 The public database option `adbc.redis.writer_admission_queue` defaults to
 `false`; `true` opts newly opened eligible connections into this scheduling
@@ -114,18 +114,37 @@ prototype, not a new timed run of the final default or enabled build. Actual
 default/enabled safety checks and a newly frozen native pair are required;
 measured/final hashes and scopes remain distinct in provenance.
 
-## Native confirmation still required
+## Separate Linux native confirmation
 
 The [native wrapper](native_run.py) uses `REDIS_WRITER_QUEUE=true` to pass the
 public option and verify database GetOption on every candidate connection.
 Baseline false passes no new option. Requested/verified selection is recorded
 in metadata. It selects the unchanged standard managed and
 redis-py INSERT/UPDATE/DELETE scenarios: 1/4 threads, 32 operations, one warmup
-and three repetitions, ordinary statement lifecycle, persistent prepared clients,
+and three repetitions, ordinary statement lifecycle, persistent client objects,
 and all original typed/final-state oracles. It exercises independently created
 database handles in one process. Process-pool clients cannot share this queue.
 
-A frozen baseline/selected-integration native pair is required before selection.
-Any combined candidate must use its actual combined source label; its gains must
-not be attributed exclusively to this queue. No native result, upstream issue,
-ClickBench or deployment is claimed here.
+The [complete Linux native ABBA confirmation](native-linux/README.md) now records
+actual baseline `d7c0978f` versus explicitly enabled candidate `0884e3c8`, with
+all 192 records/6,144 operations validated. Four-writer INSERT/UPDATE/DELETE
+completion throughput increases from 73.12/69.73/69.03 to 80.07/83.09/81.70 ops/s,
+while p95 falls from 199/284/195 to 76/70/74 ms. **Pooled medians increase from
+6.7/7.6/7.1 to 47.6/46.3/46.7 ms, and means increase from roughly 35 to 47 ms.**
+One-writer results are close/mixed; all redis-py controls and per-pair drift remain
+visible. This validates an opt-in fairness/completion tradeoff, not a default or
+general latency speedup. The public option remains false by default.
+
+The earlier Go timings above used macOS's published-port route. They remain
+historical and must not be relabeled as Linux timings. A Linux control did not
+reproduce the ~13 ms post-proof delay, so that delay has no established general
+driver/Software cause. The Linux native dataset has its own frozen sources,
+binaries, topology, controls and complete oracles.
+
+The original raw `automatic_retries=0` label is preserved but is not a measured
+wire retry/reconnect counter. Post-run scope notes distinguish no caller retry
+loops, Linux redis-py's verified zero command retry budget, and connection
+management/reconnect behavior. Client/cursor object setup is outside timing;
+lazy first-operation transport/execution-pool work remains included, and warmup
+trials do not prewarm future trials' new client objects. See the separate native
+report for all limitations. No upstream issue, ClickBench or deployment is claimed.

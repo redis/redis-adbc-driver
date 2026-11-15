@@ -78,7 +78,7 @@ in the same loaded driver process, including independent database handles with
 matching static routing, credentials and TLS trust. It can improve contended
 whole-workload completion and high-percentile latency while increasing typical
 per-operation latency. The [measured candidate tradeoff](https://github.com/redis/redis-adbc-driver/blob/main/benchmarks/managed-writer-handoff/report.md)
-is diagnostic Go evidence pending normal native confirmation; no general speedup
+includes separately labeled macOS Go and normal Linux native evidence; no general speedup
 or fairness guarantee follows from enabling it.
 
 Every turn still needs fresh catalog, target, lease and native admission proofs.

@@ -1,0 +1,19 @@
+{
+  "complete_raw_window_audits": 4,
+  "validated_records": 192,
+  "measured_records": 144,
+  "total_operations": 6144,
+  "measured_operations": 4608,
+  "negative_archive_cases_rejected": [
+    "missing_record",
+    "duplicate_record",
+    "failed_record",
+    "truncated_latencies",
+    "wrong_source",
+    "option_not_verified"
+  ],
+  "raw_files_byte_identical_to_frozen_coordinator_results": true,
+  "actual_candidate_source": "0884e3c893e9c7517a9f686492204b55d1fb6eec",
+  "all_windows_cleanup_verified": true,
+  "retry_scope": "Historical raw automatic_retries field preserved; separate source/post-run policy audits, no measured network-retry counter."
+}

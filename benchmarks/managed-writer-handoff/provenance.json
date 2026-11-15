@@ -61,5 +61,12 @@
     "go/snapshot_writer_handoff_integration_test.go": "09e48c8ee65841e3efe5dc35c65a6ca91c069d4750d28e9fef1544120f172a4b"
   },
   "native_wrapper_sha256": "161a25f5f10855ad5d43001c2070e0a9e04b5398223c0c36deaa1d3b02332bbe",
-  "native_candidate_option": "REDIS_WRITER_QUEUE=true passes adbc.redis.writer_admission_queue=true and verifies GetOption;baselinefalsepassesnone"
+  "native_candidate_option": "REDIS_WRITER_QUEUE=true passes adbc.redis.writer_admission_queue=true and verifies GetOption;baselinefalsepassesnone",
+  "native_confirmation": {
+    "actual_candidate_source": "0884e3c893e9c7517a9f686492204b55d1fb6eec",
+    "baseline_source": "d7c0978f29ee57ee7d18fc4f67e2dba2b992d0ab",
+    "source_and_binary_provenance": "native-linux/frozen-builds.json",
+    "report": "native-linux/README.md",
+    "scope": "Linux/arm64 ordinary Python/ADBC; default/legacy baseline vs explicit public opt-in candidate. Does not relabel03eMacGo data. Complete192records/6144ops; large negative median/mean tradeoffs retained."
+  }
 }

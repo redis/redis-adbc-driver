@@ -1,0 +1,7 @@
+{
+  "redis_py_version": "8.1.0",
+  "command_retry_budget": 0,
+  "retry_on_error": [],
+  "network_connected": false,
+  "scope": "post-run no-network connection policy introspection; reconnect management differs from command replay"
+}
