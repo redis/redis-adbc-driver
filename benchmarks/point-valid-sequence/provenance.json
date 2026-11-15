@@ -1,0 +1,32 @@
+{
+  "base_commit": "7fc608ea",
+  "diagnostic_source_sha256": "e040915df7f4462305224c4121fef4f00ffa7171b1f29b8fc921859b2739fe3d",
+  "binary_sha256": "d53f7a5f56e4bcee3dc91181e8e26e594d1c84517e91079fd2c62ef5107b5617",
+  "runtime_change_from_7fc608ea": false,
+  "fixture_gate": {
+    "qpf": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296,
+    "tls_certificate_verified": true,
+    "resp": 3
+  },
+  "checks": {
+    "test": "TestSnapshotPointValidSequenceProfile",
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "sequences": 32,
+    "fresh_valid_requests": 192,
+    "wall_seconds_reported_by_test": 0.41,
+    "normal_sql_type_and_result_oracles": true
+  },
+  "runtime_environment": {
+    "Go": "1.27.3",
+    "GOMAXPROCS": 4,
+    "telemetry_disabled": true,
+    "production_worker": true
+  },
+  "coordinated_environment_observation": "../performance-round2/2026-11-14/environment.json (same fixture at end of round; not a replacement for this run gate or frozen source/binary hashes)"
+}
