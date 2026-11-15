@@ -63,3 +63,45 @@ first-operation transport work remains included; `automatic_retries=0` declares
 no caller replay, not wire retry/reconnect telemetry. No live Redis call,
 ClickBench run, cloud provisioning or historical relabeling is performed by this
 auditor.
+
+## Limited point-read target screen
+
+Before paying for a complete four-window CRUD/query matrix, the explicit
+`point_read.py` wrapper can screen only the point-read target. It selects
+`scenarios.POINT=('point_read',)` and forces the OLTP suite, leaving the original
+operation/timer/typed-result/source-state bodies unchanged. Defaults are fixed:
+1K rows ×four columns, 32 calls, three modes, one/four clients, one warmup plus
+three measured rounds = **24 records/window**. Metadata names the selection and
+wrapper hash. No INSERT/UPDATE/DELETE or analytical query is executed.
+
+```sh
+python3 benchmarks/crud-execution/point_read.py \
+  --driver /private/exact-build/go/build/libadbc_driver_redis.so \
+  --cli /private/exact-build/go/build/redis-adbc \
+  --version v0.1.0-dev.example \
+  --work /private/fresh-screen-window --dedicated-empty-server
+python3 benchmarks/crud-execution/screen_compare.py \
+  --a1 /private/A1/results.json --b1 /private/B1/results.json \
+  --b2 /private/B2/results.json --a2 /private/A2/results.json \
+  --candidate-source FULL_CANDIDATE_COMMIT \
+  --out /private/new-screen-comparison --require-target
+```
+
+The separate screen checker requires all six cases/24 records in each of all
+four declared windows: **96 records total, 24 warmups and 72 measured trials**.
+Each build/mode/client cell pools 192 measured latencies. Both complete pair
+comparisons and raw Redis controls remain available. The same independent
+10%-less-elapsed gate applies to both one-client driver modes; complete valid
+outputs are written even when the target fails. Units and finite throughput
+scopes are unchanged. Screen checking temporarily configures the existing
+scenario checker inside try/finally and restores it on every outcome; the full
+42-case comparator remains strict and rejects screen subsets. Invoke the offline
+comparison serially rather than concurrently in a shared Python interpreter.
+
+This screen can reject an unpromising candidate cheaply. A passing screen is
+**not the full scenario matrix**, a mutation/aggregate result or evidence that
+other regressions are absent. Full acceptance still requires the broader
+correctness and performance checks. Independently record actual run order,
+client/server environment and frozen dependency/build identities. Each window
+still requires a new owned empty Software fixture/work directory or exact
+owner-checked cleanup between runs; retain owner/credential material privately.
