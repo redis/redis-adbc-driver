@@ -161,8 +161,10 @@ func TestSQLBoundStringsOutliveTheirBuffers(t *testing.T) {
 		b.Release()
 	}
 	if err := st.BindStream(h.ctx, rdr); err != nil {
+		rdr.Release()
 		t.Fatal(err)
 	}
+	rdr.Release()
 	if n, err := st.ExecuteUpdate(h.ctx); err != nil || n != 3 {
 		t.Fatalf("stream INSERT: n=%d err=%v", n, err)
 	}

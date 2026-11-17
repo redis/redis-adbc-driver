@@ -131,6 +131,7 @@ func TestPartitionParameterStreamError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer r.Release()
 	s := &statementImpl{}
 	if err := s.BindStream(context.Background(), failingPartitionParams{r}); err != nil {
 		t.Fatal(err)

@@ -227,6 +227,7 @@ func TestSubstraitIntegrationStateAndOwnership(t *testing.T) {
 	if err := st.BindStream(h.ctx, source); !isStatus(err, adbc.StatusNotImplemented) {
 		t.Fatal(err)
 	}
+	source.Release()
 	mem.AssertSize(t, 0)
 	r, _, err := st.ExecuteQuery(h.ctx)
 	if err != nil {

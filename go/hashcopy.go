@@ -146,8 +146,7 @@ func CopyHashes(ctx context.Context, options map[string]string, o HashCopyOption
 			return nil, err
 		}
 	}
-	// The statement releases the reader it is given.
-	s.Retain()
+	// BindStream retains its own reference; the copy keeps its caller reference.
 	if err := st.BindStream(ctx, s); err != nil {
 		return nil, err
 	}

@@ -528,14 +528,17 @@ func (s *statementImpl) Bind(ctx context.Context, values arrow.RecordBatch) erro
 
 func (s *statementImpl) BindStream(ctx context.Context, stream array.RecordReader) error {
 	if s.substrait != nil {
-		stream.Release()
 		return subUnsupported("parameters")
 	}
 	if err := s.checkOpen(); err != nil {
-		stream.Release()
 		return err
 	}
 	s.partitionExecution = nil
+	// Keep the caller's reference independent, including when rebinding the
+	// same reader. A nil stream unbinds parameters per the Go ADBC contract.
+	if stream != nil {
+		stream.Retain()
+	}
 	s.clearParams()
 	s.params = stream
 	return nil

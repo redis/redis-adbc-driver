@@ -86,8 +86,10 @@ func TestIngestStringArenaMultiRecordValues(t *testing.T) {
 				}
 			}
 			if err := st.BindStream(h.ctx, reader); err != nil {
+				reader.Release()
 				t.Fatal(err)
 			}
+			reader.Release()
 			written, err := st.ExecuteUpdate(h.ctx)
 			if err != nil || written != int64(len(expected)) {
 				t.Fatalf("rows%d error%v", written, err)

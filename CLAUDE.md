@@ -270,6 +270,10 @@ Build validation libraries with `make build` or preserve its version linker flag
 upstream GetInfo validation rejects a bare build's development version string.
 Finish Arrow fetch and validate results before claiming query success or speedup.
 Preserve cursor cleanup, cancellation, Arrow ownership and worker-token release.
+Go BindStream retains its own reader reference; callers release theirs. The C
+bridge releases its imported reference after binding, including errors. Retain
+before clearing an old binding, including the same reader; refusals must not
+consume caller ownership. See `go/bind_stream_ownership_test.go`.
 For missing-row or safe-fallback proofs, accept only a direct `goredis.Nil` or
 a direct native refusal. A wrapped/joined error can also contain reply loss;
 check the pipeline error and every reply before repair or fallback. See the
