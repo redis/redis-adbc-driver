@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-17",
+  "source": "30a9eefbf13d19b3e3129171f8ecdc5579b852a2",
+  "issues_reviewed": 53,
+  "issues_closed": [
+    105,
+    164
+  ],
+  "issues_remaining": 51,
+  "upstream_documentation": {
+    "merged": 4,
+    "open_non_draft": 12,
+    "closed_without_merge": 2
+  },
+  "software": {
+    "redis": "8.8.0",
+    "primaries": 3,
+    "tls_verified": true,
+    "resp": 3,
+    "noeviction_verified": true,
+    "effective_qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32
+  },
+  "client": {
+    "os": "macOS",
+    "architecture": "arm64",
+    "route": "Docker published port"
+  },
+  "matview_race_top_level": {
+    "pass": 12,
+    "skip": 1,
+    "fail": 0
+  },
+  "matview_cleanup_subtests_passed": 3,
+  "ray": {
+    "python": "3.14.10",
+    "ray": "2.60.0",
+    "pyarrow": "26.0.1",
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0
+  },
+  "native_build": "passed",
+  "full_suite_run": false,
+  "clickbench_run": false
+}

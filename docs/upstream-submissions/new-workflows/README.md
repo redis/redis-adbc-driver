@@ -1,5 +1,8 @@
 # New workflow upstream documentation submissions
 
+Current outcomes: [November 17 status refresh](../status.md). The submission-time
+notes below retain their original dates and evidence boundaries.
+
 Checked October 30, 2026. [Tracker #249](https://github.com/redis/redis-adbc-driver/issues/249).
 All six dedicated guide examples passed against isolated Redis Software with
 Search and active verified 4x QPF; see [live validation](../../sdlc/changes/upstream-status-249/validation.md).
