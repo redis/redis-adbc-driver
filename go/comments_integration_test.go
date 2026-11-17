@@ -104,9 +104,8 @@ func (h *sqlHarness) fieldRemarks(schema, table string) []string {
 	var out []string
 	for _, f := range s.Fields() {
 		r := "NULL"
-		if f.HasMetadata() {
-			i := f.Metadata.FindKey(remarksKey)
-			if i < 0 || f.Metadata.Len() != 1 {
+		if i := f.Metadata.FindKey(remarksKey); i >= 0 {
+			if name, ok := f.Metadata.GetValue(typeNameKey); !ok || name == "" {
 				h.t.Errorf("%s.%s: field %q has metadata %v", schema, table, f.Name, f.Metadata)
 				continue
 			}

@@ -413,16 +413,15 @@ func dateAtTimeTZ(d, x Value, t ColType) (Value, error) {
 	return fromTime(tm, t)
 }
 
-// arrowField is the Arrow field of a column of type t: a time with time
-// zone, which Arrow has no type for, is its text with typeNameKey naming
-// its type (TIME(6) WITH TIME ZONE).
+// arrowField preserves the canonical SQL declaration alongside its physical
+// Arrow type. TYPE_NAME is descriptive metadata, not an Arrow extension.
+// JSON retains its existing extension mapping; TIME WITH TIME ZONE uses text.
 func arrowField(name string, t ColType, nullable bool) arrow.Field {
-	f := arrow.Field{Name: name, Type: t.ArrowType(), Nullable: nullable}
+	f := arrow.Field{Name: name, Type: t.ArrowType(), Nullable: nullable,
+		Metadata: arrow.NewMetadata([]string{typeNameKey}, []string{t.SQLName()}),
+	}
 	if t.Kind.isJSON() {
 		f.Metadata = arrow.NewMetadata([]string{"ARROW:extension:name", "ARROW:extension:metadata", typeNameKey}, []string{"arrow.json", "{}", t.SQLName()})
-	}
-	if t.Kind == KindTimeTZ || t.Alias == "uuid" {
-		f.Metadata = arrow.NewMetadata([]string{typeNameKey}, []string{t.SQLName()})
 	}
 	return f
 }
