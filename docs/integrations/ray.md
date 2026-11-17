@@ -19,7 +19,7 @@ that an older published wheel contains every helper documented here.
 Complete the [shared example setup](example-setup.md) for the sample-data helper
 before running the first block. It creates and removes a unique input table.
 
-The source-tree `ray` extra pins Ray 2.59.0. Install this build on the caller
+The source-tree `ray` extra pins Ray 2.60.0. Install this build on the caller
 and every worker (Python 3.12+), including its matching native library:
 
 ```sh

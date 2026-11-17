@@ -441,7 +441,7 @@ jobs:
           RAY_USAGE_STATS_ENABLED: '0'
         run: |
           uv venv --python 3.12 /tmp/redis-ray-tests
-          uv pip install --python /tmp/redis-ray-tests/bin/python './python[ray]' 'pytest>=9.1.1'
+          uv pip install --python /tmp/redis-ray-tests/bin/python './python[ray-tests]'
           # The Software fixture verified this CA; require the worker trust
           # check instead of silently skipping it with an empty db_options.
           : "${SSL_CERT_FILE:?verified Software fixture must provide its CA}"
@@ -457,7 +457,7 @@ jobs:
         run: |
           uv venv --python 3.12 /tmp/redis-airflow-tests
           uv pip install --python /tmp/redis-airflow-tests/bin/python \
-            'apache-airflow==3.3.2' './python[airflow]' pytest
+            './python[airflow-tests]'
           /tmp/redis-airflow-tests/bin/python -m pytest -q python/tests/test_airflow_hook.py
 
       - name: dlt integration on Redis Software

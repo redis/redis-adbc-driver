@@ -643,7 +643,7 @@ jobs:
         run: |
           export REDIS_ADBC_LIBRARY="$(/tmp/redis-wheel-smoke/bin/python -c 'from adbc_driver_redis import _driver_path; print(_driver_path())')"
           cd go/validation
-          uv run --with adbc-driver-manager==1.12.0 pytest -q -ra --junitxml=macos-minimum-client-validation.xml tests/test_partitions.py tests/test_partitions_retained.py
+          uv run --with adbc-driver-manager==1.13.0 pytest -q -ra --junitxml=macos-minimum-client-validation.xml tests/test_partitions.py tests/test_partitions_retained.py
           python3 ../../scripts/check_partition_junit.py macos-minimum-client-validation.xml
 
       - name: Verified TLS on the installed macOS wheel
@@ -659,7 +659,7 @@ jobs:
           env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel \
             --output "$RUNNER_TEMP/macos-partition-tls-result.json"
           # The private fixture CA must not replace PyPI's public trust roots.
-          env -u SSL_CERT_FILE uv pip install --python /tmp/redis-wheel-smoke/bin/python 'adbc-driver-manager==1.12.0'
+          env -u SSL_CERT_FILE uv pip install --python /tmp/redis-wheel-smoke/bin/python 'adbc-driver-manager==1.13.0'
           env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel \
             --output "$RUNNER_TEMP/macos-partition-tls-minimum-client.json"
 

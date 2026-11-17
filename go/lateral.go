@@ -314,7 +314,7 @@ func (e *executor) lateralRows(env *evalEnv, it *joinItem, wp wherePlan, memo ma
 	// The correlated argument row is a stable memo key, including wrapper
 	// functions whose arguments are themselves calls.
 	key := ""
-	for _, c := range sortedRowNames(env.row) {
+	for _, c := range sortedKeys(env.row) {
 		key += c + rowKey([]Value{env.row[c]})
 	}
 	if rows, ok := memo[key]; ok {

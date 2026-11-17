@@ -4,7 +4,6 @@ package redis
 
 import (
 	"context"
-	"slices"
 	"strings"
 )
 
@@ -399,15 +398,6 @@ func splitSRF(env *evalEnv, f *Func, a []Value) ([][]Value, []ColType, error) {
 		rows = append(rows, []Value{stringValue(s[pos:])})
 	}
 	return rows, ts, nil
-}
-
-func sortedRowNames(row map[string]Value) []string {
-	names := make([]string, 0, len(row))
-	for k := range row {
-		names = append(names, k)
-	}
-	slices.Sort(names)
-	return names
 }
 
 func validateSetReturning(x Expr) error {

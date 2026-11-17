@@ -2,7 +2,7 @@
 name = "redis-adbc-pgdiff"
 version = "0.1.0"
 requires-python = ">=3.14"
-dependencies = ["adbc-driver-manager>=1.12.0", "pyarrow>=26.0.0", "psycopg[binary]>=3.3.6", "sqlparse>=0.6.0"]
+dependencies = ["adbc-driver-manager>=1.13.0", "pyarrow>=26.0.1", "psycopg[binary]>=3.3.9", "sqlparse>=0.6.1"]
 
 [tool.uv]
 package = false

@@ -66,7 +66,7 @@ Optional extras: `sqlalchemy` for current SQLAlchemy, `superset` for the isolate
 Superset 6.1 / SQLAlchemy 1.4 compatibility environment,
 `dagster` for the Redis ADBC IO manager, and `dask` for partitioned DataFrame
 reads with `adbc_driver_redis.dask.read_query`. The source build's `ray` extra
-pins Ray 2.59.0 and supplies worker-side Arrow reads through
+pins Ray 2.60.0 and supplies worker-side Arrow reads through
 `adbc_driver_redis.ray.read_query`; see the
 [Ray guide](https://github.com/redis/redis-adbc-driver/blob/main/docs/python-integrations.md#ray-data)
 for installation on every worker and live-read consistency limits.
