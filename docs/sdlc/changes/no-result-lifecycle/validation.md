@@ -48,5 +48,7 @@ clients. It rechecks effective QPF after each principal change before the raw AC
 probe. The one-shard artifact remains unchanged and identifies its earlier
 harness; the separate three-shard artifact hashes the final harness. Both owned
 fixtures and generated credentials were removed, with other running containers
-preserved. [PR #465](https://github.com/redis/redis-adbc-driver/pull/465) contains
-this work; CI must qualify the Linux architectures separately.
+preserved. [PR #465](https://github.com/redis/redis-adbc-driver/pull/465) merged the base
+coverage while the final three-shard run was completing. The stricter per-probe
+gate and three-shard artifact are a separate follow-up. CI must qualify the
+newer main dependency set and Linux architectures separately.
