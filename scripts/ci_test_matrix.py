@@ -11,6 +11,7 @@ SENSITIVE_PATHS = (
     "scripts/ci_test_matrix.py",
     "scripts/test_ci_test_matrix.py",
     "scripts/test_ci_parallel_suites.py",
+    "scripts/no_result_lifecycle.py",
     "go/database*",
     "go/connection*",
     "go/driver*",

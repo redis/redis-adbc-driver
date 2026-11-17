@@ -174,3 +174,29 @@ result-iterator construction and blocking execute-query/update callbacks without
 adding a close or changing the manager's cancellation argument. Instrumented
 records include a distinct wrapper hash and are rejected by the comparison
 auditor. These nested spans overlap outer timings and are never additive.
+
+## Native no-result permission and lifecycle screen
+
+[`scripts/no_result_lifecycle.py`](../../scripts/no_result_lifecycle.py) compares
+the public caller paths using real Software principals, synchronized cancellation
+before writes, cursor reuse, affected counts and explicit Close/retained values.
+Use only an owned Software fixture provisioned with `make -C go redis-up` and
+verified effective 4x QPF. The script rechecks the management configuration after
+principal changes; URI and CA arrive through the verified fixture environment.
+
+From an owned verified fixture shell, supervise the process and preserve each
+output under a new private filename:
+
+```sh
+python -c 'import subprocess,sys; subprocess.run(sys.argv[1:], timeout=300, check=True)' \
+  python scripts/no_result_lifecycle.py --driver /private/driver.so \
+  --software-api-port OWNED_API_PORT --software-data-port OWNED_DATA_PORT \
+  --owned-software-fixture --output /private/new-native-correctness.json
+```
+
+Failures publish only their exception type; optionally set
+`NO_RESULT_PRIVATE_FAILURE_LOG` to a private file for a local traceback. Never
+upload that traceback or fixture credentials. A supervisor kill requires the
+fixture owner's full teardown; normal exceptions run scoped cleanup. These
+checks are not concurrent-Close, uncooperative-producer, leak or speed evidence.
+See the [dated result and explicit limits](results/no-result-lifecycle-2026-11-17/README.md).
