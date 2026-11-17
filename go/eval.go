@@ -1363,6 +1363,10 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 			}
 			args[i] = t
 		}
+		if gcdLCMFunction(x.Name) {
+			t, _, err := gcdLCMTypes(x, args)
+			return t, err
+		}
 		if err := temporalInputCallError(x, args); err != nil {
 			return ColType{}, err
 		}

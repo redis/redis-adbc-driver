@@ -1,0 +1,68 @@
+{
+  "date": "2026-11-17",
+  "base": "19ebcb4605143974495b3e83791c2909b37b7809",
+  "baseline_matrix": {
+    "counts": {
+      "fail": 230,
+      "pass": 178
+    },
+    "scored": 408,
+    "pass_rate": 0.4362745098039216
+  },
+  "final_matrix": {
+    "counts": {
+      "pass": 425,
+      "unsupported": 1
+    },
+    "scored": 425,
+    "pass_rate": 1.0
+  },
+  "final_matrix_total": 426,
+  "infrastructure_errors": 0,
+  "original_passes_regressed": 0,
+  "original_mismatches_resolved": 229,
+  "additional_wrapper_default_overflow_cases": 18,
+  "full_corpus": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "full_infrastructure_errors": 0,
+  "checks": {
+    "go_unit_packages": "passed; integration skips expected",
+    "harness_unit_tests": 42,
+    "focused_software_race": {
+      "top_level_passes": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    "native_build": "passed"
+  },
+  "environment": {
+    "redis": "8.8.0",
+    "software": true,
+    "primary_shards": 3,
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "noeviction": true,
+    "trusted_tls": true,
+    "resp": 3,
+    "client": "macOS arm64 through Docker published port",
+    "reference": "PostgreSQL 18.6, C collation"
+  },
+  "source_hashes": {
+    "go/gcd_lcm_overloads.go": "c110f6ab64dc8406aec3abfb1453b795ae2dc7617c5033023038226d02ed04e5",
+    "go/gcd_lcm_overloads_test.go": "ab3e0de812e7551ebd32d126d9a2e610cda277d01ff00c1235790a6c236032db",
+    "go/gcd_lcm_overloads_integration_test.go": "66a9a341b5f1c640e84a3414e8bfac83ad83f52634ccaa4625b77285c1981639",
+    "go/pgdiff/gcd_lcm_overloads.py": "3191d8547f35ad2027741680587386be91e60bdd3461c5a975bb28cd3f46aeaf"
+  }
+}

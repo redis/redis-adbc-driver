@@ -145,6 +145,17 @@ without changing the curated corpus denominator. Its final full comparison
 retains the 605/645 dialect passes and forty failures above. Broader overload
 resolution remains tracked in #475 and the wider function surface in #110.
 
+## GCD/LCM overload resolution follow-up (2026-11-17)
+
+The [#475 correction](../../docs/sdlc/changes/gcd-lcm-overloads-475/validation.md)
+resolves integer/bigint/numeric candidates before NULL short circuit or row
+reads. A separate generated 426-case type/literal matrix records 425 matches
+and one documented decimal-range exclusion, with zero unexpected failures.
+It includes empty inputs, wrappers, DEFAULTs and overflow controls. Generate it
+with `python3 go/pgdiff/gcd_lcm_overloads.py /private/test-output`, then use that
+directory with `--corpus`. The curated corpus still records 605/645 dialect
+passes and forty failures; this follow-up does not change its denominator.
+
 ## Historical PostgreSQL 16 baseline
 
 The results below are historical PostgreSQL 16 comparisons. The retained

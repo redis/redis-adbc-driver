@@ -135,6 +135,18 @@ func (e *executor) noteParams(expr Expr) {
 				return false // binds its own arguments
 			}
 			switch {
+			case gcdLCMFunction(v.Name):
+				_, targets, err := gcdLCMTypes(v, inferArgTypes(v.Args, types, nil))
+				if err == nil {
+					for i, target := range targets {
+						// Integer signatures specify an exact Arrow width. A
+						// numeric-only constraint cannot determine a parameter's
+						// scale, so leave it unknown instead of rounding input.
+						if target.Kind.isInteger() {
+							c.noteParamOf(v.Args[i], target)
+						}
+					}
+				}
 			case stringFuncs[v.Name]:
 				for _, a := range v.Args {
 					c.noteParamOf(a, typeString)

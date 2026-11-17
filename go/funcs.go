@@ -812,6 +812,12 @@ func checkCalls(x Expr) error {
 			return
 		}
 		cerr := resolveCall(f, w != nil)
+		if cerr == nil && gcdLCMFunction(f.Name) {
+			_, _, cerr = gcdLCMTypes(f, inferArgTypes(f.Args, nil, nil))
+			if cerr != nil {
+				cerr = invalidArg(cerr)
+			}
+		}
 		if cerr == nil {
 			return
 		}
