@@ -24,7 +24,9 @@ different communities and do not provide one comparable score for these tools, s
 ranking rather than a precise universal leaderboard. The comparison below groups
 tools by workflow while retaining those numbers.
 Dask documentation checked on **2026-10-20**. Ray worker reader checked on **2026-10-29**.
-dbt adapter documentation and linked CI evidence checked on **2026-10-21**.
+dbt adapter evidence refreshed on **2026-11-16** with scoped native-v2 and
+authenticated v1 Flight SQL qualification; historical run counts retain their
+original versions and scope.
 dbt repository location verified on **2026-11-01**: [redis/redis-dbt-adapter](https://github.com/redis/redis-dbt-adapter).
 Airbyte source implementation and upstream draft status checked on **2026-11-01**;
 see [Airbyte Redis ADBC source](#airbyte-redis-adbc-source).
@@ -228,7 +230,7 @@ test dates, limitations, and evidence remain specific to each tool.
 
 | # | Tool | Redis connection solution | Redis read/write | Main purpose | General ADBC support | Redis ADBC support | Redis Arrow Flight SQL support | Redis-built / maintained connector | Third-party-built connector / alternative |
 |---|---|---|---|---|---|---|---|---|---|
-| 10 | dbt | ✅ 🔌 | 📖 ✍️ adapter | SQL transformations | **Yes, through adapters.** The Rust-based dbt v2 engine uses ADBC; dbt Core v1 can use it through a database-specific Python adapter. An ADBC driver alone does not register a database in either engine. [ADBC requirements](https://docs.getdbt.com/docs/dbt/adbc), [Adapter development](https://docs.getdbt.com/docs/contribute-dbt-adapters-v2?version=2). | Available: [dbt-redis-adbc for Core 1.10–1.x](https://github.com/redis/redis-dbt-adapter/tree/main/v1/adapter) and an [experimental native v2 adapter](https://github.com/redis/redis-dbt-adapter/tree/main/v2) compiled into the [custom engine fork](https://github.com/alberttwong/dbt). The standard v2 binary does not include Redis; install the native Redis driver separately. [Validation scope](https://github.com/redis/redis-dbt-adapter/blob/main/v2/VALIDATION.md). The current native v1 adapter also passed a local build, model-test, and catalog smoke against this checkout; [native sweep](sdlc/changes/candidate-test-runner/native-sweep.md). | Unverified. The existing adapters load the Redis driver directly; they do not establish Flight SQL compatibility. Adapter connection/configuration work and end-to-end validation remain necessary. | [Redis-hosted v1/v2 adapter project](https://github.com/redis/redis-dbt-adapter), moved to the redis organization; see the project for support scope. | The experimental v2 Rust implementation remains in the [custom engine fork](https://github.com/alberttwong/dbt); the standard dbt v2 binary excludes Redis. |
+| 10 | dbt | ✅ 🔌 ✈️ | 📖 ✍️ native / v1 Flight SQL | SQL transformations | **Yes, through adapters.** The Rust-based dbt v2 engine uses ADBC; dbt Core v1 can use it through a database-specific Python adapter. An ADBC driver alone does not register a database in either engine. [ADBC requirements](https://docs.getdbt.com/docs/dbt/adbc), [Adapter development](https://docs.getdbt.com/docs/contribute-dbt-adapters-v2?version=2). | Available: [dbt-redis-adbc for Core 1.10–1.x](https://github.com/redis/redis-dbt-adapter/tree/main/v1/adapter) and an [experimental native v2 adapter](https://github.com/redis/redis-dbt-adapter/tree/main/v2) compiled into the [custom engine fork](https://github.com/alberttwong/dbt). The standard v2 binary does not include Redis; install the native Redis driver separately. [Validation scope](https://github.com/redis/redis-dbt-adapter/blob/main/v2/VALIDATION.md). The [earlier native sweep](sdlc/changes/candidate-test-runner/native-sweep.md) records a v1 build/model-test/catalog smoke at its own recorded checkout; the newer qualification below has separate versions and scope. | Scoped v1 authenticated TLS qualification: **192 passed, 26 skipped**, plus **5 security/session probes** on macOS arm64 (Core 1.12.6; manager/Flight client 1.13.0; Redis driver v0.0.27). Requires the separate server and [candidate source fixes](https://github.com/redis/redis-dbt-adapter/pull/65); no published-package claim. Native v2 Flight SQL remains unsupported ([#51](https://github.com/redis/redis-dbt-adapter/issues/51)). [Versions and limits](https://github.com/redis/redis-dbt-adapter/blob/4984b2b3128fbcbb2b14a232bce83bf45f72d8ab/docs/validation/issue40-2026-11-16.md). | Redis organization hosting alone does not establish Redis, Inc. maintenance or support. | Community-origin [dbt-redis-adbc](https://github.com/redis/redis-dbt-adapter/tree/main/v1/adapter) for Core 1.10–1.x; the experimental v2 Rust implementation is in a [custom engine fork](https://github.com/alberttwong/dbt), with an [upstream contribution](https://github.com/dbt-labs/dbt/pull/17195) pending. |
 | 17 | Apache NiFi | ❌ | 📖 ✍️ cache reads/writes only; excluded from ✅ criteria | Visual data flows | **No standard ADBC processor verified.** Its standard SQL processor uses JDBC. [ExecuteSQL](https://nifi.apache.org/components/org.apache.nifi.processors.standard.ExecuteSQL/). | Custom processor or script integration required; untested. | Candidate through JDBC processors and Flight SQL JDBC; validate JVM options, metadata, and result conversion. | None verified. | [Redis connection/cache services](https://nifi.apache.org/components/org.apache.nifi.redis.service.RedisDistributedMapCacheClientService/), Apache NiFi: Redis-backed caching. Full command API / Query Engine access not established. |
 | 18 | Airbyte | ✅ 🔌 | 📖 Redis ADBC source; separate ✍️ marketplace destination | Data replication | **Implemented community source proposal.** The Redis (ADBC) connector consumes Arrow batches and emits Airbyte JSON/stdio; this is not native Arrow transport or a generic built-in ADBC connector. [Upstream draft PR #90323](https://github.com/airbytehq/airbyte/pull/90323). | Full-refresh reads and metadata discovery over driver-exposed SQL tables/views; Search and autocommit required. Local Linux ARM64 connector and PostgreSQL destination validation recorded; not yet enabled in Airbyte Cloud/OSS registries. [Scope and evidence](#airbyte-redis-adbc-source). | Optional `flight_sql` backend tested against the SQLite reference server. A Redis-backed Flight SQL gateway and production authentication remain unvalidated; no ✈️ badge is inferred. | None verified. | Community [Redis (ADBC) source proposal](https://github.com/airbytehq/airbyte/pull/90323), contributed by alberttwong; Redis, Inc. maintenance/support not established. Separate [marketplace Redis destination](https://docs.airbyte.com/integrations/destinations/redis) writes data structures; it does not establish Query Engine access. |
 | 19 | Fivetran | ✅ 🔌 | 📖 replication source | Managed data replication | **Custom SDK source, locally tested.** Its Python Connector SDK can consume Redis ADBC; hosted packaging/runtime compatibility remains unverified. [SDK guide](https://fivetran.com/docs/connector-sdk/getting-started). | Tested a custom native-ADBC source with the real local Connector SDK tester and verified DuckDB warehouse output. The acceptance harness records **1 passed** with SDK 2.13.1; hosted deployment and binary packaging remain unverified. [Acceptance evidence](sdlc/changes/integration-acceptance/validation.md). | Custom Connector SDK source using the Python Flight SQL driver; untested. | None verified. | [Community Redis Connector SDK example](https://github.com/fivetran/community_connectors/tree/main/redis), Fivetran community: reads keyspace/TimeSeries data for replication. Does not expose unrestricted Redis API or Query Engine commands as a tool connector; custom SDK code could be extended. |
@@ -332,8 +334,10 @@ not establish Flight SQL compatibility or every package/platform combination.
 Fabric / Power Query is another candidate with custom connector work. dbt has
 community Redis adapters for Core 1.10–1.x and experimental v2 support in a custom
 engine fork. The v1 Python package does not enable Redis in the standard v2
-executable. Both documented paths load the native Redis ADBC driver directly;
-Flight SQL remains unverified.
+executable. Direct native-driver loading and the separate v1 Flight SQL
+transport have distinct evidence. The v1 Flight source candidate passed scoped
+TLS/authentication and dbt workflow qualification; native v2 Flight SQL remains
+unsupported. [Recorded versions and limits](https://github.com/redis/redis-dbt-adapter/blob/4984b2b3128fbcbb2b14a232bce83bf45f72d8ab/docs/validation/issue40-2026-11-16.md).
 dlt now has this repository's append-only Redis ADBC destination. It does not
 provide replace/merge, automatic schema migrations, rollback, or exactly-once
 retries. Local pipeline state must be retained; see the [dlt guide](python-integrations.md#dlt).
@@ -652,10 +656,37 @@ build results plus one configured source warning, and 82 successes for the empty
 build. Python table models, snapshots, contracts, merge, microbatch and persisted
 docs are included in the recorded scenarios. This is experimental custom-engine
 support; the standard dbt v2 executable does not include Redis, static analysis
-remains disabled, and these results do not establish Flight SQL compatibility or
-support for every deployment. SQL grants remain unsupported in both adapters. The driver now provides
-[materialized-view SQL](sql-101-105.md); complete adapter materialization runs
-remain unverified.
+remains disabled, and these historical results do not establish Flight SQL
+compatibility or support for every deployment.
+
+The [November 16 source qualification](https://github.com/redis/redis-dbt-adapter/blob/4984b2b3128fbcbb2b14a232bce83bf45f72d8ab/docs/validation/issue40-2026-11-16.md)
+adds a native dbt-oss 2.0.11 candidate at engine commit
+`754f0a47164f86226dc568096ac56906ff9d2e69`, driver v0.0.27, and Redis Enterprise
+8.6.2 on macOS arm64, with three shards, Search, active QPF 4x, verified TLS and
+named-user authentication. The Rust ADBC 1.1/concurrency audit, smoke/parity,
+Python/CSV and complete sampled taxi workflows passed, including 82 build
+successes plus one configured warning and 82 empty-build successes.
+The [upstream adapter PR](https://github.com/dbt-labs/dbt/pull/17195) is submitted,
+not accepted; code-health, CLA and fork-CI requirements remain tracked in the
+adapter project. Stock dbt v2 still excludes Redis.
+
+The same qualification records actual v1 dbt workflows over an authenticated
+TLS Flight SQL hop: **192 passed, 26 skipped, no warnings**, plus **5 security
+and concurrent-session probes**. It used Core 1.12.6, Python 3.13.16,
+manager/Flight client 1.13.0, PyArrow 26.0.0, public Flight source
+`4d91e37135080be7f0eeb770fc89fa7adeb14bc8` and the latest stable Redis driver at
+build/recheck, v0.0.27. These are [candidate source fixes](https://github.com/redis/redis-dbt-adapter/pull/65),
+not a claim about the published Python package, other Flight databases or every
+deployment. The Flight server runs separately from Redis. Native v2 Flight SQL
+is unsupported and tracked in [adapter issue #51](https://github.com/redis/redis-dbt-adapter/issues/51).
+These new dbt runs do not change the historical tool-sweep/Flight counts.
+
+The v1 project separately records [native SELECT grants through dedicated
+Redis Software ACLs](https://github.com/redis/redis-dbt-adapter/blob/main/v1/README.md#sql-grants-through-dedicated-redis-software-acls)
+and [native materialized-view lifecycle validation](https://github.com/redis/redis-dbt-adapter/blob/main/v1/MATERIALIZED_VIEW_VALIDATION.md).
+Those feature-specific results do not establish v2 or Flight support for the
+same features. The generic [driver materialized-view SQL](sql-101-105.md) alone
+would not establish an adapter materialization run.
 
 The [differential harness](../go/pgdiff/README.md) replays captured dbt-postgres SQL
 through Redis ADBC. It does not validate a Redis dbt adapter or a full dbt run,
