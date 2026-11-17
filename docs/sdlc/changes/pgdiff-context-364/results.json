@@ -1,0 +1,116 @@
+{
+  "date": "2026-11-17",
+  "base": "ef914bb3",
+  "summary": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "total_cases": 655,
+  "infrastructure_errors": 0,
+  "targeted_cases": [
+    {
+      "file": "issue-246.json",
+      "id": "row-1",
+      "status": "context"
+    },
+    {
+      "file": "issue-246.json",
+      "id": "row-2",
+      "status": "context"
+    },
+    {
+      "file": "issue-246.json",
+      "id": "row-6",
+      "status": "context"
+    },
+    {
+      "file": "issue-246.json",
+      "id": "row-9",
+      "status": "context"
+    },
+    {
+      "file": "issue-246.json",
+      "id": "row-10",
+      "status": "context"
+    },
+    {
+      "file": "issue-268.json",
+      "id": "repro-4",
+      "status": "extension"
+    },
+    {
+      "file": "postgres/window.json",
+      "id": "statement-0006",
+      "status": "pass"
+    }
+  ],
+  "remaining_failures": [
+    "issue-249.json:row-6",
+    "issue-249.json:row-9",
+    "issue-260.json:row-3",
+    "issue-263.json:row-1",
+    "issue-263.json:row-2",
+    "issue-264.json:row-1",
+    "issue-264.json:row-2",
+    "issue-269.json:row-1",
+    "issue-269.json:row-2",
+    "issue-269.json:uncommitted-visibility",
+    "issue-270.json:row-1",
+    "issue-270.json:row-2",
+    "issue-270.json:row-3",
+    "issue-270.json:row-4",
+    "issue-270.json:row-5",
+    "issue-272.json:row-1",
+    "issue-272.json:row-2",
+    "issue-272.json:row-3",
+    "postgres/float8.json:statement-0036",
+    "postgres/numeric.json:statement-0526",
+    "postgres/numeric.json:statement-0527",
+    "postgres/numeric.json:statement-0528",
+    "postgres/numeric.json:statement-0530",
+    "postgres/numeric.json:statement-0531",
+    "postgres/numeric.json:statement-0532",
+    "postgres/numeric.json:statement-0534",
+    "postgres/numeric.json:statement-0535",
+    "postgres/numeric.json:statement-0536",
+    "postgres/numeric.json:statement-0543",
+    "postgres/numeric.json:statement-0547",
+    "postgres/numeric.json:statement-0551",
+    "postgres/numeric.json:statement-0553",
+    "postgres/numeric.json:statement-0554",
+    "postgres/numeric.json:statement-0555",
+    "postgres/timestamp.json:statement-0026",
+    "postgres/timestamp.json:statement-0103",
+    "postgres/timestamp.json:statement-0133",
+    "postgres/timestamp.json:statement-0136",
+    "postgres/timestamptz.json:statement-0028",
+    "postgres/timestamptz.json:statement-0120"
+  ],
+  "environment": {
+    "client": "macOS arm64, Docker published port",
+    "redis": "8.8.0",
+    "primary_shards": 3,
+    "tls_verified": true,
+    "resp": 3,
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "noeviction": true,
+    "postgres": "18.6, C collation"
+  },
+  "checks": {
+    "harness_unit_tests": 42,
+    "focused_software_race": "TestSQLSetParameters passed",
+    "sqlalchemy_native": "1 passed, 4 deselected",
+    "native_build": "passed"
+  }
+}

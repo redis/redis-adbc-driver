@@ -64,7 +64,7 @@ def main():
             execute("COMMENT ON COLUMN it_sa_catalog.example.note IS 'column comment'")
             execute("CREATE VIEW it_sa_catalog.example_view AS SELECT id,name FROM it_sa_catalog.example")
             dialect = PGDialect(paramstyle="qmark")
-            dialect.server_version_info = (16, 0)
+            dialect.server_version_info = (18, 0)
             dialect.default_schema_name = "public"
             conn = Connection(raw, dialect)
             assert "it_sa_catalog" in dialect.get_schema_names(conn)

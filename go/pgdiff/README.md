@@ -110,6 +110,31 @@ is not the complete PostgreSQL optimizer or general recursive streaming.
 Thirty-four separate edge cases pass outside the scored denominator. Corpus SQL
 and allowlists are unchanged.
 
+## Context and peer comparison follow-up (2026-11-17)
+
+The [#364 follow-up](../../docs/sdlc/changes/pgdiff-context-364/validation.md)
+measured **605/645 dialect passes (93.80%)**, **40 failures**, five verified
+endpoint-context cases, one verified interval-syntax extension, two existing
+allowed extensions, two exclusions and zero infrastructure errors (655 total).
+The denominator changed because the five identities and one extension are now
+reported separately; this is not six newly implemented dialect cases.
+
+`comparison_policies.py` binds all seven policies to exact file/case/SQL. It
+checks endpoint usernames and versions independently, including the reference
+connection's startup version and the driver's PostgreSQL 18 compatibility
+advertisement (`18.0` / `180000`). Raw reference and driver identities remain
+in the private report. PostgreSQL's full build text stays distinct from the
+Redis driver identity. The advertised dialect target does not assert full
+PostgreSQL compatibility or Core conformance.
+
+The single window case compares multisets only within adjacent equal-rank
+peer groups, preserving ordering between distinct ranks, duplicates, types and
+every field value. Other ordered cases remain strictly ordered. The exact
+unquoted-INTERVAL case requires PostgreSQL 42601 and the independently checked
+Redis UTC timestamp result; it is an `extension`, never a dialect pass.
+Corpus SQL, provenance, oracle and allowlist are unchanged. The #359 audit
+revalidates these explicit dispositions without treating them as dialect passes.
+
 ## Historical PostgreSQL 16 baseline
 
 The results below are historical PostgreSQL 16 comparisons. The retained
@@ -220,8 +245,9 @@ error rather than a dialect score.
 
 Rows compare as multisets, preserving duplicates, unless an outer `ORDER BY`
 constrains output order. Subquery, window and aggregate ordering don't order the
-result. `ordered: true/false` can override detection. Choose total outer ordering
-when ties matter; the window subset adds a documented empno tie-breaker. Avoid
+result. `ordered: true/false` can override detection. Use total outer ordering
+when ties matter. One source-bound window policy compares only equal-rank peers;
+the other adapted window case retains its documented empno tie-breaker. Avoid
 unordered LIMIT samples except explicitly deterministic recursive generators.
 The script scanner handles PostgreSQL E/dollar quoting, nested comments and psql
 commands without discarding intentionally invalid Unicode/error-test literals.
