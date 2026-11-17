@@ -49,7 +49,8 @@ const (
 	// indexes every numeric, temporal, boolean and string column.
 	OptionStringIngestIndexColumns = "adbc.redis.ingest.index_columns"
 	// OptionStringIngestUnmanagedSource (statement) selects application-owned
-	// creation with explicit JSON prefix, index and optional column encodings.
+	// creation with explicit JSON prefix, index and optional column encodings,
+	// or dedicated replacement with an explicit replace consent object.
 	OptionStringIngestUnmanagedSource = "adbc.redis.ingest.unmanaged_source"
 	// OptionStringAggregatePushdown (database or statement) controls which
 	// aggregates run inside RediSearch (GROUPBY/REDUCE over SORTABLE fields):

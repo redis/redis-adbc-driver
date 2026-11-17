@@ -1,5 +1,10 @@
 # Proposed unmanaged Arrow replacement contract
 
+Historical proposal from PR #456. The subsequent #399 implementation uses the
+[dedicated replacement contract](unmanaged-arrow-replace.md), with bounded
+in-memory inventories and explicit index-reset consent. The proposal-only status
+below describes that earlier deliverable.
+
 Status: **proposal for review; unsupported at runtime**. Requested by Albert Wong
 on 2026-11-17 in [#399](https://github.com/redis/redis-adbc-driver/issues/399).
 The requested deliverable is the contract, not implementation. Existing append,

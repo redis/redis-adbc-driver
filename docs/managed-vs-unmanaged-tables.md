@@ -45,7 +45,7 @@ select how a particular write uses the target table:
 |---|---|---|
 | `create` | Create a new table; fail if it exists | Create/register a new application collection with explicit source configuration |
 | `append` | Add the complete input atomically | Insert new explicit `__key` values directly into source HASHes |
-| `replace` | Replace the schema and data atomically | Unsupported |
+| `replace` | Replace the schema and data atomically | Destructive dedicated-source opt-in; partial visibility/failure; [contract](unmanaged-arrow-replace.md) |
 | `create_append` | Create if missing; otherwise append | Create with explicit source configuration if missing; otherwise append |
 
 Unmanaged writes have no publication step and can partially succeed. Ordinary
@@ -117,8 +117,10 @@ writes use the driver; managed HASH-style reads use the snapshot-aware
   managed-table protocol.
 - **Partial source writes.** Unmanaged SQL writes and Arrow append change source
   HASHes directly and can partially succeed. INSERT and Arrow append require new
-  explicit `__key` values. ALTER, TRUNCATE, Arrow replace and
-  snapshot-only APIs are unsupported. See the
+  explicit `__key` values. Dedicated Arrow replacement requires explicit
+  destructive consent and quiescent writers; it deletes old data and resets the
+  application index without rollback. ALTER, TRUNCATE and snapshot-only APIs are
+  unsupported. See the
   [Arrow write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes)
   for acknowledged-row reporting and uncertain-reply handling.
 
