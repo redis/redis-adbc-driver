@@ -13,7 +13,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
 - Unit-only pass: `cd go && env -u REDIS_URI go test -count=1 -p 1 ./...`;
   integration skips are expected and do not prove Redis compatibility.
 - Disposable Redis Software with Search: `make -C go redis-up` (Docker Compose,
-  curl, jq). Use a dedicated test database; suites modify data.
+  curl, jq). Use a dedicated test database; suites modify data. Setup refuses
+  fixtures labeled as another checkout's; select a dedicated Compose project
+  and ports before setup in a concurrent worktree.
 - Full default Software suite: `make -C go test-software`. It verifies QPF and
   noeviction through the management API before passing the retained-control
   policy declaration. Full package runs have a 30-minute budget (override with

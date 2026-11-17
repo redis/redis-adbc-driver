@@ -4,16 +4,6 @@ This is the source contract for [issues 198–209](https://github.com/redis/redi
 Redis HASHes store SQL values; an input Arrow encoding is not a persistent
 storage layout. Rebuild the native library to use these changes.
 
-Go `BindStream` retains its own reader reference. Callers must release their
-reference after binding; failed binding leaves that reference with the caller.
-Rebinding the same reader retains it before releasing the previous binding, and
-binding a nil reader clears parameters. The C bridge releases its imported
-reader reference after the bind call. This follows the Go ADBC ownership contract;
-Go callers that previously donated a reader must now release their reference.
-The normal forced-GC policy remains unchanged while the
-[lifetime investigation](../benchmarks/crud-execution/results/2026-11-17/ownership.md)
-and sanitizer gates remain open.
-
 ## Input and stored schemas
 
 | Input family | Stored SQL value and default output | Physical output selection |
@@ -330,6 +320,17 @@ Releasing/cancelling a reader preserves previously retained Arrow batches.
 See the [change record and verification](sdlc/changes/arrow-map-union-267-268/plan.md).
 
 ## Ownership and extension policy
+
+Go `BindStream` retains its own reader reference. Callers must release their
+reference after binding; failed binding leaves that reference with the caller.
+Rebinding the same reader retains it before releasing the previous binding, and
+binding a nil reader clears parameters. The C bridge releases its imported
+reader reference after the bind call. This follows the Go ADBC ownership contract;
+Go callers that previously donated a reader must now release their reference.
+The normal forced-GC policy remains unchanged while the
+[lifetime investigation](../benchmarks/crud-execution/results/2026-11-17/ownership.md)
+and sanitizer gates remain open.
+
 
 - C Data/Stream import retains the Arrow objects needed while reading. Caller
   ownership follows the ADBC Bind/BindStream contract.

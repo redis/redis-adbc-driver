@@ -101,3 +101,14 @@ preferred outcome appears. Independently verify cleanup and remove only the
 fixture resources that the run owns. Operational manifests, endpoints, TLS keys,
 credentials and raw management output stay private. This reproduction is not an
 ASAN or passing race-gate procedure.
+
+
+## Current unchanged-policy safety gate (#446)
+
+Use `build.py --base FULL_COMMIT --baseline-only --race --work NEW_PRIVATE_DIR`
+to test the current bridge without applying the omission patch. Omit `--race`
+for a separate normal correctness binary. The resolved commit and selection are
+recorded in the private manifest; the default historical source remains unchanged.
+Run `run.py --correctness-only` with each actual library before considering any
+policy candidate. The [2026-11-17 inventory and checks](../crud-execution/results/2026-11-17/ownership.md)
+retain the reproduced checkptr blocker and do not bypass it.

@@ -32,6 +32,22 @@ cd "$(dirname "$0")"
 for tool in docker curl jq openssl python3; do
     command -v "$tool" >/dev/null || { echo "Required tool not found: $tool" >&2; exit 1; }
 done
+# Compose's default project name is just "go" across all repository worktrees.
+# Refuse another checkout's fixture before generating/replacing trust material
+# or changing its database policy. Labels are read-only ownership evidence.
+fixture_ids=$(docker compose ps --all --quiet redis-software)
+for fixture_id in $fixture_ids; do
+    fixture_owner=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$fixture_id")
+    if ! python3 - "$PWD" "$fixture_owner" <<'PYOWNER'
+from pathlib import Path
+import sys
+sys.exit(0 if sys.argv[2] and Path(sys.argv[1]).resolve() == Path(sys.argv[2]).resolve() else 1)
+PYOWNER
+    then
+        echo 'Refusing a Redis Software fixture owned by another checkout or with unverifiable ownership. Select a dedicated COMPOSE_PROJECT_NAME and SOFTWARE_API_PORT/SOFTWARE_DB_PORT.' >&2
+        exit 1
+    fi
+done
 api_port=${SOFTWARE_API_PORT:-19443}
 db_port=${SOFTWARE_DB_PORT:-6379}
 redis_version=${SOFTWARE_REDIS_VERSION:-8.8}

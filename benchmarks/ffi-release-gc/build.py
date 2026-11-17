@@ -24,6 +24,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--race', action='store_true', help='Separate correctness binaries; never use for timing')
+    p.add_argument('--base', default=BASE, help='Source commit to archive; historical default remains unchanged')
+    p.add_argument('--baseline-only', action='store_true', help='Ownership gate on unchanged GC policy; do not build an omission candidate')
     args = p.parse_args()
     repo = Path(__file__).resolve().parents[2]
     work = args.work.resolve()
@@ -35,18 +37,29 @@ def main():
     for key in ('GOFLAGS', 'GOWORK', 'GOMAXPROCS', 'REDIS_URI', 'REDIS_SNAPSHOT_URI'):
         env.pop(key, None)
     env.update(GOWORK='off', GOTOOLCHAIN='go1.27.3', CGO_ENABLED='1')
-    archive = subprocess.check_output(['git', 'archive', BASE, 'go'], cwd=repo)
+    base = subprocess.check_output(['git', 'rev-parse', '--verify', args.base + '^{commit}'], cwd=repo, text=True).strip()
+    archive = subprocess.check_output(['git', 'archive', base, 'go'], cwd=repo)
     source = Path(__file__).with_name('probe.go.txt')
     patch = Path(__file__).parent / 'patches/omit-forced-gc.patch'
-    info = dict(base_commit=BASE, archive_sha256=hashlib.sha256(archive).hexdigest(),
+    info = dict(base_commit=base, baseline_only=args.baseline_only, archive_sha256=hashlib.sha256(archive).hexdigest(),
                 fixture_sha256=sha(source), patch_sha256=sha(patch), race=args.race,
                 go=subprocess.check_output(['go', 'version'], env=env, text=True).strip(), builds={})
-    for variant in ('baseline', 'candidate'):
+    for variant in (('baseline',) if args.baseline_only else ('baseline', 'candidate')):
         tree = work / (variant + '-source')
         tree.mkdir()
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
             tar.extractall(tree, filter='data')
-        (tree / 'go/pkg/ffi_release_probe.go').write_bytes(source.read_bytes())
+        fixture = source.read_bytes()
+        # Historical bridges donated the imported reference. Current bridges
+        # release it after BindStream, matching Go ADBC's retaining contract.
+        # Adapt only the stub, never the archived production bridge, and retain
+        # the actual overlaid fixture hash separately from the historical file.
+        retains_stream = 'defer rdr.(array.RecordReader).Release()' in (tree / 'go/pkg/driver.go').read_text()
+        if retains_stream:
+            marker = b'func (s *probeStatement) BindStream(_ context.Context, r array.RecordReader) error {\n'
+            assert fixture.count(marker) == 1
+            fixture = fixture.replace(marker, marker + b'\tif r != nil { r.Retain() }\n')
+        (tree / 'go/pkg/ffi_release_probe.go').write_bytes(fixture)
         if variant == 'candidate':
             subprocess.run(['git', 'apply', '--check', str(patch)], cwd=tree, check=True)
             subprocess.run(['git', 'apply', str(patch)], cwd=tree, check=True)
@@ -61,6 +74,7 @@ def main():
         with (work / (variant + '-build.log')).open('w') as log:
             result = subprocess.run(cmd, cwd=tree / 'go', env=env, stdout=log, stderr=subprocess.STDOUT)
         info['builds'][variant] = dict(exit_code=result.returncode, command=cmd,
+            fixture_written_sha256=hashlib.sha256(fixture).hexdigest(), retains_stream=retains_stream,
             log_sha256=sha(work / (variant + '-build.log')),
             module_sha256=sha(tree / 'go/go.mod'), sum_sha256=sha(tree / 'go/go.sum'),
             driver_source_sha256=sha(tree / 'go/pkg/driver.go'))
@@ -69,7 +83,7 @@ def main():
                 ['go', 'version', '-m', str(binary)], env=env, text=True))
         (work / 'manifest-private.json').write_text(json.dumps(info, indent=2) + '\n')
         assert result.returncode == 0, f'{variant} build failed; preserve logs and choose a new work directory'
-    print('Both variants built. Review private manifest before running separate correctness/timing processes.')
+    print('Builds complete. Review private manifest before running separate correctness/timing processes.')
 
 
 if __name__ == '__main__':

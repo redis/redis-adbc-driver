@@ -1,0 +1,141 @@
+{
+  "metadata": {
+    "driver_version": "v0.1.0",
+    "driver_source_commit": "6e17a91fa045347f3d3d683dd1e7e2bf31db87a6",
+    "driver_sha256": "acbde311a6f546aa408527dfe67cbc4a4c6471a8d7dedb8ffeabfd57acd44052",
+    "harness_sha256": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "automatic_retries": 0,
+    "protocol": 3,
+    "tls": true,
+    "repetitions": 3,
+    "operations": 32,
+    "queries": 8,
+    "point_rows": 1000,
+    "olap_rows": 100000,
+    "columns": 4,
+    "suite": "all",
+    "generator": "id=1..N; grp=id%16; amount=id*3; label=row-{id:08d}",
+    "timing_scope": "Persistent per-thread clients; execute plus complete typed Arrow result or acknowledged write. Setup/teardown and independent validation excluded. Closed-loop fixed-operation trials, not saturated capacity.",
+    "addressing": "Managed known internal row IDs; unmanaged/raw known application keys. Mapping lookup excluded; no multi-statement transactions.",
+    "packages": {
+      "pyarrow": "26.0.1",
+      "adbc-driver-manager": "1.13.0",
+      "redis": "8.1.0",
+      "hiredis": "3.5.0"
+    }
+  },
+  "final_qpf": {
+    "factor": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296
+  },
+  "status": "correctness_screen_complete",
+  "caller_checks": [
+    {
+      "mode": "managed",
+      "execution": "execute",
+      "affected_rows": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "exact_values_and_nulls": true,
+      "complete_state_validated": true,
+      "raw_source_validated": false,
+      "errors": [
+        {
+          "type": "ProgrammingError",
+          "sqlstate": null,
+          "status": "5"
+        },
+        {
+          "type": "ProgrammingError",
+          "sqlstate": "42703",
+          "status": "3"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "execution": "executemany",
+      "affected_rows": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "exact_values_and_nulls": true,
+      "complete_state_validated": true,
+      "raw_source_validated": false,
+      "errors": [
+        {
+          "type": "ProgrammingError",
+          "sqlstate": null,
+          "status": "5"
+        },
+        {
+          "type": "ProgrammingError",
+          "sqlstate": "42703",
+          "status": "3"
+        }
+      ]
+    },
+    {
+      "mode": "unmanaged",
+      "execution": "execute",
+      "affected_rows": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "exact_values_and_nulls": true,
+      "complete_state_validated": true,
+      "raw_source_validated": true,
+      "errors": [
+        {
+          "type": "ProgrammingError",
+          "sqlstate": null,
+          "status": "5"
+        },
+        {
+          "type": "ProgrammingError",
+          "sqlstate": "42703",
+          "status": "3"
+        }
+      ]
+    },
+    {
+      "mode": "unmanaged",
+      "execution": "executemany",
+      "affected_rows": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "exact_values_and_nulls": true,
+      "complete_state_validated": true,
+      "raw_source_validated": true,
+      "errors": [
+        {
+          "type": "ProgrammingError",
+          "sqlstate": null,
+          "status": "5"
+        },
+        {
+          "type": "ProgrammingError",
+          "sqlstate": "42703",
+          "status": "3"
+        }
+      ]
+    }
+  ]
+}

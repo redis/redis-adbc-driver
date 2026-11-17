@@ -67,6 +67,9 @@ class NativeSubstageTest(unittest.TestCase):
             def execute_query():
                 return value
             self.assertIs(dbapi._blocking_call(execute_query, (), {}, cancel), value)
+            def execute_update():
+                return 3
+            self.assertEqual(dbapi._blocking_call(execute_update, (), {}, cancel), 3)
             dbapi._RowIterator().close()
             failure = RuntimeError('same failure')
             def prepare():
@@ -76,7 +79,7 @@ class NativeSubstageTest(unittest.TestCase):
             self.assertIs(raised.exception, failure)
         finally:
             stages._active_record.record = None
-        self.assertEqual(calls, [cancel, 'close', cancel])
+        self.assertEqual(calls, [cancel, cancel, 'close', cancel])
         self.assertEqual(set(record['native_stage_ns']),
-                         {'adbc_execute_query', 'previous_result_close', 'adbc_prepare'})
+                         {'adbc_execute_query', 'adbc_execute_update', 'previous_result_close', 'adbc_prepare', 'result_construction'})
         self.assertTrue(all(value > 0 for value in record['native_stage_ns'].values()))
