@@ -45,7 +45,7 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 		return args[0], true
 	case "PG_INPUT_ERROR_INFO":
 		return inputErrorType(), true
-	case "__OVERLAPS", "PG_INPUT_IS_VALID", "ISFINITE":
+	case "__OVERLAPS", "PG_INPUT_IS_VALID", "ISFINITE", "IS_NORMALIZED":
 		return typeBool, true
 	case "CHR", "TRANSLATE", "ENCODE", "QUOTE_LITERAL", "QUOTE_NULLABLE":
 		return typeString, true
