@@ -63,7 +63,15 @@ func (s *store) checkSnapshotDeployment(ctx context.Context, requireEmpty bool) 
 				return err
 			}
 			if n != 0 {
-				return errorf(adbc.StatusInvalidState, "managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified")
+				// Route the anchor read through the catalog client: in Cluster
+				// API mode it need not live on the node checked by DBSIZE.
+				initialized, err := s.snapshotCatalogInitialized(ctx)
+				if err != nil {
+					return err
+				}
+				if !initialized {
+					return errorf(adbc.StatusInvalidState, "managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified")
+				}
 			}
 		}
 		return nil
