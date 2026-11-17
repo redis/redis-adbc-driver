@@ -241,6 +241,7 @@ var funcDefs = []funcDef{
 	{name: "GCD", min: 2, max: 2, impl: implPostgres},
 	{name: "LCM", min: 2, max: 2, impl: implPostgres},
 	{name: "SCALE", min: 1, max: 1, impl: implPostgres},
+	{name: "MIN_SCALE", min: 1, max: 1, impl: implPostgres},
 	{name: "TRIM_SCALE", min: 1, max: 1, impl: implPostgres},
 	{name: "MAKE_INTERVAL", min: 7, max: 7, impl: implPostgres},
 	{name: "__OVERLAPS", min: 4, max: 4, impl: implPostgres, internal: true},

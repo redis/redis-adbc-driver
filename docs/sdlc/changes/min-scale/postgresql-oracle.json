@@ -1,0 +1,80 @@
+[
+  {
+    "sql": "SELECT min_scale(1.23000),min_scale(-1.23000),min_scale(0.000),min_scale(1200.000),min_scale(0.00000100)",
+    "returncode": 0,
+    "stdout": "2|2|0|0|6",
+    "stderr": ""
+  },
+  {
+    "sql": "SELECT min_scale(42::smallint),min_scale(42::integer),min_scale(9223372036854775807::bigint)",
+    "returncode": 0,
+    "stdout": "0|0|0",
+    "stderr": ""
+  },
+  {
+    "sql": "SELECT min_scale('1.23000'),min_scale('1e-1000'),min_scale('1e1000'),min_scale('1_000.001_00')",
+    "returncode": 0,
+    "stdout": "2|1000|0|3",
+    "stderr": ""
+  },
+  {
+    "sql": "SELECT min_scale(NULL),min_scale(NULL::numeric),pg_typeof(min_scale(NULL))",
+    "returncode": 0,
+    "stdout": "||integer",
+    "stderr": ""
+  },
+  {
+    "sql": "SELECT min_scale('1'::text)",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  42883: function min_scale(text) does not exist\nLINE 1: SELECT min_scale('1'::text)\n               ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\nLOCATION:  ParseFuncOrColumn, parse_func.c:629"
+  },
+  {
+    "sql": "SELECT min_scale(1::float8)",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  42883: function min_scale(double precision) does not exist\nLINE 1: SELECT min_scale(1::float8)\n               ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\nLOCATION:  ParseFuncOrColumn, parse_func.c:629"
+  },
+  {
+    "sql": "SELECT min_scale(NULL::float4)",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  42883: function min_scale(real) does not exist\nLINE 1: SELECT min_scale(NULL::float4)\n               ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\nLOCATION:  ParseFuncOrColumn, parse_func.c:629"
+  },
+  {
+    "sql": "SELECT min_scale(NULL::text)",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  42883: function min_scale(text) does not exist\nLINE 1: SELECT min_scale(NULL::text)\n               ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\nLOCATION:  ParseFuncOrColumn, parse_func.c:629"
+  },
+  {
+    "sql": "SELECT min_scale(true)",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  42883: function min_scale(boolean) does not exist\nLINE 1: SELECT min_scale(true)\n               ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\nLOCATION:  ParseFuncOrColumn, parse_func.c:629"
+  },
+  {
+    "sql": "SELECT min_scale(ARRAY[1])",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  42883: function min_scale(integer[]) does not exist\nLINE 1: SELECT min_scale(ARRAY[1])\n               ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\nLOCATION:  ParseFuncOrColumn, parse_func.c:629"
+  },
+  {
+    "sql": "SELECT min_scale('bad') FROM generate_series(1,0)",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  22P02: invalid input syntax for type numeric: \"bad\"\nLINE 1: SELECT min_scale('bad') FROM generate_series(1,0)\n                         ^\nLOCATION:  numeric_in, numeric.c:803"
+  },
+  {
+    "sql": "SELECT min_scale('1e-16384') FROM generate_series(1,0)",
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "ERROR:  22003: value overflows numeric format\nLINE 1: SELECT min_scale('1e-16384') FROM generate_series(1,0)\n                         ^\nLOCATION:  numeric_in, numeric.c:793"
+  },
+  {
+    "sql": "SELECT min_scale('NaN'),min_scale('Infinity')",
+    "returncode": 0,
+    "stdout": "|",
+    "stderr": ""
+  }
+]
