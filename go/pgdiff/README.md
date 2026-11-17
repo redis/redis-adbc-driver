@@ -346,3 +346,14 @@ empty input and parser distinctions. It changes no curated SQL, expected results
 or allowlist. [Verification and Unicode source provenance](../../docs/sdlc/changes/unicode-functions-110/validation.md)
 also record the full Unicode 16 conformance-vector run. General DEFAULT value
 error timing is a separate known issue, [#479](https://github.com/redis/redis-adbc-driver/issues/479).
+
+## FACTORIAL comparison (#110)
+
+`python3 go/pgdiff/factorial.py /private/factorial-corpus` creates a separate
+130-case corpus for `--corpus`: all exact values 0!..56!, integer widening,
+unknown literals, NULLs/signatures, argument counts, empty/lazy planning and
+PostgreSQL overflow. Four 57!/100! comparisons (ordinary and empty queries)
+explicitly verify the existing Arrow decimal256 precision76 rejection while
+PostgreSQL can represent the value. These are unsupported range cases, not
+passes. The curated SQL/oracles/allowlist remain unchanged. See
+[verification and range scope](../../docs/sdlc/changes/factorial-110/validation.md).
