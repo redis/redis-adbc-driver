@@ -1367,6 +1367,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 			t, _, err := gcdLCMTypes(x, args)
 			return t, err
 		}
+		if err := minScaleCallError(x, args); err != nil {
+			return ColType{}, err
+		}
 		if err := temporalInputCallError(x, args); err != nil {
 			return ColType{}, err
 		}

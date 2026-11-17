@@ -63,7 +63,11 @@ The `airflow` extra enables the registered Redis ADBC Airflow provider. Use a
 
 Optional extras: `sqlalchemy` for current SQLAlchemy,
 `dagster` for the Redis ADBC IO manager, and `dask` for partitioned DataFrame
-reads with `adbc_driver_redis.dask.read_query`. The source build's `ray` extra
+reads with `adbc_driver_redis.dask.read_query` and worker-local Arrow appends with
+`adbc_driver_redis.dask.write_dataframe`. Writes require explicit acknowledgment
+that task recomputation can duplicate rows; see the
+[Dask guide](../docs/integrations/dask.md#write-computed-results).
+The source build's `ray` extra
 pins Ray 2.60.0 and supplies worker-side Arrow reads through
 `adbc_driver_redis.ray.read_query`; see the
 [Ray guide](https://github.com/redis/redis-adbc-driver/blob/main/docs/python-integrations.md#ray-data)

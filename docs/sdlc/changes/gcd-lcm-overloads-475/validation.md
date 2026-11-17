@@ -93,3 +93,14 @@ No unresolved actionable finding remains within #475's three-signature scope.
 Numeric nonfinite and broader representation work remain #362; the wider
 function surface remains #110. No general PostgreSQL overload framework, full
 Software Go suite, benchmark, human approval, hosted CI or merge is asserted.
+
+## Main-branch conflict resolution
+
+Merged `a9000d79` (PR #477) into this branch after it introduced MIN_SCALE in
+the shared inference and scalar-dispatch functions. Both MIN_SCALE's validation
+and execution branches and GCD/LCM's resolver/conversion branches are retained.
+Reviewed the resulting diff against the new main; no MIN_SCALE behavior was
+removed. Re-ran all Go unit packages with `env -u REDIS_URI go test -count=1 -p 1
+./...` and the native Makefile build successfully. Integration skips are
+expected in this unit-only rerun. The live comparison/race evidence above was
+collected before this merge; it was not rerun for the conflict resolution.
