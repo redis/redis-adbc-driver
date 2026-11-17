@@ -16,7 +16,7 @@ import (
 
 func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 	switch name {
-	case "FORMAT":
+	case "FORMAT", "NORMALIZE", "UNISTR":
 		return typeString, true
 	case "SCALE", "MIN_SCALE":
 		return typeInt32, true
@@ -78,6 +78,9 @@ func pg18Scalar(f *Func, args []Value, z tzZone) (Value, error) {
 			}
 		}
 		args = converted
+	}
+	if unicodeFunction(f.Name) {
+		return pgUnicode(f, args)
 	}
 	if f.Name == "MIN_SCALE" {
 		return pgMinScale(f, args[0])

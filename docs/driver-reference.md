@@ -3307,6 +3307,22 @@ allow otherwise streamable queries to stream.
     [, fill])`, `REPLACE`, `REVERSE`, `REPEAT`, `INITCAP`, `MD5`,
     `STARTS_WITH`, `SPLIT_PART(s, delim, n)` (a negative `n` counts from
     the end)
+  - `NORMALIZE(text [, NFC | NFD | NFKC | NFKD])` applies Unicode 16
+    normalization, matching PostgreSQL 18; the default is NFC. The form is a
+    bare keyword. Use `pg_catalog.normalize(text, form_text)` for a dynamic text
+    form; form names are case-insensitive. Long combining sequences preserve
+    their characters without inserting stream-safe separators.
+  - `UNISTR(text)` decodes `\XXXX`, `\+XXXXXX`, `\uXXXX` and `\UXXXXXXXX`
+    Unicode escapes, adjacent UTF-16 surrogate pairs and `\\` for a literal
+    backslash. It leaves ordinary Unicode characters intact and does not
+    rescan decoded characters. Malformed escapes/pairs give `42601`;
+    zero/out-of-range code points give `22023`.
+  - Both Unicode functions return text (Arrow string), preserve NULL and take
+    fixed CHAR values without trailing padding. Incompatible typed arguments,
+    including typed NULLs, give `42883`; invalid normalization forms give
+    `22023`. Unreachable CASE value errors stay unevaluated. `IS NORMALIZED`
+    is outside this implementation. General DEFAULT evaluation timing remains
+    tracked in [#479](https://github.com/redis/redis-adbc-driver/issues/479).
   - `REGEXP_REPLACE(s, pattern, replacement [, start [, n]] [, flags])`
     replaces the first match, or all of them with flag `g`; with Postgres
     16's `start` and `n`, the `n`-th match from `start` (all of them if `n`

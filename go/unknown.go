@@ -420,12 +420,12 @@ func checkUnknowns(expr Expr, cols func() map[string]ColType, params []ColType) 
 		if err != nil {
 			return false
 		}
-		if f, ok := x.(*Func); ok && gcdLCMFunction(f.Name) {
+		if f, ok := x.(*Func); ok && (gcdLCMFunction(f.Name) || unicodeFunction(f.Name)) {
 			if types == nil {
 				types = cols()
 			}
 			// Casts, IS NULL and other wrappers need not infer their
-			// children's result types. Validate every bound GCD/LCM call
+			// children's result types. Validate bound GCD/LCM and Unicode calls
 			// explicitly, including branches that will never read a row.
 			_, err = inferType(f, types, params)
 			return err == nil

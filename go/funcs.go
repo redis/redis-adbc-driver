@@ -241,6 +241,8 @@ var funcDefs = []funcDef{
 	{name: "GCD", min: 2, max: 2, impl: implPostgres},
 	{name: "LCM", min: 2, max: 2, impl: implPostgres},
 	{name: "SCALE", min: 1, max: 1, impl: implPostgres},
+	{name: "NORMALIZE", min: 1, max: 2, impl: implPostgres},
+	{name: "UNISTR", min: 1, max: 1, impl: implPostgres},
 	{name: "MIN_SCALE", min: 1, max: 1, impl: implPostgres},
 	{name: "TRIM_SCALE", min: 1, max: 1, impl: implPostgres},
 	{name: "MAKE_INTERVAL", min: 7, max: 7, impl: implPostgres},
@@ -652,6 +654,9 @@ func (d *funcDef) argsError(f *Func) error {
 	if n >= d.min && (d.max == many || n <= d.max) {
 		return nil
 	}
+	if unicodeFunction(f.Name) {
+		return noSuchFunction(f.Name, false, inferArgTypes(f.Args, nil, nil))
+	}
 	if d.star && n == 0 {
 		return errorf(adbc.StatusInvalidArgument, "%s(*) must be used to call a parameterless aggregate function", f.Name)
 	}
@@ -813,6 +818,9 @@ func checkCalls(x Expr) error {
 			return
 		}
 		cerr := resolveCall(f, w != nil)
+		if cerr == nil && unicodeFunction(f.Name) {
+			cerr = invalidArg(unicodeCallError(f, inferArgTypes(f.Args, nil, nil)))
+		}
 		if cerr == nil && gcdLCMFunction(f.Name) {
 			_, _, cerr = gcdLCMTypes(f, inferArgTypes(f.Args, nil, nil))
 			if cerr != nil {

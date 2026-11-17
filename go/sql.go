@@ -4291,6 +4291,11 @@ func (p *parser) parsePrimary() (Expr, error) {
 				}
 				return &Func{Name: "__EXTRACT", Args: []Expr{&Literal{V: stringValue(strings.ToLower(ft.text))}, x}}, nil
 			}
+		case "NORMALIZE":
+			if p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {
+				p.pos += 2
+				return p.parseNormalize()
+			}
 		case "SUBSTRING", "POSITION", "TRIM":
 			// SUBSTRING(s FROM a FOR b), POSITION(a IN b), TRIM(BOTH x FROM s)
 			if p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {
@@ -4507,6 +4512,28 @@ func (p *parser) parsePrimary() (Expr, error) {
 		return p.parseColumnRef(t.text)
 	}
 	return nil, syntaxErr("unexpected end of input")
+}
+
+// NORMALIZE is SQL syntax: its optional form is a keyword, not an expression.
+// Quoted/pg_catalog-qualified calls use the ordinary text-argument parser.
+func (p *parser) parseNormalize() (Expr, error) {
+	x, err := p.parseExpr()
+	if err != nil {
+		return nil, err
+	}
+	f := &Func{Name: "NORMALIZE", Args: []Expr{x}}
+	if p.acceptOp(",") {
+		t := p.next()
+		form := strings.ToUpper(t.text)
+		if t.kind != tokIdent || (form != "NFC" && form != "NFD" && form != "NFKC" && form != "NFKD") {
+			return nil, syntaxErr("expected NFC, NFD, NFKC or NFKD near %q", t.text)
+		}
+		f.Args = append(f.Args, &Literal{V: stringValue(form)})
+	}
+	if err := p.expectOp(")"); err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 // finishCall parses the remaining `, arg … )` of a function call whose first
