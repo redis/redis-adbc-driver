@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -30,10 +31,24 @@ func TestManagedHashInspectionDescribesImportAndRefresh(t *testing.T) {
 		expectItem(t, cl, CheckOK, "source HASHes and application indexes remain unchanged")
 		expectItem(t, cl, CheckWarn, "not an atomic snapshot of application writers")
 		for _, col := range r.Columns {
-			if col.Name == "v" && (col.Type != "VARCHAR" || col.InPlaceType != "BIGINT") {
+			encoded, err := json.Marshal(col)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]any
+			if err := json.Unmarshal(encoded, &fields); err != nil {
+				t.Fatal(err)
+			}
+			if _, exists := fields["in_place_type"]; exists {
+				t.Fatal("obsolete report field remains")
+			}
+			if col.Name == "v" && fields["source_type"] != "BIGINT" {
+				t.Fatal("source_type missing or incorrect")
+			}
+			if col.Name == "v" && (col.Type != "VARCHAR" || col.SourceType != "BIGINT") {
 				t.Fatal("nested HASH changed the managed import type", col)
 			}
-			if col.Name == "_key" && col.InPlaceType != "" {
+			if col.Name == "_key" && col.SourceType != "" {
 				t.Fatal("copy's synthetic key became an import column", col)
 			}
 		}

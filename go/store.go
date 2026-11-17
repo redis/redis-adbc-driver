@@ -239,11 +239,6 @@ type tableMeta struct {
 	Schema               string            `json:"schema"`
 	Name                 string            `json:"name"`
 	Columns              []columnMeta      `json:"columns"`
-	// FoldedIdentifiers is set on metadata created after unquoted SQL
-	// identifiers began following PostgreSQL's lower-case folding rules.
-	// Older metadata did not record whether a mixed-case column was quoted,
-	// so it keeps the driver's original case-insensitive fallback.
-	FoldedIdentifiers bool `json:"folded_identifiers,omitempty"`
 
 	// KeyPrefix and IndexName are fixed when the table is created, so that
 	// RENAME TO only rewrites metadata. Empty for tables created before they
@@ -312,19 +307,10 @@ type tableMeta struct {
 	lazy *lazyRelation
 }
 
-// resolve finds a column by name. Metadata created with PostgreSQL identifier
-// folding uses exact names; legacy metadata falls back to case-insensitive
-// matching because it did not record whether mixed-case names were quoted.
+// resolve uses stored SQL identifier spelling. The parser folds unquoted names;
+// quoted identifiers retain their exact spelling.
 func (t *tableMeta) resolve(name string) (int, bool) {
-	if i, ok := resolveColumn(t.Columns, name); ok || t.FoldedIdentifiers {
-		return i, ok
-	}
-	for i, c := range t.Columns {
-		if strings.EqualFold(c.Name, name) {
-			return i, true
-		}
-	}
-	return -1, false
+	return resolveColumn(t.Columns, name)
 }
 
 // resolveColumn is resolve for a list of columns (a table's or a view's).
@@ -1101,65 +1087,6 @@ func (s *store) searchDo(ctx context.Context, index string, args ...any) *goredi
 	return node.Do(ctx, args...)
 }
 
-// migrateLegacyMetadata moves metadata written by v0.0.1 (adbc:meta:*,
-// adbc:seq:*, adbc:tables:*, adbc:schemas) to the hash-tagged key names.
-// New keys are written before old ones are removed, so an interrupted
-// migration is simply redone on the next connection.
-func (s *store) migrateLegacyMetadata(ctx context.Context) error {
-	const legacySchemas = "adbc:schemas"
-	n, err := s.redis(ctx).Exists(ctx, legacySchemas).Result()
-	if err != nil || n == 0 {
-		return wrapRedis(err, "failed to check for legacy metadata")
-	}
-	schemas, err := s.redis(ctx).SMembers(ctx, legacySchemas).Result()
-	if err != nil {
-		return wrapRedis(err, "failed to read legacy metadata")
-	}
-	if !slices.Contains(schemas, defaultSchema) {
-		schemas = append(schemas, defaultSchema)
-	}
-	for _, schema := range schemas {
-		oldTables := "adbc:tables:" + escapeKeyPart(schema)
-		tables, err := s.redis(ctx).SMembers(ctx, oldTables).Result()
-		if err != nil {
-			return wrapRedis(err, "failed to read legacy metadata")
-		}
-		for _, table := range tables {
-			suffix := tableKeySuffix(schema, table)
-			for _, kv := range [][2]string{
-				{"adbc:meta:" + suffix, metaKey(schema, table)},
-				{"adbc:seq:" + suffix, seqKey(schema, table)},
-			} {
-				v, err := s.redis(ctx).Get(ctx, kv[0]).Result()
-				if errors.Is(err, goredis.Nil) {
-					continue
-				}
-				if err != nil {
-					return wrapRedis(err, "failed to read legacy metadata")
-				}
-				if err := s.redis(ctx).Set(ctx, kv[1], v, 0).Err(); err != nil {
-					return wrapRedis(err, "failed to migrate metadata")
-				}
-			}
-			if err := s.redis(ctx).SAdd(ctx, tablesKey(schema), table).Err(); err != nil {
-				return wrapRedis(err, "failed to migrate metadata")
-			}
-			for _, k := range []string{"adbc:meta:" + suffix, "adbc:seq:" + suffix} {
-				if err := s.redis(ctx).Del(ctx, k).Err(); err != nil {
-					return wrapRedis(err, "failed to remove legacy metadata")
-				}
-			}
-		}
-		if err := s.redis(ctx).SAdd(ctx, schemasKey, schema).Err(); err != nil {
-			return wrapRedis(err, "failed to migrate metadata")
-		}
-		if err := s.redis(ctx).Del(ctx, oldTables).Err(); err != nil {
-			return wrapRedis(err, "failed to remove legacy metadata")
-		}
-	}
-	return wrapRedis(s.redis(ctx).Del(ctx, legacySchemas).Err(), "failed to remove legacy metadata")
-}
-
 func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta, error) {
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignTable(ctx, table)
@@ -1243,7 +1170,6 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	if len(meta.Columns) == 0 {
 		return false, errorf(adbc.StatusInvalidArgument, "table %q must have at least one column", meta.Name)
 	}
-	meta.FoldedIdentifiers = true
 	meta.PlainIndex = s.flex
 	for i := range meta.Columns {
 		meta.Columns[i].PlainIndex = s.flex

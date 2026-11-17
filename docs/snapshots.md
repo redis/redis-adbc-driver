@@ -360,8 +360,8 @@ checkpoint batches populate it directly, avoiding a database initial scan or a
 second notification journal. Each image comes from the immutable source, with
 canonical row identity checked before its first insertion; repair restores the
 same complete image. Native readiness, failure, prefix and cardinality checks
-still precede installation. Legacy already populated unindexed jobs retain their
-initial-scan recovery path. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no
+still precede installation. Populated private outputs without their required index are retired; retained
+candidate eligibility lets a current worker rebuild fresh indexed output. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no
 temporary working index. UPDATE/DELETE statements that write no row images or tombstones
 return without publishing a new empty segment or building an index.
 
@@ -487,10 +487,9 @@ When a much larger older prefix can be preserved, selection consolidates at
 least two smaller newer segments. Partial merges retain tombstones to keep
 older base versions hidden. Balanced/ambiguous size estimates use a full merge.
 The exact source range, older prefix and newer publications remain protected.
-Selective jobs retain queue eligibility until publication. The older-worker
-decline/full-merge behavior was verified historically within protocol 15;
-protocol 17 requires matching clients and does not interoperate with that older
-storage format. Selective compaction introduces no new user option. Normal writes
+All compaction jobs retain queue eligibility until publication, including when
+a private output must be discarded and rebuilt. Protocol 17 requires matching
+current clients and does not interoperate with older workers or storage formats. Selective compaction introduces no new user option. Normal writes
 allocate deltas and never perform compaction row copies.
 
 A table still has a hard eight-segment bound. Writable managed connections wait

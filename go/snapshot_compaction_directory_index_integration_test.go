@@ -6,13 +6,9 @@ package redis
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -129,12 +125,11 @@ func assertCompactionAtomicRows(t *testing.T, h *sqlHarness) {
 	}
 }
 
-func TestSnapshotCompactionLegacyUnindexedCopy(t *testing.T) {
+func TestSnapshotCompactionDiscardsUnindexedOutput(t *testing.T) {
 	for _, checkpointed := range []bool{false, true} {
 		t.Run(fmt.Sprint(checkpointed), func(t *testing.T) {
 			h, _, s, job, _ := compactionAtomicFixture(t)
-			// Older protocol-15 workers wrote individual complete images before
-			// checkpointing their batch and did not create an index until EOF.
+			// Simulate a populated output whose required index is absent.
 			ctx := s.compactionWriteContext(h.ctx, job)
 			if err := s.client.HSet(ctx, job.Prefix+"1", rowIDField, "1", "id", "1", "v", "4").Err(); err != nil {
 				t.Fatal(err)
@@ -152,8 +147,8 @@ func TestSnapshotCompactionLegacyUnindexedCopy(t *testing.T) {
 			}
 			snapshotDrainCompactionTest(t, s)
 			assertCompactionAtomicRows(t, h)
-			if observer.creates.Load() != 1 || observer.scans.Load() != 1 {
-				t.Fatal("legacy unindexed output did not retain its initial-scan recovery path")
+			if observer.creates.Load() != 1 || observer.scans.Load() != 0 {
+				t.Fatalf("unindexed output was not rebuilt: creates=%d initial_scans=%d", observer.creates.Load(), observer.scans.Load())
 			}
 		})
 	}
@@ -241,86 +236,6 @@ func TestSnapshotCompactionPreindexAdmission(t *testing.T) {
 			}
 			if err := raw.Do(h.ctx, "FT.INFO", output.index()).Err(); !isUnknownIndex(err) {
 				t.Fatal("rejected early creation left an index", err)
-			}
-		})
-	}
-}
-
-func TestSnapshotCompactionPreindexOldWorker(t *testing.T) {
-	library, python := os.Getenv("REDIS_SNAPSHOT_OLD_DRIVER"), os.Getenv("REDIS_SNAPSHOT_OLD_PYTHON")
-	if library == "" || python == "" {
-		t.Skip("requires the preserved protocol-15 native driver and Python manager runtime")
-	}
-	for _, phase := range []string{"copy", "index", "install"} {
-		t.Run(phase, func(t *testing.T) {
-			h, raw, _ := newSnapshotHarnessMode(t, false, false)
-			h.exec("CREATE TABLE t(id INTEGER,v BIGINT)")
-			h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,257) AS g(i)")
-			for range 3 {
-				h.exec("UPDATE t SET v=v+1")
-			}
-			s := snapshotTestStore(t, raw)
-			token := snapshotID()
-			if started, err := s.startSnapshotCompaction(h.ctx, token); err != nil || !started {
-				t.Fatal("full-source job did not start", started, err)
-			}
-			job, err := s.readSnapshotCompaction(h.ctx)
-			if err != nil || job == nil || job.SourceStart != 0 {
-				t.Fatal("missing full-source job", err)
-			}
-			if err := s.copySnapshotCompactionBatch(h.ctx, job); err != nil {
-				t.Fatal(err)
-			}
-			ctx, cancel := context.WithTimeout(h.ctx, 90*time.Second)
-			defer cancel()
-			for phase != "copy" && job.Phase == "copy" {
-				if err := s.copySnapshotCompactionBatch(ctx, job); err != nil {
-					t.Fatal(err)
-				}
-			}
-			for phase == "install" && job.Phase == "index" {
-				progress, err := s.indexSnapshotCompaction(ctx, job)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !progress {
-					time.Sleep(time.Millisecond)
-				}
-			}
-			if job.Phase != phase {
-				t.Fatal("wrong handoff phase", job.Phase)
-			}
-			root, err := raw.HGet(ctx, snapshotCatalogKey, "root").Result()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := s.releaseSnapshotCompaction(ctx, token); err != nil {
-				t.Fatal(err)
-			}
-			script, err := filepath.Abs("validation/snapshot_old_worker_compatibility.py")
-			if err != nil {
-				t.Fatal(err)
-			}
-			command := exec.CommandContext(ctx, python, script, "--driver", library,
-				"--sha256", "a36f1eddbf40dcda8f5e6a083f8540232201e49f3aa525c4d1b30eef8e97bce7",
-				"--preindexed-job", job.ID, "--root-before", root)
-			output, err := command.CombinedOutput()
-			if err != nil || !strings.Contains(string(output), "old_snapshot_worker_ok rows=257 writes=12 caller_retries=0") {
-				t.Fatal("older native worker did not publish and sustain the preindexed job", err)
-			}
-			snapshotDrainCompactionTest(t, s)
-			rows, _ := h.query("SELECT id,v FROM t ORDER BY id")
-			if len(rows) != 257 {
-				t.Fatal("incomplete old-worker final fetch", len(rows))
-			}
-			for i, row := range rows {
-				want := int64(9007199254740996)
-				if i == 0 {
-					want += 12
-				}
-				if row != fmt.Sprintf("%d|%d", i+1, want) {
-					t.Fatalf("wrong old-worker row %d", i+1)
-				}
 			}
 		})
 	}

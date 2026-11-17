@@ -601,9 +601,9 @@ Items are `ok`, `warn`, `missing` (the suggested command provides it), or
 `blocker`. `check` exits successfully whenever inspection completes, including
 when a checklist is blocked. It does not change application data, initialize a
 catalog or publish metadata; reading an existing catalog uses a metadata pin.
-`-json` returns the same report. The existing `sql_in_place` checklist identifier
-and `in_place_type` JSON field remain for API compatibility; their current
-meaning is managed import. Text output labels the type column `IMPORT TYPE`.
+`-json` returns the same report. The `source_type` column field reports the
+native type used by managed import. The checklist identifier is `sql_in_place`;
+text output labels the type column `IMPORT TYPE`.
 
 - **Copy** checks Search availability, source keys and inferred columns,
   sampled conversion errors, destination collisions, indexable column names,

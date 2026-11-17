@@ -106,9 +106,8 @@ type HashColumn struct {
 	Field string `json:"field,omitempty"`
 	// Type is the column's SQL type in a copy.
 	Type string `json:"type"`
-	// InPlaceType is the source type used by a managed import. The field name
-	// is retained for JSON/API compatibility with the former in-place report.
-	InPlaceType string `json:"in_place_type,omitempty"`
+	// SourceType is the source type used by a managed import.
+	SourceType string `json:"source_type,omitempty"`
 	// Present is how many sampled HASHes have the field.
 	Present int      `json:"present"`
 	Notes   []string `json:"notes,omitempty"`
@@ -279,7 +278,7 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 	for _, col := range cols {
 		hc := HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(), Notes: col.notes, Encoding: col.encoding}
 		if col.field != "" {
-			hc.InPlaceType = col.inPlace.SQLName()
+			hc.SourceType = col.inPlace.SQLName()
 		}
 		if col.guess != nil {
 			hc.Present = col.guess.present

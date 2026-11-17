@@ -115,7 +115,7 @@ func (s *store) foreignTable(ctx context.Context, name string) (*tableMeta, erro
 	if err != nil {
 		return nil, err
 	}
-	m := &tableMeta{Schema: foreignSchema, Name: name, IndexName: name, Foreign: true, Adopted: true, KeyRows: true, AppIndex: true, FoldedIdentifiers: true, readAt: time.Now()}
+	m := &tableMeta{Schema: foreignSchema, Name: name, IndexName: name, Foreign: true, Adopted: true, KeyRows: true, AppIndex: true, readAt: time.Now()}
 	if len(info.prefixes) > 0 {
 		m.KeyPrefix = info.prefixes[0]
 	}

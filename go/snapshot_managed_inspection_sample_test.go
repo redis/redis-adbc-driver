@@ -31,7 +31,7 @@ func TestManagedHashInspectionPartialSample(t *testing.T) {
 			}
 			expectItem(t, cl, CheckWarn, "sampled qualifying HASHes")
 			if qualifying {
-				if !strings.HasSuffix(cl.Command, " -apply") || r.Columns[1].InPlaceType != "BIGINT" {
+				if !strings.HasSuffix(cl.Command, " -apply") || r.Columns[1].SourceType != "BIGINT" {
 					t.Fatal(cl, r.Columns)
 				}
 			} else {
@@ -40,7 +40,7 @@ func TestManagedHashInspectionPartialSample(t *testing.T) {
 					t.Fatal("unverified sample offered an Apply command")
 				}
 			}
-			if r.Columns[0].InPlaceType != "" || r.Columns[1].Type != "VARCHAR" {
+			if r.Columns[0].SourceType != "" || r.Columns[1].Type != "VARCHAR" {
 				t.Fatal("inspection changed copy columns", r.Columns)
 			}
 		})
