@@ -1,10 +1,18 @@
-# Move SQL data into Redis HASHes and export Redis data with Sling
+# Move database data into Redis HASHes and export Redis data with Sling
 
 [Sling](https://github.com/slingdata-io/sling-cli) can move PostgreSQL data into
 Redis through this driver's native ADBC library and read it back into PostgreSQL.
 Tested on macOS ARM64 with Sling 1.6.6, PostgreSQL 18.6, and Redis Software
 8.8.0 with three shards and verified active 4x QPF. This is a tested configuration,
 not a claim that every Sling load mode works.
+
+This guide includes end-to-end setup recipes for
+[PostgreSQL](#postgresql-to-redis), [MySQL](#mysql-to-redis),
+[MongoDB](#mongodb-to-redis), [Snowflake](#snowflake-to-redis),
+[Redshift](#redshift-to-redis), and [BigQuery](#bigquery-to-redis).
+Complete the shared Redis setup first, then choose a source. Only the PostgreSQL
+path has recorded end-to-end validation; the other five are documented setup
+recipes, not additional test results.
 
 ## Why Sling is useful for Redis data movement
 
@@ -49,7 +57,7 @@ documentation when choosing a migration source or destination.
 The Redis ADBC driver supplies the Redis side of the pipeline:
 
 ```text
-PostgreSQL / MySQL -> Sling -> Redis ADBC -> managed Redis HASH rows + Search
+Database / warehouse -> Sling -> Redis ADBC -> managed Redis HASH rows + Search
 Redis managed table -> Redis ADBC -> Sling -> SQL database / warehouse / file
 ```
 
@@ -80,8 +88,8 @@ time zones and NULL behavior before switching it to the Redis copy.
 This is a data migration workflow. It does not migrate stored procedures,
 triggers, grants or complete database behavior. The driver uses autocommit and
 does not provide multi-statement transaction rollback. The recorded Sling test
-below verifies PostgreSQL value round trips; MySQL migration is an adaptation
-example that has not been run by that test.
+below verifies PostgreSQL value round trips; the other source recipes have not
+been run by that test. No recipe below configures ongoing change-data capture.
 
 ### What “Redis HASHes” means here
 
@@ -96,13 +104,16 @@ Application-owned HASHes already in Redis first need an explicit import into a
 managed table. A later section shows that route. Importing creates a copy;
 subsequent source changes require an explicit refresh.
 
-## End-to-end setup
+## Shared Redis setup
 
 The commands below use Bash on macOS or Linux, a local Sling process and a
 dedicated Redis Software development database. Install Docker with Compose,
 the Go toolchain declared in `go/go.mod`, a C compiler for cgo, Python 3, curl,
 jq and OpenSSL. Run repository commands from the repository root.
-Use a disposable PostgreSQL database or a development database you own.
+Use disposable source databases or development databases you own. Cloud examples
+assume an existing account/project, compute, network access and authentication;
+they do not provision paid infrastructure. Source users need metadata and read
+access, plus create/insert permissions only when seeding the sample data.
 
 ### 1. Install Sling and build the native Redis driver
 
@@ -154,7 +165,7 @@ generic ADBC connections in this Sling home, so keep it isolated. It is required
 for the documented Sling 1.6.6 workflow; simply naming the Redis library does not
 supply Sling's missing Redis SQL templates.
 
-### 3. Configure the connections
+### 3. Configure the Redis connection
 
 Use the verified Redis setup's environment values to construct Sling's named
 connection without putting credentials in the guide:
@@ -180,6 +191,28 @@ The persistence declaration above follows the policy verification performed by
 `redis-up`. For another endpoint, verify its persistence and eviction policy
 before setting that declaration. Keep TLS certificate verification enabled.
 
+```sh
+sling conns test REDIS_ADBC
+```
+
+All source recipes below use this connection, template and isolated Sling home.
+They precreate a separate Redis table, then use `truncate` with `direct_insert`
+and `insert_concurrency: 1`, following the validated PostgreSQL approach.
+**Each load deletes existing rows in its named Redis target and can leave it
+empty or partially loaded on failure.** Use fresh sample names on both sides;
+the source seed commands are intended to run once. Do not run cleanup against
+existing application data. Empty-source transfers remain unvalidated.
+
+Keep connection values, keys and local Sling logs private. Replace every
+connection placeholder using your secret manager or private environment; do not
+commit populated exports or credentials. Environment connections avoid writing
+secrets into repository YAML. Sling also supports a private `env.yaml` under its
+home; see its [environment documentation](https://docs.slingdata.io/sling-cli/environment).
+
+## PostgreSQL to Redis
+
+### Configure PostgreSQL
+
 Supply `PG_SLING` from your secret manager or private environment. Its value is a
 PostgreSQL URI with this shape (replace every placeholder):
 
@@ -190,13 +223,8 @@ sling conns test REDIS_ADBC
 ```
 
 Configure the PostgreSQL CA trust required by your environment. Use URI encoding
-for reserved characters in credentials. Connection values and local Sling logs
-are private operational data; keep them outside committed files. Environment
-connections avoid persisting credentials in a repository YAML file. Sling also
-supports a private `env.yaml` under its home directory, as described in its
-[environment documentation](https://docs.slingdata.io/sling-cli/environment).
-
-## Write SQL data into Redis
+for reserved characters in credentials. See Sling's
+[PostgreSQL connector](https://docs.slingdata.io/connections/database-connections/postgres).
 
 ### 4. Seed a small PostgreSQL source and precreate the Redis table
 
@@ -242,37 +270,259 @@ Keep `insert_concurrency: 1` on the Redis connection for this verified approach.
 Truncate plus loading spans multiple statements and is not an atomic replacement,
 even though the driver provides statement snapshots.
 
-### Adapt the input to MySQL
+## MySQL to Redis
 
 Sling's [MySQL connector](https://docs.slingdata.io/connections/database-connections/mysql)
-can supply the source instead. Provide a private `MYSQL_SOURCE` connection, for
-example with this JSON shape and the TLS settings required by your deployment:
+uses a database name where PostgreSQL uses a schema. Supply a private connection
+to an existing development database named `sling_demo`. This example uses the
+system CA trust store and verified TLS (`tls: true`); configure your deployment's
+CA trust before connecting.
 
-```json
-{
+```sh
+export MYSQL_SOURCE='{
   "type": "mysql",
   "host": "MYSQL_HOST",
   "port": 3306,
   "user": "MIGRATION_USER",
   "password": "SECRET_FROM_YOUR_ENVIRONMENT",
-  "database": "sales"
-}
+  "database": "sling_demo",
+  "tls": true
+}'
+sling conns test MYSQL_SOURCE
 ```
 
-Export that JSON as `MYSQL_SOURCE`, precreate `demo.mysql_customers` through
-`REDIS_ADBC` with SQL types matching the source's selected columns, then run:
+Seed the source, precreate the Redis table, and transfer the rows:
 
 ```sh
-sling conns test MYSQL_SOURCE
-sling run --src-conn MYSQL_SOURCE --src-stream sales.customers \
+sling conns exec MYSQL_SOURCE \
+  'CREATE TABLE sling_demo.customers (id BIGINT, label VARCHAR(100), amount DECIMAL(18,2))' \
+  "INSERT INTO sling_demo.customers VALUES (1, 'Alice', 12.50), (2, 'Bob', -3.25), (3, NULL, NULL)" \
+  'SELECT id, label, amount FROM sling_demo.customers ORDER BY id'
+
+sling conns exec REDIS_ADBC \
+  'CREATE SCHEMA IF NOT EXISTS demo' \
+  'CREATE TABLE demo.mysql_customers (id BIGINT, label TEXT, amount NUMERIC(18,2))'
+
+sling run --src-conn MYSQL_SOURCE --src-stream sling_demo.customers \
   --tgt-conn REDIS_ADBC --tgt-object demo.mysql_customers \
   --mode truncate --tgt-options '{"direct_insert":true}'
+
+sling conns exec REDIS_ADBC \
+  'SELECT id, label, amount FROM demo.mysql_customers ORDER BY id' \
+  'SELECT COUNT(*) AS row_count FROM demo.mysql_customers'
 ```
 
-This is a migration recipe, not a recorded MySQL-to-Redis test result. Source SQL
-runs against MySQL; SQL used to query the destination must follow the Redis
-driver's supported dialect. Sling loading does not translate an application's
-MySQL-specific queries or implement ongoing change-data capture.
+Expect three rows with the same ordered values as the source query, including
+the negative decimal and NULLs. Check `BIGINT UNSIGNED`, JSON, binary and temporal
+columns explicitly when adapting a real table; loading does not translate
+MySQL-specific application queries into the Redis driver's dialect.
+
+## MongoDB to Redis
+
+Sling's [MongoDB connector](https://docs.slingdata.io/connections/database-connections/mongodb)
+reads collections as tabular streams. Install `mongosh` to seed and inspect this
+sample; MongoDB seeding uses its native shell rather than `sling conns exec`.
+Provide a URI with the appropriate authentication database and verified TLS:
+
+```sh
+export MONGODB_SOURCE='mongodb://USER:URL_ENCODED_PASSWORD@HOST:27017/sling_demo?authSource=admin&tls=true'
+sling conns test MONGODB_SOURCE
+
+mongosh "$MONGODB_SOURCE" --quiet --eval '
+  const sample = db.getSiblingDB("sling_demo");
+  sample.customers.insertMany([
+    {_id: "customer-1", label: "Alice", amount_cents: NumberLong("1250")},
+    {_id: "customer-2", label: "Bob", amount_cents: NumberLong("-325")},
+    {_id: "customer-3", label: null, amount_cents: null}
+  ]);
+  printjson(sample.customers.find().sort({_id: 1}).toArray());
+'
+
+sling conns exec REDIS_ADBC \
+  'CREATE SCHEMA IF NOT EXISTS demo' \
+  'CREATE TABLE demo.mongodb_customers (_id TEXT, label TEXT, amount_cents BIGINT)'
+
+sling run --src-conn MONGODB_SOURCE --src-stream sling_demo.customers \
+  --tgt-conn REDIS_ADBC --tgt-object demo.mongodb_customers \
+  --mode truncate --tgt-options '{"direct_insert":true}'
+
+sling conns exec REDIS_ADBC \
+  'SELECT _id, label, amount_cents FROM demo.mongodb_customers ORDER BY _id' \
+  'SELECT COUNT(*) AS row_count FROM demo.mongodb_customers'
+```
+
+Expect three rows: `customer-1 / Alice / 1250`, `customer-2 / Bob / -325`, and
+`customer-3 / NULL / NULL`. The sample deliberately uses string `_id` values,
+flat fields and signed integer cents. `_id` becomes an ordinary SQL column,
+not the physical Redis key. For real collections, define a projection and type
+mapping for ObjectId, Decimal128, nested documents, arrays, missing fields and
+mixed types before loading. Sling supports stream-level `select` and MongoDB
+`where` filters; a collection is named `database.collection`, not a SQL SELECT.
+
+## Snowflake to Redis
+
+Use Sling's [Snowflake connector](https://docs.slingdata.io/connections/database-connections/snowflake)
+with an existing database and warehouse. This example uses a registered key pair
+and an absolute path to its private key. The role needs warehouse/database usage,
+schema creation for this sample, and table creation, insert and select access.
+For an existing source, use its schema and read permissions instead.
+
+```sh
+export SNOWFLAKE_SOURCE='{
+  "type": "snowflake",
+  "account": "ACCOUNT_IDENTIFIER",
+  "user": "MIGRATION_USER",
+  "database": "DEVELOPMENT_DATABASE",
+  "schema": "DEMO",
+  "warehouse": "DEVELOPMENT_WAREHOUSE",
+  "role": "MIGRATION_ROLE",
+  "authenticator": "snowflake_jwt",
+  "private_key": "/absolute/private/path/snowflake_key.p8",
+  "use_bulk": false
+}'
+sling conns test SNOWFLAKE_SOURCE
+
+sling conns exec SNOWFLAKE_SOURCE \
+  'CREATE SCHEMA IF NOT EXISTS DEMO' \
+  'CREATE TABLE DEMO.SLING_CUSTOMERS (ID NUMBER(18,0), LABEL VARCHAR(100), AMOUNT NUMBER(18,2))' \
+  "INSERT INTO DEMO.SLING_CUSTOMERS VALUES (1, 'Alice', 12.50), (2, 'Bob', -3.25), (3, NULL, NULL)" \
+  'SELECT ID, LABEL, AMOUNT FROM DEMO.SLING_CUSTOMERS ORDER BY ID'
+
+sling conns exec REDIS_ADBC \
+  'CREATE SCHEMA IF NOT EXISTS demo' \
+  'CREATE TABLE demo.snowflake_customers (id BIGINT, label TEXT, amount NUMERIC(18,2))'
+
+sling run --src-conn SNOWFLAKE_SOURCE --src-stream DEMO.SLING_CUSTOMERS \
+  --tgt-conn REDIS_ADBC --tgt-object demo.snowflake_customers \
+  --mode truncate --tgt-options '{"direct_insert":true,"column_casing":"lower"}'
+
+sling conns exec REDIS_ADBC \
+  'SELECT id, label, amount FROM demo.snowflake_customers ORDER BY id' \
+  'SELECT COUNT(*) AS row_count FROM demo.snowflake_customers'
+```
+
+Expect three rows matching the source query, including `12.50`, `-3.25` and NULLs.
+`column_casing: lower` maps Snowflake's uppercase column names to the precreated
+Redis columns. `use_bulk: false` selects the connector's direct query export for
+this small sample, avoiding Snowflake stage setup; see the
+[Sling 1.6.6 export implementation](https://github.com/slingdata-io/sling-cli/blob/v1.6.6/core/dbio/database/database_snowflake.go).
+For larger exports, configure staging and privileges per Sling's connector guide.
+Map NUMBER precision, timestamp variants and VARIANT/ARRAY/OBJECT explicitly.
+
+## Redshift to Redis
+
+Use Sling's [Redshift connector](https://docs.slingdata.io/connections/database-connections/redshift)
+with an existing development database. Its bulk export uses S3 UNLOAD: supply
+a private staging bucket, an attached default Redshift IAM role authorized to
+write there, and AWS credentials for Sling to read and clean up staged objects.
+The example assumes an approved AWS credential chain, such as an IAM role or private profile,
+on the machine running Sling. Keep the bucket in the appropriate region and
+configure any required KMS permissions. The SQL user needs schema/table access
+and authorization to use the UNLOAD role, plus create/insert rights for seeding.
+
+```sh
+export REDSHIFT_SOURCE='{
+  "type": "redshift",
+  "host": "REDSHIFT_ENDPOINT",
+  "port": 5439,
+  "user": "MIGRATION_USER",
+  "password": "SECRET_FROM_YOUR_ENVIRONMENT",
+  "database": "DEVELOPMENT_DATABASE",
+  "sslmode": "verify-full",
+  "aws_bucket": "PRIVATE_STAGING_BUCKET",
+  "aws_role_arn": "default"
+}'
+sling conns test REDSHIFT_SOURCE
+
+sling conns exec REDSHIFT_SOURCE \
+  'CREATE SCHEMA IF NOT EXISTS sling_demo' \
+  'CREATE TABLE sling_demo.customers (id BIGINT, label VARCHAR(100), amount DECIMAL(18,2))' \
+  "INSERT INTO sling_demo.customers VALUES (1, 'Alice', 12.50), (2, 'Bob', -3.25), (3, NULL, NULL)" \
+  'SELECT id, label, amount FROM sling_demo.customers ORDER BY id'
+
+sling conns exec REDIS_ADBC \
+  'CREATE SCHEMA IF NOT EXISTS demo' \
+  'CREATE TABLE demo.redshift_customers (id BIGINT, label TEXT, amount NUMERIC(18,2))'
+
+sling run --src-conn REDSHIFT_SOURCE --src-stream sling_demo.customers \
+  --tgt-conn REDIS_ADBC --tgt-object demo.redshift_customers \
+  --mode truncate --tgt-options '{"direct_insert":true}'
+
+sling conns exec REDIS_ADBC \
+  'SELECT id, label, amount FROM demo.redshift_customers ORDER BY id' \
+  'SELECT COUNT(*) AS row_count FROM demo.redshift_customers'
+```
+
+Expect three rows matching the source query, including the decimal values and
+NULLs. A successful connection test does not verify S3 or UNLOAD permissions;
+the transfer exercises those. Inspect SUPER, large decimals and timestamp
+semantics before mapping real tables. Review private staging objects after
+failed runs and remove only artifacts owned by the transfer.
+`aws_role_arn: default` uses Redshift's default role for UNLOAD while the Sling
+S3 client uses its own AWS credential chain; see the
+[Sling 1.6.6 Redshift implementation](https://github.com/slingdata-io/sling-cli/blob/v1.6.6/core/dbio/database/database_redshift.go).
+
+## BigQuery to Redis
+
+Use Sling's [BigQuery connector](https://docs.slingdata.io/connections/database-connections/bigquery)
+with an existing GCP project. Install and authenticate the `bq` CLI to create
+the sample dataset, or ask its owner to create it. The Sling identity needs
+permission to run query jobs in the project and read dataset metadata/data;
+seeding also requires dataset/table creation and write permissions. Set the
+dataset location to match your environment in both commands and connection.
+
+```sh
+export BQ_PROJECT='YOUR_GCP_PROJECT_ID'
+bq --project_id="$BQ_PROJECT" --location=US mk --dataset "$BQ_PROJECT:sling_demo"
+
+export BIGQUERY_SOURCE="$(python3 - <<'PYCONFIG'
+import json
+import os
+print(json.dumps({
+    "type": "bigquery",
+    "project": os.environ["BQ_PROJECT"],
+    "dataset": "sling_demo",
+    "location": "US",
+    "key_file": "/absolute/private/path/service-account.json",
+}))
+PYCONFIG
+)"
+sling conns test BIGQUERY_SOURCE
+
+sling conns exec BIGQUERY_SOURCE \
+  'CREATE TABLE sling_demo.customers (id INT64, label STRING, amount NUMERIC)' \
+  "INSERT INTO sling_demo.customers VALUES (1, 'Alice', NUMERIC '12.50'), (2, 'Bob', NUMERIC '-3.25'), (3, NULL, NULL)" \
+  'SELECT id, label, amount FROM sling_demo.customers ORDER BY id'
+
+sling conns exec REDIS_ADBC \
+  'CREATE SCHEMA IF NOT EXISTS demo' \
+  'CREATE TABLE demo.bigquery_customers (id BIGINT, label TEXT, amount NUMERIC(18,2))'
+
+sling run --src-conn BIGQUERY_SOURCE --src-stream sling_demo.customers \
+  --tgt-conn REDIS_ADBC --tgt-object demo.bigquery_customers \
+  --mode truncate --tgt-options '{"direct_insert":true}'
+
+sling conns exec REDIS_ADBC \
+  'SELECT id, label, amount FROM demo.bigquery_customers ORDER BY id' \
+  'SELECT COUNT(*) AS row_count FROM demo.bigquery_customers'
+```
+
+Expect three rows matching the source query, including the decimal values and
+NULLs. For Application Default Credentials, omit `key_file` and ensure
+`GC_KEY_BODY` is unset. The `bq` CLI and Sling authenticate independently; grant
+each identity the permissions it needs. This source SELECT example needs no
+GCS loading bucket. The Redis `NUMERIC(18,2)` is chosen for these sample values;
+choose appropriate precision and scale for real NUMERIC/BIGNUMERIC columns,
+and map STRUCT, ARRAY, GEOGRAPHY and timestamp types explicitly.
+
+## Verify an adapted migration
+
+The small recipes compare every displayed column as well as the row count. For
+real data, compare the complete source projection and destination values with
+duplicate multiplicity and NULLs accounted for; row counts alone are insufficient.
+Coordinate concurrent source writers when a consistent capture is required.
+These recipes do not establish whole-database compatibility or automatic schema
+migration for any source.
 
 ## Read Redis data into another system
 
@@ -415,9 +665,35 @@ sling conns exec PG_SLING \
   'DROP TABLE IF EXISTS demo.source'
 ```
 
-If you also ran the optional examples, separately remove their destination tables
-and exported file after review. Do not delete the source application HASHes. The
-shared Redis Software fixture remains running for other development work.
+For each additional source recipe you ran, remove its sample source and Redis
+target after review. Run only the pairs corresponding to samples you created:
+
+```sh
+# MySQL sample
+sling conns exec MYSQL_SOURCE 'DROP TABLE sling_demo.customers'
+sling conns exec REDIS_ADBC 'DROP TABLE demo.mysql_customers'
+
+# MongoDB sample
+mongosh "$MONGODB_SOURCE" --quiet --eval 'db.getSiblingDB("sling_demo").customers.drop()'
+sling conns exec REDIS_ADBC 'DROP TABLE demo.mongodb_customers'
+
+# Snowflake sample
+sling conns exec SNOWFLAKE_SOURCE 'DROP TABLE DEMO.SLING_CUSTOMERS'
+sling conns exec REDIS_ADBC 'DROP TABLE demo.snowflake_customers'
+
+# Redshift sample
+sling conns exec REDSHIFT_SOURCE 'DROP TABLE sling_demo.customers'
+sling conns exec REDIS_ADBC 'DROP TABLE demo.redshift_customers'
+
+# BigQuery sample
+sling conns exec BIGQUERY_SOURCE 'DROP TABLE sling_demo.customers'
+sling conns exec REDIS_ADBC 'DROP TABLE demo.bigquery_customers'
+```
+
+Schemas/datasets, cloud compute and the shared Redis Software fixture remain.
+Review any cloud staging artifacts and remove only transfer-owned objects.
+If you also ran the export examples, separately remove their destination tables
+and exported file after review. Do not delete the source application HASHes.
 
 ## Run the integration test
 
