@@ -1,0 +1,40 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+
+// Standalone test for apache/arrow-go#1598. Copy as struct_offset_test.go
+// into a temporary Go module requiring github.com/apache/arrow-go/v18 v18.8.0.
+package cdatarepro
+
+import (
+	"testing"
+
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/cdata"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+)
+
+func TestSlicedStructCDataRoundTrip(t *testing.T) {
+	b := array.NewInt64Builder(memory.DefaultAllocator)
+	b.AppendValues([]int64{101, 202, 303, 404}, nil)
+	child := b.NewArray()
+	b.Release()
+	defer child.Release()
+	parent, err := array.NewStructArray([]arrow.Array{child}, []string{"x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer parent.Release()
+	source := array.NewSlice(parent, 1, 3)
+	defer source.Release()
+	var exported cdata.CArrowArray
+	cdata.ExportArrowArray(source, &exported, nil)
+	actual, err := cdata.ImportCArrayWithType(&exported, source.DataType())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer actual.Release()
+	if !array.Equal(source, actual) {
+		t.Fatalf("expected %s; got %s", source, actual)
+	}
+}

@@ -1,0 +1,15 @@
+--- a/arrow/cdata/cdata_exports.go
++++ b/arrow/cdata/cdata_exports.go
+@@ -420,7 +420,11 @@
+ 		childPtrs := allocateArrowArrayPtrArr(arr.NumField())
+ 		children := allocateArrowArrayArr(arr.NumField())
+ 		for i := 0; i < arr.NumField(); i++ {
+-			exportArray(arr.Field(i), &children[i], nil)
++			// Field(i) already applies the parent offset. C consumers apply it
++			// themselves, so export the original unsliced child data.
++			child := array.MakeFromData(arr.Data().Children()[i])
++			exportArray(child, &children[i], nil)
++			child.Release()
+ 			childPtrs[i] = &children[i]
+ 		}
+ 		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
