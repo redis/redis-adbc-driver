@@ -39,6 +39,17 @@ def audit(report, inventory):
             raise ValueError(f'missing root cause/evidence: {key}')
     for file, case, status in remaining:
         row = rows[file, case]
+        if status in ('context', 'extension'):
+            from comparison_policies import policy_for
+            from run import classify
+            observed = next(r for r in report['results']
+                            if (r['file'], r['id']) == (file, case))
+            policy = policy_for(file, observed)
+            if (not policy or observed.get('comparison_policy') != policy
+                    or classify(observed['postgres'], observed['redis'], observed,
+                                policy=policy, identities=report['reference'].get('identity_contracts')) != status):
+                raise ValueError(f'unverified comparison disposition: {file}:{case}')
+            continue
         if status != 'fail':
             raise ValueError(f'unobserved failing case: {file}:{case}: {status}')
         if row.get('disposition') != 'deferred' or not row.get('reason'):
@@ -59,7 +70,7 @@ def main():
         remaining = verify(json.loads(args.report.read_text()), json.loads(args.inventory.read_text()))
     except (ValueError, KeyError) as exc:
         p.error(str(exc))
-    print(f'{188-len(remaining)}/188 retained cases passed; {len(remaining)} unresolved')
+    print(f'{188-len(remaining)}/188 retained cases passed; {len(remaining)} not dialect passes')
     for file, case, status in remaining:
         print(f'{file}:{case}: {status}')
     if args.triage:

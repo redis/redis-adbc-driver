@@ -69,7 +69,7 @@ func TestBugIssueScalarRegressions(t *testing.T) {
 		{`"date_add"(date '2024-01-01', interval '1 day')`, "2024-01-02 00:00:00+00", "TIMESTAMP(6) WITH TIME ZONE"},
 		{`date_subtract(timestamptz '2024-01-01 00:00+00', interval '1 day')`, "2023-12-31 00:00:00+00", "TIMESTAMP(6) WITH TIME ZONE"},
 		{`date_add(timestamptz '2024-03-09 12:00-05', interval '1 day', 'America/New_York')`, "2024-03-10 16:00:00+00", "TIMESTAMP(6) WITH TIME ZONE"},
-		{`version()`, "PostgreSQL 16.0 (Redis ADBC driver)", "VARCHAR"},
+		{`version()`, "PostgreSQL 18.0 (Redis ADBC driver)", "VARCHAR"},
 		{`pg_catalog.lower('A')`, "a", "VARCHAR"},
 		{`current_database()`, "redis", "VARCHAR"},
 		{`current_schema()`, "public", "VARCHAR"},

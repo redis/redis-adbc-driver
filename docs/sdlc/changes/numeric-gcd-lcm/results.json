@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-17",
+  "base": "75220f2f",
+  "edge_comparison": {
+    "counts": {
+      "pass": 67,
+      "unsupported": 1
+    },
+    "scored": 67,
+    "pass_rate": 1.0
+  },
+  "edge_cases": 68,
+  "infrastructure_errors": 0,
+  "scope_exclusions": [
+    {
+      "id": "beyond-arrow-range",
+      "reason": "Exact result exceeds the documented 76-digit Arrow decimal256 bound; PostgreSQL NUMERIC is unbounded."
+    }
+  ],
+  "full_corpus": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "full_infrastructure_errors": 0,
+  "race_tests": {
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0
+  },
+  "source_hashes": {
+    "go/pg18_scalar.go": "f3d35b75569b9358b559493da25cc8367712dcb121e688cb9e455392be7067dc",
+    "go/numeric_gcd_lcm_test.go": "5732aab5ffac030c9f1e891bd705807f7e2bf84b9741358aab75d1fb7caf9143",
+    "go/numeric_gcd_lcm_integration_test.go": "0e72b041c0cad374e1fb86a12fcd0a52076b23686a5533a383f384d5bbab95a3",
+    "go/pgdiff/regressions/numeric-gcd-lcm.json": "cad43fb2ada5d2d26cf49c5d54089e86b5335ed14b0e8895065248047ca1d459"
+  }
+}

@@ -17,7 +17,7 @@ class Issue359GateTests(unittest.TestCase):
 
     def test_pass_requires_every_observed_pass(self):
         self.assertEqual(gate.check(self.report, self.inventory), [])
-        for status in ('fail', 'allowed', 'unsupported'):
+        for status in ('fail', 'allowed', 'unsupported', 'context', 'extension'):
             self.report['results'][0]['status'] = status
             self.assertEqual(gate.check(self.report, self.inventory), [('test.json', '0', status)])
 
@@ -34,6 +34,24 @@ class Issue359GateTests(unittest.TestCase):
     def test_unobserved_case_cannot_be_disposed(self):
         self.report['results'].pop()
         with self.assertRaisesRegex(ValueError, 'unobserved'):
+            gate.audit(self.report, self.inventory)
+
+    def test_context_disposition_requires_reverified_source_and_outcomes(self):
+        from comparison_policies import policy_for
+        case = {'id':'row-9', 'file':'issue-246.json', 'sql':'show server_version',
+                'status':'context',
+                'postgres':{'types':['string'], 'rows':[['18.6']]},
+                'redis':{'types':['string'], 'rows':[['18.0']]}}
+        case['comparison_policy'] = policy_for(case['file'], case)
+        self.inventory['cases'][0].update(file=case['file'], id=case['id'])
+        self.report['results'][0] = case
+        self.report['reference']['identity_contracts'] = {
+            'postgres_version':'18.6', 'postgres_version_num':180006,
+            'postgres_user':'postgres', 'redis_user':'default'}
+        self.assertEqual(len(gate.audit(self.report, self.inventory)), 1)
+        self.assertEqual(len(gate.check(self.report, self.inventory)), 1)
+        case['redis']['rows'] = [['wrong']]
+        with self.assertRaisesRegex(ValueError, 'unverified'):
             gate.audit(self.report, self.inventory)
 
     def test_wrong_reference_or_infrastructure_is_not_completion(self):

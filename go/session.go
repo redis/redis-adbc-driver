@@ -51,6 +51,13 @@ import (
 	"github.com/apache/arrow-adbc/go/adbc"
 )
 
+// Advertise the target SQL dialect independently of the Redis server release.
+// The supported subset and remaining compatibility gaps are documented separately.
+const (
+	postgresCompatibilityVersion    = "18.0"
+	postgresCompatibilityVersionNum = "180000"
+)
+
 // ---- statements ----
 
 type TxnKind int
@@ -603,10 +610,10 @@ func fixed(text string) func(*session) paramValue {
 // settings are the parameters, by lower-case name.
 var settings = map[string]*setting{
 	"server_version": {
-		name: "server_version", desc: "PostgreSQL compatibility version reported by the Redis ADBC driver.", initial: fixed("16.0"),
+		name: "server_version", desc: "PostgreSQL compatibility version reported by the Redis ADBC driver.", initial: fixed(postgresCompatibilityVersion),
 	},
 	"server_version_num": {
-		name: "server_version_num", desc: "PostgreSQL compatibility version as an integer.", initial: fixed("160000"),
+		name: "server_version_num", desc: "PostgreSQL compatibility version as an integer.", initial: fixed(postgresCompatibilityVersionNum),
 	},
 	"transaction_isolation": {
 		name: "transaction_isolation", desc: "Current transaction isolation level (autocommit compatibility value).", initial: fixed("read committed"),

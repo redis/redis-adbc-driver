@@ -39,6 +39,7 @@ import sqlparse
 from psycopg.types.string import TextLoader
 from sqlscan import split_sql
 from composites import Composite, register as register_composites, resolve_catalog_names
+from comparison_policies import identity_matches, peer_rows, policy_for
 
 ROOT = Path(__file__).resolve().parent
 # Official postgres:18 linux/amd64 manifest, resolved 2026-11-09 (18.6).
@@ -406,7 +407,14 @@ def signature(result, keep_order, checks=None, context=None, engine=None):
     return out
 
 
-def classify(pg, redis, case, rule=None):
+def classify(pg, redis, case, rule=None, *, policy=None, identities=None):
+    if policy and policy['kind'] == 'context':
+        return 'context' if identity_matches(pg, redis, policy, identities) else 'fail'
+    if policy and policy['kind'] == 'extension':
+        return ('extension' if signature(pg, True) == {'sqlstate': '42601'}
+                and signature(redis, True) == {
+                    'types': ['timestamptz'], 'rows': [['2024-01-02T00:00:00+00:00']]}
+                else 'fail')
     keep_order = case.get("ordered", ordered(case["sql"]))
     p, r = (
         signature(
@@ -424,6 +432,14 @@ def classify(pg, redis, case, rule=None):
             "redis",
         ),
     )
+    if policy and policy['kind'] == 'peers':
+        for result in (p, r):
+            if 'rows' in result:
+                if any(len(row) != len(result['types'])
+                       or any(i >= len(row) for i in policy['columns'])
+                       for row in result['rows']):
+                    return 'fail'
+                result['rows'] = peer_rows(result['rows'], policy['columns'])
     if (
         "decode_error" not in p
         and "decode_error" not in r
@@ -604,8 +620,17 @@ def run(args, uri):
             )
             version, collation = cur.fetchone()
         validate_reference(version, collation)
+        from urllib.parse import unquote, urlsplit
+        identities = {
+            'postgres_build': version,
+            'postgres_version': pg.info.parameter_status('server_version'),
+            'postgres_version_num': pg.info.server_version,
+            'postgres_user': pg.info.user,
+            'redis_user': unquote(urlsplit(args.redis_uri).username or 'default'),
+        }
         metadata.update(
-            postgres=version, collation=collation, corpus=str(args.corpus.resolve())
+            postgres=version, collation=collation, corpus=str(args.corpus.resolve()),
+            identity_contracts=identities,
         )
         for path in files:
             corpus = json.loads(path.read_text())
@@ -694,7 +719,11 @@ def run(args, uri):
                                     if len(steps) == 1
                                     else None
                                 )
-                                status = classify(p, r, step, rule)
+                                policy = policy_for(name, {**step, 'id': case['id']})
+                                status = classify(p, r, step, rule, policy=policy,
+                                                  identities=identities)
+                                if policy:
+                                    row['comparison_policy'] = policy
                             outcomes_list.append(
                                 {
                                     "sql": step["sql"],

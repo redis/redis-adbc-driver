@@ -292,14 +292,14 @@ func TestSQLSetParameters(t *testing.T) {
 		`max_identifier_length|63|Maximum identifier length in bytes.`,
 		`search_path|public|Sets the schema for unqualified names: the first schema of the list, skipping "$user", pg_catalog and pg_temp (adbc.redis.default_schema by default).`,
 		`server_encoding|UTF8|Server character set encoding.`,
-		`server_version|16.0|PostgreSQL compatibility version reported by the Redis ADBC driver.`,
-		`server_version_num|160000|PostgreSQL compatibility version as an integer.`,
+		`server_version|18.0|PostgreSQL compatibility version reported by the Redis ADBC driver.`,
+		`server_version_num|180000|PostgreSQL compatibility version as an integer.`,
 		`standard_conforming_strings|on|'...' strings treat backslashes literally. Only on is supported.`,
 		`statement_timeout|0|Maximum allowed duration of any statement. Accepted and shown, not enforced.`,
 		`TimeZone|UTC|Time zone for displaying and interpreting time stamps (adbc.redis.time_zone, UTC by default).`,
 		`transaction_isolation|read committed|Current transaction isolation level (autocommit compatibility value).`)
-	h.expectRows(`SHOW server_version`, "16.0")
-	h.expectRows(`SHOW server_version_num`, "160000")
+	h.expectRows(`SHOW server_version`, "18.0")
+	h.expectRows(`SHOW server_version_num`, "180000")
 	h.expectRows(`SHOW transaction_isolation`, "read committed")
 	h.expectRows(`SHOW TRANSACTION ISOLATION LEVEL`, "read committed")
 	h.expectRows(`SHOW max_identifier_length`, "63")

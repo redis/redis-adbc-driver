@@ -103,9 +103,9 @@ class RedisDialect(PGDialect):
         return [], {"uri": uri, "autocommit": True}
 
     def initialize(self, connection):
-        # pg_catalog here implements PostgreSQL 16 contracts, independently of
-        # the Redis server version. Redis GetInfo is not a PostgreSQL version.
-        self.server_version_info = (16, 0)
+        # Advertise the PostgreSQL dialect target independently of the Redis
+        # server release; documented SQL compatibility gaps still apply.
+        self.server_version_info = (18, 0)
         raw = connection.connection
         self.redis_server_version = raw.adbc_get_info().get("vendor_version")
         self.default_schema_name = raw.adbc_connection.get_option(

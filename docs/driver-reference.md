@@ -4323,12 +4323,12 @@ library with `go/validation/check_catalog_reflection.py`: schemas, tables,
 views, columns, defaults, comments, composite primary keys, indexes and CHECKs.
 
 `pg_catalog.f(...)` resolves built-in calls. `version()` returns
-`PostgreSQL 16.0 (Redis ADBC driver)`, `current_database()` returns `redis`,
+`PostgreSQL 18.0 (Redis ADBC driver)`, `current_database()` returns `redis`,
 `current_schema()` returns the connection's selected schema, and `current_user`,
 `session_user`, `user` and `current_role` return its configured Redis ACL user
 (or `default`). `pg_typeof` reports the PostgreSQL type name.
 `current_setting` and `set_config` use the same settings as SET/SHOW. Read-only
-values are `server_version=16.0`, `server_version_num=160000`,
+values are `server_version=18.0`, `server_version_num=180000`,
 `transaction_isolation=read committed`, `max_identifier_length=63`,
 `server_encoding=UTF8`, `integer_datetimes=on`, and `is_superuser=off`.
 These are client compatibility values; the driver remains autocommit-only.

@@ -35,6 +35,9 @@ def test_typed_bindings_returning_and_reflection(uri):
     token = UUID("12345678-1234-5678-1234-567812345678")
     try:
         with engine.connect() as conn:
+            assert engine.dialect.server_version_info == (18, 0)
+            assert conn.exec_driver_sql("SHOW server_version").scalar_one() == "18.0"
+            assert conn.exec_driver_sql("SHOW server_version_num").scalar_one() == "180000"
             table.create(conn)
             try:
                 conn.execute(table.insert(), [
