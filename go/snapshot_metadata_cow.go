@@ -218,8 +218,17 @@ func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing boo
 				count := p.HLen(ctx, snapshotMetadataBucket(owner, slot))
 				fields := p.ZCard(ctx, snapshotMetadataDirectory(owner, slot))
 				entry := p.HGet(ctx, snapshotMetadataBucket(owner, slot), suffix)
-				if _, err := p.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
-					return "", err
+				_, pipelineErr := p.Exec(ctx)
+				// Missing entry is the only accepted native refusal. Inspect all
+				// proof replies and the pipeline: a joined Nil/transport failure
+				// cannot establish either a valid bucket or metadata absence.
+				if pipelineErr != nil && !(pipelineErr == goredis.Nil && entry.Err() == goredis.Nil) {
+					return "", pipelineErr
+				}
+				for _, cmd := range []goredis.Cmder{proof, count, fields} {
+					if err := cmd.Err(); err != nil {
+						return "", err
+					}
 				}
 				values := proof.Val()
 				expected, e := strconv.ParseInt(fmt.Sprint(values[0]), 10, 64)
@@ -227,12 +236,15 @@ func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing boo
 				if e != nil || r != nil || refs <= 0 || expected != count.Val() || expected != fields.Val() {
 					return "", errorf(adbc.StatusIO, "snapshot metadata bucket is incomplete (valid proof=%t, expected=%d, references=%d, entries=%d, fields=%d)", e == nil && r == nil, expected, refs, count.Val(), fields.Val())
 				}
-				m.bucketChecked[slot] = true
 				value, err = entry.Result()
+				if err != nil && err != goredis.Nil {
+					return "", err
+				}
+				m.bucketChecked[slot] = true
 			} else {
 				value, err = s.redis(ctx).HGet(ctx, snapshotMetadataBucket(owner, slot), suffix).Result()
 			}
-			if err != nil && !errors.Is(err, goredis.Nil) {
+			if err != nil && err != goredis.Nil {
 				return "", err
 			}
 			if err == nil {

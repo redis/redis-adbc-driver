@@ -18,6 +18,7 @@ _active_record = threading.local()
 def install_native_substages(dbapi):
     """Optional nested spans on the pinned DBAPI's unchanged real operations."""
     original_close = dbapi._RowIterator.close
+    original_init = dbapi._RowIterator.__init__
     original_blocking = dbapi._blocking_call
 
     def timed(name, function, *args, **kwargs):
@@ -34,15 +35,20 @@ def install_native_substages(dbapi):
     def close(self):
         return timed('previous_result_close', original_close, self)
 
+    def initialize(self, *args, **kwargs):
+        return timed('result_construction', original_init, self, *args, **kwargs)
+
     def blocking(function, args, kwargs, cancel):
         name = getattr(function, '__name__', '')
         category = {'prepare': 'adbc_prepare', 'execute_query': 'adbc_execute_query',
+                    'execute_update': 'adbc_execute_update',
                     'read_all': 'arrow_read_all'}.get(name)
         if category is None:
             return original_blocking(function, args, kwargs, cancel)
         return timed(category, original_blocking, function, args, kwargs, cancel)
 
     dbapi._RowIterator.close = close
+    dbapi._RowIterator.__init__ = initialize
     dbapi._blocking_call = blocking
 
 
@@ -64,6 +70,9 @@ class CursorStages:
 
     def execute(self, *args, **kwargs):
         return self._call('execute', self._cursor.execute, *args, **kwargs)
+
+    def executemany(self, *args, **kwargs):
+        return self._call('executemany', self._cursor.executemany, *args, **kwargs)
 
     def fetch_arrow_table(self):
         return self._call('fetch_arrow_table', self._cursor.fetch_arrow_table)

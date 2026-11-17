@@ -187,7 +187,9 @@ The statement option persists until cleared. Set it to the empty string before
 reusing the statement to create a managed table. With no source option, new Arrow
 tables use the managed default. Temporary/virtual targets, retained preparation
 and staged writes are unsupported. Arrow `replace` remains deferred in
-[issue #399](https://github.com/redis/redis-adbc-driver/issues/399).
+[issue #399](https://github.com/redis/redis-adbc-driver/issues/399). The
+[proposed replacement contract](unmanaged-arrow-replace-proposal.md) is for
+review only; it does not enable source deletion or index replacement.
 
 ## Consistency and supported operations
 

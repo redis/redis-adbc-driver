@@ -107,6 +107,7 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 						t.Fatal(e)
 					}
 					err = st.BindStream(h.ctx, reader)
+					reader.Release()
 				}
 				rec.Release()
 				if err == nil {
@@ -385,6 +386,7 @@ func TestArrowLayoutExpansionRejectedBeforeRows(t *testing.T) {
 					t.Fatal(err)
 				}
 				err = st.BindStream(h.ctx, r)
+				r.Release()
 			} else {
 				err = st.Bind(h.ctx, rec)
 			}

@@ -486,8 +486,10 @@ func TestSnapshotArrowIngestAtomicity(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := st.BindStream(h.ctx, reader); err != nil {
+			reader.Release()
 			t.Fatal(err)
 		}
+		reader.Release()
 		before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 		n, err := st.ExecuteUpdate(h.ctx)
 		_ = st.Close(h.ctx)
@@ -544,8 +546,10 @@ func TestSnapshotArrowIngestModes(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := st.BindStream(h.ctx, reader); err != nil {
+			reader.Release()
 			t.Fatal(err)
 		}
+		reader.Release()
 		before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 		n, err := st.ExecuteUpdate(h.ctx)
 		if fail {

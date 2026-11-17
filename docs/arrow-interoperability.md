@@ -321,6 +321,17 @@ See the [change record and verification](sdlc/changes/arrow-map-union-267-268/pl
 
 ## Ownership and extension policy
 
+Go `BindStream` retains its own reader reference. Callers must release their
+reference after binding; failed binding leaves that reference with the caller.
+Rebinding the same reader retains it before releasing the previous binding, and
+binding a nil reader clears parameters. The C bridge releases its imported
+reader reference after the bind call. This follows the Go ADBC ownership contract;
+Go callers that previously donated a reader must now release their reference.
+The normal forced-GC policy remains unchanged while the
+[lifetime investigation](../benchmarks/crud-execution/results/2026-11-17/ownership.md)
+and sanitizer gates remain open.
+
+
 - C Data/Stream import retains the Arrow objects needed while reading. Caller
   ownership follows the ADBC Bind/BindStream contract.
 - Parameter conversion and ingestion copy string/binary bytes, including nested

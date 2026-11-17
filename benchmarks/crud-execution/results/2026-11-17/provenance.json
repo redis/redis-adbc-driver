@@ -1,0 +1,90 @@
+{
+  "native_source": "3671fca7894240551d19aeb196d7b7362f8869d2",
+  "native_build": {
+    "driver_version": "v0.1.0",
+    "driver_source_commit": "3671fca7894240551d19aeb196d7b7362f8869d2",
+    "driver_sha256": "57d3eb1579fa15587394318f4e4682050959b62f4cacc776b555ba41038d2450",
+    "harness_sha256": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "automatic_retries": 0,
+    "protocol": 3,
+    "tls": true,
+    "repetitions": 3,
+    "operations": 32,
+    "queries": 8,
+    "point_rows": 1000,
+    "olap_rows": 100000,
+    "columns": 4,
+    "suite": "all",
+    "generator": "id=1..N; grp=id%16; amount=id*3; label=row-{id:08d}",
+    "timing_scope": "Persistent per-thread clients; execute plus complete typed Arrow result or acknowledged write. Setup/teardown and independent validation excluded. Closed-loop fixed-operation trials, not saturated capacity.",
+    "addressing": "Managed known internal row IDs; unmanaged/raw known application keys. Mapping lookup excluded; no multi-statement transactions.",
+    "packages": {
+      "pyarrow": "26.0.1",
+      "adbc-driver-manager": "1.13.0",
+      "redis": "8.1.0",
+      "hiredis": "3.5.0"
+    },
+    "mutation_execution": "execute",
+    "no_result_wrapper_sha256": "dcf6519093d1fd248d1997402f66402889689d8a6c26d7182e0f0dc360b9f7c8"
+  },
+  "driver_CLI_sha256": "fd098e2e6e4647182bf851df136ccf51902b4b148d13ce49d0f57925a70131f4",
+  "client": {
+    "os": "Linux",
+    "architecture": "aarch64",
+    "route": "Software container network namespace, TLS localhost endpoint; no Docker published data port",
+    "cpu_limit": "uncapped container; shares Docker VM",
+    "memory_limit": "uncapped container; shares Docker VM",
+    "image_id": "sha256:9414372e991cca5d47353d2eeb5a893b2f8521feb24104206a7eb77e530745f9"
+  },
+  "host": {
+    "os": "macOS",
+    "architecture": "arm64"
+  },
+  "server": {
+    "product": "Redis Software",
+    "redis_version": "8.8.0",
+    "shards": 1,
+    "memory_bytes": 4294967296,
+    "noeviction": true,
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "tls": true,
+    "resp": 3,
+    "cpu_limit": "uncapped container; shares Docker VM",
+    "memory_limit": "uncapped container; shares Docker VM",
+    "software_version_label": "8.2.6",
+    "search_version": "not disclosed by proxy INFO; Search functionality verified"
+  },
+  "freeze": {
+    "timing_harness_sha256": {
+      "benchmarks/crud-execution/no_result.py": "dcf6519093d1fd248d1997402f66402889689d8a6c26d7182e0f0dc360b9f7c8",
+      "benchmarks/table-modes/scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+      "benchmarks/table-modes/run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642"
+    },
+    "all_four_windows_same_native_binary": true,
+    "builds_profiles_tests_outside_native_timing_windows": true,
+    "background_shared_host_activity": "No exclusive-host claim; substantial control drift retained",
+    "go_diagnostic_scope": "Earlier macOS instrumented Go observation overlapped build work; no frozen whole-test-binary attestation; excluded from native acceptance"
+  },
+  "failed_attempts": [
+    "First offline audit rejected a truncated baseline source argument before output; corrected to independently resolved full Git identity. No timing windows repeated."
+  ],
+  "limits": [
+    "Pooled numerical gate met, but large raw-control drift and a slower reverse managed INSERT prevent a causal improvement conclusion.",
+    "Last cursor/connection teardown remains outside operation clocks, exactly as in the original scenario harness; preceding-result cleanup is inside subsequent execute. No complete process-lifecycle speedup is claimed.",
+    "Native measurements use baseline 3671fca7. The later paired BindStream/metadata fixes have separate correctness checks, not relabeled timing.",
+    "No actual principal-denial or complete cancellation/Close/lifetime/sanitizer acceptance is established by no-result scenario timings."
+  ],
+  "embedded_vcs": [
+    {
+      "revision": "3671fca7894240551d19aeb196d7b7362f8869d2",
+      "modified": false
+    },
+    {
+      "revision": "6e17a91fa045347f3d3d683dd1e7e2bf31db87a6",
+      "modified": false
+    }
+  ]
+}

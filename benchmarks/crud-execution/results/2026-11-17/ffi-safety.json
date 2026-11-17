@@ -1,0 +1,66 @@
+{
+  "source_commit": "3671fca7894240551d19aeb196d7b7362f8869d2",
+  "gc_policy": "unchanged",
+  "go": "go1.27.3",
+  "os": "darwin",
+  "arch": "arm64",
+  "normal": {
+    "build_exit": 0,
+    "checks": [
+      "kind_0_explicit_close_once_invalid_repeat",
+      "kind_1_explicit_close_once_invalid_repeat",
+      "kind_2_explicit_close_once_invalid_repeat",
+      "retained_exported_array_survives_stream_and_statement",
+      "bound_array_synchronous_producer_release",
+      "bound_stream_synchronous_producer_release",
+      "stream_and_close_errors_preserve_sqlstate_and_release"
+    ],
+    "samples": [],
+    "checked_allocator_bytes": 0,
+    "binary_sha256": "a3e06f915b408243bb0c30dba759fcc5f511ed523cd8aa04e4eedb94ecf115a1"
+  },
+  "race": {
+    "build_exit": 0,
+    "run_exit": 134,
+    "gate": "blocked before ownership checks",
+    "reason": "checkptr: pointer arithmetic computed bad pointer value; main.createHandle in go/pkg/driver.go:262",
+    "binary_sha256": "efc833c87f02ba94cf85c405d968f50bee5573849bb6db409a30cd7602fe2d81"
+  },
+  "ASAN": "not run",
+  "UBSAN": "not run",
+  "production_GC_change": false,
+  "source_hashes": {
+    "driver": "e6bb139b3f4e12516e230e2f560ced8b5467b8c53deb9471bfa63dc1e8aed881",
+    "fixture": "ec1519f60c58a7be7a2102484ff4e238651064f23d0fef0fded0f9d0683254db",
+    "module": "441f8ce09d5fb870107af6de4d5dd4b0939ca6f14e9686cbd058d9de887be54a"
+  },
+  "corrected_normal": {
+    "source_commit": "6e17a91fa045347f3d3d683dd1e7e2bf31db87a6",
+    "build_exit": 0,
+    "run_exit": 0,
+    "checks": [
+      "kind_0_explicit_close_once_invalid_repeat",
+      "kind_1_explicit_close_once_invalid_repeat",
+      "kind_2_explicit_close_once_invalid_repeat",
+      "retained_exported_array_survives_stream_and_statement",
+      "bound_array_synchronous_producer_release",
+      "bound_stream_synchronous_producer_release",
+      "stream_and_close_errors_preserve_sqlstate_and_release"
+    ],
+    "checked_allocator_bytes": 0,
+    "samples": [],
+    "binary_sha256": "733a458ad007d72a6608715eb77083a863b3997ba9d10438aadfa1a04fef81f6",
+    "fixture_written_sha256": "6c6af0b01bc5b83e07d6ba794f7184274671d97c1719460b8304c1b1240ee2b2",
+    "retains_stream": true
+  },
+  "corrected_race": {
+    "source_commit": "6e17a91fa045347f3d3d683dd1e7e2bf31db87a6",
+    "build_exit": 0,
+    "run_exit": 134,
+    "gate": "blocked before ownership checks",
+    "reason": "checkptr: pointer arithmetic computed bad pointer value; unchanged createHandle",
+    "binary_sha256": "01f64a687382720b40682683bdb710c5ff3b03e94bec4dd4ebc01399bd535464",
+    "retains_stream": true,
+    "fixture_written_sha256": "6c6af0b01bc5b83e07d6ba794f7184274671d97c1719460b8304c1b1240ee2b2"
+  }
+}

@@ -110,16 +110,34 @@ def compare_groups(baseline, candidate):
     return rows
 
 
-def compare(windows, *, baseline_source=None, candidate_source=None):
+def compare(windows, *, baseline_source=None, candidate_source=None, caller_paths=False):
     assert set(windows) == set(ORDER), 'Require all four declared ABBA windows'
-    window_summaries = {name: validate(windows[name]) for name in ORDER}
+    caller_metadata = {}
+    audited = windows
+    if caller_paths:
+        # Copy only metadata; never mutate supplied evidence or relax the full
+        # scenario auditor. A caller experiment freezes one native build.
+        audited = {}
+        for name in ORDER:
+            meta = dict(windows[name]['metadata'])
+            execution = meta.pop('mutation_execution')
+            wrapper = meta.pop('no_result_wrapper_sha256')
+            assert execution == ('execute' if name.startswith('A') else 'executemany'), 'Wrong caller path/window'
+            assert wrapper == digest(Path(__file__).with_name('no_result.py')), 'Wrong caller wrapper'
+            assert meta['packages']['adbc-driver-manager'] == '1.13.0', 'Reinspect caller APIs before changing manager'
+            caller_metadata[name] = dict(mutation_execution=execution, no_result_wrapper_sha256=wrapper)
+            audited[name] = {**windows[name], 'metadata': meta}
+    window_summaries = {name: validate(audited[name]) for name in ORDER}
     a1, b1, b2, a2 = (windows[name]['metadata'] for name in ORDER)
     assert a1 == a2, 'Baseline source/library/version/harness/fixture/packages changed between A windows'
     assert b1 == b2, 'Candidate source/library/version/harness/fixture/packages changed between B windows'
-    assert {key: value for key, value in a1.items() if key not in BUILD_KEYS} == {
-        key: value for key, value in b1.items() if key not in BUILD_KEYS}, 'Builds differ in benchmark/harness/fixture/packages'
-    assert a1['driver_source_commit'] != b1['driver_source_commit'], 'No distinct candidate source'
-    assert a1['driver_sha256'] != b1['driver_sha256'], 'No distinct candidate native library'
+    if caller_paths:
+        assert audited['A1']['metadata'] == audited['B1']['metadata'], 'Caller comparison requires the same native build/fixture/packages'
+    else:
+        assert {key: value for key, value in a1.items() if key not in BUILD_KEYS} == {
+            key: value for key, value in b1.items() if key not in BUILD_KEYS}, 'Builds differ in benchmark/harness/fixture/packages'
+        assert a1['driver_source_commit'] != b1['driver_source_commit'], 'No distinct candidate source'
+        assert a1['driver_sha256'] != b1['driver_sha256'], 'No distinct candidate native library'
     if baseline_source is not None:
         assert a1['driver_source_commit'] == baseline_source
     if candidate_source is not None:
@@ -132,15 +150,18 @@ def compare(windows, *, baseline_source=None, candidate_source=None):
                       'execution_order': order,
                       'rows': compare_groups(grouped([windows[base]]), grouped([windows[candidate]]))})
     target_rows = []
-    for mode in ['managed', 'unmanaged']:
-        row = next(row for row in pooled if row['suite'] == 'oltp' and row['operation'] == 'point_read' and row['mode'] == mode and row['clients'] == 1)
-        target_rows.append({'mode': mode, 'clients': 1,
+    operations = ('insert', 'update', 'delete') if caller_paths else ('point_read',)
+    for mode, operation in ((m, op) for m in ('managed', 'unmanaged') for op in operations):
+        row = next(row for row in pooled if row['suite'] == 'oltp' and row['operation'] == operation and row['mode'] == mode and row['clients'] == 1)
+        target_rows.append({'mode': mode, 'operation': operation, 'clients': 1,
                             'baseline_p50_ms': row['baseline']['p50_ms'],
                             'candidate_p50_ms': row['candidate']['p50_ms'],
                             'elapsed_reduction_percent': row['p50_elapsed_reduction_percent'],
                             'met': row['candidate']['p50_ms'] <= row['baseline']['p50_ms'] * .9})
     return {
         'schema_version': 1, 'execution_order': list(ORDER),
+        'comparison_kind': 'no-result-caller' if caller_paths else 'driver',
+        'caller_metadata': caller_metadata,
         'scope': 'All four complete native scenario windows, including raw Redis controls. P50/mean pool measured operation samples; p95 is nearest rank. Ratios use unrounded samples/statistics. Pair arrows always mean baseline to candidate, including reverse execution.',
         'throughput_scope': 'Summed-trial throughput is total completed measured operations divided by summed trial wall times; median-trial throughput is the median of per-trial rates. Both are finite closed-loop completion rates including synchronization/scheduling, not saturated capacity. Per-operation means are not their inverse with concurrent clients.',
         'limits': ['These finite windows do not establish confidence intervals, production capacity or server-CPU attribution.',
@@ -153,7 +174,7 @@ def compare(windows, *, baseline_source=None, candidate_source=None):
                            'trial_records': 168, 'warmup_records': 42, 'measured_records': 126,
                            'summary': window_summaries[name]} for name in ORDER},
         'pooled': pooled, 'pairs': pairs,
-        'target': {'requirement': 'At least 10% less pooled one-client point-read p50 elapsed time independently in managed and unmanaged modes; candidate <= 0.9 * baseline.',
+        'target': {'requirement': ('At least 10% less pooled one-client INSERT, UPDATE and DELETE p50 elapsed time independently in each driver mode (six cases); candidate <= 0.9 * baseline.' if caller_paths else 'At least 10% less pooled one-client point-read p50 elapsed time independently in managed and unmanaged modes; candidate <= 0.9 * baseline.'),
                    'required_elapsed_reduction_percent': TARGET_REDUCTION_PERCENT,
                    'cases': target_rows, 'met': all(row['met'] for row in target_rows)},
         'local_audit_source_sha256': {'compare.py': digest(Path(__file__)),
@@ -175,7 +196,7 @@ def markdown(result):
     text = '# Native CRUD/query ABBA comparison\n\n'
     text += '672 validated trial records: 168 each in A1/B1/B2/A2, including 168 warmups and 504 measured records. '
     text += 'Every 42-case matrix and all raw Redis control series are retained.\n\n'
-    text += 'Target: **' + ('MET' if result['target']['met'] else 'NOT MET') + '** — at least 10% less one-client point-read p50 in both driver modes. '
+    text += 'Target: **' + ('MET' if result['target']['met'] else 'NOT MET') + '** — ' + result['target']['requirement'] + ' '
     text += 'A valid comparison does not imply adoption; tail/other-case regressions remain below.\n\n'
     text += result['throughput_scope'] + '\n\n'
     for title, rows in [('Pooled measured samples', result['pooled'])] + [(pair['name'].capitalize() + ' pair (baseline → candidate)', pair['rows']) for pair in result['pairs']]:
@@ -186,7 +207,7 @@ def markdown(result):
             a, b = row['baseline'], row['candidate']
             text += f"| {row['operation']} | {row['mode']} | {row['clients']} | {a['p50_ms']:.4f}→{b['p50_ms']:.4f} | {a['p95_ms']:.4f}→{b['p95_ms']:.4f} | {a['mean_ms']:.4f}→{b['mean_ms']:.4f} | {row['p50_elapsed_reduction_percent']:.2f}% | {a['summed_trial_operations_per_second']:.2f}→{b['summed_trial_operations_per_second']:.2f} | {row['candidate_elapsed_over_redis_py']:.3f}× |\n"
         text += '\n'
-    return text
+    return text.rstrip() + '\n'
 
 
 def write_outputs(result, output):
@@ -196,7 +217,7 @@ def write_outputs(result, output):
     for name, rows in [('comparison.csv', [flat(row) for row in result['pooled']]),
                        ('pairs.csv', [{'pair': pair['name'], **flat(row)} for pair in result['pairs'] for row in pair['rows']])]:
         with (output / name).open('w', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=list(rows[0]))
+            writer = csv.DictWriter(file, fieldnames=list(rows[0]), lineterminator='\n')
             writer.writeheader()
             writer.writerows(rows)
 
@@ -207,12 +228,13 @@ def main():
         parser.add_argument('--' + name.lower(), type=Path, required=True)
     parser.add_argument('--baseline-source', default='3b42245402a2d7cf6f363faf7ac713cd36621f90')
     parser.add_argument('--candidate-source')
+    parser.add_argument('--caller-paths', action='store_true', help='Same native binary: explicit execute versus executemany(None) mutation callers')
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--require-target', action='store_true')
     args = parser.parse_args()
     paths = {name: getattr(args, name.lower()) for name in ORDER}
     windows = {name: json.loads(path.read_text()) for name, path in paths.items()}
-    result = compare(windows, baseline_source=args.baseline_source, candidate_source=args.candidate_source)
+    result = compare(windows, baseline_source=args.baseline_source, candidate_source=args.candidate_source, caller_paths=args.caller_paths)
     result['input_sha256'] = {name: digest(path) for name, path in paths.items()}
     write_outputs(result, args.out)
     print('PASS: 672 validated records, 42 pooled cases, 84 forward/reverse pair cases; target', 'MET' if result['target']['met'] else 'NOT MET')

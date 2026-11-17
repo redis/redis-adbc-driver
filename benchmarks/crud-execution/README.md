@@ -105,3 +105,72 @@ correctness and performance checks. Independently record actual run order,
 client/server environment and frozen dependency/build identities. Each window
 still requires a new owned empty Software fixture/work directory or exact
 owner-checked cleanup between runs; retain owner/credential material privately.
+
+## Explicit no-result caller comparison (#447)
+
+The pinned `adbc-driver-manager==1.13.0` already exposes the needed public API:
+
+```python
+with connection.cursor() as cursor:
+    # Caller explicitly selects a mutation with no result to consume.
+    cursor.executemany("UPDATE users SET age = age + 1 WHERE id = 42", None)
+    affected = cursor.rowcount
+```
+
+`None` executes once; `[]` executes zero times. Arrow record batches/tables/readers
+can provide bound parameter sets via the same public method. Use ordinary
+`execute` and fetch for SELECT or RETURNING. No SQL regex, empty-schema heuristic,
+private cursor field, custom driver API, extra close or retry is needed. Keep
+cursor/connection context managers: they own final cleanup. Errors and the
+manager's cancellation callback propagate unchanged. The two methods have
+different prepare implementations in 1.13.0; comparisons cover whole callers,
+not isolated GC savings. For SIGINT behavior, exercise the real manager in the
+calling thread; a worker-thread timing run is not a main-thread cancellation test.
+
+[`no_result.py`](no_result.py) wraps only the declared insert/update/delete
+scenario calls, reusing unchanged SQL generation, native connection/cursor
+lifetimes, timers, raw controls and complete post-state/result oracles. Select
+`--mutation-execution execute` for A1/A2 and `--mutation-execution executemany`
+for B1/B2. Every point read and analytical query still uses ordinary execute.
+Use the same frozen driver/CLI/version, packages and wrapper in all four windows:
+
+```sh
+python3 benchmarks/crud-execution/no_result.py \
+  --mutation-execution execute \
+  --driver /private/frozen/go/build/libadbc_driver_redis.so \
+  --cli /private/frozen/go/build/redis-adbc --version EXACT_VERSION \
+  --work /private/new-A1 --dedicated-empty-server
+# Repeat B1, B2, A2 in that order, selecting the declared caller each time.
+python3 benchmarks/crud-execution/compare.py --caller-paths \
+  --baseline-source EXACT_SOURCE --candidate-source EXACT_SOURCE \
+  --a1 /private/A1/results.json --b1 /private/B1/results.json \
+  --b2 /private/B2/results.json --a2 /private/A2/results.json \
+  --out /private/new-caller-comparison --require-target
+```
+
+The caller auditor still requires all 672 records/42 cases and the frozen local
+scenario hash. It additionally requires the same native source/library/version,
+1.13.0 manager, correct A/B caller selection and exact wrapper hash. Ordinary
+driver comparisons still reject these records. The predeclared caller gate is
+≥10% lower one-client mutation p50 for **each INSERT/UPDATE/DELETE in each mode**
+(six independent cells). Keep p95, four-client cases, analytical reads, slower
+cases, raw controls and failed attempts; no drift normalization. This gate is
+separate from #444's point-read gate. Complete and diagnose all lazy execution
+and final callback ownership; a release-only reduction is not an accepted win.
+
+Before timing, [`no_result_check.py`](no_result_check.py) uses the same fixture
+arguments/gates to compare both callers with bound parameters, NULLs, int64 values
+beyond 2^53, explicit NUL text, no-op counts, prior SELECT cleanup, invalid SQL and
+unknown-column status/SQLSTATEs. It fully compares SQL final state and independently
+checks unmanaged source HASH keys/values. This correctness screen is not latency,
+actual ACL-denial, cancellation/Close, or complete lifetime acceptance evidence.
+Its result status differs from ordinary scenarios and cannot pass either auditor.
+Each invocation requires an owned empty fixture; retain owner-checked cleanup
+between windows and all registration/environment/ownership material privately.
+
+For separate diagnostics, add `--diagnostics --suite oltp --repeats 1` and set
+`REDIS_CRUD_NATIVE_SUBSTAGES=1`. This times actual previous-result close,
+result-iterator construction and blocking execute-query/update callbacks without
+adding a close or changing the manager's cancellation argument. Instrumented
+records include a distinct wrapper hash and are rejected by the comparison
+auditor. These nested spans overlap outer timings and are never additive.

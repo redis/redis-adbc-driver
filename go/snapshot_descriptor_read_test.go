@@ -5,6 +5,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -20,6 +21,8 @@ type descriptorReadReplies struct {
 	direct, proofs, gets                   int
 	refs                                   string
 	getErr, pipelineErr                    error
+	bucketPipelineErr, bucketEntryErr      error
+	bucketReplyErr                         map[string]error
 }
 
 func (h *descriptorReadReplies) DialHook(next goredis.DialHook) goredis.DialHook { return next }
@@ -42,6 +45,10 @@ func (h *descriptorReadReplies) reply(cmd goredis.Cmder) error {
 		}
 	case *goredis.StringCmd:
 		if c.Name() == "hget" {
+			if h.bucketEntryErr != nil {
+				c.SetErr(h.bucketEntryErr)
+				return h.bucketEntryErr
+			}
 			c.SetVal(h.valueOwner)
 		} else {
 			h.gets++
@@ -68,14 +75,87 @@ func (h *descriptorReadReplies) ProcessPipelineHook(_ goredis.ProcessPipelineHoo
 			if c.Name() == "get" {
 				valueProof = true
 			}
-			if err := h.reply(c); first == nil {
+			err := h.reply(c)
+			if injected := h.bucketReplyErr[c.Name()]; injected != nil {
+				c.SetErr(injected)
+				err = injected
+			}
+			if first == nil {
 				first = err
 			}
 		}
 		if valueProof && h.pipelineErr != nil {
 			return h.pipelineErr
 		}
+		if !valueProof && h.bucketPipelineErr != nil {
+			return h.bucketPipelineErr
+		}
 		return first
+	}
+}
+
+func TestSnapshotDescriptorBucketChecksEveryProofReply(t *testing.T) {
+	for _, command := range []string{"hmget", "hlen", "zcard"} {
+		t.Run(command, func(t *testing.T) {
+			s, ctx, h, key := descriptorReadFixture(t)
+			h.bucketReplyErr = map[string]error{command: io.ErrUnexpectedEOF}
+			h.bucketEntryErr = goredis.Nil
+			h.bucketPipelineErr = goredis.Nil
+			got, err := s.readSnapshotMetadataString(ctx, key)
+			if !errors.Is(err, io.ErrUnexpectedEOF) || got != "" || h.gets != 0 || h.proofs != 1 {
+				t.Fatal("missing entry masked a failed proof reply", got, err, h.gets, h.proofs)
+			}
+		})
+	}
+}
+
+func TestSnapshotDescriptorBucketRejectsComposedMissingWithoutReplay(t *testing.T) {
+	for _, pipeline := range []bool{true, false} {
+		t.Run(fmt.Sprint("pipeline_", pipeline), func(t *testing.T) {
+			s, ctx, h, key := descriptorReadFixture(t)
+			failure := errors.Join(goredis.Nil, io.ErrUnexpectedEOF)
+			if pipeline {
+				h.bucketPipelineErr = failure
+			} else {
+				h.bucketEntryErr = failure
+			}
+			got, err := s.readSnapshotMetadataString(ctx, key)
+			if !errors.Is(err, io.ErrUnexpectedEOF) || got != "" {
+				t.Fatal("uncertain bucket read was accepted as a proof or absence", got, err)
+			}
+			if h.proofs != 1 || h.gets != 0 {
+				t.Fatal("continued after uncertain bucket read", h.proofs, h.gets)
+			}
+			m := &snapshotOf(ctx).metadata
+			if m.loaded[h.suffix] || m.bucketChecked[snapshotMetadataSlot(h.suffix)] {
+				t.Fatal("uncertain bucket proof was retained")
+			}
+		})
+	}
+}
+
+func TestSnapshotDescriptorBucketUnknownPipelinePrecedesNativeReply(t *testing.T) {
+	s, ctx, h, key := descriptorReadFixture(t)
+	h.bucketReplyErr = map[string]error{"hmget": controlScriptNativeError("NOPERM proof refused")}
+	h.bucketPipelineErr = errors.Join(goredis.Nil, io.ErrUnexpectedEOF)
+	if _, err := s.readSnapshotMetadataString(ctx, key); !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatal("native reply hid an unknown pipeline outcome", err)
+	}
+}
+
+func TestSnapshotDescriptorCheckedBucketRejectsComposedMissing(t *testing.T) {
+	s, ctx, h, key := descriptorReadFixture(t)
+	if _, err := s.readSnapshotMetadataString(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	// Reuse only this pin's bucket proof, but force a fresh native entry read.
+	snapshotOf(ctx).metadata.loaded[h.suffix] = false
+	h.bucketEntryErr = errors.Join(goredis.Nil, io.ErrUnexpectedEOF)
+	if got, err := s.readSnapshotMetadataString(ctx, key); !errors.Is(err, io.ErrUnexpectedEOF) || got != "" {
+		t.Fatal("checked bucket accepted an uncertain entry read", got, err)
+	}
+	if snapshotOf(ctx).metadata.loaded[h.suffix] || h.gets != 1 {
+		t.Fatal("uncertain entry was retained or followed by an object fetch")
 	}
 }
 func descriptorReadFixture(t *testing.T) (*store, context.Context, *descriptorReadReplies, string) {

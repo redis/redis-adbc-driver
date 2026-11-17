@@ -82,8 +82,10 @@ func TestManagedImportArrowReplaceRetainsRefreshIdentity(t *testing.T) {
 		}
 		input := &importReplaceFailingInput{RecordReader: reader}
 		if err := st.BindStream(f.h.ctx, input); err != nil {
+			input.Release()
 			t.Fatal(err)
 		}
+		input.Release()
 		root := f.raw.HGet(f.h.ctx, snapshotCatalogKey, "root").Val()
 		if _, err := st.ExecuteUpdate(f.h.ctx); err == nil {
 			t.Fatal("late failed replacement published")

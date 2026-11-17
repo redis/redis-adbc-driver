@@ -1,0 +1,22 @@
+{
+  "policy": {
+    "factor": 4,
+    "workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "memory_bytes": 4294967296
+  },
+  "empty": true,
+  "index_free": true,
+  "tls_resp3": true,
+  "redis_version": "8.8.0",
+  "modules": [],
+  "software_version_label": "8.2.6",
+  "owned_containers_removed": true,
+  "owned_network_removed": true,
+  "owned_build_volumes_removed": true,
+  "task_client_image_tag_removed": true,
+  "preexisting_container_preserved": true,
+  "preexisting_original_proxy_certificate_restored": true,
+  "recovery_snapshot_and_extracted_keys_deleted": true
+}

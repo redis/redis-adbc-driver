@@ -90,7 +90,6 @@ func unmanagedArrowInput(t *testing.T, h *sqlHarness, schema, mode string, keys 
 	}
 	counted := &ingestAdmissionReader{RecordReader: reader}
 	t.Cleanup(counted.Release)
-	counted.Retain() // BindStream takes ownership; the test retains its observer.
 	if err := st.BindStream(h.ctx, counted); err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +289,6 @@ func (r *unmanagedArrowReaderFailure) Err() error {
 func TestUnmanagedArrowReaderFailure(t *testing.T) {
 	h, raw, schema := unmanagedIngestFixture(t, false)
 	st, input := unmanagedArrowInput(t, h, schema, adbc.OptionValueIngestModeAppend, []string{"app:one"}, []int64{9})
-	input.Retain()
 	if err := st.BindStream(h.ctx, &unmanagedArrowReaderFailure{RecordReader: input}); err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +370,6 @@ func bindUnmanagedCustom(t *testing.T, h *sqlHarness, st adbc.StatementWithConte
 	}
 	counted := &ingestAdmissionReader{RecordReader: reader}
 	t.Cleanup(counted.Release)
-	counted.Retain()
 	if err := st.BindStream(h.ctx, counted); err != nil {
 		t.Fatal(err)
 	}
@@ -570,7 +567,6 @@ func TestUnmanagedArrowChangedStreamSchema(t *testing.T) {
 	as := arrow.NewSchema([]arrow.Field{{Name: "different", Type: arrow.BinaryTypes.String}}, nil)
 	rec := array.NewRecordBatch(as, []arrow.Array{a}, 1)
 	defer rec.Release()
-	input.Retain()
 	if err := st.BindStream(h.ctx, &unmanagedArrowChangedSchema{RecordReader: input, batch: rec}); err != nil {
 		t.Fatal(err)
 	}

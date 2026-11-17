@@ -52,6 +52,7 @@ func TestArrowNormalizedStorage(t *testing.T) {
 		} else {
 			reader, _ := array.NewRecordReader(schema, []arrow.RecordBatch{rec})
 			err = st.BindStream(h.ctx, reader)
+			reader.Release()
 		}
 		if err != nil {
 			t.Fatal(err)

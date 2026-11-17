@@ -95,8 +95,10 @@ func TestSnapshotLargeArrowRecordAtomicity(t *testing.T) {
 				}
 			}
 			if err := st.BindStream(h.ctx, input); err != nil {
+				input.Release()
 				t.Fatal(err)
 			}
+			input.Release()
 			root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 			n, err := st.ExecuteUpdate(h.ctx)
 			if input.next != 2 || input.records != 1 {

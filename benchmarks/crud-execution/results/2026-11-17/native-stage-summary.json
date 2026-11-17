@@ -1,0 +1,218 @@
+[
+  {
+    "execution": "execute",
+    "mode": "managed",
+    "operation": "insert",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_query": {
+        "observations": 32,
+        "median_ns": 7701062.5
+      },
+      "adbc_prepare": {
+        "observations": 32,
+        "median_ns": 20312.0
+      },
+      "previous_result_close": {
+        "observations": 31,
+        "median_ns": 734750
+      },
+      "result_construction": {
+        "observations": 32,
+        "median_ns": 667.0
+      }
+    }
+  },
+  {
+    "execution": "execute",
+    "mode": "managed",
+    "operation": "update",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_query": {
+        "observations": 32,
+        "median_ns": 7527666.5
+      },
+      "adbc_prepare": {
+        "observations": 32,
+        "median_ns": 18375.0
+      },
+      "previous_result_close": {
+        "observations": 31,
+        "median_ns": 726875
+      },
+      "result_construction": {
+        "observations": 32,
+        "median_ns": 750.0
+      }
+    }
+  },
+  {
+    "execution": "execute",
+    "mode": "managed",
+    "operation": "delete",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_query": {
+        "observations": 32,
+        "median_ns": 9083959.0
+      },
+      "adbc_prepare": {
+        "observations": 32,
+        "median_ns": 19229.0
+      },
+      "previous_result_close": {
+        "observations": 31,
+        "median_ns": 759042
+      },
+      "result_construction": {
+        "observations": 32,
+        "median_ns": 834.0
+      }
+    }
+  },
+  {
+    "execution": "execute",
+    "mode": "unmanaged",
+    "operation": "insert",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_query": {
+        "observations": 32,
+        "median_ns": 2138729.0
+      },
+      "adbc_prepare": {
+        "observations": 32,
+        "median_ns": 13687.0
+      },
+      "previous_result_close": {
+        "observations": 31,
+        "median_ns": 560167
+      },
+      "result_construction": {
+        "observations": 32,
+        "median_ns": 479.0
+      }
+    }
+  },
+  {
+    "execution": "execute",
+    "mode": "unmanaged",
+    "operation": "update",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_query": {
+        "observations": 32,
+        "median_ns": 2011271.0
+      },
+      "adbc_prepare": {
+        "observations": 32,
+        "median_ns": 11291.5
+      },
+      "previous_result_close": {
+        "observations": 31,
+        "median_ns": 570708
+      },
+      "result_construction": {
+        "observations": 32,
+        "median_ns": 459.0
+      }
+    }
+  },
+  {
+    "execution": "execute",
+    "mode": "unmanaged",
+    "operation": "delete",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_query": {
+        "observations": 32,
+        "median_ns": 2355291.5
+      },
+      "adbc_prepare": {
+        "observations": 32,
+        "median_ns": 12541.5
+      },
+      "previous_result_close": {
+        "observations": 31,
+        "median_ns": 666167
+      },
+      "result_construction": {
+        "observations": 32,
+        "median_ns": 583.0
+      }
+    }
+  },
+  {
+    "execution": "executemany",
+    "mode": "managed",
+    "operation": "insert",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_update": {
+        "observations": 32,
+        "median_ns": 6934125.0
+      }
+    }
+  },
+  {
+    "execution": "executemany",
+    "mode": "managed",
+    "operation": "update",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_update": {
+        "observations": 32,
+        "median_ns": 8516437.0
+      }
+    }
+  },
+  {
+    "execution": "executemany",
+    "mode": "managed",
+    "operation": "delete",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_update": {
+        "observations": 32,
+        "median_ns": 7792625.0
+      }
+    }
+  },
+  {
+    "execution": "executemany",
+    "mode": "unmanaged",
+    "operation": "insert",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_update": {
+        "observations": 32,
+        "median_ns": 2037042.0
+      }
+    }
+  },
+  {
+    "execution": "executemany",
+    "mode": "unmanaged",
+    "operation": "update",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_update": {
+        "observations": 32,
+        "median_ns": 2256021.0
+      }
+    }
+  },
+  {
+    "execution": "executemany",
+    "mode": "unmanaged",
+    "operation": "delete",
+    "samples": 32,
+    "nested_spans": {
+      "adbc_execute_update": {
+        "observations": 32,
+        "median_ns": 2214770.5
+      }
+    }
+  }
+]

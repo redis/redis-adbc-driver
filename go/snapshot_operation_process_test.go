@@ -54,9 +54,7 @@ func TestSnapshotClusterOperationArrowAPI(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	input.Retain()
 	if err := st.BindStream(h.ctx, input); err != nil {
-		input.Release()
 		t.Fatal(err)
 	}
 	if n, err := st.ExecuteUpdate(h.ctx); err != nil || n != 0 {

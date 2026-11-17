@@ -13,7 +13,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
 - Unit-only pass: `cd go && env -u REDIS_URI go test -count=1 -p 1 ./...`;
   integration skips are expected and do not prove Redis compatibility.
 - Disposable Redis Software with Search: `make -C go redis-up` (Docker Compose,
-  curl, jq). Use a dedicated test database; suites modify data.
+  curl, jq). Use a dedicated test database; suites modify data. Setup refuses
+  fixtures labeled as another checkout's; select a dedicated Compose project
+  and ports before setup in a concurrent worktree.
 - Full default Software suite: `make -C go test-software`. It verifies QPF and
   noeviction through the management API before passing the retained-control
   policy declaration. Full package runs have a 30-minute budget (override with
@@ -270,6 +272,10 @@ Build validation libraries with `make build` or preserve its version linker flag
 upstream GetInfo validation rejects a bare build's development version string.
 Finish Arrow fetch and validate results before claiming query success or speedup.
 Preserve cursor cleanup, cancellation, Arrow ownership and worker-token release.
+Go BindStream retains its own reader reference; callers release theirs. The C
+bridge releases its imported reference after binding, including errors. Retain
+before clearing an old binding, including the same reader; refusals must not
+consume caller ownership. See `go/bind_stream_ownership_test.go`.
 For missing-row or safe-fallback proofs, accept only a direct `goredis.Nil` or
 a direct native refusal. A wrapped/joined error can also contain reply loss;
 check the pipeline error and every reply before repair or fallback. See the

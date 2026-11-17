@@ -1714,6 +1714,7 @@ func RedisStatementBindStream(stmt *C.struct_AdbcStatement, stream *C.struct_Arr
 	if e != nil {
 		return C.AdbcStatusCode(errToAdbcErr(err, e))
 	}
+	defer rdr.(array.RecordReader).Release()
 	e = st.stmt.BindStream(st.NewContext(), rdr.(array.RecordReader))
 	return C.AdbcStatusCode(errToAdbcErr(err, e))
 }

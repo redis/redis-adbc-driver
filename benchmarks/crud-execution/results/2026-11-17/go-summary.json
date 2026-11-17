@@ -1,0 +1,98 @@
+[
+  {
+    "mode": "managed",
+    "operation": "point_read",
+    "samples": 32,
+    "median_elapsed_ms": 4.9756255,
+    "median_foreground_hook_calls": 10.0,
+    "median_foreground_commands": 19.0
+  },
+  {
+    "mode": "managed",
+    "operation": "insert",
+    "samples": 32,
+    "median_elapsed_ms": 22.3956875,
+    "median_foreground_hook_calls": 38.0,
+    "median_foreground_commands": 69.5
+  },
+  {
+    "mode": "managed",
+    "operation": "update",
+    "samples": 32,
+    "median_elapsed_ms": 31.459917,
+    "median_foreground_hook_calls": 49.0,
+    "median_foreground_commands": 73.0
+  },
+  {
+    "mode": "managed",
+    "operation": "delete",
+    "samples": 32,
+    "median_elapsed_ms": 30.275917,
+    "median_foreground_hook_calls": 43.0,
+    "median_foreground_commands": 66.0
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "point_read",
+    "samples": 32,
+    "median_elapsed_ms": 5.124646,
+    "median_foreground_hook_calls": 10.0,
+    "median_foreground_commands": 18.0
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "insert",
+    "samples": 32,
+    "median_elapsed_ms": 9.0447915,
+    "median_foreground_hook_calls": 15.0,
+    "median_foreground_commands": 23.0
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "update",
+    "samples": 32,
+    "median_elapsed_ms": 7.9193955,
+    "median_foreground_hook_calls": 15.0,
+    "median_foreground_commands": 23.0
+  },
+  {
+    "mode": "unmanaged",
+    "operation": "delete",
+    "samples": 32,
+    "median_elapsed_ms": 7.107813,
+    "median_foreground_hook_calls": 15.0,
+    "median_foreground_commands": 23.0
+  },
+  {
+    "mode": "raw",
+    "operation": "point_read",
+    "samples": 32,
+    "median_elapsed_ms": 0.376271,
+    "median_foreground_hook_calls": 1.0,
+    "median_foreground_commands": 1.0
+  },
+  {
+    "mode": "raw",
+    "operation": "insert",
+    "samples": 32,
+    "median_elapsed_ms": 0.3667495,
+    "median_foreground_hook_calls": 1.0,
+    "median_foreground_commands": 1.0
+  },
+  {
+    "mode": "raw",
+    "operation": "update",
+    "samples": 32,
+    "median_elapsed_ms": 0.3465,
+    "median_foreground_hook_calls": 1.0,
+    "median_foreground_commands": 1.0
+  },
+  {
+    "mode": "raw",
+    "operation": "delete",
+    "samples": 32,
+    "median_elapsed_ms": 0.380167,
+    "median_foreground_hook_calls": 1.0,
+    "median_foreground_commands": 1.0
+  }
+]

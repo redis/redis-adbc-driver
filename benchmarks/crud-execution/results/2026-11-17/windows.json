@@ -1,0 +1,30 @@
+[
+  {
+    "window": "A1",
+    "execution": "execute",
+    "started": "2026-11-17T18:17:30.994526+00:00",
+    "exit_code": 0,
+    "finished": "2026-11-17T18:19:03.084868+00:00"
+  },
+  {
+    "window": "B1",
+    "execution": "executemany",
+    "started": "2026-11-17T18:19:03.452106+00:00",
+    "exit_code": 0,
+    "finished": "2026-11-17T18:20:06.592469+00:00"
+  },
+  {
+    "window": "B2",
+    "execution": "executemany",
+    "started": "2026-11-17T18:20:06.958699+00:00",
+    "exit_code": 0,
+    "finished": "2026-11-17T18:21:12.359711+00:00"
+  },
+  {
+    "window": "A2",
+    "execution": "execute",
+    "started": "2026-11-17T18:21:12.798955+00:00",
+    "exit_code": 0,
+    "finished": "2026-11-17T18:22:17.923825+00:00"
+  }
+]

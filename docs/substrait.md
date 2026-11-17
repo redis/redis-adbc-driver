@@ -142,7 +142,7 @@ supports more casts, but that is not proof of identical Substrait semantics.
 Parameters are excluded in the first subset: reject every parameter expression.
 For an accepted plan `GetParameterSchema` returns an empty schema; `Bind` and
 `BindStream` return `StatusNotImplemented` without retaining new input. Preserve
-the existing BindStream ownership contract when rejecting an owned reader.
+the caller's BindStream reference on refusal; the caller still releases it.
 Do not reinterpret bound batches as ingestion or silently repeat execution.
 
 ## Resource, error and lifecycle contract

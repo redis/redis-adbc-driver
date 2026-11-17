@@ -81,8 +81,9 @@ pinned DBAPI's actual `_RowIterator.close` and `_blocking_call` operations:
 
 - `previous_result_close`: closing the preceding result inside the current
   cursor.execute, exactly where the original benchmark charges it.
-- `adbc_prepare` and `adbc_execute_query`: the actual blocking-call targets,
+- `adbc_prepare`, `adbc_execute_query` and `adbc_execute_update`: the actual blocking-call targets,
   preserving the original cancellation callback, arguments, results and errors.
+- `result_construction`: the original `_RowIterator` constructor, called once.
 - `arrow_read_all`: the existing full result read, without replacing the reader
   or changing its ownership/lifetime.
 
