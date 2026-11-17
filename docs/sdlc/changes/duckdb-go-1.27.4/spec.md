@@ -1,6 +1,6 @@
 # Specification: repair the DuckDB toolchain bootstrap
 
-Date: 2026-11-17. Source: `2b6634e0`. Status: implemented, validation pending.
+Date: 2026-11-17. Source: `2b6634e0`. Status: implemented; native archive validation passed.
 See [intent](intent.md) and [plan/evidence](plan.md).
 
 The extension bootstrap must download Go 1.27.4 for Linux and macOS on amd64
