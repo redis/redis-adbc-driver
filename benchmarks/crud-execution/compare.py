@@ -207,7 +207,7 @@ def markdown(result):
             a, b = row['baseline'], row['candidate']
             text += f"| {row['operation']} | {row['mode']} | {row['clients']} | {a['p50_ms']:.4f}→{b['p50_ms']:.4f} | {a['p95_ms']:.4f}→{b['p95_ms']:.4f} | {a['mean_ms']:.4f}→{b['mean_ms']:.4f} | {row['p50_elapsed_reduction_percent']:.2f}% | {a['summed_trial_operations_per_second']:.2f}→{b['summed_trial_operations_per_second']:.2f} | {row['candidate_elapsed_over_redis_py']:.3f}× |\n"
         text += '\n'
-    return text
+    return text.rstrip() + '\n'
 
 
 def write_outputs(result, output):
@@ -217,7 +217,7 @@ def write_outputs(result, output):
     for name, rows in [('comparison.csv', [flat(row) for row in result['pooled']]),
                        ('pairs.csv', [{'pair': pair['name'], **flat(row)} for pair in result['pairs'] for row in pair['rows']])]:
         with (output / name).open('w', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=list(rows[0]))
+            writer = csv.DictWriter(file, fieldnames=list(rows[0]), lineterminator='\n')
             writer.writeheader()
             writer.writerows(rows)
 

@@ -146,4 +146,3 @@ Summed-trial throughput is total completed measured operations divided by summed
 | update | redis_py | 4 | 0.2125→0.1573 | 4.3529→4.1694 | 0.7223→0.6479 | 25.98% | 5030.07→5500.25 | 1.000× |
 | update | unmanaged | 1 | 2.5586→1.7118 | 6.0005→3.1134 | 3.2090→1.8360 | 33.10% | 311.44→544.22 | 33.198× |
 | update | unmanaged | 4 | 7.1228→3.8093 | 13.3530→9.7673 | 7.5129→4.4581 | 46.52% | 503.48→879.11 | 24.221× |
-
