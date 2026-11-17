@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-17",
+  "r": {
+    "version": "4.6.2",
+    "cran_adbi": "0.1.3",
+    "unpatched": {
+      "passed": 1,
+      "failed": 4,
+      "deselected": 1
+    },
+    "pinned_patched_adbi": "0.1.4 at ac5d3294597c453c8cb1c278b9536cd9afb3eae2 plus documented recipe patches",
+    "patched": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 1
+    },
+    "upstream_fix": "https://github.com/r-dbi/adbi/pull/128",
+    "upstream_state": "open"
+  },
+  "datasets": {
+    "version": "5.2.0",
+    "python": "3.14.10",
+    "pyarrow": "26.0.1",
+    "independent_default_save": {
+      "passed": 1,
+      "failed": 1,
+      "deselected": 3
+    },
+    "native_mitigation": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    "upstream_fix": "https://github.com/huggingface/datasets/pull/8913",
+    "upstream_state": "open"
+  },
+  "environment": {
+    "client": "macOS arm64 through Docker published port",
+    "redis": "8.8.0",
+    "primaries": 3,
+    "tls_verified": true,
+    "resp": 3,
+    "noeviction": true,
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32
+  }
+}
