@@ -1,0 +1,28 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+//go:build driverlib && nativeproofprobe
+
+package main
+
+// #include <stdlib.h>
+import "C"
+import (
+	redis "github.com/adbc-drivers/redis/go"
+	"unsafe"
+)
+
+//export RedisNativeProofBegin
+func RedisNativeProofBegin() C.int {
+	if redis.NativeProofBegin() {
+		return 1
+	}
+	return 0
+}
+
+//export RedisNativeProofEnd
+func RedisNativeProofEnd() *C.char {
+	return C.CString(redis.NativeProofEnd())
+}
+
+//export RedisNativeProofFree
+func RedisNativeProofFree(p *C.char) { C.free(unsafe.Pointer(p)) }
