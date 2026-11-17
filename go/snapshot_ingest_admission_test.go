@@ -45,6 +45,7 @@ type ingestAdmissionObserver struct {
 	claims    atomic.Int64
 	loseReply bool
 	lost      atomic.Bool
+	operation string // empty selects the ordinary table admission
 }
 
 func (o *ingestAdmissionObserver) Process(ctx context.Context, cmd goredis.Cmder) error {
@@ -52,7 +53,11 @@ func (o *ingestAdmissionObserver) Process(ctx context.Context, cmd goredis.Cmder
 	a := snapshotObservedControlArgs(cmd)
 	if len(a) > 3 && strings.EqualFold(snapshotObservedControlName(cmd), "eval") {
 		n, _ := strconv.Atoi(fmt.Sprint(a[2]))
-		if len(a) > 3+n && a[3+n] == "admit_ingest" {
+		operation := o.operation
+		if operation == "" {
+			operation = "admit_ingest"
+		}
+		if len(a) > 3+n && a[3+n] == operation {
 			o.claims.Add(1)
 			if err == nil {
 				if val, ok := cmd.(interface{ Val() any }); ok && val.Val() == int64(0) && o.busy != nil {

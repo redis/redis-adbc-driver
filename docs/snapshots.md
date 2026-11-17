@@ -65,6 +65,26 @@ unnecessary.
 For an explicit read view reused across native connection metadata and SELECTs,
 see [connection-scoped shared read snapshots](shared-read-snapshots.md).
 
+## Concurrent catalog writes
+
+Catalog-changing SQL statements (including CTAS) and Arrow creation/replacement
+coordinate on a database-wide admission held by their renewable writer pin.
+Waiters release their old pin and acquire a fresh snapshot before execution or
+Arrow consumption. This serializes catalog work, including shared membership
+sets, registries and OID allocation, so independent dbt models do not require
+caller SQL retries. Ordinary existing-table DML and Arrow append keep per-table
+admission, but wait while catalog work is admitted. Catalog admission also waits
+for admitted table writes, protecting catalog dependencies in DML planning.
+Disjoint table writers can still run concurrently. Reads and publication
+dependency checks are unchanged.
+
+Cancellation interrupts waiting; unknown admission replies fail without replay.
+There is no fairness guarantee, and long CTAS operations can delay other catalog
+writes. Retained prepared operations still validate dependencies when resumed.
+Older clients do not participate in catalog admission; the concurrency guarantee
+requires all concurrent catalog writers to use a driver with this support.
+See the [issue #448 change record](sdlc/changes/issue-448-catalog-admission/intent.md).
+
 ## Optional process-local writer scheduling
 
 Managed writes use the existing native server admission by default. A database

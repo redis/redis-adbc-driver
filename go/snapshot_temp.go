@@ -96,7 +96,7 @@ func (s *store) dropTempOwned(ctx context.Context, id string, stillDead func() b
 }
 
 func (s *store) dropSnapshotTempAttempt(ctx context.Context, id string, stillDead func() bool) error {
-	sctx, pin, err := s.acquireSnapshot(ctx, true)
+	sctx, pin, err := s.acquireWritableSnapshot(ctx, nil)
 	if err != nil {
 		return err
 	}
