@@ -4,7 +4,7 @@ package redis
 
 import "context"
 
-// Inspect immutable constant expressions while planning CASE and Unicode calls.
+// Inspect immutable constant expressions while planning CASE and selected calls.
 // The AST stays unchanged: row-dependent expressions and volatile functions still run per row.
 // Constant facts come from literal query inputs, never from observed table rows.
 type casePlanner struct {
@@ -15,7 +15,7 @@ type casePlanner struct {
 func (e *executor) checkCaseConstants(ctx context.Context, expr Expr) error {
 	needsCheck := false
 	walkExpr(expr, func(x Expr) {
-		if f, ok := x.(*Func); ok && unicodeFunction(f.Name) {
+		if f, ok := x.(*Func); ok && (unicodeFunction(f.Name) || f.Name == "FACTORIAL") {
 			needsCheck = true
 		}
 		if _, ok := x.(*Case); ok {
@@ -181,7 +181,7 @@ func (p *casePlanner) fold(expr Expr) (Value, bool, error) {
 		pure = true
 	case *Func:
 		switch x.Name {
-		case "ABS", "MOD", "NULLIF", "GREATEST", "LEAST", "__ARRAY", "NORMALIZE", "UNISTR":
+		case "ABS", "MOD", "NULLIF", "GREATEST", "LEAST", "__ARRAY", "NORMALIZE", "UNISTR", "FACTORIAL":
 			pure = true
 		}
 	}

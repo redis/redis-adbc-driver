@@ -135,6 +135,10 @@ func (e *executor) noteParams(expr Expr) {
 				return false // binds its own arguments
 			}
 			switch {
+			case v.Name == "FACTORIAL":
+				for _, a := range v.Args {
+					c.noteParamOf(a, typeInt64)
+				}
 			case gcdLCMFunction(v.Name):
 				_, targets, err := gcdLCMTypes(v, inferArgTypes(v.Args, types, nil))
 				if err == nil {
