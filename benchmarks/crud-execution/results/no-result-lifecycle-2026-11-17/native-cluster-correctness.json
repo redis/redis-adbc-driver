@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "scope": "Native correctness only; no performance or full lifetime acceptance.",
+  "source": "beec7212",
+  "driver_sha256": "af1511103938a0d012b701b7e8cca0139f25295195f5025e42008614f1153e77",
+  "harness_sha256": "0168a2a64b0d7d9658fa132a63afe2461a32ff2addd696094193f03f947ba337",
+  "packages": {
+    "adbc-driver-manager": "1.13.0",
+    "pyarrow": "26.0.1",
+    "redis": "8.1.0"
+  },
+  "server": {
+    "distribution": "Redis Software",
+    "redis_version": "8.8.0",
+    "shards": 3
+  },
+  "client": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "python": "3.14.10",
+    "route": "Host client through Docker published localhost TLS port"
+  },
+  "initial_gate": {
+    "active_qpf": 4,
+    "search_workers": 6,
+    "sched_policy": "mnp",
+    "conns": 32,
+    "noeviction": true
+  },
+  "permission_cases": [
+    {
+      "mode": "managed",
+      "operation": "insert",
+      "paths": [
+        "execute",
+        "executemany"
+      ],
+      "denied_command": "hset",
+      "status": 10,
+      "sqlstate": null,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "managed",
+      "operation": "update",
+      "paths": [
+        "execute",
+        "executemany"
+      ],
+      "denied_command": "hset",
+      "status": 10,
+      "sqlstate": null,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "managed",
+      "operation": "delete",
+      "paths": [
+        "execute",
+        "executemany"
+      ],
+      "denied_command": "hset",
+      "status": 10,
+      "sqlstate": null,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "unmanaged",
+      "operation": "insert",
+      "paths": [
+        "execute",
+        "executemany"
+      ],
+      "denied_command": "hset",
+      "status": 10,
+      "sqlstate": null,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "unmanaged",
+      "operation": "update",
+      "paths": [
+        "execute",
+        "executemany"
+      ],
+      "denied_command": "hset",
+      "status": 10,
+      "sqlstate": null,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "unmanaged",
+      "operation": "delete",
+      "paths": [
+        "execute",
+        "executemany"
+      ],
+      "denied_command": "del",
+      "status": 10,
+      "sqlstate": null,
+      "complete_state_unchanged": true
+    }
+  ],
+  "cancellation_cases": [
+    {
+      "mode": "managed",
+      "execution": "execute",
+      "status": 11,
+      "sqlstate": "57014",
+      "producer_entries": 1,
+      "producer_yields": 1,
+      "reuse_and_explicit_close": true,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "managed",
+      "execution": "executemany",
+      "status": 11,
+      "sqlstate": "57014",
+      "producer_entries": 1,
+      "producer_yields": 1,
+      "reuse_and_explicit_close": true,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "unmanaged",
+      "execution": "execute",
+      "status": 11,
+      "sqlstate": "57014",
+      "producer_entries": 1,
+      "producer_yields": 1,
+      "reuse_and_explicit_close": true,
+      "complete_state_unchanged": true
+    },
+    {
+      "mode": "unmanaged",
+      "execution": "executemany",
+      "status": 11,
+      "sqlstate": "57014",
+      "producer_entries": 1,
+      "producer_yields": 1,
+      "reuse_and_explicit_close": true,
+      "complete_state_unchanged": true
+    }
+  ],
+  "close_cases": [
+    {
+      "mode": "managed",
+      "execution": "execute",
+      "affected_rows": [
+        1,
+        0
+      ],
+      "retained_arrow_valid_after_close": true,
+      "explicit_close_idempotent": true,
+      "fresh_connection_state_valid": true
+    },
+    {
+      "mode": "managed",
+      "execution": "executemany",
+      "affected_rows": [
+        1,
+        0
+      ],
+      "retained_arrow_valid_after_close": true,
+      "explicit_close_idempotent": true,
+      "fresh_connection_state_valid": true
+    },
+    {
+      "mode": "unmanaged",
+      "execution": "execute",
+      "affected_rows": [
+        1,
+        0
+      ],
+      "retained_arrow_valid_after_close": true,
+      "explicit_close_idempotent": true,
+      "fresh_connection_state_valid": true
+    },
+    {
+      "mode": "unmanaged",
+      "execution": "executemany",
+      "affected_rows": [
+        1,
+        0
+      ],
+      "retained_arrow_valid_after_close": true,
+      "explicit_close_idempotent": true,
+      "fresh_connection_state_valid": true
+    }
+  ],
+  "raw_source_unchanged": true,
+  "final_gate": {
+    "active_qpf": 4,
+    "search_workers": 6,
+    "sched_policy": "mnp",
+    "conns": 32,
+    "noeviction": true
+  },
+  "cleanup": {
+    "temporary_principals_removed": true,
+    "owned_schema_and_source_removed": true
+  }
+}

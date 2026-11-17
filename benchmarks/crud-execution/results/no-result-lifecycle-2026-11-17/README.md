@@ -44,3 +44,16 @@ This does not qualify concurrent Close during execution, a foreign callback that
 never returns, cancellation after uncertain source writes, all nested Arrow
 lifetimes, ASAN/UBSAN or retained Go/C leak accounting. The #446 Arrow dependency
 blocker and #447's controlled performance/lifecycle acceptance remain open.
+
+## Three-shard final-harness follow-up
+
+The [three-shard result](native-cluster-correctness.json) repeats all groups on a
+fresh owned three-shard Software fixture with the same clean driver binary,
+client/route and effective 4x QPF/six workers/mnp32/noeviction. It passes all
+permission, cancellation and Close checks and independent resource cleanup.
+The final harness also verifies effective QPF after **each** principal change,
+before its raw ACL probe. The earlier one-shard result used the initial and
+post-binding gates and remains tied to the harness in commit `fe15024a`; it has
+not been overwritten or relabeled with the stronger per-probe gating. The
+three-shard file records the actual final harness hash. Both are correctness
+checks, not timing samples or Linux qualification.
