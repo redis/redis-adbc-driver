@@ -1,6 +1,6 @@
 # Plan and evidence
 
-2026-11-17. Base: `3671fca7`. Status: validation in progress.
+2026-11-17. Base: `3671fca7`. Status: local validation complete; replacement CI in progress.
 See [intent](intent.md), [specification](spec.md).
 
 1. Inspect the current failing workflow and preserve its failure signatures.
@@ -27,7 +27,16 @@ See [intent](intent.md), [specification](spec.md).
   `make -C go build`. Command: verified Software runner executing
   `python -m pytest -q python/tests/test_ray_datasource.py`, with
   RUN_RAY_TESTS=1, REQUIRE_RAY_TLS=1, and fixture CA configured.
-- Unit suite, admission race checks and replacement CI: pending.
+- Unit suite: `cd go && env -u REDIS_URI -u REDIS_SNAPSHOT_URI go test
+  -count=1 -p 1 ./...` passed (root package 27.631s); integration skips expected.
+- Public catalog concurrency/admission tests: `go test -race -count=1 -p 1
+  -timeout=5m -v -run "TestSnapshot(Catalog|ConcurrentCatalog)" .` passed
+  (4.540s), with REDIS_SNAPSHOT_URI set to the verified disposable fixture.
+  Covers concurrent public SQL, Arrow wait/cancel/input consumption, lost
+  admission replies, lease expiry and DML metadata dependencies.
+- [PR CI](https://github.com/redis/redis-adbc-driver/actions/runs/44129203202)
+  and [full amd64/arm64 dispatch](https://github.com/redis/redis-adbc-driver/actions/runs/44129357892)
+  started; final results are tracked in [PR #455](https://github.com/redis/redis-adbc-driver/pull/455).
 
 ## Review
 

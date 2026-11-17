@@ -1,6 +1,6 @@
 # Specification
 
-2026-11-17. Base: `3671fca7`. Status: implemented; validation pending.
+2026-11-17. Base: `3671fca7`. Status: implemented and locally validated; replacement CI in progress.
 See [intent](intent.md), [plan and evidence](plan.md).
 
 Stale DROP/RENAME and paged ALTER tests must publish a prepared competing
