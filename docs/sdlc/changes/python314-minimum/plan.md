@@ -7,7 +7,8 @@ Date: 2026-11-17. See [intent](intent.md) and [specification](spec.md).
 - Removed unsupported Superset 6.1 extra/profile/CI and documented blocker #471.
   Registry/guide commands explicitly explain unsupported status before execution.
 - Python 3.14 offline checks: 11 registry/runner tests, 19 installer tests,
-  13 acceptance-runner tests, 4 CI split-suite contracts: **47 passed**.
+  13 acceptance-runner tests, 6 TLS-runner tests and 4 CI split-suite contracts:
+  **53 passed**.
 - Built a metadata-validation wheel: Requires-Python is >=3.14 and Provides-Extra
   excludes superset. This source wheel is not a published native platform artifact.
 - Independently resolved all **13 supported** profiles for Python 3.14 /
@@ -20,3 +21,9 @@ Date: 2026-11-17. See [intent](intent.md) and [specification](spec.md).
   before-install minimum enforcement and removal of older-Python CI paths. No new
   live Redis or performance run was performed for the packaging/profile change.
   Full integration qualification remains with the normal CI/live acceptance gates.
+
+- Initial hosted helper CI caught a comparison-table label mismatch introduced
+  by the unsupported-status documentation update. Product labels now stay stable
+  across the comparison and acceptance tables while status states unsupported.
+  The acceptance, TLS-runner and CI contracts pass after that correction. Helper
+  CI now explicitly selects Python 3.14 before running any Python checks.
