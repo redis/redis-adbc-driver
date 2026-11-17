@@ -41,3 +41,14 @@ Self-review covered the typed/raw oracles, public caller selection, foreign
 producer ownership, cancellation/join/Close ordering, scoped principals/source
 cleanup, sanitized outputs and evidence limits. No shipping implementation is
 changed. Human maintainer review is pending.
+
+The final harness additionally passes the same complete screen on a fresh
+three-shard Software fixture matching CI's topology, still with native macOS
+clients. It rechecks effective QPF after each principal change before the raw ACL
+probe. The one-shard artifact remains unchanged and identifies its earlier
+harness; the separate three-shard artifact hashes the final harness. Both owned
+fixtures and generated credentials were removed, with other running containers
+preserved. [PR #465](https://github.com/redis/redis-adbc-driver/pull/465) merged the base
+coverage while the final three-shard run was completing. The stricter per-probe
+gate and three-shard artifact are a separate follow-up. CI must qualify the
+newer main dependency set and Linux architectures separately.

@@ -235,6 +235,7 @@ def main():
                 name = 'noresult-' + uuid.uuid4().hex + '@example.com'
                 principals.create(name, secrets.token_urlsafe(32),
                                   ['+@all', '-' + denied, '~*', '(+' + denied + ' ~adbc:{meta}:*)'])
+                gate()
                 with principals.client(name) as principal:
                     try:
                         command = ('HSET', prefix+'probe', 'id', '99') if denied == 'hset' else ('DEL', prefix+'probe')
