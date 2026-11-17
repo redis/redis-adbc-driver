@@ -137,6 +137,19 @@ func inventoryRecord(a arrow.Array) arrow.RecordBatch {
 	return array.NewRecordBatch(arrow.NewSchema([]arrow.Field{{Name: "v", Type: a.DataType(), Nullable: true}}, nil), []arrow.Array{a}, int64(a.Len()))
 }
 
+// inventoryResultRecord adds the canonical declaration expected on driver output;
+// inventoryRecord deliberately keeps ingestion fixtures free of metadata.
+func inventoryResultRecord(t *testing.T, a arrow.Array) arrow.RecordBatch {
+	t.Helper()
+	typ, err := colTypeFromArrow(a.DataType())
+	if err != nil {
+		t.Fatal(err)
+	}
+	field := arrow.Field{Name: "v", Type: typ.ArrowType(), Nullable: true,
+		Metadata: arrow.NewMetadata([]string{typeNameKey}, []string{typ.SQLName()})}
+	return array.NewRecordBatch(arrow.NewSchema([]arrow.Field{field}, nil), []arrow.Array{a}, int64(a.Len()))
+}
+
 func assertInventoryReader(t *testing.T, reader array.RecordReader, want arrow.RecordBatch) {
 	t.Helper()
 	if !reader.Schema().Equal(want.Schema()) {
@@ -225,7 +238,7 @@ func checkCanonicalRoundTrips(t *testing.T, mem memory.Allocator, cases []layout
 				defer out.Release()
 				want := array.NewSlice(c.want, bounds[0], bounds[1])
 				defer want.Release()
-				expected := inventoryRecord(want)
+				expected := inventoryResultRecord(t, want)
 				defer expected.Release()
 				if !array.RecordEqual(out, expected) {
 					t.Fatal("normalization changed values/schema", out, expected)
@@ -338,7 +351,7 @@ func TestArrowLayoutCopiedValues(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer out.Release()
-			expected := inventoryRecord(c.want)
+			expected := inventoryResultRecord(t, c.want)
 			defer expected.Release()
 			if !array.RecordEqual(out, expected) {
 				t.Fatal("released source changed values", c.name, out, expected)

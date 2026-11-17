@@ -427,3 +427,31 @@ normalization and explicit-layout contracts as supported, with their boundaries
 retained. The [extensions and remaining limits inventory](arrow-adbc-limits.md)
 links completed follow-ups and documents their remaining boundaries. Support
 does not imply that all Arrow physical encodings or extension identities persist.
+
+## SQL declaration field metadata
+
+`GetTableSchema` fields include `ARROW:FLIGHT:SQL:TYPE_NAME`, with the same
+canonical declaration as `GetObjects`' `xdbc_type_name` and
+`information_schema.columns.driver_data_type`. For example, `VARCHAR(17)`,
+`CHAR(4)`, `NUMERIC(12,2)` and `TIMESTAMP(2)` retain modifiers that physical
+Arrow types alone cannot express. This applies to empty tables, views and
+connection-local temporary relations, including case-sensitive names. Query
+readers and `ExecuteSchema` carry the canonical type of each result expression;
+direct column projections retain their type modifiers. `GetTableSchema` column
+remarks remain separate `ARROW:FLIGHT:SQL:REMARKS` metadata; query schemas do not
+propagate comments.
+
+These names describe the driver's retained type, rather than original SQL
+spelling. Aliases normalize, default temporal precision is made explicit,
+TEXT is reported as VARCHAR, and computed expressions can have a different
+inferred type from their inputs. Physical Arrow types are unchanged.
+Ordinary type-name metadata is descriptive and does not create an Arrow
+extension or restore SQL constraints during Arrow ingestion. The existing
+JSON/JSONB `arrow.json`, UUID and TIME WITH TIME ZONE mappings still apply.
+
+Flight services that serialize the returned Arrow schema can carry these
+names to standard clients without a separate SQL metadata query. Clients may
+omit optional field metadata; an absent declaration is distinct from a SQL
+execution or value conversion failure. Client-specific display and alias
+round-tripping are not guaranteed. See the [change specification](sdlc/changes/exact-schema-metadata-453/spec.md)
+for scope and [validation evidence](sdlc/changes/exact-schema-metadata-453/plan.md).

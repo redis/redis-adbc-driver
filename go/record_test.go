@@ -177,7 +177,18 @@ func TestRecordArrow(t *testing.T) {
 		"    - z: type=struct<f1: int32 nullable, f2: utf8 nullable>, nullable\n" +
 		"    - e: type=struct<>, nullable\n" +
 		"    - f2: type=utf8, nullable"
-	if got := rec.Schema().String(); got != wantSchema {
+	fields := rec.Schema().Fields()
+	for i := range fields {
+		want := "RECORD"
+		if i == len(fields)-1 {
+			want = "VARCHAR"
+		}
+		if got, ok := fields[i].Metadata.GetValue(typeNameKey); !ok || got != want {
+			t.Errorf("field %d declaration = %q, want %q", i, got, want)
+		}
+		fields[i].Metadata = arrow.Metadata{}
+	}
+	if got := arrow.NewSchema(fields, nil).String(); got != wantSchema {
 		t.Errorf("schema:\n got: %s\nwant: %s", got, wantSchema)
 	}
 	row := rec.Column(0).(*array.Struct)

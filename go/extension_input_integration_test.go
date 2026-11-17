@@ -45,7 +45,7 @@ func TestExtensionStorageReplay(t *testing.T) {
 			rec := inventoryRecord(a)
 			a.Release()
 			defer rec.Release()
-			expected := inventoryRecord(want)
+			expected := inventoryResultRecord(t, want)
 			want.Release()
 			defer expected.Release()
 			st, err := h.conn.NewStatement(h.ctx)

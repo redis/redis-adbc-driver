@@ -170,7 +170,7 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := inventoryRecord(wantArray)
+			want := inventoryResultRecord(t, wantArray)
 			wantArray.Release()
 			defer want.Release()
 			schema, err := worker.conn.GetTableSchema(h.ctx, nil, nil, table)

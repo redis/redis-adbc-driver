@@ -83,7 +83,8 @@ func dbtEmpty(sql string) string {
 }
 
 // schemaText renders a schema: each field's name, Arrow type, nullability
-// and metadata.
+// and metadata other than descriptive TYPE_NAME (covered by the declaration
+// metadata regressions). Keep these physical-shape oracles independent of it.
 func schemaText(s *arrow.Schema) string {
 	parts := make([]string, s.NumFields())
 	for i, f := range s.Fields() {
@@ -91,8 +92,15 @@ func schemaText(s *arrow.Schema) string {
 		if !f.Nullable {
 			parts[i] += " NOT NULL"
 		}
-		if f.HasMetadata() {
-			parts[i] += " " + f.Metadata.String()
+		var keys, values []string
+		for j, key := range f.Metadata.Keys() {
+			if key != typeNameKey {
+				keys = append(keys, key)
+				values = append(values, f.Metadata.Values()[j])
+			}
+		}
+		if len(keys) > 0 {
+			parts[i] += " " + arrow.NewMetadata(keys, values).String()
 		}
 	}
 	return strings.Join(parts, ", ")
