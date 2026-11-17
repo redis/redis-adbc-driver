@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "scope": "Server-free stub native ownership qualification on current pinned dependencies. No Redis endpoint or performance acceptance.",
+  "source_commit": "292ee2544fa6d48baec7091eab9e2cc28f385a3d",
+  "arrow_go_version": "v18.9.0",
+  "shipping_forced_gc": "unchanged",
+  "harness_sha256": {
+    "build.py": "2f418ec5d09048cae67b37e34f3ff586f03330a95aa4cd3bbc05375950eb95a8",
+    "run.py": "e259cdc1f8c45e106d03dfb5fa01b128dc53d3a6c5f172f8de5baaf629caa38b",
+    "lifetime.py": "5d229242f0f0b7ec7e9bcdec8d286985c20709200672d5253837b48cf5c1052f",
+    "probe.go.txt": "03ce9f2cb6212736c3e6b855cc30e2332a83cc6c225127b94ed1e2540cd58a3a",
+    "repros/struct_offset_test.go.txt": "869a5c3368d596f5e4b0c4106e53a09128181660fb4223655582a92e3a303d6f"
+  },
+  "builds": {
+    "linux-strict": {
+      "base_commit": "292ee2544fa6d48baec7091eab9e2cc28f385a3d",
+      "go_launcher": "go version go1.27.3 linux/arm64",
+      "go": "go version go1.27.4 linux/arm64",
+      "race": false,
+      "checkptr": true,
+      "cgo_check": true,
+      "sanitizer": null,
+      "arrow_override": null,
+      "archive_sha256": "0a5b163a9e8f99b11b310dd34111b4f867b977dc1b0b826da09e49fc71a133cc",
+      "fixture_sha256": "03ce9f2cb6212736c3e6b855cc30e2332a83cc6c225127b94ed1e2540cd58a3a",
+      "binary": {
+        "binary_sha256": "6f44df278b6005936844f02d87c2dae8e103f8e1a71ded2046282d592d84d35a",
+        "fixture_written_sha256": "7d6e789776f13baddd80ed69aaa721092d9a8fb8b7fb145fb5d60660fa76498b",
+        "driver_source_sha256": "912d700a244851bebc0791593d9d468917988b8d0a3d221d1a2a5d141d3161b0",
+        "module_sha256": "e8022ac3d2eb17ea2542c24cbec7625bdfd916fe2c676e5e56856954659c7e8f",
+        "sum_sha256": "34b2f32aba5c6c461529f3d3b85f88f9819010de2020c4cc3463a087ad4ab48d",
+        "retains_stream": true
+      }
+    },
+    "linux-race": {
+      "base_commit": "292ee2544fa6d48baec7091eab9e2cc28f385a3d",
+      "go_launcher": "go version go1.27.3 linux/arm64",
+      "go": "go version go1.27.4 linux/arm64",
+      "race": true,
+      "checkptr": true,
+      "cgo_check": true,
+      "sanitizer": null,
+      "arrow_override": null,
+      "archive_sha256": "0a5b163a9e8f99b11b310dd34111b4f867b977dc1b0b826da09e49fc71a133cc",
+      "fixture_sha256": "03ce9f2cb6212736c3e6b855cc30e2332a83cc6c225127b94ed1e2540cd58a3a",
+      "binary": {
+        "binary_sha256": "9a02180ac6d8e2dd8477b791fd4c8ea22bd7d1ee07f54d48b05dc90a9a21493f",
+        "fixture_written_sha256": "7d6e789776f13baddd80ed69aaa721092d9a8fb8b7fb145fb5d60660fa76498b",
+        "driver_source_sha256": "912d700a244851bebc0791593d9d468917988b8d0a3d221d1a2a5d141d3161b0",
+        "module_sha256": "e8022ac3d2eb17ea2542c24cbec7625bdfd916fe2c676e5e56856954659c7e8f",
+        "sum_sha256": "34b2f32aba5c6c461529f3d3b85f88f9819010de2020c4cc3463a087ad4ab48d",
+        "retains_stream": true
+      }
+    },
+    "macos-race": {
+      "base_commit": "292ee2544fa6d48baec7091eab9e2cc28f385a3d",
+      "go_launcher": "go version go1.27.2 darwin/arm64",
+      "go": "go version go1.27.4 darwin/arm64",
+      "race": true,
+      "checkptr": true,
+      "cgo_check": true,
+      "sanitizer": null,
+      "arrow_override": null,
+      "archive_sha256": "0a5b163a9e8f99b11b310dd34111b4f867b977dc1b0b826da09e49fc71a133cc",
+      "fixture_sha256": "03ce9f2cb6212736c3e6b855cc30e2332a83cc6c225127b94ed1e2540cd58a3a",
+      "binary": {
+        "binary_sha256": "c0c94c5c4583565a8d0b4445b3dd7d239b0162b054c4ff12d37b99fc00579424",
+        "fixture_written_sha256": "7d6e789776f13baddd80ed69aaa721092d9a8fb8b7fb145fb5d60660fa76498b",
+        "driver_source_sha256": "912d700a244851bebc0791593d9d468917988b8d0a3d221d1a2a5d141d3161b0",
+        "module_sha256": "e8022ac3d2eb17ea2542c24cbec7625bdfd916fe2c676e5e56856954659c7e8f",
+        "sum_sha256": "34b2f32aba5c6c461529f3d3b85f88f9819010de2020c4cc3463a087ad4ab48d",
+        "retains_stream": true
+      }
+    }
+  },
+  "checks": [
+    {
+      "name": "linux-strict-basic",
+      "status": "passed",
+      "groups": 7,
+      "checkptr": 2,
+      "cgocheck2": true,
+      "checked_allocator_bytes": 0
+    },
+    {
+      "name": "linux-strict-expanded",
+      "status": "failed",
+      "location": "retained_rebind in independent-client loop, seed 1, stream input",
+      "reason": "Sliced STRUCT field x returned 0 rather than expected 1; exact data assertion retained.",
+      "full_256_cycles_completed": false
+    },
+    {
+      "name": "linux-race-basic",
+      "status": "runtime_initialization_failed",
+      "exit_code": 66,
+      "reason": "ThreadSanitizer allocation failure before ownership checks."
+    },
+    {
+      "name": "linux-race-expanded",
+      "status": "runtime_initialization_failed",
+      "exit_code": 66,
+      "reason": "ThreadSanitizer allocation failure before ownership checks."
+    },
+    {
+      "name": "macos-race-basic",
+      "status": "passed",
+      "groups": 7,
+      "checkptr": 2,
+      "cgocheck2": true,
+      "checked_allocator_bytes": 0
+    },
+    {
+      "name": "macos-race-expanded",
+      "status": "failed",
+      "location": "retained_rebind in independent-client loop, seed 1, stream input",
+      "reason": "Same sliced STRUCT field x mismatch; no full lifetime or race-suite pass.",
+      "full_256_cycles_completed": false
+    },
+    {
+      "name": "standalone-arrow-189",
+      "status": "failed",
+      "go_version": "go version go1.27.4 darwin/arm64",
+      "module": "github.com/apache/arrow-go/v18 v18.9.0",
+      "test": "TestSlicedStructCDataRoundTrip",
+      "expected": "{[202 303]}",
+      "actual": "{[303]}",
+      "go_mod_sha256": "a0d108de21bad055c24d12aece5e95ccb4fc3ddac7c03748ab0cdfbebdcd3777",
+      "go_sum_sha256": "8c56544bd70ce5190a86f48e2068d86536945c9aeb29d11c5ef940dba82085d1"
+    }
+  ],
+  "environments": {
+    "linux": {
+      "architecture": "aarch64",
+      "python": "3.11.2",
+      "pyarrow": "26.0.0"
+    },
+    "macos": {
+      "architecture": "arm64",
+      "python": "3.14.10",
+      "pyarrow": "26.0.0"
+    }
+  },
+  "limits": "No dependency overrides, assertion skips, GC changes, SQL replay or checkptr bypass. Linux race runtime did not start checks. macOS basic race success does not replace Linux race, expanded sanitizer, retained-memory or full-path native performance gates. Raw logs, paths and binaries remain private.",
+  "stale_pin_reproduction": {
+    "command": "GOTOOLCHAIN=go1.27.3 go list -m (current go module)",
+    "exit_code": 1,
+    "error": "go.mod requires go >= 1.27.4 (running go 1.27.3; GOTOOLCHAIN=go1.27.3)"
+  }
+}

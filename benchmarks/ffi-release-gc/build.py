@@ -40,9 +40,10 @@ def main():
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0, 'Private work directory must be outside a Git checkout'
     work.mkdir()
     env = os.environ.copy()
-    for key in ('GOFLAGS', 'GOWORK', 'GOMAXPROCS', 'GOEXPERIMENT', 'REDIS_URI', 'REDIS_SNAPSHOT_URI'):
+    for key in ('GOFLAGS', 'GOWORK', 'GOMAXPROCS', 'GOEXPERIMENT', 'GOTOOLCHAIN', 'REDIS_URI', 'REDIS_SNAPSHOT_URI'):
         env.pop(key, None)
-    env.update(GOWORK='off', GOTOOLCHAIN='go1.27.3', CGO_ENABLED='1')
+    # Follow the archived source's module toolchain, including historical bases.
+    env.update(GOWORK='off', GOTOOLCHAIN='auto', CGO_ENABLED='1')
     if args.cgo_check:
         env['GOEXPERIMENT'] = 'cgocheck2'
     if args.sanitizer == 'undefined':
@@ -69,12 +70,19 @@ def main():
                 fixture_sha256=sha(source), patch_sha256=sha(patch), race=args.race,
                 checkptr=args.checkptr, cgo_check=args.cgo_check, sanitizer=args.sanitizer,
                 arrow_override=arrow_override,
-                go=subprocess.check_output(['go', 'version'], env=env, text=True).strip(), builds={})
+                go_launcher=subprocess.check_output(['go', 'version'], env=env, text=True).strip(), builds={})
     for variant in (('baseline',) if args.baseline_only else ('baseline', 'candidate')):
         tree = work / (variant + '-source')
         tree.mkdir()
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-            tar.extractall(tree, filter='data')
+            # Python 3.11 on the Linux probe image lacks extraction filters.
+            # Refuse links and escaping paths before extracting local Git data.
+            members = tar.getmembers()
+            for member in members:
+                (tree / member.name).resolve().relative_to(tree)
+                if not (member.isfile() or member.isdir()):
+                    raise ValueError('Probe archive requires regular files/directories')
+            tar.extractall(tree, members=members)
         if args.arrow_source:
             subprocess.run(['go', 'mod', 'edit', '-replace=github.com/apache/arrow-go/v18=' + str(arrow_source)],
                            cwd=tree / 'go', env=env, check=True)
@@ -92,8 +100,9 @@ def main():
         if variant == 'candidate':
             subprocess.run(['git', 'apply', '--check', str(patch)], cwd=tree, check=True)
             subprocess.run(['git', 'apply', str(patch)], cwd=tree, check=True)
+        info['go'] = subprocess.check_output(['go', 'version'], cwd=tree / 'go', env=env, text=True).strip()
         ext = {'darwin': 'dylib', 'linux': 'so', 'windows': 'dll'}[subprocess.check_output(
-            ['go', 'env', 'GOOS'], env=env, text=True).strip()]
+            ['go', 'env', 'GOOS'], cwd=tree / 'go', env=env, text=True).strip()]
         binary = work / (variant + ('.race' if args.race else '') + '.' + ext)
         cmd = ['go', 'build', '-buildmode=c-shared', '-tags', 'driverlib,ffireleaseprobe',
                '-ldflags', '-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0-dev.ffi-release-gc',

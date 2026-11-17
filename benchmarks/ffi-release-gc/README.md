@@ -141,7 +141,7 @@ independent concurrent owners. Python callback closures stay alive explicitly;
 release-count assertions occur before Python collection. Its process maximum RSS
 is not retained Go/C heap accounting or a long-run memory gate.
 
-With pinned Arrow Go v18.8.0, the basic seven groups pass but the extended probe
+The earlier Arrow Go v18.8.0 run passes the basic seven groups, but the extended probe
 fails on sliced STRUCT values. Do not skip that assertion. The independent
 [Go reproduction](repros/struct_offset_test.go.txt) isolates the dependency bug.
 The [proposed patch](repros/arrow-struct-export.patch) is an experiment only;
@@ -155,3 +155,14 @@ separate test commands; upstream's C Data suite needs `-tags test`.
 `--sanitizer undefined` adds native UBSAN compiler/linker flags. Run those as
 separate builds, never together with `--race` or as timing evidence. Merely
 providing these options is not evidence that a sanitizer gate passed.
+
+The builder follows the explicit archived source's module toolchain with
+`GOTOOLCHAIN=auto`, rather than forcing the historical Go 1.27.3 runtime. Its
+manifest distinguishes `go_launcher` from the actual source-directory `go`
+version; binary build info remains retained. Archive extraction supports Python
+3.11 after validating regular member types and paths (links/escapes are refused).
+These build fixes do not change old binaries, results, source defaults or GC policy.
+
+The [current-source Go 1.27.4 / Arrow v18.9.0 qualification](2026-11-17-current/README.md)
+retains passing basic ownership checks, the still-failing STRUCT case and the
+separate Linux race-runtime blocker. It does not qualify a GC policy change.
