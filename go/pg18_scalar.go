@@ -26,12 +26,7 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 		return decimalType(76, 0), true
 	case "GCD", "LCM":
 		if len(args) >= 2 {
-			t := commonType(args[0], args[1])
-			if t.Kind == KindDecimal {
-				// LCM can grow beyond either input's precision. Keep the exact
-				// input scale with the full bounded Arrow decimal256 precision.
-				t = decimalType(76, max(args[0].Scale, args[1].Scale, 0))
-			}
+			t, _, _ := gcdLCMTypes(&Func{Name: name}, args)
 			return t, true
 		}
 		return typeInt32, true
@@ -68,6 +63,22 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 
 func pg18Scalar(f *Func, args []Value, z tzZone) (Value, error) {
 	typ, _ := pg18ScalarType(f.Name, argTypes(args))
+	if gcdLCMFunction(f.Name) {
+		var targets []ColType
+		var err error
+		typ, targets, err = gcdLCMTypes(f, argTypes(args))
+		if err != nil {
+			return Value{}, err
+		}
+		converted := make([]Value, len(args))
+		for i, arg := range args {
+			converted[i], err = coerceIn(arg, targets[i], z)
+			if err != nil {
+				return Value{}, err
+			}
+		}
+		args = converted
+	}
 	if f.Name == "MIN_SCALE" {
 		return pgMinScale(f, args[0])
 	}
