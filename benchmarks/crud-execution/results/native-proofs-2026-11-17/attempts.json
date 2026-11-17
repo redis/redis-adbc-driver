@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "source_commit": "55da25218f3606f2f8fb04d74f527903870805a4",
+  "shipping_gc_policy": "unchanged",
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "build_failed_before_native_run",
+      "reason": "Python 3.11 tarfile did not accept the extraction filter argument. Builder changed to validate regular members and paths before extraction."
+    },
+    {
+      "attempt": 2,
+      "normal_status": "passed",
+      "normal_samples": 66,
+      "normal_observations_sha256": "6f365c69d7d35ec4b5044348a6915d8df6aa63c512ac4d3a2e48fba62279a54e",
+      "race_status": "runtime_initialization_failed",
+      "reason": "ThreadSanitizer failed to allocate memory before native samples. Not a race pass or evidence about handle correctness."
+    },
+    {
+      "attempt": 3,
+      "normal_status": "passed",
+      "normal_samples": 66,
+      "normal_observations_sha256": "1bccf24474c807e791d94a252985fa03c8d5c2fbcbd0044689341c87a7388986",
+      "checkptr_status": "build_failed",
+      "reason": "Formatted template changed import indentation; extraction insertion was corrected to require one exact match."
+    },
+    {
+      "attempt": 4,
+      "normal_status": "passed",
+      "normal_samples": 66,
+      "normal_observations_sha256": "e50c20bd0a707e20f1433995fdd45ef5763e601ef3f34adeedfe48ac285cef1a",
+      "checkptr_status": "aborted_before_native_samples",
+      "reason": "checkptr: pointer arithmetic computed bad pointer value in main.createHandle. Existing bridge defect tracked by #458 and PR #462.",
+      "checkptr_library_sha256": "23604e68d384f7c123321577a2c16f1860dee481f2f4824d8fa279cd7a5efd4f",
+      "checkptr_overlaid_files": {
+        "go.mod": "e8022ac3d2eb17ea2542c24cbec7625bdfd916fe2c676e5e56856954659c7e8f",
+        "go.sum": "34b2f32aba5c6c461529f3d3b85f88f9819010de2020c4cc3463a087ad4ab48d",
+        "timeout.go": "67e9fc3330fa3fd6cb9dd11b9cd2a1e5aa2d1df09e2fdad1592cb46a318d753e",
+        "statement.go": "2cb9585c6449dd07d6be284d262516d4b78b91a903418f9d766c46a8b10312a5",
+        "native_proofs.go": "3beffde7c5158d4c7245a1da38a557ab7ac43883130c959e846531d37528c560",
+        "pkg/native_proofs.go": "22f34cb5f6f9941427fd59d97b6439b32ea95baac8f4652c1eb0deec2ab8fd21"
+      },
+      "checkptr_builder_sha256": "9d2d74f5a3d066d5e87a30aea8f4f53769c87287bb0c4276a731fed775dc9b78",
+      "checkptr_go_version": "go version go1.27.4 linux/arm64"
+    }
+  ],
+  "limits": "Earlier normal attempts remain private, with hashes retained here; they use earlier diagnostic revisions and are not baseline/candidate comparisons. No attempts were removed or selected to establish a speedup. Raw traces, binaries and operational manifests remain private.",
+  "published_observations_sha256": "efa9a78e41e7d9f3d89ad39313100a9a4e1507721946ca030be662583bb65936",
+  "publication": "Complete final payload, whitespace compacted and samples placed last for review. Original private serialization hash is retained in attempt 4.",
+  "postmerge_validation": {
+    "source_commit": "292ee2544fa6d48baec7091eab9e2cc28f385a3d",
+    "original_observations_sha256": "b882534c61922bb5c03d1570f09e362540bf2fcaf4ceb01cd28aaf02b9c947d9",
+    "status": "passed",
+    "checkptr": true,
+    "samples": 66,
+    "scope": "Separate correctness follow-up after PR #462 merged. No latency comparison against the earlier source."
+  },
+  "postmerge_published_observations_sha256": "8496697bc885cef323c473a11b54f0dab27d4168c0a6be50a0bdfc65c93c9cb1"
+}

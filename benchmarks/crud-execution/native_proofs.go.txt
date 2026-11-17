@@ -1,0 +1,117 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+//go:build driverlib && nativeproofprobe
+
+package redis
+
+import (
+	"context"
+	"encoding/json"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	goredis "github.com/redis/go-redis/v9"
+)
+
+// Private attribution only. No command arguments, SQL, values or errors escape.
+// The builder supplies the existing test observers' categorization functions.
+type nativeProofKey struct{}
+type nativeProofCall struct {
+	Client     uint64   `json:"client"`
+	Foreground bool     `json:"foreground"`
+	StartNS    int64    `json:"start_ns"`
+	ElapsedNS  int64    `json:"elapsed_ns"`
+	Categories []string `json:"categories"`
+	Error      bool     `json:"error"`
+}
+type nativeProofSample struct {
+	mu                                    sync.Mutex
+	started                               time.Time
+	calls                                 []nativeProofCall
+	inflight, foregroundInflight, dropped int
+	closed                                bool
+}
+
+var nativeProofActive atomic.Pointer[nativeProofSample]
+var nativeProofClients atomic.Uint64
+
+func NativeProofBegin() bool {
+	return nativeProofActive.CompareAndSwap(nil, &nativeProofSample{started: time.Now()})
+}
+func nativeProofContext(ctx context.Context) context.Context {
+	if s := nativeProofActive.Load(); s != nil {
+		return context.WithValue(ctx, nativeProofKey{}, s)
+	}
+	return ctx
+}
+func NativeProofEnd() string {
+	s := nativeProofActive.Swap(nil)
+	if s == nil {
+		return ""
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closed = true
+	b, _ := json.Marshal(map[string]any{"calls": s.calls, "inflight_at_end": s.inflight,
+		"foreground_inflight_at_end": s.foregroundInflight,
+		"dropped_calls":              s.dropped, "window_ns": time.Since(s.started).Nanoseconds()})
+	return string(b)
+}
+
+type nativeProofHook struct{ client uint64 }
+
+func newNativeProofHook() *nativeProofHook {
+	return &nativeProofHook{client: nativeProofClients.Add(1)}
+}
+func (*nativeProofHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+func (h *nativeProofHook) observe(ctx context.Context, cmds []goredis.Cmder, next func() error) error {
+	s := nativeProofActive.Load()
+	if s == nil {
+		return next()
+	}
+	marker, _ := ctx.Value(nativeProofKey{}).(*nativeProofSample)
+	foreground := marker == s
+	started := time.Now()
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return next()
+	}
+	s.inflight++
+	if foreground {
+		s.foregroundInflight++
+	}
+	s.mu.Unlock()
+	err := next()
+	elapsed := time.Since(started).Nanoseconds()
+	call := nativeProofCall{Client: h.client, Foreground: foreground,
+		StartNS: started.Sub(s.started).Nanoseconds(), ElapsedNS: elapsed, Error: err != nil}
+	for _, cmd := range cmds {
+		call.Categories = append(call.Categories, crudProfileCategory(cmd))
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.inflight--
+	if foreground {
+		s.foregroundInflight--
+	}
+	if !s.closed {
+		if len(s.calls) < 4096 {
+			s.calls = append(s.calls, call)
+		} else {
+			s.dropped++
+		}
+	}
+	return err
+}
+func (h *nativeProofHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		return h.observe(ctx, []goredis.Cmder{cmd}, func() error { return next(ctx, cmd) })
+	}
+}
+func (h *nativeProofHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		return h.observe(ctx, cmds, func() error { return next(ctx, cmds) })
+	}
+}
