@@ -90,7 +90,7 @@ race pass or qualification of Arrow nested/sliced lifetimes.
 
 The historical pre-merge abort and ThreadSanitizer allocation failure above
 remain retained. #446 still needs its complete gates and #444 its independent
-performance qualification. Replay the standard-library artifact checks with:
+performance qualification. Replay the Python-standard-library/Git artifact checks with:
 
 ```sh
 python3 benchmarks/crud-execution/results/native-proofs-2026-11-17/audit.py
@@ -99,3 +99,7 @@ python3 benchmarks/crud-execution/results/native-proofs-2026-11-17/audit.py
 For review, both published JSON payloads compact whitespace and place samples
 last. They contain every observation; original private serialization hashes and
 published byte hashes are retained in `attempts.json`.
+
+The auditor checks the frozen harness from merged commit
+`cf155bb53bf52f7f554a64b6e04797a420ba1c56`, which must be available in the clone's
+Git history. Later builder edits do not replace the historical hashes or data.

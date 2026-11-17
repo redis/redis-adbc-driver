@@ -29,3 +29,7 @@ fixture, unmanaged raw HASH values/key set and scoped cleanup. Verify effective
 4x QPF/six workers/mnp32/noeviction before and after, and verified data TLS/RESP3.
 An outer supervisor bounds runs. This is an instrumented diagnostic; neither
 normal nor race observations qualify a performance target or a GC safety gate.
+
+The older-Python extraction requirements in this record are superseded by
+[the Python 3.14 correction](../remove-python311-probe-compat/spec.md). Historical
+validation data retains its original runtime labels.

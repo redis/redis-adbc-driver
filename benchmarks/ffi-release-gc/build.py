@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 
 BASE = '24f654b76b98f3d8960af94a3ca0230185d467a1'
@@ -21,6 +22,8 @@ def sha(path):
 
 
 def main():
+    if sys.version_info < (3, 14):
+        raise SystemExit('Use Python 3.14 or newer for native probe builds')
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--race', action='store_true', help='Separate correctness binaries; never use for timing')
@@ -75,14 +78,7 @@ def main():
         tree = work / (variant + '-source')
         tree.mkdir()
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-            # Python 3.11 on the Linux probe image lacks extraction filters.
-            # Refuse links and escaping paths before extracting local Git data.
-            members = tar.getmembers()
-            for member in members:
-                (tree / member.name).resolve().relative_to(tree)
-                if not (member.isfile() or member.isdir()):
-                    raise ValueError('Probe archive requires regular files/directories')
-            tar.extractall(tree, members=members)
+            tar.extractall(tree, filter='data')
         if args.arrow_source:
             subprocess.run(['go', 'mod', 'edit', '-replace=github.com/apache/arrow-go/v18=' + str(arrow_source)],
                            cwd=tree / 'go', env=env, check=True)

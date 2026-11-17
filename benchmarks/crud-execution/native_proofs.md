@@ -14,7 +14,8 @@ manifest. Linux and the single Software proxy endpoint are required; this probe
 deliberately refuses an OSS Cluster API client to avoid incomplete node coverage
 or double-counted hooks. It supports multiple Software shards behind that proxy.
 The builder follows the archived module's Go toolchain rather than forcing the
-historical experiment's toolchain. Python 3.11 or newer is sufficient.
+historical experiment's toolchain. Use Python 3.14 or newer for the builder and native runner. Archive extraction
+uses the standard `data` filter, without an older-Python fallback.
 
 From a Linux build environment, with source/Git metadata available read-only:
 

@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 
 
@@ -25,6 +26,8 @@ def replace_once(text, old, new):
 
 
 def main():
+    if sys.version_info < (3, 14):
+        raise SystemExit('Use Python 3.14 or newer for native probe builds')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base', required=True)
     parser.add_argument('--work', type=Path, required=True)
@@ -43,14 +46,7 @@ def main():
     archive = subprocess.check_output(['git', 'archive', base, 'go'], cwd=repo)
     work.mkdir(mode=0o700)
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-        # Debian's Python 3.11 predates tarfile's extraction filter. The archive
-        # is from local Git, but still reject links and escaping member paths.
-        members = tar.getmembers()
-        for member in members:
-            (work/member.name).resolve().relative_to(work)
-            if not (member.isfile() or member.isdir()):
-                raise ValueError('Probe archive must contain only regular files/directories')
-        tar.extractall(work, members=members)
+        tar.extractall(work, filter='data')
     tree = work / 'go'
     fixture = Path(__file__).with_name('native_proofs.go.txt').read_text()
     # Reuse the exact source revision's existing argument-redacting categories.
