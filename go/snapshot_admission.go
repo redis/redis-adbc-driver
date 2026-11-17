@@ -16,8 +16,9 @@ import (
 // Wait before reserving a workspace, planning SQL or consuming Arrow input.
 // Release a full lineage's write-intent pin while maintenance makes room;
 // retaining it would block the very compaction publication we need to admit.
-// Managed SQL DML and Arrow appends share per-table admission. Only admission
-// is repeated, never statement execution or input consumption.
+// Managed SQL DML and Arrow appends share per-table admission; catalog writers
+// coordinate database-wide. Only admission is repeated, never statement
+// execution or input consumption.
 func (s *store) acquireWritableSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
 	return s.acquireTableWriteSnapshot(ctx, target)
 }
@@ -40,10 +41,13 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 	defer func() { turn.release() }()
 	for {
 		sctx, pin, err := s.acquireSnapshot(ctx, true)
-		if err != nil || target == nil {
+		if err != nil {
 			return sctx, pin, err
 		}
-		meta, err := target(sctx)
+		var meta *tableMeta
+		if target != nil {
+			meta, err = target(sctx)
+		}
 		if err != nil {
 			pin.release()
 			return ctx, nil, err
@@ -82,15 +86,20 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 		s.mu.Unlock()
 		space := meta == nil || len(meta.snapshotSegments()) < snapshotMaxSegments || !worker
 		if space {
-			if meta == nil {
-				return sctx, pin, nil
+			// Catalog writers share membership sets, registries and the OID
+			// allocator even for distinct names. Coordinate before execution,
+			// using the renewable pin as ownership. A waiter releases its stale
+			// pin and resolves again; no SQL or Arrow input has run yet.
+			op, admissionTarget := "admit_catalog", ""
+			if meta != nil && meta.KeyPrefix != "" {
+				op, admissionTarget = "admit_ingest", snapshotIngestAdmissionTarget(meta)
 			}
 			// Keep the existing control operation/pin field so current Arrow
 			// clients and SQL DML coordinate without a storage-format change.
-			n, err := s.snapshotControl(sctx, "admit_ingest", pin.token, "", pin.root, snapshotIngestAdmissionTarget(meta)).Int()
+			n, err := s.snapshotControl(sctx, op, pin.token, "", pin.root, admissionTarget).Int()
 			if err != nil {
 				pin.release()
-				return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to admit snapshot table write before execution or input consumption")
+				return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to admit snapshot write before execution or input consumption")
 			}
 			if n == 1 {
 				pin.writerTurn, turn = turn, nil
@@ -98,7 +107,7 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 			}
 			if n != 0 {
 				pin.release()
-				return ctx, nil, errorf(adbc.StatusInvalidState, "snapshot table write admission lease lost before execution or input consumption")
+				return ctx, nil, errorf(adbc.StatusInvalidState, "snapshot write admission lease lost before execution or input consumption")
 			}
 		}
 		pin.release()

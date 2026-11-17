@@ -332,6 +332,20 @@ elseif op == 'acquire' then
   local root = redis.call('HGET', k, 'root')
   redis.call('HSET', k, 'p:'..token, cjson.encode({root=root,expires=expiry,writing=(ARGV[6] == 'write')}))
   return root
+elseif op == 'admit_catalog' then
+  if not owns_pin() then return -1 end
+  local pin=cjson.decode(redis.call('HGET',k,'p:'..token))
+  if not pin.writing then return -1 end
+  if redis.call('HGET',k,'root')~=base then return 0 end
+  for n=1,#entries,2 do
+    if string.sub(entries[n],1,2)=='p:' and entries[n]~='p:'..token then
+      local other=cjson.decode(entries[n+1])
+      if other.writing and other.expires>now and (other.catalog or other.ingest_target) then return 0 end
+    end
+  end
+  pin.catalog=true
+  redis.call('HSET',k,'p:'..token,cjson.encode(pin))
+  return 1
 elseif op == 'admit_ingest' then
   if not owns_pin() then return -1 end
   local pin=cjson.decode(redis.call('HGET',k,'p:'..token))
@@ -343,7 +357,7 @@ elseif op == 'admit_ingest' then
   for n=1,#entries,2 do
     if string.sub(entries[n],1,2)=='p:' and entries[n]~='p:'..token then
       local other=cjson.decode(entries[n+1])
-      if other.writing and other.expires>now and other.ingest_target==target then return 0 end
+      if other.writing and other.expires>now and (other.catalog or other.ingest_target==target) then return 0 end
     end
   end
   pin.ingest_target=target
