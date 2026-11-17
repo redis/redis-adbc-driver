@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Audit the frozen native diagnostic inventory, identities and call shapes.
 
-Standard library only. This cannot qualify a performance or lifetime gate.
+Python standard library and Git only. No performance or lifetime acceptance.
 """
 import hashlib
 import json
 from pathlib import Path
 import statistics
+import subprocess
+
+FROZEN_HARNESS_COMMIT = 'cf155bb53bf52f7f554a64b6e04797a420ba1c56'
 
 
 def audit_record(record, harness, source, checkptr):
@@ -19,7 +22,9 @@ def audit_record(record, harness, source, checkptr):
     for key in ('complete_typed_fixture_validated', 'unmanaged_source_unchanged', 'owned_objects_removed'):
         assert record[key] is True
     for name, key in (('native_proofs.py', 'harness_sha256'), ('native_proofs_build.py', 'builder_sha256')):
-        assert hashlib.sha256((harness/name).read_bytes()).hexdigest() == record[key], name
+        frozen = subprocess.check_output(
+            ['git', 'show', FROZEN_HARNESS_COMMIT+':benchmarks/crud-execution/'+name], cwd=harness)
+        assert hashlib.sha256(frozen).hexdigest() == record[key], name
     assert len(record['samples']) == 66
     for mode, commands in (('managed', 19), ('unmanaged', 18)):
         samples = [s for s in record['samples'] if s['mode'] == mode]

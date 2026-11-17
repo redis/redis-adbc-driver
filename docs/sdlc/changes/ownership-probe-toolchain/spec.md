@@ -17,3 +17,7 @@ Validate current pinned dependencies, without Arrow overrides, GC omissions or
 checkptr bypasses. Native server-free basic and expanded probes are correctness
 checks, not Redis compatibility or performance acceptance. Preserve failures,
 including nested/sliced dependency defects and sanitizer initialization failures.
+
+The older-Python extraction requirements in this record are superseded by
+[the Python 3.14 correction](../remove-python311-probe-compat/spec.md). Historical
+validation data retains its original runtime labels.

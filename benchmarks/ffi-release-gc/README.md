@@ -159,8 +159,8 @@ providing these options is not evidence that a sanitizer gate passed.
 The builder follows the explicit archived source's module toolchain with
 `GOTOOLCHAIN=auto`, rather than forcing the historical Go 1.27.3 runtime. Its
 manifest distinguishes `go_launcher` from the actual source-directory `go`
-version; binary build info remains retained. Archive extraction supports Python
-3.11 after validating regular member types and paths (links/escapes are refused).
+version; binary build info remains retained. Use Python 3.14 or newer for the builder and native runners. Archive extraction
+uses the standard `data` filter; there is no older-Python extraction fallback.
 These build fixes do not change old binaries, results, source defaults or GC policy.
 
 The [current-source Go 1.27.4 / Arrow v18.9.0 qualification](2026-11-17-current/README.md)

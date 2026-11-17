@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "scope": "Extraction-only correction validation; no live Redis or performance comparison.",
+  "python": "3.14.10",
+  "platform": "Linux/aarch64",
+  "source_commit": "d14eaf4e3949819e42ee58dd648385ca6687a766",
+  "builder_sha256": {
+    "benchmarks/ffi-release-gc/build.py": "8c0c3338f7312792df253fc1d161a57df5aabdbc633d7ed960913881f1936411",
+    "benchmarks/crud-execution/native_proofs_build.py": "e274583ab4a71c670863da66f15563f71deb955749474ec92fc7401e9d69b877"
+  },
+  "ownership": {
+    "build_exit_code": 0,
+    "go": "go version go1.27.4 linux/arm64",
+    "checkptr": true,
+    "cgocheck2": true,
+    "binary_sha256": "41501945fd58f5b0a5d9c72062b10e57a4f6a646b7924a431aaa02afd66ea28b",
+    "checks": [
+      "kind_0_explicit_close_once_invalid_repeat",
+      "kind_1_explicit_close_once_invalid_repeat",
+      "kind_2_explicit_close_once_invalid_repeat",
+      "retained_exported_array_survives_stream_and_statement",
+      "bound_array_synchronous_producer_release",
+      "bound_stream_synchronous_producer_release",
+      "stream_and_close_errors_preserve_sqlstate_and_release"
+    ],
+    "checked_allocator_bytes": 0
+  },
+  "native_proofs": {
+    "build_exit_code": 0,
+    "go": "go version go1.27.4 linux/arm64",
+    "checkptr": true,
+    "binary_sha256": "7c03cd3a772d78b27fbb53c96792be924d4e35f86888c87f24650926e64fcc18"
+  },
+  "historical_artifact_audit": "passed; verifies original committed harness, retains every original observation",
+  "attempts": [
+    "First validation stopped at py_compile cache write to a read-only source mount before builds; no code workaround was added.",
+    "Second validation redirected caches to private storage: both builds, basic ownership checks and historical audit passed."
+  ]
+}
