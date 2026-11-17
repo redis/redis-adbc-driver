@@ -129,7 +129,7 @@ func setErrWithDetails(err *C.struct_AdbcError, adbcError adbc.Error) {
 		if adbcError.VendorCode != C.ADBC_ERROR_VENDOR_CODE_PRIVATE_DATA {
 			err.vendor_code = C.int(adbcError.VendorCode)
 		}
-		setErr(err, adbcError.Msg)
+		setErr(err, "%s", adbcError.Msg)
 		return
 	}
 
@@ -138,7 +138,7 @@ func setErrWithDetails(err *C.struct_AdbcError, adbcError adbc.Error) {
 	// `vendor_code` and not populate `private_data` with the error details.
 	if numDetails == 0 && adbcError.VendorCode != 0 && adbcError.VendorCode != C.ADBC_ERROR_VENDOR_CODE_PRIVATE_DATA {
 		err.vendor_code = C.int(adbcError.VendorCode)
-		setErr(err, adbcError.Msg)
+		setErr(err, "%s", adbcError.Msg)
 		return
 	}
 
@@ -192,7 +192,7 @@ func errToAdbcErr(adbcerr *C.struct_AdbcError, err error) adbc.Status {
 		return adbcError.Code
 	}
 
-	setErr(adbcerr, err.Error())
+	setErr(adbcerr, "%s", err.Error())
 	return adbc.StatusUnknown
 }
 
@@ -252,18 +252,27 @@ func initLoggingFromEnv(db adbc.DatabaseLogging) {
 	db.SetLogger(logger)
 }
 
-// cgo.Handle is a uintptr integer (not a pointer). Packing it directly into
-// a void* field is safe: the CGO checker only rejects Go heap pointers, and
-// handle values (small non-zero integers from a global counter) never alias
-// Go-allocated memory. The GC does not scan C-managed memory, so it will
-// never misinterpret the stored integer as a live pointer. No C allocation
-// is needed — the handle value itself fits in the pointer-sized field.
+// cgo.Handle is an integer, not an address. C retains private_data after the
+// call returns, so keep that integer in C memory instead of manufacturing an
+// unsafe.Pointer or retaining a pointer into an unpinned Go allocation.
 func createHandle(hndl cgo.Handle) unsafe.Pointer {
-	return unsafe.Pointer(uintptr(hndl))
+	ptr := (*C.uintptr_t)(C.malloc(C.sizeof_uintptr_t))
+	*ptr = C.uintptr_t(hndl)
+	return unsafe.Pointer(ptr)
 }
 
 func handleFromPtr(ptr unsafe.Pointer) cgo.Handle {
-	return cgo.Handle(uintptr(ptr))
+	return cgo.Handle(*(*C.uintptr_t)(ptr))
+}
+
+// The caller clears its public private_data/release fields before taking the
+// owner, so reentrant cleanup cannot release the registry entry or holder twice.
+func takeHandle(ptr unsafe.Pointer) any {
+	h := handleFromPtr(ptr)
+	value := h.Value()
+	h.Delete()
+	C.free(ptr)
+	return value
 }
 
 func getFromHandle[T any](ptr unsafe.Pointer) *T {
@@ -422,12 +431,11 @@ func RedisArrayStreamRelease(stream *C.struct_ArrowArrayStream) {
 	if stream == nil || stream.release != (*[0]byte)(C.RedisArrayStreamRelease) || stream.private_data == nil {
 		return
 	}
-	h := handleFromPtr(stream.private_data)
+	private := stream.private_data
 	stream.private_data = nil
 	stream.release = nil
 
-	cStream := h.Value().(*cArrayStream)
-	h.Delete()
+	cStream := takeHandle(private).(*cArrayStream)
 	cStream.rdr.Release()
 	if cStream.adbcErr != nil {
 		C.RediserrRelease(cStream.adbcErr)
@@ -638,11 +646,10 @@ func RedisDatabaseRelease(db *C.struct_AdbcDatabase, err *C.struct_AdbcError) (c
 	if !checkDBAlloc(db, err, "AdbcDatabaseRelease") {
 		return C.ADBC_STATUS_INVALID_STATE
 	}
-	h := handleFromPtr(db.private_data)
+	private := db.private_data
 	db.private_data = nil
 
-	cdb := h.Value().(*cDatabase)
-	h.Delete()
+	cdb := takeHandle(private).(*cDatabase)
 	if cdb.db != nil {
 		cdb.db.Close(cdb.NewContext())
 		cdb.db = nil
@@ -1010,11 +1017,10 @@ func RedisConnectionRelease(cnxn *C.struct_AdbcConnection, err *C.struct_AdbcErr
 	if !checkConnAlloc(cnxn, err, "AdbcConnectionRelease") {
 		return C.ADBC_STATUS_INVALID_STATE
 	}
-	h := handleFromPtr(cnxn.private_data)
+	private := cnxn.private_data
 	cnxn.private_data = nil
 
-	conn := h.Value().(*cConn)
-	h.Delete()
+	conn := takeHandle(private).(*cConn)
 	defer func() {
 		conn.CancelContext()
 		conn.cnxn = nil
@@ -1479,11 +1485,10 @@ func RedisStatementRelease(stmt *C.struct_AdbcStatement, err *C.struct_AdbcError
 	if !checkStmtAlloc(stmt, err, "AdbcStatementRelease") {
 		return C.ADBC_STATUS_INVALID_STATE
 	}
-	h := handleFromPtr(stmt.private_data)
+	private := stmt.private_data
 	stmt.private_data = nil
 
-	st := h.Value().(*cStmt)
-	h.Delete()
+	st := takeHandle(private).(*cStmt)
 	defer func() {
 		st.CancelContext()
 		st.executionContext.CancelContext()
