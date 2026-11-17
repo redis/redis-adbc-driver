@@ -94,7 +94,7 @@ on macOS. No privileged install is performed automatically.
 With manifests installed, Python's manager also accepts
 `dbapi.connect(uri="redis://localhost:6379/0", autocommit=True)` or
 `driver="redis"`. Older managers may need a library path; the package requires
-manager >=1.12.0.
+manager >=1.13.0.
 
 ## pandas SQL reads
 
@@ -421,7 +421,7 @@ partitions and schema.
 
 ### Worker-side Arrow reader
 
-The source-tree `ray` extra pins Ray 2.59.0. Install this build on the caller
+The source-tree `ray` extra pins Ray 2.60.0. Install this build on the caller
 and every worker (Python 3.12+), including its matching native library:
 
 ```sh
@@ -547,7 +547,7 @@ the driver and PyArrow on every worker.
 The DAG uses a table name derived from its run ID, replaces that run's fixture
 on load retries, and drops it in an `all_done` cleanup task. Run it only against
 a disposable Redis database. This smoke test uses
-[`dag.test()`](https://airflow.apache.org/docs/apache-airflow/3.3.2/core-concepts/debug.html)
+[`dag.test()`](https://airflow.apache.org/docs/apache-airflow/3.4.0/core-concepts/debug.html)
 with local task execution; it does not validate a scheduler, remote executor,
 web UI, or distributed worker deployment.
 
@@ -557,23 +557,20 @@ Reproduce from the repository root using a separate **Python 3.12** environment
 ```sh
 python3.12 -m venv /tmp/redis-airflow-tests
 source /tmp/redis-airflow-tests/bin/activate
-constraints=https://raw.githubusercontent.com/apache/airflow/constraints-3.3.2/constraints-3.12.txt
-python -m pip install 'apache-airflow==3.3.2' \
-  'apache-airflow-providers-apache-arrow==0.1.1' --constraint "$constraints"
-python -m pip install 'apache-airflow==3.3.2' \
-  'apache-airflow-providers-apache-arrow==0.1.1' './python[dbapi]' pytest
-make -C go build
+python -m pip install './python[airflow-tests]'
+make -C go redis-up build
+source go/build/test.env
 export REDIS_ADBC_LIBRARY="$PWD/go/build/libadbc_driver_redis.so" # .dylib on macOS
-RUN_AIRFLOW_TESTS=1 REDIS_URI=redis://localhost:6379/0 \
+RUN_AIRFLOW_TESTS=1 \
   python -m pytest -q python/tests/test_airflow.py
 ```
 
-The second install keeps Airflow/provider versions pinned while allowing the
-driver's newer PyArrow minimum beyond Airflow's optional-package constraint.
+The `airflow-tests` extra pins Airflow 3.4.0 and Arrow provider 0.2.0, and
+uses the driver's PyArrow requirement.
 The test creates an isolated SQLite Airflow metadata database, runs the whole
 DAG twice, and checks every task state so successful cleanup cannot mask a
 failed upstream task. It also exercises the official Arrow provider's
-[`AdbcHook`](https://airflow.apache.org/docs/apache-airflow-providers-apache-arrow/0.1.1/_api/airflow/providers/apache/arrow/hooks/adbc/index.html):
+[`AdbcHook`](https://airflow.apache.org/docs/apache-airflow-providers-apache-arrow/0.2.0/_api/airflow/providers/apache/arrow/hooks/adbc/index.html):
 table creation, batched Arrow inserts, parameterized aggregation, and cleanup.
 Ordinary Python test runs skip these tests unless `RUN_AIRFLOW_TESTS=1`.
 
@@ -604,7 +601,7 @@ The hook resolves the Redis library bundled in the wheel, including macOS, and
 honors `REDIS_ADBC_LIBRARY` for development. It always loads the Redis driver;
 the generic Arrow hook's `driver` extra is unnecessary.
 
-The generic `AdbcHook` in Arrow provider 0.1.1 opens connections with
+The generic `AdbcHook` in Arrow provider 0.2.0 opens connections with
 `autocommit=False`; its `get_records()` also requests transaction mode. Redis
 rejects that mode even for a SELECT. `RedisAdbcHook` opens connections in
 autocommit mode and defaults `run()`, `get_records()` and `get_first()` to it.
@@ -643,12 +640,14 @@ Airflow services and workers that need it. Airflow remains an optional extra;
 other driver integrations do not require it. This is a provider shipped by this
 project, not an Apache-maintained provider package.
 
-The focused tests use Airflow 3.3.2, Arrow provider 0.1.1 and common-sql 2.1.1 in
-a separate Python 3.12 environment:
+The earlier focused run used Airflow 3.3.2, Arrow provider 0.1.1 and common-sql
+2.1.1. Run the current pinned integration in a separate Python 3.12 environment:
 
 ```sh
-python -m pip install 'apache-airflow==3.3.2' './python[airflow]' pytest
-REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_airflow_hook.py
+python -m pip install './python[airflow-tests]'
+make -C go redis-up
+source go/build/test.env
+python -m pytest -q python/tests/test_airflow_hook.py
 ```
 
 ## Sling

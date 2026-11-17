@@ -100,7 +100,7 @@ def suite_command(suite, report, env):
 
     pytest = ["-m", "pytest", "-q", "-ra", "--tb=short", f"--junitxml={report}"]
     if suite == "sqlalchemy":
-        return python(["SQLAlchemy==2.1.6", "pytest>=9,<10", "pyarrow==26.0.0"],
+        return python(["SQLAlchemy==2.1.9", "pytest>=9,<10", "pyarrow==26.0.1"],
                       [str(ROOT / "python/acceptance/sqlalchemy/run.py")], report), ROOT
     if suite == "r-dbi":
         if env.get("REDIS_ACCEPTANCE_CA_FILE"):
@@ -108,7 +108,7 @@ def suite_command(suite, report, env):
         return [env.get("RSCRIPT", "Rscript"), str(ROOT / "python/acceptance/dbi/run.R"),
                 str(ROOT / "python/acceptance/dbi/test_dbi.R"), str(report)], ROOT
     if suite == "fivetran":
-        return python(["fivetran-connector-sdk>=2,<3", "duckdb==2.0.0", "pytest>=9,<10", "pyarrow==26.0.0"],
+        return python(["fivetran-connector-sdk>=2,<3", "duckdb==2.0.0", "pytest>=9,<10", "pyarrow==26.0.1"],
                       pytest, str(ROOT / "python/tests/test_orchestrator_candidates.py")
                       + "::test_fivetran_sdk_local_tester", version="3.12"), ROOT
     return [uv, "run", "--project", str(ROOT / "go/validation"), "python",
