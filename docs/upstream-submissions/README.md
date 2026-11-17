@@ -1,5 +1,8 @@
 # Upstream documentation submissions and preserved patches
 
+Current outcomes: [November 17 status refresh](status.md). The submission-time
+notes below retain their original dates and evidence boundaries.
+
 These patches were prepared for review, then submitted as disclosed draft PRs at
 the user's explicit request. See [current submission status](status.md). The
 patches are retained as the original reviewable artifacts; submission does not
