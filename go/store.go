@@ -125,6 +125,10 @@ type columnMeta struct {
 	// after RENAME COLUMN (the data keeps its original field), and in join
 	// views (which name columns alias.column).
 	Field string `json:"field,omitempty"`
+	// SearchAlias binds a quoted HASH field to an expression-safe Search
+	// attribute. It is independent of the public SQL name and survives renames,
+	// refreshes and private generation rebuilds. HASH reads still use field().
+	SearchAlias string `json:"search_alias,omitempty"`
 	// Default is the SQL text of the column's DEFAULT expression, evaluated
 	// for inserted rows that give the column no value.
 	Default string `json:"default,omitempty"`
@@ -447,16 +451,20 @@ func (t *tableMeta) prefix() string {
 // indexAttrArgs returns the FT.CREATE / FT.ALTER attribute definition of an
 // indexed column.
 func indexAttrArgs(c columnMeta) []any {
+	attr := []any{c.field()}
+	if c.SearchAlias != "" {
+		attr = append(attr, "AS", c.SearchAlias)
+	}
 	if c.PlainIndex {
 		if c.Type.Kind == KindString {
-			return []any{c.field(), "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE", "INDEXEMPTY"}
+			return append(attr, "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE", "INDEXEMPTY")
 		}
-		return []any{c.field(), "NUMERIC"}
+		return append(attr, "NUMERIC")
 	}
 	if c.Type.Kind == KindString {
-		return []any{c.field(), "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE", "INDEXEMPTY", "SORTABLE", "UNF"}
+		return append(attr, "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE", "INDEXEMPTY", "SORTABLE", "UNF")
 	}
-	return []any{c.field(), "NUMERIC", "SORTABLE"}
+	return append(attr, "NUMERIC", "SORTABLE")
 }
 
 // Registry of key prefixes and index names in use. A renamed table keeps its
