@@ -99,14 +99,10 @@ func setErr(err *C.struct_AdbcError, format string, vals ...interface{}) {
 		C.RediserrRelease(err)
 	}
 
-	var msg string
-	if strings.HasPrefix(format, errPrefix) {
-		// If the error message already starts with the prefix, we don't
-		// want to add it again.
-		msg = fmt.Sprintf(format, vals...)
-	} else {
-		// Otherwise, we prepend the prefix to the error message.
-		msg = errPrefix + fmt.Sprintf(format, vals...)
+	msg := fmt.Sprintf(format, vals...)
+	if !strings.HasPrefix(msg, errPrefix) {
+		// Forwarded error text may already have the driver prefix.
+		msg = errPrefix + msg
 	}
 	err.message = C.CString(msg)
 	err.release = (*[0]byte)(C.Redis_release_error)
