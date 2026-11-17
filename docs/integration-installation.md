@@ -13,7 +13,7 @@ in the interpreter that executes the integration. Quoted extras such as
 `'adbc-driver-redis[pandas]'` bundle the native library and selected Python
 dependencies. Follow the linked guide’s version bounds and host constraints,
 especially Superset, Beam, Mage, Ibis and MLflow; do not combine all tools in one
-environment. Use Python 3.14 for current integrations; the package minimum is 3.12.
+environment. Use Python 3.14 for current integrations; the package minimum is 3.14.
 
 | # | Tool | Recommended driver/package route | Placement and limits |
 |---|---|---|---|
@@ -48,7 +48,7 @@ environment. Use Python 3.14 for current integrations; the package minimum is 3.
 | 29 | Plotly | `adbc-driver-redis[dbapi]` + `plotly` | Query/convert data in the plotting process; no Plotly-specific driver binary. [Guide](integrations/plotly.md). |
 | 30 | Matplotlib | `adbc-driver-redis[dbapi]` + `numpy matplotlib pillow` | Install in the rendering process; use the guide’s headless setup where needed. [Guide](integrations/matplotlib.md). |
 | 31 | Tableau | Custom connector/Flight SQL JDBC candidate | No packaged Tableau ADBC connector supplied; installing this library does not register a Tableau source. [Guide](data-engineering-adbc-support.md). |
-| 32 | Apache Superset | `adbc-driver-redis[superset]` in its own environment | Preserve the SQLAlchemy 1.4/Arrow compatibility bounds; install and restart every web/SQL Lab worker. [Guide](integrations/superset.md). |
+| 32 | Apache Superset | Version 6.1 is unsupported on Python 3.14+ | [Upstream dependency blocker #471](https://github.com/redis/redis-adbc-driver/issues/471). |
 | 33 | Metabase | Custom Java database driver/connector required | No packaged Metabase driver supplied; a wheel cannot become a Metabase JDBC plugin. [Guide](data-engineering-adbc-support.md). |
 | 34 | Dagster | `adbc-driver-redis[dagster]` | Install in code locations and execution workers; add pandas/Polars only for those asset types. [Guide](integrations/dagster.md). |
 | 35 | Prefect | `adbc-driver-redis[prefect]` | Install in task execution images; open connections inside task processes. [Guide](integrations/prefect.md). |
@@ -79,7 +79,7 @@ Future releases automatically attach this same installer and its checksum:
 
 ```sh
 # Download install_driver.py and its .sha256 from the chosen GitHub release,
-# verify the checksum, then run with Python 3.12+:
+# verify the checksum, then run with Python 3.14+:
 python3 install_driver.py install --version v<version>
 python3 install_driver.py upgrade --version v<next-version>
 ```

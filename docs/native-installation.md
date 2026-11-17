@@ -3,7 +3,7 @@
 Use the managed native installer for DuckDB and other ADBC clients that load
 `driver='redis'`. It detects your host, downloads a stable native release,
 verifies its SHA-256 checksum and native loadability, and registers both `redis`
-and `rediss` manifests. It needs Python 3.12+ and no Python packages. Installing
+and `rediss` manifests. It needs Python 3.14+ and no Python packages. Installing
 the native driver does not install the Python DB-API package or start Redis.
 
 For Python applications, [install the wheel](setup.md#install-without-building)

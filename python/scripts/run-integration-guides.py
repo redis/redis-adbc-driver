@@ -14,16 +14,19 @@ from pathlib import Path
 import subprocess
 import time
 
-from integration_registry import GUIDE_PROFILES, GUIDES, READ_WRITE_GUIDES
+from integration_registry import GUIDE_PROFILES, GUIDES, READ_WRITE_GUIDES, UNSUPPORTED_GUIDES
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-root", required=True, type=Path)
     parser.add_argument("--results", required=True, type=Path)
-    parser.add_argument("--tools", nargs="+", choices=sorted(GUIDES),
+    parser.add_argument("--tools", nargs="+", choices=sorted((*GUIDES, *UNSUPPORTED_GUIDES)),
                         help="run only selected guides (default: all)")
     args = parser.parse_args()
+    for tool in (args.tools or []):
+        if tool in UNSUPPORTED_GUIDES:
+            parser.error(UNSUPPORTED_GUIDES[tool])
     if not os.environ.get("REDIS_URI") or not os.environ.get("REDIS_ADBC_LIBRARY"):
         parser.error("set REDIS_URI and REDIS_ADBC_LIBRARY to the verified fixture and current build")
     root = Path(__file__).resolve().parents[2]

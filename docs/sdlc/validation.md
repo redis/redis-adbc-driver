@@ -14,7 +14,7 @@ abandoned moves. Never target an application database for convenience.
 | Unit pass without Redis | `cd go && env -u REDIS_URI go test -count=1 -p 1 ./...` | Exit 0; Redis integration tests skip |
 | Start default Software | `make -C go redis-up` | Disposable RAM database with Search; Docker Compose/curl/jq required |
 | Go including default Software integration | `make -C go test-software` | Verifies effective 4x QPF and noeviction before carrying the retained policy declaration; exit 0, inspect skips, retain `-count=1 -p 1` |
-| ADBC validation | `make -C go validate` | Exit 0, no failures; uv and Python >=3.13 |
+| ADBC validation | `make -C go validate` | Exit 0, no failures; uv and Python >=3.14 |
 | pgdiff harness | `make -C go pgdiff-test` | Exit 0; no compatibility claim from harness tests alone |
 | PostgreSQL comparison | `make -C go pgdiff` | Inspect report and underlying runner status; known dialect differences are expected |
 | Controlled gate tooling | `python3 -m unittest discover -s benchmarks/worker-autotune/controlled -v` | Exit 0; tests measurement tools, not tuner readiness |

@@ -51,7 +51,6 @@ CANDIDATES = {
     'fivetran': ('test_orchestrator_candidates.py::test_fivetran_sdk_local_tester',),
     'sqlalchemy': ('test_sqlalchemy.py',),
     'arrow': ('test_arrays.py', 'test_ipc.py', 'test_union_stream.py', 'test_guide_output.py'),
-    'superset': ('test_superset.py',),
     'dbt': ('test_dbt_candidate.py',),
     'ibis': ('test_analysis_candidates.py::test_ibis_arrow_expressions',),
     'mlflow': ('test_analysis_candidates.py::test_mlflow_dataset_tracking', 'test_analysis_candidates.py::test_mlflow_default_empty_digest'),
@@ -68,48 +67,52 @@ STANDALONE_GUIDES = {
 
 PROFILES = {
     'core': Profile(
-        '3.12', 'test,candidate-tests',
+        '3.14', 'test,candidate-tests',
         ('driver', 'pandas', 'polars', 'ml', 'sqlalchemy', 'arrow', 'duckdb', 'dask',
          'dagster', 'prefect', 'dlt', 'ray'),
         ('pandas', 'polars', 'sqlalchemy', 'pyarrow', 'numpy', 'scikit-learn', 'dagster',
          'dask', 'prefect', 'dlt', 'ray', 'duckdb'),
     ),
     'workflows': Profile(
-        '3.12', 'workflow-tests',
+        '3.14', 'workflow-tests',
         ('jupyter', 'datasets', 'streamlit', 'scipy'),
         ('jupyter', 'huggingface-datasets', 'streamlit', 'scipy'),
     ),
     'models': Profile(
-        '3.12', 'plotting-tests,model-tests',
+        '3.14', 'plotting-tests,model-tests',
         ('plotly', 'matplotlib', 'xgboost', 'pytorch', 'tensorflow', 'keras', 'transformers'),
         ('pytorch', 'tensorflow', 'keras', 'xgboost', 'transformers', 'plotly', 'matplotlib'),
     ),
     'orchestrators': Profile(
-        '3.12', 'orchestrator-tests',
+        '3.14', 'orchestrator-tests',
         ('kubeflow', 'metaflow', 'fivetran'),
         ('kubeflow', 'metaflow', 'fivetran'),
     ),
-    'spark': Profile('3.12', 'spark-tests', ('spark',), ('spark',)),
+    'spark': Profile('3.14', 'spark-tests', ('spark',), ('spark',)),
     'airflow': Profile('3.14', 'airflow-tests', ('airflow',), ('airflow',)),
-    'superset': Profile('3.12', 'superset,test-runner', ('superset',), ('superset',)),
     'dbt': Profile('3.14', 'dbt-tests', ('dbt',), ('dbt',)),
-    'documents': Profile('3.12', 'workflow-tests', ('r', 'quarto'), ('r-dbi', 'rstudio', 'quarto')),
-    'analysis': Profile('3.12', 'analysis-tests', ('ibis', 'mlflow'), ('ibis', 'mlflow')),
-    'beam': Profile('3.12', 'beam-tests', ('beam',), ('beam',)),
-    'mage': Profile('3.12', 'mage-tests', ('mage',), ('mage',)),
-    'kestra': Profile('3.12', 'kestra-tests', ('kestra',), ('kestra',)),
-    'ray-tls': Profile('3.12', 'ray-tests', ('ray-tls',), ()),
+    'documents': Profile('3.14', 'workflow-tests', ('r', 'quarto'), ('r-dbi', 'rstudio', 'quarto')),
+    'analysis': Profile('3.14', 'analysis-tests', ('ibis', 'mlflow'), ('ibis', 'mlflow')),
+    'beam': Profile('3.14', 'beam-tests', ('beam',), ('beam',)),
+    'mage': Profile('3.14', 'mage-tests', ('mage',), ('mage',)),
+    'kestra': Profile('3.14', 'kestra-tests', ('kestra',), ('kestra',)),
+    'ray-tls': Profile('3.14', 'ray-tests', ('ray-tls',), ()),
 }
 
 # Guide execution historically visits spark before orchestrators, and analysis
 # before the document/server profiles. Keep that independent of candidate order.
 GUIDE_PROFILE_ORDER = ("core", "workflows", "models", "spark", "orchestrators",
                        "analysis", "beam", "mage", "kestra", "documents",
-                       "airflow", "superset", "dbt")
+                       "airflow", "dbt")
 GUIDE_PROFILES = {name: PROFILES[name].guides for name in GUIDE_PROFILE_ORDER}
 GUIDES = tuple(guide for group in GUIDE_PROFILES.values() for guide in group)
 # These workflows do not provide the same output-write/read-back contract.
-READ_WRITE_GUIDES = frozenset(GUIDES) - {"fivetran", "superset"}
+READ_WRITE_GUIDES = frozenset(GUIDES) - {"fivetran"}
+
+
+UNSUPPORTED_GUIDES = {
+    "superset": "Superset 6.1 is unsupported on Python 3.14+; upstream dependency blocker: https://github.com/redis/redis-adbc-driver/issues/471",
+}
 
 
 def main():
@@ -119,10 +122,14 @@ def main():
     sub.add_parser("profiles")
     sub.add_parser("tools")
     profile = sub.add_parser("profile")
-    profile.add_argument("name", choices=PROFILES)
+    profile.add_argument("name", choices=[*PROFILES, *UNSUPPORTED_GUIDES])
     tests = sub.add_parser("tests")
-    tests.add_argument("tools", nargs="+", choices=CANDIDATES)
+    tests.add_argument("tools", nargs="+", choices=[*CANDIDATES, *UNSUPPORTED_GUIDES])
     args = parser.parse_args()
+    selected = [args.name] if args.command == "profile" else args.tools if args.command == "tests" else []
+    for name in selected:
+        if name in UNSUPPORTED_GUIDES:
+            parser.error(UNSUPPORTED_GUIDES[name])
     if args.command == "profiles":
         print("\n".join(PROFILES))
     elif args.command == "tools":

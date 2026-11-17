@@ -8,8 +8,7 @@ benefit from SQL and Apache Arrow, including the data-tool integrations describe
 SQL queries and Arrow bulk ingestion over Redis through the Arrow Database
 Connectivity (ADBC) API. This community driver bundles its native library in
 platform wheels for Linux x86_64/arm64 (glibc 2.28+) and macOS arm64 (macOS 15+).
-Use Python 3.14 for the current integrations. Python 3.12+ remains installable
-for the separate Superset compatibility environment. Windows and macOS Intel wheels are not provided.
+Python 3.14 or newer is required for this package and its integrations. Windows and macOS Intel wheels are not provided.
 
 For installation and diagnostics, see [Choose your tool and connect](https://github.com/redis/redis-adbc-driver/blob/main/docs/setup.md).
 
@@ -62,8 +61,7 @@ The `airflow` extra enables the registered Redis ADBC Airflow provider. Use a
 `adbc_driver_redis.airflow.RedisAdbcHook` directly. See the
 [Airflow guide](../docs/integrations/airflow.md).
 
-Optional extras: `sqlalchemy` for current SQLAlchemy, `superset` for the isolated
-Superset 6.1 / SQLAlchemy 1.4 compatibility environment,
+Optional extras: `sqlalchemy` for current SQLAlchemy,
 `dagster` for the Redis ADBC IO manager, and `dask` for partitioned DataFrame
 reads with `adbc_driver_redis.dask.read_query`. The source build's `ray` extra
 pins Ray 2.60.0 and supplies worker-side Arrow reads through
@@ -115,7 +113,7 @@ Java 25 or newer for Kestra 2.0.7,
 R with a working package compiler, and Quarto CLI. On macOS, the Java/R/OpenMP
 dependencies can be installed with `brew install openjdk@21 r libomp`.
 Use the official Quarto installation for the document test. The script creates
-Python 3.12/3.14 environments using uv and installs R DBI/ADBC packages in an
+Python 3.14 environments using uv and installs R DBI/ADBC packages in an
 isolated library. The native dbt adapter is installed from its recorded immutable
 source revision; set `CANDIDATE_DBT_ADAPTER` to use another source requirement.
 DuckDB and Fivetran's local SDK tester may download official runtime artifacts.
@@ -126,24 +124,23 @@ Its server runs only for the test, on a loopback endpoint with generated local
 authentication and temporary storage; it is stopped after the tests.
 
 The profiles remain separate because Airflow/Prefect have incompatible FastAPI
-requirements and Superset uses an older SQLAlchemy/PyArrow stack:
+requirements; Superset 6.1 is currently unsupported (see #471):
 
 | Profile | Python | Dependency extras / tools |
 |---|---|---|
-| core | 3.12 | `test,candidate-tests`: pandas, Polars, NumPy/scikit-learn, SQLAlchemy, Arrow, DuckDB, Dask, Dagster, Prefect, dlt, Ray |
-| workflows | 3.12 | `workflow-tests`: Jupyter, HF Datasets, Streamlit, SciPy |
-| models | 3.12 | `plotting-tests,model-tests`: Plotly, Matplotlib, XGBoost, PyTorch, TensorFlow, Keras, Transformers |
-| orchestrators | 3.12 | `orchestrator-tests`: local Kubeflow, Metaflow, Fivetran SDK |
-| spark | 3.12 | `spark-tests`: fetched Arrow results into local Spark; Java required |
+| core | 3.14 | `test,candidate-tests`: pandas, Polars, NumPy/scikit-learn, SQLAlchemy, Arrow, DuckDB, Dask, Dagster, Prefect, dlt, Ray |
+| workflows | 3.14 | `workflow-tests`: Jupyter, HF Datasets, Streamlit, SciPy |
+| models | 3.14 | `plotting-tests,model-tests`: Plotly, Matplotlib, XGBoost, PyTorch, TensorFlow, Keras, Transformers |
+| orchestrators | 3.14 | `orchestrator-tests`: local Kubeflow, Metaflow, Fivetran SDK |
+| spark | 3.14 | `spark-tests`: fetched Arrow results into local Spark; Java required |
 | airflow | 3.14 | `airflow-tests`: packaged hook and TaskFlow |
-| superset | 3.12 | `superset,test-runner`: dataset/chart SQL and SQL Lab |
 | dbt | 3.14 | `dbt-tests` plus native adapter: build, model tests, catalog |
-| documents | 3.12 | `workflow-tests` plus R/Quarto: DBI reads/binding check and HTML render |
-| analysis | 3.12 | `analysis-tests`: Ibis expressions and MLflow dataset tracking; PyArrow below 26 |
-| beam | 3.12 | `beam-tests`: native ADBC reads inside local FnApi worker subprocesses |
-| mage | 3.12 | `mage-tests`: real local loader/transformer pipeline |
-| kestra | 3.12 | `kestra-tests`: native Python Script tasks, file handoff, checked task outputs; Java 25+ |
-| ray-tls | 3.12 | `ray-tests`: owned private-CA Software fixture, remote worker reads and trust rejection |
+| documents | 3.14 | `workflow-tests` plus R/Quarto: DBI reads/binding check and HTML render |
+| analysis | 3.14 | `analysis-tests`: Ibis expressions and MLflow dataset tracking; PyArrow below 26 |
+| beam | 3.14 | `beam-tests`: native ADBC reads inside local FnApi worker subprocesses |
+| mage | 3.14 | `mage-tests`: real local loader/transformer pipeline |
+| kestra | 3.14 | `kestra-tests`: native Python Script tasks, file handoff, checked task outputs; Java 25+ |
+| ray-tls | 3.14 | `ray-tests`: owned private-CA Software fixture, remote worker reads and trust rejection |
 
 Ibis, MLflow, Beam, Mage, and Kestra each cover populated and empty results.
 These are custom native ADBC/Arrow/Python workflows. They do not establish an
@@ -254,3 +251,6 @@ The row argument is the internal `__rowid`, not an application primary key.
 Use `with client.snapshot() as view:` for a dedicated shared read view.
 Build the current native library; see the [contract and examples](../docs/native-client.md)
 for installation, raw-byte/NULL semantics, ownership, and current limitations.
+
+Superset 6.1 is unsupported with the Python 3.14 minimum. Its older PyArrow
+dependency blocks supported wheels; [restoration is tracked in #471](https://github.com/redis/redis-adbc-driver/issues/471).

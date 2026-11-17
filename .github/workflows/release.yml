@@ -264,7 +264,7 @@ jobs:
           if [ "$ARCH" = arm64 ]; then platform=manylinux_2_28_aarch64; fi
           # Use this source ref's build requirements even when uv has cached older tools.
           python3 -c 'import pathlib, tomllib; print("\n".join(tomllib.loads(pathlib.Path("python/pyproject.toml").read_text())["build-system"]["requires"]))' > "$RUNNER_TEMP/python-build-requirements.txt"
-          uv run --no-project --with build --with packaging --with-requirements "$RUNNER_TEMP/python-build-requirements.txt" python scripts/build_python_wheel.py \
+          uv run --no-project --python 3.14 --with build --with packaging --with-requirements "$RUNNER_TEMP/python-build-requirements.txt" python scripts/build_python_wheel.py \
             --library go/build/libadbc_driver_redis.so --platform "$platform" --version "$VERSION" --out dist
           for wheel in dist/*.whl; do sha256sum "$wheel" > "$wheel.sha256"; done
 
@@ -561,14 +561,14 @@ jobs:
         run: |
           # Use this source ref's build requirements even when uv has cached older tools.
           python3 -c 'import pathlib, tomllib; print("\n".join(tomllib.loads(pathlib.Path("python/pyproject.toml").read_text())["build-system"]["requires"]))' > "$RUNNER_TEMP/python-build-requirements.txt"
-          uv run --no-project --with build --with packaging --with-requirements "$RUNNER_TEMP/python-build-requirements.txt" python scripts/build_python_wheel.py \
+          uv run --no-project --python 3.14 --with build --with packaging --with-requirements "$RUNNER_TEMP/python-build-requirements.txt" python scripts/build_python_wheel.py \
             --library go/build/libadbc_driver_redis.dylib --platform macosx_15_0_arm64 --version "$VERSION" --out dist
           for wheel in dist/*.whl; do shasum -a 256 "$wheel" > "$wheel.sha256"; done
           uv venv --python 3.14 /tmp/redis-wheel-smoke
           uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl
           /tmp/redis-wheel-smoke/bin/python -c "import ctypes; from adbc_driver_redis import _driver_path; ctypes.CDLL(_driver_path()).AdbcDriverInit"
           if [ -f scripts/check_native_install.py ]; then
-            python3 scripts/check_native_install.py --library go/build/libadbc_driver_redis.dylib
+            /tmp/redis-wheel-smoke/bin/python scripts/check_native_install.py --library go/build/libadbc_driver_redis.dylib
           fi
 
       - name: Start authenticated TLS native macOS Redis with Search

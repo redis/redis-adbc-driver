@@ -95,7 +95,7 @@ fi
     def test_summary_keeps_ray_tls_outcomes_separate(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            profiles = ("core workflows models orchestrators spark airflow superset "
+            profiles = ("core workflows models orchestrators spark airflow "
                         "dbt documents ray-tls").split()
             for profile in profiles:
                 (root / f"{profile}.xml").write_text('<testsuite><testcase /></testsuite>')

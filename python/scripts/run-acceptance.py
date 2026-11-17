@@ -110,7 +110,7 @@ def suite_command(suite, report, env):
     if suite == "fivetran":
         return python(["fivetran-connector-sdk>=2,<3", "duckdb==2.0.0", "pytest>=9,<10", "pyarrow==26.0.1"],
                       pytest, str(ROOT / "python/tests/test_orchestrator_candidates.py")
-                      + "::test_fivetran_sdk_local_tester", version="3.12"), ROOT
+                      + "::test_fivetran_sdk_local_tester", version="3.14"), ROOT
     return [uv, "run", "--project", str(ROOT / "go/validation"), "python",
             str(ROOT / "python/acceptance/run-python.py"), *pytest,
             str(ROOT / "go/validation/tests")], ROOT

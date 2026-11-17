@@ -115,6 +115,14 @@ class PublicationTests(unittest.TestCase):
         self.assertFalse(self.args.dist.exists())
 
 
+class ReleasePythonTests(unittest.TestCase):
+    def test_wheel_build_and_installer_smoke_use_supported_python(self):
+        workflow = (ROOT / '.github/workflows/release.yml').read_text()
+        self.assertEqual(workflow.count('uv run --no-project --python 3.14 --with build --with packaging'), 2)
+        self.assertNotIn('python3 scripts/check_native_install.py', workflow)
+        self.assertIn('/tmp/redis-wheel-smoke/bin/python scripts/check_native_install.py', workflow)
+
+
 class InstallationCoverageTests(unittest.TestCase):
     def test_every_current_inventory_row_has_an_installation_route(self):
         def rows(file):

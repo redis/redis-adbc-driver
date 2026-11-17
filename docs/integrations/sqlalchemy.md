@@ -14,14 +14,9 @@ that an older published wheel contains every helper documented here.
 
 ## SQLAlchemy and Superset
 
-Install the wheel's `sqlalchemy` extra for SQLAlchemy >=2.1.6. Use the separate
-`superset` extra in a Python 3.12 environment for Superset 6.1, which requires
-SQLAlchemy 1.4 and older pandas/greenlet dependencies. The `superset` extra uses Arrow 18; the other extras use Arrow 26.
-These extras cannot share an environment; Superset also cannot share the latest
-pandas used by `dask` and `test`. The dialect supports both SQLAlchemy versions. It compiles PostgreSQL SQL and reflects
-the driver's catalogs, including schemas, tables, views, column types, primary
-keys, indexes and comments. Redis version metadata comes from ADBC; PostgreSQL
-catalog compatibility is version 16, not the Redis server version.
+Install the wheel's `sqlalchemy` extra for SQLAlchemy >=2.1.9.
+
+Superset 6.1 is unsupported on Python 3.14+; see [the dependency blocker](https://github.com/redis/redis-adbc-driver/issues/471).
 
 ```python
 import os

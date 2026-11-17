@@ -20,7 +20,7 @@ from integration_guide_data import example_table, read_rows
 from kfp import dsl, local
 import os
 
-@dsl.component(base_image='python:3.12', install_kfp_package=False)
+@dsl.component(base_image='python:3.14', install_kfp_package=False)
 def read_redis(redis_uri: str, table_name: str) -> int:
     from adbc_driver_redis import dbapi
     with dbapi.connect(redis_uri) as conn, conn.cursor() as cur:

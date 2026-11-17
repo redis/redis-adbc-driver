@@ -1,7 +1,7 @@
 # Shared setup for the integration examples
 
 These instructions support the additional guides linked from the README. Use
-Python 3.12 for the recorded model, Spark and orchestration environments; choose
+Python 3.14 for the recorded model, Spark and orchestration environments; choose
 a tool-compatible interpreter when installing another release. Keep each tool's
 dependencies in a separate environment (especially Airflow, Prefect and Superset).
 Choose a different virtual-environment path for each tool instead of reusing
@@ -16,7 +16,7 @@ verifies Search and active 4x QPF, including when reusing an existing fixture.
 
 ```sh
 export REDIS_ADBC_REPO="$PWD"
-python3.12 -m venv /tmp/redis-guide-venv
+python3.14 -m venv /tmp/redis-guide-venv
 . /tmp/redis-guide-venv/bin/activate
 python -m pip install -e './python' pyarrow
 make -C go build

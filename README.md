@@ -57,7 +57,7 @@ For native Redis commands and data structures, start with the
 
 This walkthrough installs a published Python wheel, starts a disposable Redis
 Software database, and runs queries over sample data. You need Git, Docker with
-Compose, Make, `curl`, `jq`, and Python (3.14 recommended; package minimum 3.12).
+Compose, Make, `curl`, `jq`, and Python (3.14 recommended; package minimum 3.14).
 
 For an existing deployment or a different tool, use [Choose your tool and connect](docs/setup.md).
 Use a fresh, dedicated database for this walkthrough: the sample loader replaces
@@ -191,7 +191,7 @@ Choose a path, then follow its guide for installation, examples and validation l
 | Workflow | Guides |
 |---|---|
 | Python and DataFrames | [PyArrow](docs/integrations/pyarrow.md), [pandas](docs/integrations/pandas.md), [Polars](docs/integrations/polars.md) |
-| SQL exploration and BI | [DuckDB](docs/duckdb.md), [SQLAlchemy](docs/integrations/sqlalchemy.md), [Superset](docs/integrations/superset.md), [R / DBI](docs/integrations/r-dbi.md) |
+| SQL exploration and BI | [DuckDB](docs/duckdb.md), [SQLAlchemy](docs/integrations/sqlalchemy.md), [Superset 6.1: unsupported](docs/integrations/superset.md), [R / DBI](docs/integrations/r-dbi.md) |
 | Orchestration | [Airflow](docs/integrations/airflow.md), [Dagster](docs/integrations/dagster.md), [Prefect](docs/integrations/prefect.md) |
 | Pipelines and migration | [dlt](docs/integrations/dlt.md), [Sling](docs/integrations/sling.md), [dbt](docs/integrations/dbt.md) |
 | Partitioned processing | [Dask](docs/integrations/dask.md), [Ray Data](docs/integrations/ray.md) |

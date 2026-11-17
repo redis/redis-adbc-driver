@@ -14,6 +14,20 @@ from unittest.mock import patch
 import install_driver as installer
 
 
+class PythonMinimumTests(unittest.TestCase):
+    def test_rejects_older_python_before_parsing_or_installing(self):
+        with patch.object(installer.sys, 'version_info', (3, 13, 99)), redirect_stderr(io.StringIO()) as error:
+            self.assertEqual(installer.main(['--help']), 1)
+        self.assertIn('Python 3.14 or later', error.getvalue())
+
+    def test_current_and_newer_python_can_use_installer(self):
+        for version in ((3, 14, 0), (3, 15, 0)):
+            with self.subTest(version=version), patch.object(installer.sys, 'version_info', version), redirect_stdout(io.StringIO()):
+                with self.assertRaises(SystemExit) as result:
+                    installer.main(['--help'])
+                self.assertEqual(result.exception.code, 0)
+
+
 class SupportedMacOSTests(unittest.TestCase):
     def test_current_minimum_and_older_release_rejection(self):
         with patch.object(installer.sys, 'platform', 'darwin'), patch.object(installer.platform, 'machine', return_value='arm64'):

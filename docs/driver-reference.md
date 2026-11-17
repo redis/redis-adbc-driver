@@ -4931,8 +4931,9 @@ installer if it moves. See [manifest installation](../docs/python-integrations.m
 ### SQLAlchemy and Superset
 
 The wheel's `sqlalchemy` extra registers `redis+adbc://` and `rediss+adbc://`,
-with PostgreSQL SQL compilation and catalog reflection. Use the separate
-`superset` extra in its Python 3.12 compatibility environment. Superset engine
+with PostgreSQL SQL compilation and catalog reflection.
+
+Superset 6.1 is unsupported on Python 3.14+ (see [#471](https://github.com/redis/redis-adbc-driver/issues/471)). Superset engine
 specs support schema/table browsing, datasets, SQL Lab, and PostgreSQL `DATE_TRUNC`
 time grains. This is an autocommit analytics connector; SQLAlchemy rollback
 cannot undo writes. See [setup and limitations](../docs/python-integrations.md#sqlalchemy-and-superset).
