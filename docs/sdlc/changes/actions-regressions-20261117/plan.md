@@ -40,6 +40,10 @@ See [intent](intent.md), [specification](spec.md).
   boundary, retaining all existing publication, exact-image, identity, old-reader
   and no-replay assertions. The focused drop/truncate row-race selection passed;
   see the PR for final run links and timing.
+- The superseded full-matrix driver logs confirmed a later nested-admission
+  stall in TestSQLDropDuringCreateTableAs and exposed TestSQLRecordArrow's old
+  metadata-free ExecuteSchema string expectation on both architectures. Updated
+  the latter to verify exact RECORD metadata before its structural assertion.
 - [PR CI](https://github.com/redis/redis-adbc-driver/actions/runs/44129203202)
   and [full amd64/arm64 dispatch](https://github.com/redis/redis-adbc-driver/actions/runs/44129357892)
   started; final results are tracked in [PR #455](https://github.com/redis/redis-adbc-driver/pull/455).

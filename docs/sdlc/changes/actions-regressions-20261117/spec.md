@@ -14,6 +14,9 @@ assertions, including Arrow input consumption, DELETE tombstones, MERGE,
 TRUNCATE identity counters and temporary CTAS visibility. Never start a synchronously nested admitted write inside a paused
 catalog write.
 
+The native RECORD ExecuteSchema test explicitly verifies RECORD metadata before
+checking its original structural schema.
+
 Ray's fixture explicitly expects ARROW:FLIGHT:SQL:TYPE_NAME on every field,
 including NUMERIC(12,2) and VARBINARY. Keep check_metadata=True through worker
 serialization, retry, snapshot replay, and empty schemas. Do not derive expected
