@@ -29,6 +29,7 @@ on:
       - scripts/ci_test_matrix.py
       - scripts/test_ci_test_matrix.py
       - scripts/test_ci_parallel_suites.py
+      - scripts/no_result_lifecycle.py
       - scripts/test_ci_apt_retries.py
       - scripts/pin_adbc_scanner_source.py
       - scripts/test_pin_adbc_scanner_source.py
@@ -219,6 +220,25 @@ jobs:
       - name: Owned TLS fixture management fault checks
         if: matrix.integrations
         run: go/validation/.venv/bin/python -m unittest discover -s scripts -p 'test_*partition_tls.py' -v
+
+      - name: Native no-result permissions cancellation and Close
+        if: startsWith(matrix.environment, 'software-')
+        env:
+          NO_RESULT_SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          go/validation/.venv/bin/python -c 'import subprocess,sys; subprocess.run(sys.argv[1:], timeout=300, check=True)' \
+            go/validation/.venv/bin/python scripts/no_result_lifecycle.py \
+            --driver "$PWD/go/build/libadbc_driver_redis.so" \
+            --software-api-port 19443 --software-data-port 6379 --owned-software-fixture \
+            --output "$RUNNER_TEMP/no-result-lifecycle.json"
+
+      - name: Upload sanitized no-result lifecycle evidence
+        if: always() && startsWith(matrix.environment, 'software-')
+        uses: actions/upload-artifact@v7
+        with:
+          name: no-result-lifecycle-${{ matrix.arch }}-${{ matrix.environment }}
+          path: ${{ runner.temp }}/no-result-lifecycle.json
+          if-no-files-found: warn
 
       - name: Native C Device CPU ownership and binding
         env:
