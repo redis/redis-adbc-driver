@@ -64,7 +64,8 @@ func (h *sqlHarness) setupStaleRows() {
 }
 
 // Native races run synchronously after real acknowledged row writes. The
-// callback's statements do not inherit this hook or mutate the private layout.
+// callback publishes a previously prepared workspace without reentering
+// foreground write admission or mutating the private layout.
 type nativeRowRace struct {
 	meta      *tableMeta
 	root      string
@@ -194,15 +195,14 @@ func TestSQLDropDuringCreateTableAs(t *testing.T) {
 	h.setupStaleRows()
 	raw := h.rawClient()
 	other := newSQLHarness(t)
+	publish := other.stagePublication("", "CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)",
+		"DROP TABLE it_sr_t",
+		"CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
 	r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) {
 		if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_sr_t"); !isStatus(err, adbc.StatusNotFound) {
 			t.Fatal("private CTAS became visible", err)
 		}
-		other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
-		other.exec("DROP TABLE it_sr_t")
-		// DDL replacement bypasses table DML admission; the paused writer
-		// must still reject this changed binding at publication.
-		other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
+		publish()
 	})
 	_, err := tryExec(h.ctx, h.conn, "CREATE TABLE it_sr_t AS SELECT id,note FROM it_sr_src")
 	h.expectNativeRowRefusal(raw, r, err)
@@ -222,12 +222,9 @@ func TestSQLDropDuringInsertSelect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) {
-		other.exec("DROP TABLE it_sr_t")
-		// DDL replacement bypasses table DML admission; the paused writer
-		// must still reject this changed binding at publication.
-		other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
-	})
+	publish := other.stagePublication("", "DROP TABLE it_sr_t",
+		"CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
+	r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) { publish() })
 	_, err = tryExec(h.ctx, h.conn, "INSERT INTO it_sr_t SELECT id,note FROM it_sr_src")
 	h.expectNativeRowRefusal(raw, r, err)
 	rows := snapshotExecuteTest(t, source, oldCtx, "SELECT id,note FROM it_sr_t").rows
@@ -301,17 +298,20 @@ func TestSQLDropDuringIngest(t *testing.T) {
 			if mode == adbc.OptionValueIngestModeAppend {
 				h.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
 			}
+			changes := []string{}
+			if mode == adbc.OptionValueIngestModeCreate {
+				changes = append(changes, "CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+			}
+			changes = append(changes, "DROP TABLE it_sr_t",
+				"CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
+			publish := other.stagePublication("", changes...)
 			r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) {
 				if mode == adbc.OptionValueIngestModeCreate {
 					if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_sr_t"); !isStatus(err, adbc.StatusNotFound) {
 						t.Fatal("private Arrow create became visible", err)
 					}
-					other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
 				}
-				other.exec("DROP TABLE it_sr_t")
-				// DDL replacement bypasses table DML admission; the paused writer
-				// must still reject this changed binding at publication.
-				other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
+				publish()
 			})
 			err := h.ingestNotes("it_sr_t", mode, srRows, srRows)
 			h.expectNativeRowRefusal(raw, r, err)
@@ -326,6 +326,8 @@ func TestSQLDropDuringIngest(t *testing.T) {
 		raw := h.rawClient()
 		other := newSQLHarness(t)
 		h.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+		publish := other.stagePublication("", "DROP TABLE it_sr_t",
+			"CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
 		var private *tableMeta
 		root := ""
 		testHookRowsWritten = func(meta *tableMeta, written int) {
@@ -337,10 +339,7 @@ func TestSQLDropDuringIngest(t *testing.T) {
 				t.Fatal("small record boundary differs", written)
 			}
 			testHookRowsWritten = nil
-			other.exec("DROP TABLE it_sr_t")
-			// DDL replacement bypasses table DML admission; the paused writer
-			// must still reject this changed binding at publication.
-			other.exec("CREATE TABLE it_sr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
+			publish()
 			root = raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 		}
 		t.Cleanup(func() { testHookRowsWritten = nil })
@@ -363,6 +362,9 @@ func TestSQLDropDuringTempCreateTableAs(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupStaleRows()
 	raw := h.rawClient()
+	publish := h.stagePublication("", "CREATE TEMP TABLE it_sr_tmp (id BIGINT,note VARCHAR)",
+		"DROP TABLE pg_temp.it_sr_tmp", "CREATE TEMP TABLE it_sr_tmp (id BIGINT,note VARCHAR)",
+		"INSERT INTO pg_temp.it_sr_tmp VALUES (999999,'replacement')")
 	r := h.raceNativeRows(raw, "it_sr_tmp", func(meta *tableMeta) {
 		if !isTempSchema(meta.Schema) {
 			t.Fatal("temporary output has no private owner")
@@ -370,10 +372,7 @@ func TestSQLDropDuringTempCreateTableAs(t *testing.T) {
 		if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_sr_tmp"); !isStatus(err, adbc.StatusNotFound) {
 			t.Fatal("private temporary CTAS became visible", err)
 		}
-		h.exec("CREATE TEMP TABLE it_sr_tmp (id BIGINT,note VARCHAR)")
-		h.exec("DROP TABLE pg_temp.it_sr_tmp")
-		h.exec("CREATE TEMP TABLE it_sr_tmp (id BIGINT,note VARCHAR)")
-		h.exec("INSERT INTO pg_temp.it_sr_tmp VALUES (999999,'replacement')")
+		publish()
 	})
 	_, err := tryExec(h.ctx, h.conn, "CREATE TEMP TABLE it_sr_tmp AS SELECT id,note FROM it_sr_src")
 	h.expectNativeRowRefusal(raw, r, err)

@@ -34,6 +34,12 @@ See [intent](intent.md), [specification](spec.md).
   (4.540s), with REDIS_SNAPSHOT_URI set to the verified disposable fixture.
   Covers concurrent public SQL, Arrow wait/cancel/input consumption, lost
   admission replies, lease expiry and DML metadata dependencies.
+- Audited the remaining native row-write hooks and found the same synchronous
+  nested admission in CTAS, INSERT/Arrow ingestion, UPDATE/MERGE, DELETE and
+  TRUNCATE fixtures. Staged their competing changes before the acknowledged-row
+  boundary, retaining all existing publication, exact-image, identity, old-reader
+  and no-replay assertions. The focused drop/truncate row-race selection passed;
+  see the PR for final run links and timing.
 - [PR CI](https://github.com/redis/redis-adbc-driver/actions/runs/44129203202)
   and [full amd64/arm64 dispatch](https://github.com/redis/redis-adbc-driver/actions/runs/44129357892)
   started; final results are tracked in [PR #455](https://github.com/redis/redis-adbc-driver/pull/455).
