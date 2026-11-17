@@ -6,12 +6,8 @@ package redis
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -110,75 +106,6 @@ func TestSnapshotCompactionPreservesLargeBase(t *testing.T) {
 				if row != fmt.Sprintf("%d|%d|%s", id, v, payload) {
 					t.Fatalf("wrong final row %d", id)
 				}
-			}
-		})
-	}
-}
-
-// Actual old binaries, not a reimplementation of their prefix checks, must
-// decline selective jobs and still discover work at the hard segment limit.
-func TestSnapshotSelectiveCompactionOldWorker(t *testing.T) {
-	library, python := os.Getenv("REDIS_SNAPSHOT_OLD_DRIVER"), os.Getenv("REDIS_SNAPSHOT_OLD_PYTHON")
-	if library == "" || python == "" {
-		t.Skip("requires the preserved protocol-15 native driver and Python manager runtime")
-	}
-	for _, phase := range []string{"copy", "index", "install"} {
-		t.Run(phase, func(t *testing.T) {
-			h, raw, _ := newSnapshotHarnessMode(t, false, false)
-			h.exec("CREATE TABLE t(id INTEGER,v BIGINT)")
-			h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,257) AS g(i)")
-			for range 6 {
-				h.exec("UPDATE t SET v=v+1 WHERE id=1")
-			}
-			h.exec("DELETE FROM t WHERE id=2")
-			s := snapshotTestStore(t, raw)
-			token := snapshotID()
-			if started, err := s.startSnapshotCompaction(h.ctx, token); err != nil || !started {
-				t.Fatal(started, err)
-			}
-			job, err := s.readSnapshotCompaction(h.ctx)
-			if err != nil || job == nil || job.SourceStart != 1 || len(job.References) != 7 {
-				t.Fatal("fixture did not create a selective hard-limit job", err)
-			}
-			ctx, cancel := context.WithTimeout(h.ctx, 90*time.Second)
-			defer cancel()
-			for phase != "copy" && job.Phase == "copy" {
-				if err := s.copySnapshotCompactionBatch(ctx, job); err != nil {
-					t.Fatal(err)
-				}
-			}
-			for phase == "install" && job.Phase == "index" {
-				progress, err := s.indexSnapshotCompaction(ctx, job)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !progress {
-					time.Sleep(time.Millisecond)
-				}
-			}
-			if job.Phase != phase {
-				t.Fatal("did not reach handoff phase", job.Phase)
-			}
-			if !raw.HExists(ctx, snapshotCompactionCandidates, job.QueueKey).Val() {
-				t.Fatal("selective job consumed the only discoverable candidate")
-			}
-			if err := s.releaseSnapshotCompaction(ctx, token); err != nil {
-				t.Fatal(err)
-			}
-			script, err := filepath.Abs("validation/snapshot_old_worker_compatibility.py")
-			if err != nil {
-				t.Fatal(err)
-			}
-			command := exec.CommandContext(ctx, python, script, "--driver", library, "--sha256", "a36f1eddbf40dcda8f5e6a083f8540232201e49f3aa525c4d1b30eef8e97bce7")
-			output, err := command.CombinedOutput()
-			if err != nil || !strings.Contains(string(output), "old_snapshot_worker_ok rows=256 writes=12 caller_retries=0") {
-				// The child can include connection diagnostics; never echo them.
-				t.Fatal("older native worker did not complete verified, non-replayed writes", err)
-			}
-			snapshotDrainCompactionTest(t, s)
-			h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "256|9007199254740993|9007199254741011")
-			if raw.HExists(h.ctx, snapshotMetadataGraph, "d:"+job.Data).Val() {
-				t.Fatal("old worker left the declined selective output registered")
 			}
 		})
 	}

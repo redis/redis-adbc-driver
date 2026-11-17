@@ -16,7 +16,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"math"
 	"strings"
@@ -178,22 +177,10 @@ func TestSQLBugIssues(t *testing.T) {
 	h.exec(`create table it_bug_fixes.quoted ("Id" integer,"id" integer)`)
 	h.exec(`insert into it_bug_fixes.quoted values(1,2)`)
 	h.expectRows(`select "Id",id from it_bug_fixes.quoted`, "1|2")
-	h.exec(`create table it_bug_fixes.legacy_case ("AdvEngineID" integer)`)
-	h.exec(`insert into it_bug_fixes.legacy_case values(7)`)
-	raw := h.rawClient()
-	stored := h.storedTableJSON(raw, "it_bug_fixes", "legacy_case")
-	var legacy map[string]any
-	if err := json.Unmarshal([]byte(stored), &legacy); err != nil {
-		t.Fatal(err)
-	}
-	delete(legacy, "folded_identifiers")
-	b, err := json.Marshal(legacy)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stored = string(b)
-	h.writeTableJSON(raw, "it_bug_fixes", "legacy_case", stored)
-	h.expectRows(`select advengineid from it_bug_fixes.legacy_case`, "7")
+	h.exec(`create table it_bug_fixes.exact_case ("AdvEngineID" integer)`)
+	h.exec(`insert into it_bug_fixes.exact_case values(7)`)
+	h.expectRows(`select "AdvEngineID" from it_bug_fixes.exact_case`, "7")
+	h.expectError(`select advengineid from it_bug_fixes.exact_case`, "does not exist")
 	h.expectRows(`select id from it_bug_fixes.foo order by score desc limit 1`, "2")
 	h.expectRows(`select id,name from it_bug_fixes.foo group by id order by id`, "1|a", "2|b", "3|c")
 	h.expectError(`select score,name from it_bug_fixes.foo group by score`, "must appear in the GROUP BY")

@@ -207,12 +207,8 @@ elseif op == 'compact_start' then
   redis.call('HSET', k, 'compaction', ARGV[6], 'w:'..id,
     cjson.encode({state='compacting',token=job.token,expires=expiry}),
     'r:'..id,cjson.encode(refs))
-  -- Retain selective work until publication updates its candidate. An older
-  -- worker safely declines non-prefix sources; it must still discover a full
-  -- merge rather than strand writers at the hard segment limit.
-  if source_start==0 then
-    redis.call('ZREM',compactionqueue,job.queue_key);redis.call('HDEL',candidates,job.queue_key)
-  end
+  -- Keep eligibility until publication, including when private output must be
+  -- discarded and rebuilt. The single durable job prevents duplicate owners.
   return 1
 elseif op == 'compact_acquire' or op == 'compact_acquire_catalog' then
   local catalog = op == 'compact_acquire_catalog'
@@ -2036,7 +2032,7 @@ func (s *store) snapshotCatalogInitialized(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// openSnapshotCatalog runs before legacy migration/recovery or any driver write.
+// openSnapshotCatalog validates the storage format before recovery or any driver write.
 func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing ...bool) error {
 	allowExternal := len(importing) > 0 && importing[0]
 	n, err := s.client.Exists(ctx, snapshotCatalogKey).Result()

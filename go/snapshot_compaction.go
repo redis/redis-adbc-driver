@@ -398,7 +398,6 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 	if j.After == "" && j.CopyPending == nil {
 		// Install an empty index before any complete images are copied. Their
 		// existing atomic HSET/checkpoint batches then populate it directly.
-		// Resumed legacy jobs with copied images retain the initial-scan path.
 		output := *j.Source
 		output.KeyPrefix = j.Prefix
 		output.IndexName = snapshotIndexPrefix(j.Data) + "compacted"
@@ -410,18 +409,13 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 			if err != nil {
 				return err
 			}
-			// A legacy worker could stop after a per-row write but before its
-			// first checkpoint. Leave that populated, unindexed directory on
-			// the existing initial-scan path; an empty index would miss it.
-			if count == 0 {
-				if err := s.searchDo(wctx, output.index(), indexCreateArgs(&output)...).Err(); err != nil {
-					return err
-				}
-			} else if s.flexEnabled() {
-				// A populated output without its index cannot be backfilled on
-				// Flex. Retire only this private job; the durable candidate and
-				// retained sources let a later pass build fresh indexed output.
+			if count != 0 {
+				// A current job creates its index before copying. Discard this
+				// private output; the retained candidate can be rebuilt safely.
 				return s.finishSnapshotCompaction(ctx, j)
+			}
+			if err := s.searchDo(wctx, output.index(), indexCreateArgs(&output)...).Err(); err != nil {
+				return err
 			}
 		}
 	}
@@ -553,13 +547,9 @@ func (s *store) indexSnapshotCompaction(ctx context.Context, j *snapshotCompacti
 		if !isUnknownIndex(err) {
 			return false, err
 		}
-		if s.flexEnabled() {
-			return true, s.finishSnapshotCompaction(ctx, j)
-		}
-		if err := s.searchDo(wctx, output.index(), snapshotScannedIndexArgs(&output)...).Err(); err != nil {
-			return false, err
-		}
-		return true, nil
+		// The required index disappeared after copying. Retire only this
+		// private job and let its retained sources produce fresh output.
+		return true, s.finishSnapshotCompaction(ctx, j)
 	}
 	info := indexInfoOf(reply)
 	count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(j.Data)).Result()

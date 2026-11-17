@@ -132,11 +132,11 @@ func printReport(w io.Writer, r *redis.HashReport) {
 			if r.Sampled > 0 && c.Present < r.Sampled {
 				present = fmt.Sprintf("%.1f%%", 100*float64(c.Present)/float64(r.Sampled))
 			}
-			inPlace := c.InPlaceType
-			if inPlace == "" {
-				inPlace = "-"
+			sourceType := c.SourceType
+			if sourceType == "" {
+				sourceType = "-"
 			}
-			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", name, c.Type, inPlace, present, strings.Join(c.Notes, "; "))
+			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", name, c.Type, sourceType, present, strings.Join(c.Notes, "; "))
 		}
 		_ = tw.Flush()
 	}

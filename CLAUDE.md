@@ -159,8 +159,8 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.4).
   Background compaction creates an empty final index before its first atomic
   complete-image copy batch, gated on an empty declared output directory and
   unchanged copy checkpoint. Existing copy outcomes/repair populate that index;
-  keep the separate native readiness phase. Legacy already populated unindexed
-  outputs retain their initial-scan recovery path. No new job format is needed.
+  keep the separate native readiness phase. Populated private outputs without their required index are retired and rebuilt
+  from retained sources; never backfill an older worker's output. No new job format is needed.
   Track private tombstones when restoring a baseline's published overlay flag.
   No-op UPDATE/DELETE do not publish empty generations or build indexes.
   SQL/Arrow row writes and ALTER/rekey use bounded atomic batches (256 rows, 1 MiB target,
@@ -191,8 +191,8 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.4).
   across expired worker leases. Selective jobs preserve a much larger older
   prefix and retain winning tombstones; only full oldest-prefix merges discard
   them. Keep the exact source position/ordered identities immutable, and retain
-  candidate eligibility until publication so older workers can decline a range
-  job without stranding writers. Current-generation matching includes lineage. Compaction commits bounded complete images,
+  candidate eligibility until publication so retiring broken private output
+  cannot strand writers. Current-generation matching includes lineage. Compaction commits bounded complete images,
   directory registration and checkpoint together; incomplete batches retain a
   durable marker until repair and cannot advance through metadata checkpoints.
   Resolve unknown replies from durable progress without resending mutations;

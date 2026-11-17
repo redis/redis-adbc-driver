@@ -282,7 +282,7 @@ func (a *adopter) unmanagedAdopt(ctx context.Context) (*HashAdoption, error) {
 	if err != nil {
 		return a.res, err
 	}
-	meta.Unmanaged, meta.FoldedIdentifiers = true, true
+	meta.Unmanaged = true
 	meta.UnmanagedPrefixes = slices.Clone(a.app.prefixes)
 	meta.UnmanagedFilter = a.app.filter
 	a.res.Steps = steps

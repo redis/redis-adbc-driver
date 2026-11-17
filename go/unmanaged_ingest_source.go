@@ -76,7 +76,7 @@ func (s *statementImpl) newUnmanagedIngestMeta(schema string) (*tableMeta, error
 		return nil, err
 	}
 	cfg := s.unmanagedSource
-	meta := &tableMeta{Schema: schema, Name: s.ingest.TableName, KeyPrefix: cfg.Prefix, IndexName: cfg.Index, Adopted: true, KeyRows: true, AppIndex: true, Unmanaged: true, UnmanagedPrefixes: []string{cfg.Prefix}, FoldedIdentifiers: true}
+	meta := &tableMeta{Schema: schema, Name: s.ingest.TableName, KeyPrefix: cfg.Prefix, IndexName: cfg.Index, Adopted: true, KeyRows: true, AppIndex: true, Unmanaged: true, UnmanagedPrefixes: []string{cfg.Prefix}}
 	seen := map[string]bool{}
 	hasKey := false
 	for _, c := range wanted.Columns {

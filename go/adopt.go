@@ -67,7 +67,7 @@ type HashAdoptOptions struct {
 type HashAdoption struct {
 	// ManagedCopy distinguishes explicit-refresh copies from live unmanaged registrations.
 	ManagedCopy bool `json:"managed_copy,omitempty"`
-	// Report has the collection, the columns (InPlaceType) and the
+	// Report has the collection, the columns (SourceType) and the
 	// ChecklistSQLInPlace checklist.
 	Report *HashReport `json:"report"`
 	Table  string      `json:"table"`
@@ -157,9 +157,6 @@ func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
 	c.server(ctx, &r.Server)
 	if o.Apply && r.Server.Search {
 		// Writing needs a registry with every table's prefix in it.
-		if err := c.st.migrateLegacyMetadata(ctx); err != nil {
-			return nil, err
-		}
 		if err := c.st.ensureRegistry(ctx); err != nil {
 			return nil, err
 		}
@@ -299,7 +296,7 @@ func (a *adopter) read(ctx context.Context) error {
 	a.cols, r.Skipped = cols, skipped
 	for _, col := range cols {
 		r.Columns = append(r.Columns, HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(), Encoding: col.encoding,
-			InPlaceType: col.inPlace.SQLName(), Present: col.guess.present, Notes: col.notes})
+			SourceType: col.inPlace.SQLName(), Present: col.guess.present, Notes: col.notes})
 	}
 	return nil
 }
@@ -609,7 +606,7 @@ func (a *adopter) adopted(ctx context.Context, meta *tableMeta, tables []*tableM
 	r := a.res.Report
 	for _, cm := range meta.Columns {
 		r.Columns = append(r.Columns, HashColumn{Name: cm.Name, Field: cm.Field, Type: cm.Type.SQLName(),
-			InPlaceType: cm.Type.SQLName(), Encoding: cm.Encoding})
+			SourceType: cm.Type.SQLName(), Encoding: cm.Encoding})
 	}
 	t := inPlaceTarget{prefix: meta.prefix(), schema: meta.Schema, table: meta.Name, full: true, existing: meta}
 	cl, err := a.c.checkInPlace(ctx, r, nil, &a.stats, tables, indexes, t)

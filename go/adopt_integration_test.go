@@ -62,8 +62,8 @@ func TestAdoptHashes(t *testing.T) {
 	expectItem(t, cl, CheckOK, "31 HASHes under it:ad:user: are rows")
 	expectItem(t, cl, CheckWarn, "1 key (such as it:ad:user:7:prefs) has another ':' after it:ad:user:, and stays out of the table")
 	for _, c := range res.Report.Columns {
-		if c.Name == "active" && c.InPlaceType != "BOOLEAN" {
-			t.Fatalf("active type: %s", c.InPlaceType)
+		if c.Name == "active" && c.SourceType != "BOOLEAN" {
+			t.Fatalf("active type: %s", c.SourceType)
 		}
 	}
 	if n, _ := f.raw.Exists(f.h.ctx, metaKey("public", "it_ad_users")).Result(); n != 0 {

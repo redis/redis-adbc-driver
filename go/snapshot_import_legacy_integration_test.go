@@ -16,7 +16,7 @@ import (
 // Earlier mutable adoption metadata and interrupted legacy reservations cannot
 // be upgraded or resumed into the current immutable storage format.
 func TestSnapshotImportRejectsLegacyStorage(t *testing.T) {
-	for _, kind := range []string{"v0011_table", "unfinished_reservation"} {
+	for _, kind := range []string{"v001_table", "v0011_table", "unfinished_reservation"} {
 		t.Run(kind, func(t *testing.T) {
 			h, raw, _ := newSnapshotHarness(t)
 			if err := h.conn.Close(h.ctx); err != nil {
@@ -32,7 +32,17 @@ func TestSnapshotImportRejectsLegacyStorage(t *testing.T) {
 				}
 			}
 			var legacyKeys []string
-			if kind == "v0011_table" {
+			if kind == "v001_table" {
+				pipe := raw.Pipeline()
+				pipe.SAdd(h.ctx, "adbc:schemas", "public")
+				pipe.SAdd(h.ctx, "adbc:tables:public", "legacy_copy")
+				pipe.Set(h.ctx, "adbc:meta:public:legacy_copy", `{"schema":"public","name":"legacy_copy","columns":[{"name":"n","type":{"Kind":2}}]}`, 0)
+				pipe.Set(h.ctx, "adbc:seq:public:legacy_copy", "3", 0)
+				if _, err := pipe.Exec(h.ctx); err != nil {
+					t.Fatal(err)
+				}
+				legacyKeys = []string{"adbc:schemas", "adbc:tables:public", "adbc:meta:public:legacy_copy", "adbc:seq:public:legacy_copy"}
+			} else if kind == "v0011_table" {
 				key := metaKey("public", "legacy_copy")
 				value := `{"schema":"public","name":"legacy_copy","key_prefix":"legacy:application:","adopted":true,"columns":[{"name":"n","type":{"Kind":2}}]}`
 				if err := raw.Set(h.ctx, key, value, 0).Err(); err != nil {

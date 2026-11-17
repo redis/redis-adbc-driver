@@ -42,14 +42,13 @@ func (c *hashConn) snapshotInspectionChecklist(ctx context.Context, r *HashRepor
 	if int64(gs.rows) < stats.rows {
 		cl.add(CheckWarn, fmt.Sprintf("managed import types are guessed from %d sampled qualifying HASHes; Apply validates every captured row", gs.rows), "use check -sample -1 to inspect all source rows")
 	}
-	// Keep the public JSON field for compatibility, while reporting the native
-	// source type of the managed import rather than an obsolete live table.
+	// Report the native source type used by the managed import.
 	types := make(map[string]string, len(cols))
 	for _, col := range cols {
 		types[col.field] = col.inPlace.SQLName()
 	}
 	for i := range r.Columns {
-		r.Columns[i].InPlaceType = types[r.Columns[i].Field]
+		r.Columns[i].SourceType = types[r.Columns[i].Field]
 	}
 	return cl, nil
 }

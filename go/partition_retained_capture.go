@@ -51,8 +51,9 @@ func retainedSourceIdentity(meta *tableMeta, info indexInfo) string {
 	for i, column := range meta.Columns {
 		columns[i] = []any{[]byte(column.Name), []byte(column.Field), []byte(column.Encoding), []byte(column.TextFormat)}
 	}
+	// Identifier semantics are fixed; preserve this canonical identity position.
 	data, _ := json.Marshal([]any{[]byte(meta.prefix()), []byte(meta.index()), columns, meta.Schema, meta.Name, meta.OID, meta.IndexOID, partitionTarget(meta),
-		meta.Adopted, meta.KeyRows, meta.AppIndex, meta.Foreign, meta.FoldedIdentifiers, meta.PendingCleanup, meta.RekeyTo,
+		meta.Adopted, meta.KeyRows, meta.AppIndex, meta.Foreign, true, meta.PendingCleanup, meta.RekeyTo,
 		[]byte(info.keyType), prefixes, []byte(info.filter), attrs})
 	return retainedSHA(data)
 }

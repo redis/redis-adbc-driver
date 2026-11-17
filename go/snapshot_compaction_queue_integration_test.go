@@ -126,8 +126,8 @@ func TestSnapshotCompactionQueueClaimsOnlyTargetAndRecoversLease(t *testing.T) {
 	if err != nil || job == nil || job.QueueKey != key {
 		t.Fatal("wrong durable job", job, err)
 	}
-	if raw.HExists(h.ctx, snapshotCompactionCandidates, key).Val() || raw.ZCard(h.ctx, snapshotCompactionQueue).Val() != 0 {
-		t.Fatal("claim did not consume candidate")
+	if !raw.HExists(h.ctx, snapshotCompactionCandidates, key).Val() || raw.ZCard(h.ctx, snapshotCompactionQueue).Val() != 1 {
+		t.Fatal("claim lost durable candidate eligibility")
 	}
 	if err := s.releaseSnapshotCompaction(h.ctx, token); err != nil {
 		t.Fatal(err)

@@ -331,10 +331,6 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 			return nil, err
 		}
 		if !st.snapshots {
-			if err := st.migrateLegacyMetadata(ctx); err != nil {
-				_ = client.Close()
-				return nil, err
-			}
 			if err := st.ensureRegistry(ctx); err != nil {
 				_ = client.Close()
 				return nil, err
