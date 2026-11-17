@@ -30,7 +30,7 @@ see [server requirements](driver-reference.md#server-requirements) and the
 
 ## Install and discover the driver
 
-Install from [PyPI](https://pypi.org/project/adbc-driver-redis/) (Python 3.14 recommended;
+Install from [PyPI](https://pypi.org/project/adbc-driver-redis/) (Python 3.14 or newer required;
 Linux amd64/arm64 or macOS arm64):
 
 ```sh
@@ -208,14 +208,9 @@ remote Prefect deployment.
 
 ## SQLAlchemy and Superset
 
-Install the wheel's `sqlalchemy` extra for SQLAlchemy >=2.1.6. Use the separate
-`superset` extra in a Python 3.12 environment for Superset 6.1, which requires
-SQLAlchemy 1.4 and older pandas/greenlet dependencies. The `superset` extra uses Arrow 18; the other extras use Arrow 26.
-These extras cannot share an environment; Superset also cannot share the latest
-pandas used by `dask` and `test`. The dialect supports both SQLAlchemy versions. It compiles PostgreSQL SQL and reflects
-the driver's catalogs, including schemas, tables, views, column types, primary
-keys, indexes and comments. Redis version metadata comes from ADBC; PostgreSQL
-catalog compatibility is version 16, not the Redis server version.
+Install the wheel's `sqlalchemy` extra for SQLAlchemy >=2.1.9.
+
+Superset 6.1 is unsupported on Python 3.14+; see [the dependency blocker](https://github.com/redis/redis-adbc-driver/issues/471).
 
 ```python
 from sqlalchemy import create_engine, inspect, text
@@ -237,14 +232,7 @@ does **not** undo writes. Savepoints and two-phase transactions are rejected.
 Use explicit values for IDs; ORM identity generation and transactional workloads
 are outside this connector's contract.
 
-In Superset, install the package in the same environment as every web worker and
-SQL Lab worker, then restart them. The `superset.db_engine_specs` entry points
-register Redis and Redis TLS; SQL parsing uses sqlglot's PostgreSQL dialect.
-Add a database using `redis+adbc://host:6379/0`, test the connection, select a
-schema and table, and create a dataset. `DATE_TRUNC` supplies PostgreSQL time
-grains for time-series charts; grouped dimensions and `SUM` support bar charts.
-Enable SQL Lab access as appropriate for that database. No PostgreSQL server or
-psycopg dependency is needed. This does not add SQL constructs the driver lacks.
+Superset 6.1 is currently unsupported; see [the restoration tracker](https://github.com/redis/redis-adbc-driver/issues/471).
 
 ## Dagster
 
@@ -422,7 +410,7 @@ partitions and schema.
 ### Worker-side Arrow reader
 
 The source-tree `ray` extra pins Ray 2.60.0. Install this build on the caller
-and every worker (Python 3.12+), including its matching native library:
+and every worker (Python 3.14+), including its matching native library:
 
 ```sh
 python -m pip install './python[ray]'
@@ -551,11 +539,11 @@ a disposable Redis database. This smoke test uses
 with local task execution; it does not validate a scheduler, remote executor,
 web UI, or distributed worker deployment.
 
-Reproduce from the repository root using a separate **Python 3.12** environment
+Reproduce from the repository root using a separate **Python 3.14** environment
 (Airflow and Superset have different dependency requirements):
 
 ```sh
-python3.12 -m venv /tmp/redis-airflow-tests
+python3.14 -m venv /tmp/redis-airflow-tests
 source /tmp/redis-airflow-tests/bin/activate
 python -m pip install './python[airflow-tests]'
 make -C go redis-up build
@@ -641,7 +629,7 @@ other driver integrations do not require it. This is a provider shipped by this
 project, not an Apache-maintained provider package.
 
 The earlier focused run used Airflow 3.3.2, Arrow provider 0.1.1 and common-sql
-2.1.1. Run the current pinned integration in a separate Python 3.12 environment:
+2.1.1. Run the current pinned integration in a separate Python 3.14 environment:
 
 ```sh
 python -m pip install './python[airflow-tests]'
@@ -750,10 +738,4 @@ after each check. Superset smoke tests use a separate
 Superset environment and a disposable metadata directory; see the change's
 [verification record](sdlc/changes/271-280/validation.md).
 
-For Superset 6.1's optional smoke test, use a separate Python 3.12 environment
-(the app requires SQLAlchemy 1.4 and greenlet that does not build on Python 3.14).
-Install `./python[superset]` and `pytest>=9.1.1`, then run
-`RUN_SUPERSET_TESTS=1 REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_sqlalchemy.py python/tests/test_superset.py`. The test creates a
-temporary metadata database; it does not use an existing Superset installation.
-Superset 6.1 constrains older dependencies with known advisories; see the
-[dependency audit](sdlc/changes/dependency-refresh-2026-10/python-advisories.json).
+Superset 6.1 is unsupported on Python 3.14+; see [the dependency blocker](https://github.com/redis/redis-adbc-driver/issues/471).

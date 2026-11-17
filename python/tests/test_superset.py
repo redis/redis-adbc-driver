@@ -1,7 +1,8 @@
-"""Optional smoke test in a separate environment with apache-superset 6.1.
+"""Upstream Superset requalification probe; 6.1 is currently unsupported.
 
 Set RUN_SUPERSET_TESTS=1. Uses a temporary metadata SQLite database, never an
-existing Superset installation. Requires the superset extra, Python 3.12 and pytest.
+existing Superset installation. Requires a Python 3.14+ compatible upstream
+Superset dependency set; restoration is tracked in project issue #471.
 """
 
 import os

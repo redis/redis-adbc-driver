@@ -1,0 +1,49 @@
+{
+  "python": "3.14",
+  "platform": "x86_64-manylinux_2_28",
+  "scope": "Dependency resolution only, isolated profiles; not runtime acceptance.",
+  "profiles": {
+    "core": {
+      "exit_code": 0
+    },
+    "workflows": {
+      "exit_code": 0
+    },
+    "models": {
+      "exit_code": 0
+    },
+    "orchestrators": {
+      "exit_code": 0
+    },
+    "spark": {
+      "exit_code": 0
+    },
+    "airflow": {
+      "exit_code": 0
+    },
+    "dbt": {
+      "exit_code": 0
+    },
+    "documents": {
+      "exit_code": 0
+    },
+    "analysis": {
+      "exit_code": 0
+    },
+    "beam": {
+      "exit_code": 0
+    },
+    "mage": {
+      "exit_code": 0
+    },
+    "kestra": {
+      "exit_code": 0
+    },
+    "ray-tls": {
+      "exit_code": 0
+    }
+  },
+  "unsupported": {
+    "superset": "https://github.com/redis/redis-adbc-driver/issues/471"
+  }
+}

@@ -28,11 +28,11 @@ a disposable Redis database. This smoke test uses
 with local task execution; it does not validate a scheduler, remote executor,
 web UI, or distributed worker deployment.
 
-Reproduce from the repository root using a separate **Python 3.12** environment
+Reproduce from the repository root using a separate **Python 3.14** environment
 (Airflow and Superset have different dependency requirements):
 
 ```sh
-python3.12 -m venv /tmp/redis-airflow-tests
+python3.14 -m venv /tmp/redis-airflow-tests
 source /tmp/redis-airflow-tests/bin/activate
 python -m pip install './python[airflow-tests]'
 make -C go redis-up build
@@ -126,7 +126,7 @@ other driver integrations do not require it. This is a provider shipped by this
 project, not an Apache-maintained provider package.
 
 The earlier focused run used Airflow 3.3.2, Arrow provider 0.1.1 and common-sql
-2.1.1. Run the current pinned integration in a separate Python 3.12 environment:
+2.1.1. Run the current pinned integration in a separate Python 3.14 environment:
 
 ```sh
 python -m pip install './python[airflow-tests]'

@@ -20,7 +20,7 @@ Complete the [shared example setup](example-setup.md) for the sample-data helper
 before running the first block. It creates and removes a unique input table.
 
 The source-tree `ray` extra pins Ray 2.60.0. Install this build on the caller
-and every worker (Python 3.12+), including its matching native library:
+and every worker (Python 3.14+), including its matching native library:
 
 ```sh
 python -m pip install './python[ray]'

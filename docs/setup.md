@@ -25,8 +25,7 @@ For native clients such as DuckDB, use the [managed native installer](native-ins
 for automatic downloads, checksum verification, stable library paths, upgrades
 and uninstall. The Python wheel path below remains the simplest Python setup.
 
-Use Python 3.14 for current integrations; Python 3.12+ remains installable for
-the separate Superset compatibility environment. Wheels include the native library for Linux x86-64/ARM64
+Python 3.14 or newer is required for the package and integrations. Wheels include the native library for Linux x86-64/ARM64
 (glibc 2.28+) and macOS ARM64 (macOS 15+). Windows, macOS Intel and musl Linux
 have no published wheels. Installing a driver does not start a Redis server.
 
@@ -68,7 +67,7 @@ the complete package/placement matrix and automated release distributions.
 |---|---|---|
 | pandas / Polars | Install the `pandas` or `polars` extra; use the bundled driver | [pandas](integrations/pandas.md), [Polars](integrations/polars.md) |
 | SQLAlchemy | Install the `sqlalchemy` extra; use `redis+adbc://` or `rediss+adbc://` | [SQLAlchemy](integrations/sqlalchemy.md) |
-| Superset | Install the `superset` extra in a separate compatible environment on every web and SQL Lab worker | [Superset](integrations/superset.md) |
+| Superset 6.1 | Unsupported on Python 3.14+; see the upstream dependency blocker | [Superset](integrations/superset.md) |
 | Dagster | Install the `dagster` extra; use RedisADBCIOManager or the documented ADBCResource path | [Dagster](integrations/dagster.md) |
 | DuckDB | Choose the embedded read-only extension or adbc_scanner for catalogs/writes | [DuckDB](duckdb.md) |
 | Airflow | Install the `airflow` extra in every task environment; use RedisAdbcHook | [Airflow](integrations/airflow.md) |
@@ -142,12 +141,7 @@ finally:
     engine.dispose()
 ```
 
-In Superset, select the Redis ADBC database type registered by the installed
-package. Enter `redis+adbc://host:port/0` or `rediss+adbc://host:port/0`, including
-the deployment's credentials using Superset's connection/secret controls. Test
-the connection, then select a schema/table and create a dataset. Install in the
-application's environment, rather than a separate host Python environment.
-See [version compatibility and limitations](python-integrations.md#sqlalchemy-and-superset).
+Superset 6.1 is currently unsupported; see [the restoration tracker](https://github.com/redis/redis-adbc-driver/issues/471).
 
 ## DuckDB and other native ADBC clients
 
@@ -200,7 +194,7 @@ Do not assume its commands are interchangeable with `adbc_scanner`.
 For native-only installations, download the matching archive and checksum from
 [GitHub releases](https://github.com/redis/redis-adbc-driver/releases), verify
 the SHA-256, extract into a stable directory, then run `./install.sh --user` there.
-The native installer requires Python 3.12+ without additional Python packages.
+The native installer requires Python 3.14+ without additional Python packages.
 The Python `doctor` command requires the Python package; it is not in native tarballs.
 
 For a managed installation, use [install, upgrade and uninstall](native-installation.md)

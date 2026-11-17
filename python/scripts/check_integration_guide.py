@@ -14,15 +14,18 @@ import subprocess
 import sys
 import tempfile
 
-from integration_registry import GUIDES
+from integration_registry import GUIDES, UNSUPPORTED_GUIDES
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tool", choices=GUIDES)
+    parser.add_argument("tool", choices=[*GUIDES, *UNSUPPORTED_GUIDES])
     parser.add_argument("--require-read-write", action="store_true",
                         help="fail unless the executed workflow verifies an output write and read-back")
     args = parser.parse_args()
+    for tool in [args.tool]:
+        if tool in UNSUPPORTED_GUIDES:
+            parser.error(UNSUPPORTED_GUIDES[tool])
     if args.require_read_write:
         result = subprocess.run([sys.executable, __file__, args.tool], text=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=400)

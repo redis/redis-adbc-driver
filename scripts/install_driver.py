@@ -359,8 +359,8 @@ def uninstall(args):
 
 
 def main(argv=None):
-    if sys.version_info < (3, 12):
-        print("Native installer requires Python 3.12 or later.", file=sys.stderr)
+    if sys.version_info < (3, 14):
+        print("Native installer requires Python 3.14 or later.", file=sys.stderr)
         return 1
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)

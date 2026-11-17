@@ -24,7 +24,7 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.4).
 - Other verified endpoints: `REDIS_URI=... make -C go test`; Software requires
   `REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed` only after API policy verification.
 - ADBC validation: `REDIS_URI=redis://localhost:6379/0 make -C go validate`
-  (uv, Python >=3.13). Success is zero failures; report skips explicitly.
+  (uv, Python >=3.14). Success is zero failures; report skips explicitly.
 - Differential harness tests: `make -C go pgdiff-test`. Full comparison:
   `REDIS_URI=redis://localhost:6379/0 make -C go pgdiff` (Docker, uv).
 - Format changed Go files with `gofmt`; there is no Makefile lint target.

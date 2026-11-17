@@ -34,7 +34,7 @@ class InventoryTests(unittest.TestCase):
         guides = [g for profile in registry.PROFILES.values() for g in profile.guides]
         self.assertEqual(len(guides), len(set(guides)))
         documented = {p.stem for p in (ROOT / "docs/integrations").glob("*.md")}
-        documented -= {"README", "acceptance", "example-setup"}
+        documented -= {"README", "acceptance", "example-setup", *registry.UNSUPPORTED_GUIDES}
         # DuckDB keeps its linked workflow outside docs/integrations.
         self.assertTrue((ROOT / "docs/duckdb.md").is_file())
         documented.add("duckdb")
@@ -50,7 +50,7 @@ class InventoryTests(unittest.TestCase):
         extras = tomllib.loads((ROOT / "python/pyproject.toml").read_text())["project"]["optional-dependencies"]
         for p in registry.PROFILES.values():
             self.assertLessEqual(set(p.extras.split(",")), set(extras))
-        self.assertEqual(set(guides) - registry.READ_WRITE_GUIDES, {"fivetran", "superset"})
+        self.assertEqual(set(guides) - registry.READ_WRITE_GUIDES, {"fivetran"})
 
     def test_selectors_exist_and_tls_has_no_plaintext_selectors(self):
         for tool, selectors in registry.CANDIDATES.items():
@@ -76,7 +76,21 @@ class InventoryTests(unittest.TestCase):
         self.assertIn("rstudio", registry.PROFILES["documents"].guides)
         self.assertEqual(registry.PROFILES["airflow"].python, "3.14")
         self.assertEqual(registry.PROFILES["dbt"].python, "3.14")
-        self.assertEqual(registry.PROFILES["superset"].extras, "superset,test-runner")
+        self.assertNotIn("superset", registry.PROFILES)
+        self.assertIn("unsupported", registry.UNSUPPORTED_GUIDES["superset"])
+        self.assertTrue(all(p.python == "3.14" for p in registry.PROFILES.values()))
+
+    def test_unsupported_superset_reports_blocker_before_running(self):
+        for script, args in (
+            ("integration_registry.py", ["profile", "superset"]),
+            ("check_integration_guide.py", ["superset"]),
+            ("run-integration-guides.py", ["--env-root", "/unused", "--results", "/unused", "--tools", "superset"]),
+        ):
+            with self.subTest(script=script):
+                result = subprocess.run([sys.executable, str(SCRIPTS / script), *args], text=True, capture_output=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("Superset 6.1 is unsupported", result.stderr)
+                self.assertIn("issues/471", result.stderr)
 
     def test_help_and_cli_selection_use_registry(self):
         result = subprocess.run([str(SCRIPTS / "run-candidate-tests.sh"), "--help"],
