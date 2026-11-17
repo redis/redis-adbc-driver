@@ -61,9 +61,10 @@ func TestSQLTruncateDuringInsertSelect(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			publish := other.stagePublication("", "TRUNCATE TABLE it_tr_t"+m.clause)
 			var winner *tableMeta
 			r := h.raceNativeRows(raw, "it_tr_t", func(*tableMeta) {
-				other.exec("TRUNCATE TABLE it_tr_t" + m.clause)
+				publish()
 				winner = other.inspectTable(raw, defaultSchema, "it_tr_t")
 				other.expectRows("SELECT COUNT(*) FROM it_tr_t", "0")
 			})
@@ -107,13 +108,13 @@ func TestSQLTruncateDuringCreateTableAs(t *testing.T) {
 			h.setupTruncRace()
 			raw := h.rawClient()
 			other := newSQLHarness(t)
+			publish := other.stagePublication("", "CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)",
+				"INSERT INTO it_tr_t VALUES (-1,'winner'),(0,NULL)", "TRUNCATE it_tr_t"+m.clause)
 			r := h.raceNativeRows(raw, "it_tr_t", func(*tableMeta) {
 				if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_tr_t"); !isStatus(err, adbc.StatusNotFound) {
 					t.Fatal("unpublished CTAS became visible", err)
 				}
-				other.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
-				other.exec("INSERT INTO it_tr_t VALUES (-1,'winner'),(0,NULL)")
-				other.exec("TRUNCATE it_tr_t" + m.clause)
+				publish()
 			})
 			_, err := tryExec(h.ctx, h.conn, "CREATE TABLE it_tr_t AS SELECT id,note FROM it_tr_src")
 			h.expectNativeRowRefusal(raw, r, err)
@@ -161,15 +162,20 @@ func TestSQLTruncateDuringIngest(t *testing.T) {
 						h.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
 						h.exec("INSERT INTO it_tr_t VALUES (-1,'base'),(0,NULL)")
 					}
+					changes := []string{}
+					if mode == adbc.OptionValueIngestModeCreate {
+						changes = append(changes, "CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)",
+							"INSERT INTO it_tr_t VALUES (-1,'winner'),(0,NULL)")
+					}
+					changes = append(changes, "TRUNCATE it_tr_t"+m.clause)
+					publish := other.stagePublication("", changes...)
 					r := h.raceNativeRowsAt(raw, "it_tr_t", min(size, snapshotWriteBatchRows), func(*tableMeta) {
 						if mode == adbc.OptionValueIngestModeCreate {
 							if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_tr_t"); !isStatus(err, adbc.StatusNotFound) {
 								t.Fatal("private Arrow create became visible", err)
 							}
-							other.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
-							other.exec("INSERT INTO it_tr_t VALUES (-1,'winner'),(0,NULL)")
 						}
-						other.exec("TRUNCATE it_tr_t" + m.clause)
+						publish()
 					})
 					err := h.ingestNotes("it_tr_t", mode, size, size)
 					h.expectNativeRowRefusal(raw, r, err)
@@ -185,13 +191,15 @@ func TestSQLTruncateDuringIngest(t *testing.T) {
 }
 
 // A temporary CTAS stays invisible to its own connection until publication.
-// A nested create/TRUNCATE of the same name wins without inheriting private rows.
+// A prepared create/TRUNCATE wins without inheriting private rows.
 func TestSQLTruncateDuringTempCreateTableAs(t *testing.T) {
 	for _, m := range truncModes {
 		t.Run(m.name, func(t *testing.T) {
 			h := newSQLHarness(t)
 			h.setupTruncRace()
 			raw := h.rawClient()
+			publish := h.stagePublication("", "CREATE TEMP TABLE it_tr_tmp (id BIGINT,note VARCHAR)",
+				"INSERT INTO pg_temp.it_tr_tmp VALUES (-1,'winner'),(0,NULL)", "TRUNCATE pg_temp.it_tr_tmp"+m.clause)
 			r := h.raceNativeRows(raw, "it_tr_tmp", func(meta *tableMeta) {
 				if !isTempSchema(meta.Schema) {
 					t.Fatal("temporary CTAS has no owner-local schema")
@@ -199,9 +207,7 @@ func TestSQLTruncateDuringTempCreateTableAs(t *testing.T) {
 				if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_tr_tmp"); !isStatus(err, adbc.StatusNotFound) {
 					t.Fatal("private temporary CTAS became visible", err)
 				}
-				h.exec("CREATE TEMP TABLE it_tr_tmp (id BIGINT,note VARCHAR)")
-				h.exec("INSERT INTO pg_temp.it_tr_tmp VALUES (-1,'winner'),(0,NULL)")
-				h.exec("TRUNCATE pg_temp.it_tr_tmp" + m.clause)
+				publish()
 			})
 			_, err := tryExec(h.ctx, h.conn, "CREATE TEMP TABLE it_tr_tmp AS SELECT id,note FROM it_tr_src")
 			h.expectNativeRowRefusal(raw, r, err)
@@ -229,9 +235,8 @@ func TestSQLTruncateRestartLateWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := h.raceNativeRowsAt(raw, "it_tr_late", 1, func(*tableMeta) {
-		other.exec("TRUNCATE it_tr_late RESTART IDENTITY")
-	})
+	publish := other.stagePublication("", "TRUNCATE it_tr_late RESTART IDENTITY")
+	r := h.raceNativeRowsAt(raw, "it_tr_late", 1, func(*tableMeta) { publish() })
 	_, err = tryExec(h.ctx, h.conn, "INSERT INTO it_tr_late VALUES (3,'old')")
 	h.expectNativeRowRefusal(raw, r, err)
 	if got := strings.Join(valueRows(snapshotExecuteTest(t, st, oldCtx,

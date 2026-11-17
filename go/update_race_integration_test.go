@@ -81,21 +81,20 @@ func testNativeDMLRace(t *testing.T, sql string, empty, deleted bool, rows int, 
 	if deleted {
 		field, want = snapshotDeletedField, "1"
 	}
-	r := h.raceNativeImagesAt(raw, "it_tr_t", firstBatch, field, want, func(*tableMeta) {
-		switch mode {
-		case "continue":
-			other.exec("TRUNCATE it_tr_t")
-		case "restart":
-			other.exec("TRUNCATE it_tr_t RESTART IDENTITY")
-		case "drop":
-			other.exec("DROP TABLE it_tr_t")
-			// DDL replacement bypasses table DML admission; the paused writer
-			// must still reject this changed binding at publication.
-			other.exec("CREATE TABLE it_tr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note")
-		default:
-			t.Fatal("unknown race mode", mode)
-		}
-	})
+	var changes []string
+	switch mode {
+	case "continue":
+		changes = []string{"TRUNCATE it_tr_t"}
+	case "restart":
+		changes = []string{"TRUNCATE it_tr_t RESTART IDENTITY"}
+	case "drop":
+		changes = []string{"DROP TABLE it_tr_t",
+			"CREATE TABLE it_tr_t AS SELECT CAST(999999 AS BIGINT) AS id, CAST('replacement' AS VARCHAR) AS note"}
+	default:
+		t.Fatal("unknown race mode", mode)
+	}
+	publish := other.stagePublication("", changes...)
+	r := h.raceNativeImagesAt(raw, "it_tr_t", firstBatch, field, want, func(*tableMeta) { publish() })
 	_, err = tryExec(h.ctx, h.conn, fmt.Sprintf(sql, "it_tr_t", "it_tr_src"))
 	h.expectNativeRowRefusal(raw, r, err)
 	current := h.inspectTable(raw, defaultSchema, "it_tr_t")

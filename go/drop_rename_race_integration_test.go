@@ -36,6 +36,51 @@ func expectDropRenameConflict(t *testing.T, err error) {
 	}
 }
 
+// Stage without foreground admission to exercise publication's stale-writer
+// fence independently of the public admission gate. Publishing this prepared
+// change inside a paused statement must not start a second admitted statement:
+// that waiter cannot finish until the paused catalog writer releases its pin.
+func (h *sqlHarness) stagePublication(target string, statements ...string) func() {
+	h.t.Helper()
+	stmt, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	defer stmt.Close(h.ctx)
+	e := stmt.(*statementImpl).executor()
+	s := e.store
+	base, pin, err := s.acquireSnapshot(h.ctx, true)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	ctx, id, err := s.beginSnapshotWrite(base, pin)
+	if err != nil {
+		pin.release()
+		h.t.Fatal(err)
+	}
+	h.t.Cleanup(func() { s.abortSnapshot(pin, id); pin.release() })
+	if target != "" {
+		if err := s.prepareSnapshotTable(ctx, defaultSchema, target); err != nil {
+			h.t.Fatal(err)
+		}
+	}
+	for _, sql := range statements {
+		parsed, err := ParseScript(sql)
+		if err != nil {
+			h.t.Fatal(err)
+		}
+		if _, err := e.execute(ctx, parsed[0], nil, nil, nil); err != nil {
+			h.t.Fatal(err)
+		}
+	}
+	return func() {
+		if err := s.publishSnapshot(ctx, pin, id); err != nil {
+			h.t.Fatal(err)
+		}
+		pin.release()
+	}
+}
+
 func TestSQLRenameDuringDrop(t *testing.T) {
 	for _, phase := range []struct {
 		name string
@@ -60,6 +105,11 @@ func TestSQLRenameDuringDrop(t *testing.T) {
 				h.exec("CREATE TABLE it_dr_t (id BIGINT,note VARCHAR)")
 				h.exec("INSERT INTO it_dr_t VALUES (1,'a'),(2,'b')")
 				prefix, index := h.tableNames(raw, "public", "it_dr_t")
+				changes := []string{"ALTER TABLE it_dr_t RENAME TO it_dr_u"}
+				if variant.reuse {
+					changes = append(changes, "CREATE TABLE it_dr_t (x INTEGER)", "INSERT INTO it_dr_t VALUES (7)")
+				}
+				publish := other.stagePublication("", changes...)
 				fired := false
 				*phase.hook = func() {
 					*phase.hook = nil
@@ -67,11 +117,7 @@ func TestSQLRenameDuringDrop(t *testing.T) {
 					if err := raw.Do(h.ctx, "FT.INFO", index).Err(); err != nil {
 						t.Fatal("DROP removed its published source index", err)
 					}
-					other.exec("ALTER TABLE it_dr_t RENAME TO it_dr_u")
-					if variant.reuse {
-						other.exec("CREATE TABLE it_dr_t (x INTEGER)")
-						other.exec("INSERT INTO it_dr_t VALUES (7)")
-					}
+					publish()
 					snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
 					if h.prefixKeyCount(raw, prefix) != 2 {
 						t.Fatal("in-flight DROP lost protected rows")
@@ -117,11 +163,12 @@ func TestSQLDropDuringRename(t *testing.T) {
 	h.exec("CREATE TABLE it_dr_t (id BIGINT)")
 	h.exec("INSERT INTO it_dr_t VALUES (1),(2)")
 	prefix, index := h.tableNames(raw, "public", "it_dr_t")
+	publish := other.stagePublication("", "DROP TABLE it_dr_t")
 	fired := false
 	testHookRenaming = func() {
 		testHookRenaming = nil
 		fired = true
-		other.exec("DROP TABLE it_dr_t")
+		publish()
 		snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
 		if err := raw.Do(h.ctx, "FT.INFO", index).Err(); err != nil {
 			t.Fatal("DROP reclaimed an in-flight rename's source", err)
@@ -158,11 +205,12 @@ func TestSQLRekeyDuringDrop(t *testing.T) {
 			h.exec("CREATE TABLE it_dr_rk (id BIGINT)")
 			h.exec("INSERT INTO it_dr_rk VALUES (1),(2)")
 			prefix, index := h.tableNames(raw, "public", "it_dr_rk")
+			publish := rk.stagePublication("", "ALTER TABLE it_dr_rk RENAME TO it_dr_rk2")
 			fired := false
 			*phase.hook = func() {
 				*phase.hook = nil
 				fired = true
-				rk.exec("ALTER TABLE it_dr_rk RENAME TO it_dr_rk2")
+				publish()
 				snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
 				if err := raw.Do(h.ctx, "FT.INFO", index).Err(); err != nil {
 					t.Fatal("rekey/GC reclaimed the in-flight DROP source", err)
@@ -233,11 +281,12 @@ func TestSQLRenameDuringDropTemp(t *testing.T) {
 	h.exec("INSERT INTO it_dr_tmp VALUES (1),(2)")
 	schema := tempSchemaBase + h.newTempID(raw, before)
 	prefix, index := h.tableNames(raw, schema, "it_dr_tmp")
+	publish := h.stagePublication("", "ALTER TABLE pg_temp.it_dr_tmp RENAME TO it_dr_tmp2")
 	fired := false
 	testHookDropping = func() {
 		testHookDropping = nil
 		fired = true
-		h.exec("ALTER TABLE pg_temp.it_dr_tmp RENAME TO it_dr_tmp2")
+		publish()
 	}
 	t.Cleanup(func() { testHookDropping = nil })
 	_, err := tryExec(h.ctx, h.conn, "DROP TABLE pg_temp.it_dr_tmp")

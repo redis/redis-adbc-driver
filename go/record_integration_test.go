@@ -106,7 +106,15 @@ func TestSQLRecordArrow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := s.String(); got != "schema:\n  fields: 2\n    - r: type="+want+", nullable\n"+
+	fields := s.Fields()
+	for i := range fields {
+		wantMetadata := arrow.MetadataFrom(map[string]string{typeNameKey: "RECORD"})
+		if !fields[i].Metadata.Equal(wantMetadata) {
+			t.Errorf("ExecuteSchema field %d metadata: %s", i, fields[i].Metadata)
+		}
+		fields[i].Metadata = arrow.Metadata{}
+	}
+	if got := arrow.NewSchema(fields, nil).String(); got != "schema:\n  fields: 2\n    - r: type="+want+", nullable\n"+
 		"    - row: type=struct<f1: "+want+" nullable, f2: int32 nullable>, nullable" {
 		t.Errorf("ExecuteSchema: %s", got)
 	}

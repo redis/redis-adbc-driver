@@ -62,6 +62,13 @@ def source(uri, db_options):
         "flag": pa.array([True, None] * 36 + [False], type=pa.bool_()),
         "payload": pa.array([b"\x00\xff", None] * 36 + [b""], type=pa.binary()),
     })
+    # SQL output retains its canonical declaration on every field. Assert the
+    # exact metadata as well as physical types and values across Ray workers.
+    declarations = ["BIGINT", "VARCHAR", "NUMERIC(12,2)", "BOOLEAN", "VARBINARY"]
+    table = table.cast(pa.schema([
+        field.with_metadata({b"ARROW:FLIGHT:SQL:TYPE_NAME": declaration.encode()})
+        for field, declaration in zip(table.schema, declarations, strict=True)
+    ]))
     with dbapi.connect(uri, db_kwargs=db_options) as conn, conn.cursor() as cur:
         cur.adbc_ingest(name, table, mode="create")
     try:

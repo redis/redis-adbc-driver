@@ -699,11 +699,12 @@ func TestSQLAlterTypeCleanupDuringCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	publish := h.stagePublication("it_at_cleanup", "UPDATE it_at_cleanup SET k=-1 WHERE id<=100")
 	stmt, ctx, _, transport, barrier := snapshotPausedAlter(t, h, "ALTER TABLE it_at_cleanup DROP COLUMN k,ALTER COLUMN c TYPE BIGINT USING c::BIGINT*2", old.prefix(), time.Minute)
 	done := make(chan error, 1)
 	go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
 	snapshotAwaitAlterBatch(t, h, raw, barrier, done)
-	h.exec("UPDATE it_at_cleanup SET k=-1 WHERE id<=100")
+	publish()
 	snapshotReapTest(source, h.ctx)
 	if value := raw.HGet(h.ctx, old.prefix()+"1", "k").Val(); value != "1" {
 		t.Fatal("concurrent cleanup mutated pinned source", value)
