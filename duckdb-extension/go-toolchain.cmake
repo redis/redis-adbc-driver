@@ -1,4 +1,4 @@
-# Go 1.27.3 matches go/go.mod and requires macOS 13+. Older Go versions in
+# Go 1.27.4 matches go/go.mod and requires macOS 13+. Older Go versions in
 # DuckDB's extension build images cannot bootstrap this module themselves.
 # Downloads stay in the build directory and are verified against go.dev hashes.
 include(FetchContent)
@@ -16,12 +16,12 @@ elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
 else()
   message(FATAL_ERROR "Unsupported Go build host: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 endif()
-set(REDIS_GO_HASH_darwin_amd64 b6f8e931e4ab497fcde6da8ae4499a58f9d258e55c8a80824a516eae5950a750)
-set(REDIS_GO_HASH_darwin_arm64 dd3908cf20959d798c1e06ebe5b72213f0505ce01373b40ce3110975a6cd99c2)
-set(REDIS_GO_HASH_linux_amd64 65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40)
-set(REDIS_GO_HASH_linux_arm64 a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49)
+set(REDIS_GO_HASH_darwin_amd64 2b799377704ef12db39bd254995d5c348c9cc8d86562ca817724390e56c38f43)
+set(REDIS_GO_HASH_darwin_arm64 91a44a2b8a716600ad94a4f143e156116620db8828086a6e3602291be9bd0bb4)
+set(REDIS_GO_HASH_linux_amd64 7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840)
+set(REDIS_GO_HASH_linux_arm64 3392582988a273a87ab5043ee1b2c9c17a2c3c00580bf9326c47a2e0aaaeac92)
 FetchContent_Declare(redis_go
-  URL "https://go.dev/dl/go1.27.3.${REDIS_GO_OS}-${REDIS_GO_HOST_ARCH}.tar.gz"
+  URL "https://go.dev/dl/go1.27.4.${REDIS_GO_OS}-${REDIS_GO_HOST_ARCH}.tar.gz"
   URL_HASH "SHA256=${REDIS_GO_HASH_${REDIS_GO_OS}_${REDIS_GO_HOST_ARCH}}")
 FetchContent_MakeAvailable(redis_go)
 set(REDIS_GO_EXECUTABLE "${redis_go_SOURCE_DIR}/bin/go")
