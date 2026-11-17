@@ -39,6 +39,18 @@ correctness checks, not production query or performance qualification.
 - The private patched Arrow C Data suite passes with
   `go test -count=1 -p 1 -race -gcflags=all=-d=checkptr=2 -tags test ./arrow/cdata`.
   An earlier command without `-tags test` selected no tests; it is not evidence.
+- The original seven native groups also pass in separate Linux/arm64 container
+  ASAN and UBSAN builds, using pinned Arrow, Go 1.27.3, Python 3.11 and PyArrow
+  26.0.1. Both preserve the driverbase version linker flag. ASAN uses Go `-asan`
+  and preloaded libasan with `detect_leaks=0`; this is not a leak gate. UBSAN uses
+  `-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer` native
+  compile flags, `-fsanitize=undefined` link flags and `halt_on_error=1`.
+  These smoke checks do not cover the extended nested/poison/concurrency suite
+  under sanitizers or establish full lifetime acceptance. Source/binary/command
+  hashes are retained privately; the task-owned container was removed.
+- Local `env -u REDIS_URI -u REDIS_SNAPSHOT_URI go test -count=1 -p 1 ./...`
+  and `make -C go build` pass. No live endpoint was supplied; integration skips
+  do not establish Software compatibility. PR CI owns the live fixtures.
 
 Upstream reports were submitted and linked from labeled project trackers:
 [driverbase #245](https://github.com/adbc-drivers/driverbase-go/issues/245) /
@@ -48,7 +60,7 @@ Upstream reports were submitted and linked from labeled project trackers:
 [Arrow #1598](https://github.com/apache/arrow-go/issues/1598) /
 [local #460](https://github.com/redis/redis-adbc-driver/issues/460).
 
-The experimental override is not shipping-driver acceptance. ASAN/UBSAN, real
+The experimental override is not shipping-driver acceptance. Full ASAN/UBSAN, real
 C-driver-manager/Redis round trips, bounded sustained retained Go/C memory
 accounting and a qualifying full-path GC-policy comparison remain open. Maximum
 RSS and a checked Go Arrow allocator alone do not prove absence of native leaks.
