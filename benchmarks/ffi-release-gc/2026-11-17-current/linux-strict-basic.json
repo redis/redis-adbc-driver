@@ -1,0 +1,15 @@
+{
+  "library_sha256": "6f44df278b6005936844f02d87c2dae8e103f8e1a71ded2046282d592d84d35a",
+  "checks": [
+    "kind_0_explicit_close_once_invalid_repeat",
+    "kind_1_explicit_close_once_invalid_repeat",
+    "kind_2_explicit_close_once_invalid_repeat",
+    "retained_exported_array_survives_stream_and_statement",
+    "bound_array_synchronous_producer_release",
+    "bound_stream_synchronous_producer_release",
+    "stream_and_close_errors_preserve_sqlstate_and_release"
+  ],
+  "samples": [],
+  "checked_allocator_bytes": 0,
+  "summary": {}
+}
