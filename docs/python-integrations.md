@@ -325,6 +325,14 @@ the same asset/partition. Multi-dimensional partitions are unsupported.
 
 ## Dask
 
+`adbc_driver_redis.dask.write_dataframe` adds lazy worker-local Arrow appends to
+an existing table, without gathering the complete DataFrame into the caller.
+It requires `allow_duplicate_writes=True`: Dask recomputation can duplicate
+rows, and failures leave committed partitions in place. The caller owns table
+setup/cleanup and serializes other writers. See the
+[partitioned-write contract](integrations/dask.md#write-computed-results) for
+exact schema conversion, counts, failure diagnostics and an example.
+
 Install `adbc-driver-redis[dask]` in the client and every worker environment. This
 extra includes Dask DataFrame, Distributed, pandas and PyArrow. Platform wheels
 bundle the native driver; source installs require `REDIS_ADBC_LIBRARY` set to a

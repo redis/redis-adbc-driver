@@ -3255,6 +3255,13 @@ allow otherwise streamable queries to stream.
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,
   `LOG10`, `EXP`, `SIGN`, `ABS`, `PI()`, `RANDOM()`
+  - `MIN_SCALE(numeric)` returns the minimum fractional digits needed to
+    represent a finite value, as an `INTEGER` (Arrow int32):
+    `MIN_SCALE(1.23000)` is 2, and zero/integer values return 0. Integer
+    arguments convert implicitly; unknown numeric string literals are parsed
+    exactly. Typed text and floating arguments give `42883`, including typed
+    NULLs; a numeric NULL gives NULL. Numeric NaN/infinity remain unsupported
+    ([#362](https://github.com/redis/redis-adbc-driver/issues/362)).
   - `ROUND(x)` rounds floating inputs half to even, preserving negative
     zero; floating-to-integer casts use the same rule. Integer and `NUMERIC`
     rounding remains half away from zero. The two-argument floating

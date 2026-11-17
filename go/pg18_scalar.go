@@ -18,7 +18,7 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 	switch name {
 	case "FORMAT":
 		return typeString, true
-	case "SCALE":
+	case "SCALE", "MIN_SCALE":
 		return typeInt32, true
 	case "TO_NUMBER":
 		return decimalType(76, 16), true
@@ -68,6 +68,9 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 
 func pg18Scalar(f *Func, args []Value, z tzZone) (Value, error) {
 	typ, _ := pg18ScalarType(f.Name, argTypes(args))
+	if f.Name == "MIN_SCALE" {
+		return pgMinScale(f, args[0])
+	}
 	if f.Name == "__OVERLAPS" {
 		return pgOverlaps(f, args, z)
 	}

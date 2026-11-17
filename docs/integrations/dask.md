@@ -99,13 +99,65 @@ partitions and schema.
 
 ## Write computed results
 
-The example uses the shared [example setup](example-setup.md) sink to write a
-materialized computed pandas result through Arrow and verify it on a fresh
-connection. `read_query` remains a partitioned reader, without a distributed
-write API. Large outputs need a separately designed partitioned sink and retry
-policy. The linked runnable example also checks this output path.
-[#273](https://github.com/redis/redis-adbc-driver/issues/273) tracks a packaged
-worker-local sink.
+For a small materialized result, the example uses the shared
+[example setup](example-setup.md) sink. For partitioned outputs, use
+`adbc_driver_redis.dask.write_dataframe`. It converts one pandas partition to
+Arrow on a worker and appends it with a worker-local connection and cursor.
+The complete output is never gathered into the caller.
+
+```python
+from adbc_driver_redis.dask import write_dataframe
+
+# output_frame is a Dask DataFrame with exactly these columns in this order.
+# Create the destination table separately with this Arrow schema first.
+output_schema = pa.schema([("id", pa.int64()), ("amount", pa.float64())])
+pending = write_dataframe(
+    output_frame,
+    "rediss://user:password@redis.example:12000/0",
+    "computed_orders",
+    schema=output_schema,
+    db_schema_name="public",
+    allow_duplicate_writes=True,
+)
+acknowledged_rows = pending.compute()
+```
+
+The destination must already exist and accept the supplied Arrow schema.
+The helper only appends; it never creates, replaces, renames or drops a table.
+The caller owns destination setup, inspection after errors and cleanup, and must
+serialize other writers targeting that table. Within one write graph, appends
+run sequentially in partition order. Separate graphs are independent. Existing
+driver permissions and managed/unmanaged append rules still apply.
+
+Column names/order must match the explicit Arrow schema. Conversion uses
+PyArrow's safe conversion with the pandas index excluded; unsupported values,
+overflow and nullability violations fail the partition. Empty partitions also
+perform a zero-row append to validate the destination. Partition data must fit
+worker memory, but the complete DataFrame need not fit caller memory. Dask may
+evaluate many upstream partitions concurrently; the append chain is no global
+worker-memory bound. Configure scheduling, spilling and source partitions for
+the available worker memory. Connections
+and cursors close on success or error; no live handles are serialized to workers.
+
+`allow_duplicate_writes=True` explicitly acknowledges task replay. Ordinary
+task-error retries are annotated as zero, and the helper contains no retry loop.
+Nevertheless, [Dask recomputes lost worker results](https://distributed.dask.org/en/stable/resilience.html),
+and scheduler overrides, repeated compute calls or manual retries can append
+duplicate rows. The helper provides no exactly-once delivery, rollback, automatic
+resume or automatic deletion after failure. A successful returned count describes
+acknowledged tasks in that evaluation; it cannot count earlier replayed attempts.
+
+`PartitionWriteError` exposes `partition_index`, `acknowledged_rows` from
+preceding completed tasks, and `write_attempted`. Its chained exception retains
+the underlying conversion or native driver error. Once a write was attempted,
+the failing partition may also have committed rows, including after a lost
+reply or cleanup error. Later append tasks depend on its success and stop on an
+ordinary failure. Already committed partitions remain in the destination.
+Inspect the table and decide recovery explicitly before starting another graph.
+
+The separate-process writer regression covers exact NULL/Unicode values, empty
+partitions, two worker processes, acknowledged counts, native refusal, partial
+failure and preserved destination rows; see [the change record](../sdlc/changes/issue-273-dask-write/validation.md).
 
 ## Rerun this guide
 
