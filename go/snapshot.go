@@ -2019,6 +2019,23 @@ func snapshotReplyWarning(reply any) bool {
 	return false
 }
 
+// snapshotCatalogInitialized rechecks the anchor after a startup preflight
+// observes nonempty state. Another opener may have initialized it since EXISTS.
+// Only a confirmed missing field permits initialization; unknown replies fail.
+func (s *store) snapshotCatalogInitialized(ctx context.Context) (bool, error) {
+	format, err := s.client.HGet(ctx, snapshotCatalogKey, "format").Result()
+	if err == goredis.Nil {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if format != "17" {
+		return false, errorf(adbc.StatusInvalidState, "unsupported snapshot catalog format; existing storage is not upgraded or modified")
+	}
+	return true, nil
+}
+
 // openSnapshotCatalog runs before legacy migration/recovery or any driver write.
 func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing ...bool) error {
 	allowExternal := len(importing) > 0 && importing[0]
@@ -2038,7 +2055,14 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 			return err
 		}
 		if len(indexes) != 0 {
-			return errorf(adbc.StatusInvalidState, "snapshot initialization requires a database without existing search indexes")
+			initialized, err := s.snapshotCatalogInitialized(ctx)
+			if err != nil {
+				return err
+			}
+			if !initialized {
+				return errorf(adbc.StatusInvalidState, "snapshot initialization requires a database without existing search indexes")
+			}
+			n = 1
 		}
 	}
 	if err := s.checkSnapshotDeployment(ctx, n == 0 && !allowExternal); err != nil {
@@ -2053,14 +2077,11 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 	}
 	// Probe command capability without writing. Existing restricted readers must
 	// not initialize the catalog, recover writers, sweep temps or run compaction.
-	if n != 0 {
-		format, err := s.client.HGet(ctx, snapshotCatalogKey, "format").Result()
-		if err != nil {
-			return err
-		}
-		if format != "17" {
-			return errorf(adbc.StatusInvalidState, "unsupported snapshot catalog format; existing storage is not upgraded or modified")
-		}
+	initialized, err := s.snapshotCatalogInitialized(ctx)
+	if err != nil {
+		return err
+	}
+	if initialized {
 		capable, err := once(ctx, s.client, "EVAL", `return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`, 1, snapshotCatalogKey).Int()
 		if err != nil {
 			return wrapRedis(err, "failed to inspect snapshot control capability")
