@@ -146,10 +146,10 @@ def prepare(args):
 
 
 class SoftwarePrincipals:
-    def __init__(self, fixture, schema=None):
+    def __init__(self, fixture, schema=None, api=None):
         self.directory = Path(fixture).resolve()
         self.config = json.loads((self.directory / 'software.json').read_text())
-        self.api = SoftwareAPI(self.config['api_port'], self.directory / 'ca.crt')
+        self.api = api if api is not None else SoftwareAPI(self.config['api_port'], self.directory / 'ca.crt')
         database = self.api.call('GET', f"bdbs/{self.config['bdb_uid']}")
         self.config['verified_eviction_policy'] = database['eviction_policy']
         self.schema = schema

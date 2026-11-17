@@ -110,7 +110,7 @@ There is no unmanaged publication step: each accepted row becomes visible as it
 is written.
 It does not create managed generations, acquire the managed Arrow append gate,
 or freeze application data. Existing HASHes, unrelated fields and TTLs are not
-overwritten. INSERT through filtered foreign indexes, Arrow `replace`, shared
+overwritten. INSERT through filtered foreign indexes, shared
 read snapshots and retained/staged writes are unsupported.
 Schema-level refusals occur before consuming the stream; row values and keys
 are validated as each conversion slice is reached.
@@ -186,10 +186,25 @@ creation; the empty-prefix check does not freeze application activity.
 The statement option persists until cleared. Set it to the empty string before
 reusing the statement to create a managed table. With no source option, new Arrow
 tables use the managed default. Temporary/virtual targets, retained preparation
-and staged writes are unsupported. Arrow `replace` remains deferred in
-[issue #399](https://github.com/redis/redis-adbc-driver/issues/399). The
-[proposed replacement contract](unmanaged-arrow-replace-proposal.md) is for
-review only; it does not enable source deletion or index replacement.
+and staged writes are unsupported. Destructive `replace` requires the separate
+[dedicated replacement contract](unmanaged-arrow-replace.md); registration alone
+never authorizes replacement.
+
+### Replace a dedicated unmanaged collection
+
+For a dedicated prefix/index with all application and SQL writers stopped, an
+explicit `unmanaged_source.replace` consent can replace both public schema and
+source rows. It deletes old HASHes (including unmodeled fields), discards their
+TTLs, resets only the named Search index to a membership index and streams new
+complete persistent HASHes with explicit `__key` values. Shared/nested scopes,
+foreign registrations, FILTERs and multi-prefix indexes are refused. The initial
+and final inventories each have a 100,000-key / 64 MiB bound. Input key tracking
+has the same bounds; exceeding a limit stops the call.
+
+This is a direct destructive operation with partial visibility and failure, with
+no rollback or automatic replay. Managed replacement instead publishes schema
+and data atomically. Read the [option example, phases, error details and recovery
+procedure](unmanaged-arrow-replace.md) before selecting unmanaged replacement.
 
 ## Consistency and supported operations
 
@@ -216,7 +231,7 @@ The driver never automatically replays an uncertain source mutation. After an
 error, inspect source state before retrying a write.
 
 Unmanaged tables reject ALTER, TRUNCATE (including `truncate_adopted=true`),
-managed index changes, Arrow replace, retained write
+managed index changes, replacement without dedicated-source consent, retained write
 preparation, shared read snapshots, native row-ID reads and live partition reads.
 Data-changing WITH statements cannot stage unmanaged writes inside managed publication. The
 always-on managed snapshot option applies to managed tables only.

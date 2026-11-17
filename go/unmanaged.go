@@ -117,6 +117,11 @@ func (s *store) registerUnmanaged(ctx context.Context, meta *tableMeta) error {
 }
 
 func (s *store) registerUnmanagedMode(ctx context.Context, meta *tableMeta, createOnly bool) error {
+	return s.registerUnmanagedExpected(ctx, meta, createOnly, nil)
+}
+
+// Replacement may update only the exact registration admitted before source DDL.
+func (s *store) registerUnmanagedExpected(ctx context.Context, meta *tableMeta, createOnly bool, expected *tableMeta) error {
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 	defer cancel()
@@ -151,11 +156,17 @@ func (s *store) registerUnmanagedMode(ctx context.Context, meta *tableMeta, crea
 		if err != nil {
 			return err
 		}
+		if expected != nil && !sameUnmanagedRegistration(old, expected) {
+			return stateErrorf("40001", "unmanaged registration changed during replacement")
+		}
 		if !old.Unmanaged || old.index() != meta.index() || old.prefix() != meta.prefix() || old.UnmanagedForeign != meta.UnmanagedForeign {
 			return errorf(adbc.StatusInvalidState, "destination ownership mode or source differs; choose another table or explicitly DROP its registration first")
 		}
 		meta.SnapshotAccessID, meta.OID, meta.IndexOID = old.SnapshotAccessID, old.OID, old.IndexOID
 	} else {
+		if expected != nil {
+			return stateErrorf("40001", "unmanaged registration disappeared during replacement")
+		}
 		for _, key := range []string{viewKey(meta.Schema, meta.Name), sequenceKey(meta.Schema, meta.Name), sqlIndexKey(meta.Schema, meta.Name)} {
 			if n, err := s.redis(wctx).Exists(wctx, key).Result(); err != nil {
 				return err

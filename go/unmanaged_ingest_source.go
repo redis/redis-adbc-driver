@@ -13,9 +13,10 @@ import (
 )
 
 type unmanagedIngestSource struct {
-	Prefix    string            `json:"prefix"`
-	Index     string            `json:"index"`
-	Encodings map[string]string `json:"encodings,omitempty"`
+	Prefix    string                   `json:"prefix"`
+	Index     string                   `json:"index"`
+	Encodings map[string]string        `json:"encodings,omitempty"`
+	Replace   *unmanagedReplaceConsent `json:"replace,omitempty"`
 }
 
 func parseUnmanagedIngestSource(value string) (*unmanagedIngestSource, error) {
@@ -136,6 +137,13 @@ func (s *store) requireEmptyUnmanagedPrefix(ctx context.Context, prefix string) 
 }
 
 func (s *statementImpl) executeUnmanagedSourceIngest(ctx context.Context) (int64, error) {
+	if s.ingest.Mode == adbc.OptionValueIngestModeReplace && s.unmanagedSource.Replace != nil {
+		return s.executeUnmanagedReplace(ctx)
+	}
+	if s.unmanagedSource.Replace != nil {
+		defer s.clearParams()
+		return -1, errorf(adbc.StatusInvalidArgument, "unmanaged_source.replace requires replace mode")
+	}
 	fail := func(err error) (int64, error) { return 0, unmanagedIngestError(0, err) }
 	entered := false
 	defer func() {

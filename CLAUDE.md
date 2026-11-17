@@ -80,7 +80,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   source HASHes directly without managed row publication or replay. Keep those
   writes out of metadata-slot mutation fences and reject unmanaged staging,
   shared snapshots, native row-ID reads, ALTER, TRUNCATE and Arrow ingestion modes
-  other than append/create/create_append. New unmanaged creation requires explicit
+  other than append/create/create_append or explicitly authorized dedicated
+  replacement (see docs/unmanaged-arrow-replace.md). Replacement requires exact
+  schema/table/prefix/index consent, exclusive quiescent writers, TTL loss and
+  index-reset consent; retain bounded inventories, guarded deletes, separate
+  acknowledged delete/write counts and non-replayed uncertain outcomes.
+  New unmanaged creation requires explicit
   application prefix/index configuration, an empty prefix and unused index name.
   Create a membership-only application index without hidden fields; never delete
   it on failure or let create-only registration refresh an intervening table.

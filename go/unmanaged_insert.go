@@ -51,6 +51,13 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
 		if err != nil {
 			return written, err
 		}
+		replacement, _ := ctx.Value(unmanagedReplaceKey{}).(*unmanagedReplaceProgress)
+		if replacement != nil {
+			if err := replacement.guard(ctx, keys); err != nil {
+				return written, err
+			}
+			replacement.outcome = "unknown"
+		}
 		pipe := s.client.Pipeline()
 		commands := make([]*goredis.Cmd, len(args))
 		for i, command := range args {
@@ -82,6 +89,9 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
 		}
 		if execErr != nil {
 			return written, wrapRedis(execErr, "unmanaged INSERT failed; source writes may be partially applied")
+		}
+		if replacement != nil {
+			replacement.outcome = "acknowledged"
 		}
 		start += len(args)
 	}
