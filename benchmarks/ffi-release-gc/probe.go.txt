@@ -11,6 +11,7 @@ import "C"
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"runtime/cgo"
 	"sync/atomic"
@@ -26,6 +27,7 @@ import (
 // interfaces makes unimplemented operations fail rather than contact Redis.
 var probeClosed [3]atomic.Int64
 var probeAlloc = memory.NewCheckedAllocator(alloc)
+var probeActive atomic.Int64
 
 type probeDatabase struct{ driverbase.Database }
 
@@ -39,6 +41,7 @@ type probeStatement struct {
 	adbc.StatementWithContext
 	input array.RecordReader
 	fail  bool
+	block bool
 }
 
 func (s *probeStatement) Close(context.Context) error {
@@ -67,7 +70,14 @@ func (s *probeStatement) BindStream(_ context.Context, r array.RecordReader) err
 	s.input = r
 	return nil
 }
-func (s *probeStatement) ExecuteQuery(context.Context) (array.RecordReader, int64, error) {
+func (s *probeStatement) Cancel(context.Context) error { return nil }
+func (s *probeStatement) ExecuteQuery(ctx context.Context) (array.RecordReader, int64, error) {
+	if s.block {
+		probeActive.Add(1)
+		defer probeActive.Add(-1)
+		<-ctx.Done()
+		return nil, -1, adbc.Error{Code: adbc.StatusCancelled, Msg: "intentional fixture cancellation", SqlState: [5]byte{'5', '7', '0', '1', '4'}}
+	}
 	if s.input != nil {
 		s.input.Retain()
 		return s.input, -1, nil
@@ -101,8 +111,8 @@ func RedisFFIProbeNew(kind C.int, out *C.struct_AdbcDatabase) {
 		owner = &cDatabase{db: &probeDatabase{}}
 	case 1:
 		owner = &cConn{cnxn: &probeConnection{}}
-	case 2, 3:
-		owner = &cStmt{stmt: &probeStatement{fail: kind == 3}}
+	case 2, 3, 4:
+		owner = &cStmt{stmt: &probeStatement{fail: kind == 3, block: kind == 4}}
 	default:
 		panic("invalid fixture kind")
 	}
@@ -117,10 +127,30 @@ func RedisFFIProbeStat(kind C.int) C.int64_t {
 	if kind == 3 {
 		return C.int64_t(probeAlloc.CurrentAlloc())
 	}
+	if kind == 6 {
+		return C.int64_t(probeActive.Load())
+	}
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	if kind == 4 {
 		return C.int64_t(m.NumGC)
 	}
 	return C.int64_t(m.NumForcedGC)
+}
+
+//export RedisFFIProbeError
+func RedisFFIProbeError(kind C.int, out *C.struct_AdbcError) C.AdbcStatusCode {
+	const message = "literal 100% complete: %s %d %!"
+	if kind == 0 {
+		return C.AdbcStatusCode(errToAdbcErr(out, errors.New(message)))
+	}
+	err := adbc.Error{Code: adbc.StatusInvalidData, Msg: message, SqlState: [5]byte{'2', '2', '0', '0', '0'}}
+	if kind == 3 {
+		err.Msg = "[redis] " + message
+	}
+	if kind == 2 {
+		out.vendor_code = C.ADBC_ERROR_VENDOR_CODE_PRIVATE_DATA
+		err.VendorCode = 27
+	}
+	return C.AdbcStatusCode(errToAdbcErr(out, err))
 }

@@ -112,3 +112,46 @@ recorded in the private manifest; the default historical source remains unchange
 Run `run.py --correctness-only` with each actual library before considering any
 policy candidate. The [2026-11-17 inventory and checks](../crud-execution/results/2026-11-17/ownership.md)
 retain the reproduced checkptr blocker and do not bypass it.
+
+## Handle-holder follow-up and sliced STRUCT blocker
+
+The current bridge uses C-owned integer holders for its opaque handles. Upstream
+reports: [driverbase #245](https://github.com/adbc-drivers/driverbase-go/issues/245)
+(handle encoding), [#246](https://github.com/adbc-drivers/driverbase-go/issues/246)
+(literal error forwarding), and
+[Arrow Go #1598](https://github.com/apache/arrow-go/issues/1598) (sliced STRUCT).
+See the [current gate record](../../docs/sdlc/changes/ffi-handle-lifetimes/validation.md).
+These fixes do not remove forced GC.
+
+Build an unchanged-policy correctness library from an explicit committed source:
+
+```sh
+python benchmarks/ffi-release-gc/build.py --base FULL_COMMIT --baseline-only --race --checkptr --cgo-check --work /private/new-strict-probe
+python benchmarks/ffi-release-gc/run.py --library /private/new-strict-probe/baseline.race.dylib --correctness-only --output /private/basic.json
+python benchmarks/ffi-release-gc/lifetime.py --library /private/new-strict-probe/baseline.race.dylib --output /private/lifetime.json
+```
+
+Use the platform's actual library suffix. Supervise each Python probe with a
+process timeout (120 seconds for the default 4 clients × 64 iterations); this
+bounds intentionally blocking cancellation tests even if the bridge regresses.
+`lifetime.py` adds literal error text/status/SQLSTATE, cancellation, retained
+foreign malloc buffers poisoned/freed by their producer callback, nested NULLs,
+nonzero slices, retained batches across rebind/Close, error/early release and
+independent concurrent owners. Python callback closures stay alive explicitly;
+release-count assertions occur before Python collection. Its process maximum RSS
+is not retained Go/C heap accounting or a long-run memory gate.
+
+With pinned Arrow Go v18.8.0, the basic seven groups pass but the extended probe
+fails on sliced STRUCT values. Do not skip that assertion. The independent
+[Go reproduction](repros/struct_offset_test.go.txt) isolates the dependency bug.
+The [proposed patch](repros/arrow-struct-export.patch) is an experiment only;
+it is not applied to the shipping dependency. `--arrow-source /private/arrow`
+explicitly overrides Arrow only in the builder's archived tree and records source
+hashes plus a nonshipping marker. Passing that experiment does not qualify the
+pinned driver. The standalone reproduction and Arrow's own C Data suite require
+separate test commands; upstream's C Data suite needs `-tags test`.
+
+`--sanitizer address` adds Go `-asan` on supported platforms;
+`--sanitizer undefined` adds native UBSAN compiler/linker flags. Run those as
+separate builds, never together with `--race` or as timing evidence. Merely
+providing these options is not evidence that a sanitizer gate passed.

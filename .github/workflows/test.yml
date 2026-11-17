@@ -184,6 +184,10 @@ jobs:
         working-directory: go
         run: make build
 
+      - name: C bridge holder ownership with strict pointer checks
+        working-directory: go
+        run: env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOEXPERIMENT=cgocheck2 go test -count=1 -p 1 -race -gcflags=all=-d=checkptr=2 -tags driverlib ./pkg
+
       - name: Start authenticated TLS Redis Enterprise cluster
         working-directory: go
         run: make redis-up
