@@ -53,9 +53,12 @@ release or explicitly agreed compatibility policy. No duplicate issue/PR.
 ## Delivery and review
 
 GitHub CLI upstream-comment permission was denied; the connected GitHub tool
-also returned 403 for adbi. Current evidence is retained here and in the project
-trackers. No upstream update is claimed as posted. This is an authentication
-limitation, not a missing dependency fix or user-approval request.
+also returned 403 for adbi. At the requestor's direction, the signed-in browser
+successfully posted and visibly verified both evidence updates:
+[adbi comment](https://github.com/r-dbi/adbi/issues/127#issuecomment-6963354137)
+and [Datasets comment](https://github.com/huggingface/datasets/issues/8912#issuecomment-6963369158).
+The read API independently confirmed each posted body and URL. The project
+trackers link these updates. Existing upstream fix PRs still remain open.
 
 Agent review checked unchanged dependency contracts, exact failure recognition,
 full fetch/state assertions, separate patched/released environments and honest
