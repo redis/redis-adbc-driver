@@ -4,6 +4,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -32,6 +33,27 @@ func (*DropIndexStmt) stmtNode()   {}
 type namedIndex struct {
 	Name   string   `json:"name"`
 	Fields []string `json:"fields"`
+}
+
+// bindSearchAlias assigns an alias only when the physical field is unsafe in
+// Search expressions. Keep it in column metadata so every rebuilt index uses
+// the same binding. Avoid both HASH identifiers and existing aliases, including
+// retired fields in the current layout. Public SQL columns cannot use "__".
+func bindSearchAlias(m *tableMeta, i int) {
+	c := &m.Columns[i]
+	if simpleName(c.field()) || c.SearchAlias != "" {
+		return
+	}
+	for n := i; ; n++ {
+		alias := fmt.Sprintf("__adbc_index_%d", n)
+		if slices.Contains(m.RetiredFields, alias) || slices.ContainsFunc(m.Columns, func(c columnMeta) bool {
+			return c.field() == alias || c.SearchAlias == alias
+		}) {
+			continue
+		}
+		c.SearchAlias = alias
+		return
+	}
 }
 
 func (p *parser) parseCreateIndex() (Stmt, error) {
@@ -178,7 +200,7 @@ func (e *executor) runCreateIndex(ctx context.Context, st *CreateIndexStmt) erro
 			return stateErrorf(stateUndefinedColumn, "column %q does not exist", name)
 		}
 		c := m.Columns[i]
-		if !indexable(c.Type) || !simpleName(c.field()) {
+		if !indexable(c.Type) {
 			return stateErrorf(stateFeatureNotSupported, "column %q cannot be indexed", name)
 		}
 		fields = append(fields, c.field())
@@ -232,6 +254,7 @@ func (e *executor) runCreateIndex(ctx context.Context, st *CreateIndexStmt) erro
 			if c.Indexed {
 				continue
 			}
+			bindSearchAlias(cur, i)
 			count++
 			if count > maxIndexed {
 				return stateErrorf(stateFeatureNotSupported, "too many indexed columns")
