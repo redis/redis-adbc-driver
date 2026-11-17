@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-17",
+  "base": "42f6e0b1",
+  "matrix": {
+    "counts": {
+      "pass": 404
+    },
+    "scored": 404,
+    "pass_rate": 1.0
+  },
+  "matrix_infrastructure_errors": 0,
+  "full_corpus": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "full_infrastructure_errors": 0,
+  "unicode_version": "16.0",
+  "unicode_conformance": {
+    "vectors": 19965,
+    "exact_assertions": 399300
+  },
+  "focused_software_race": {
+    "top_level_passes": 9,
+    "failures": 0,
+    "skips": 0
+  },
+  "go_unit_packages": "passed; ordinary integration skips expected",
+  "harness_unit_tests": 42,
+  "native_makefile_build": "passed",
+  "separate_default_timing_issue": 479,
+  "source_hashes": {
+    "go/unicode_functions.go": "cd26486f93f62c97168252a915b3e6325d227a5afb2cfff401d0b904f11c1950",
+    "go/unicode_functions_test.go": "657c59cdd7f2f6453fd4c05f7c287161651ec9f9217ae35d94182072cb10dc7e",
+    "go/unicode_functions_integration_test.go": "ee9eb2e784b79444e86744749b24ddb098fc4df5d93201fca97c3e1b94c92755",
+    "go/unicode_normalization_test.go": "1a7b38b5638ba51ffb76b0dfbf1e9200bcd27ab7f86cb87c1a325967d39eeec0",
+    "go/pgdiff/unicode_functions.py": "a9e8dbfc47a28c926fc5117e6108431b0135d5f2f69056ddeb501a62a7978da3"
+  },
+  "data_sha256": {
+    "NormalizationTest16.txt": "d811971453e7075e1ad56fb1b301eece5aa80757b81f6156e74a1bfb3ae5ceb1",
+    "DerivedAge17.txt": "f8ecdf768bdc210f201abd271d9bc587825618a86a7046a8146cc816393f1998",
+    "UnicodeData17.txt": "2e1efc1dcb59c575eedf5ccae60f95229f706ee6d031835247d843c11d96470c"
+  }
+}

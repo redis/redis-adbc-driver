@@ -147,7 +147,7 @@ func (e *executor) noteParams(expr Expr) {
 						}
 					}
 				}
-			case stringFuncs[v.Name]:
+			case stringFuncs[v.Name] || unicodeFunction(v.Name):
 				for _, a := range v.Args {
 					c.noteParamOf(a, typeString)
 				}

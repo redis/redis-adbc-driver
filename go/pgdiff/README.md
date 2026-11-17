@@ -329,3 +329,20 @@ fixture/infrastructure problems. CI is optional and doesn't run on every PR.
 ```sh
 make pgdiff PGDIFF_ARGS='--corpus /path/to/corpus --report build/other-report.json'
 ```
+
+## Unicode function comparison (#110)
+
+Generate an independent corpus outside the curated source tree:
+
+```sh
+python3 go/pgdiff/unicode_functions.py /private/unicode-corpus
+```
+
+Pass that directory to pgdiff with `--corpus`. The 404-case matrix covers all
+four normalization forms, PostgreSQL 18's Unicode 16 behavior (including the
+35 normalization-relevant Unicode 17 additions), long combining sequences,
+escapes/surrogate pairs, strict NULLs, signatures/argument counts, lazy branches,
+empty input and parser distinctions. It changes no curated SQL, expected results
+or allowlist. [Verification and Unicode source provenance](../../docs/sdlc/changes/unicode-functions-110/validation.md)
+also record the full Unicode 16 conformance-vector run. General DEFAULT value
+error timing is a separate known issue, [#479](https://github.com/redis/redis-adbc-driver/issues/479).
