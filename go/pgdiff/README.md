@@ -135,6 +135,16 @@ Redis UTC timestamp result; it is an `extension`, never a dialect pass.
 Corpus SQL, provenance, oracle and allowlist are unchanged. The #359 audit
 revalidates these explicit dispositions without treating them as dialect passes.
 
+## Finite numeric GCD/LCM follow-up (2026-11-17)
+
+The [finite decimal subset](../../docs/sdlc/changes/numeric-gcd-lcm/validation.md)
+adds exact fractional GCD/LCM with decimal256 output, preserving maximum input
+scale and rejecting results beyond 76 digits with 22003. A separate retained
+regression corpus reports 67 passes and one explicit Arrow-range exclusion,
+without changing the curated corpus denominator. Its final full comparison
+retains the 605/645 dialect passes and forty failures above. Broader overload
+resolution remains tracked in #475 and the wider function surface in #110.
+
 ## Historical PostgreSQL 16 baseline
 
 The results below are historical PostgreSQL 16 comparisons. The retained

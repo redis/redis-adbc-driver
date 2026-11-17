@@ -1,0 +1,286 @@
+{
+  "area": "numeric-gcd-lcm",
+  "setup": [],
+  "cases": [
+    {
+      "id": "gcd-0",
+      "sql": "SELECT gcd(-1.200::numeric(10,3),-1.200::numeric(10,3)), scale(gcd(-1.200::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-1",
+      "sql": "SELECT gcd(-1.200::numeric(10,3),0.000::numeric(10,3)), scale(gcd(-1.200::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-2",
+      "sql": "SELECT gcd(-1.200::numeric(10,3),0.450::numeric(10,3)), scale(gcd(-1.200::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-3",
+      "sql": "SELECT gcd(-1.200::numeric(10,3),3.000::numeric(10,3)), scale(gcd(-1.200::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-4",
+      "sql": "SELECT gcd(-1.200::numeric(10,3),12.750::numeric(10,3)), scale(gcd(-1.200::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-5",
+      "sql": "SELECT gcd(0.000::numeric(10,3),-1.200::numeric(10,3)), scale(gcd(0.000::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-6",
+      "sql": "SELECT gcd(0.000::numeric(10,3),0.000::numeric(10,3)), scale(gcd(0.000::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-7",
+      "sql": "SELECT gcd(0.000::numeric(10,3),0.450::numeric(10,3)), scale(gcd(0.000::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-8",
+      "sql": "SELECT gcd(0.000::numeric(10,3),3.000::numeric(10,3)), scale(gcd(0.000::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-9",
+      "sql": "SELECT gcd(0.000::numeric(10,3),12.750::numeric(10,3)), scale(gcd(0.000::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-10",
+      "sql": "SELECT gcd(0.450::numeric(10,3),-1.200::numeric(10,3)), scale(gcd(0.450::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-11",
+      "sql": "SELECT gcd(0.450::numeric(10,3),0.000::numeric(10,3)), scale(gcd(0.450::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-12",
+      "sql": "SELECT gcd(0.450::numeric(10,3),0.450::numeric(10,3)), scale(gcd(0.450::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-13",
+      "sql": "SELECT gcd(0.450::numeric(10,3),3.000::numeric(10,3)), scale(gcd(0.450::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-14",
+      "sql": "SELECT gcd(0.450::numeric(10,3),12.750::numeric(10,3)), scale(gcd(0.450::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-15",
+      "sql": "SELECT gcd(3.000::numeric(10,3),-1.200::numeric(10,3)), scale(gcd(3.000::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-16",
+      "sql": "SELECT gcd(3.000::numeric(10,3),0.000::numeric(10,3)), scale(gcd(3.000::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-17",
+      "sql": "SELECT gcd(3.000::numeric(10,3),0.450::numeric(10,3)), scale(gcd(3.000::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-18",
+      "sql": "SELECT gcd(3.000::numeric(10,3),3.000::numeric(10,3)), scale(gcd(3.000::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-19",
+      "sql": "SELECT gcd(3.000::numeric(10,3),12.750::numeric(10,3)), scale(gcd(3.000::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-20",
+      "sql": "SELECT gcd(12.750::numeric(10,3),-1.200::numeric(10,3)), scale(gcd(12.750::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-21",
+      "sql": "SELECT gcd(12.750::numeric(10,3),0.000::numeric(10,3)), scale(gcd(12.750::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-22",
+      "sql": "SELECT gcd(12.750::numeric(10,3),0.450::numeric(10,3)), scale(gcd(12.750::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-23",
+      "sql": "SELECT gcd(12.750::numeric(10,3),3.000::numeric(10,3)), scale(gcd(12.750::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-24",
+      "sql": "SELECT gcd(12.750::numeric(10,3),12.750::numeric(10,3)), scale(gcd(12.750::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "gcd-edge-25",
+      "sql": "SELECT gcd(1234567890123456789012345678901234567890::numeric(76,0),10::numeric(76,0))"
+    },
+    {
+      "id": "gcd-edge-26",
+      "sql": "SELECT gcd(3::integer,1.2::numeric(5,1))"
+    },
+    {
+      "id": "gcd-edge-27",
+      "sql": "SELECT gcd(1.20::numeric(5,2),0.450::numeric(5,3))"
+    },
+    {
+      "id": "gcd-edge-28",
+      "sql": "SELECT gcd(NULL::numeric(10,3),0.450::numeric(10,3))"
+    },
+    {
+      "id": "gcd-edge-29",
+      "sql": "SELECT gcd(12500::numeric(5,-2),2500::numeric(5,-2))"
+    },
+    {
+      "id": "gcd-edge-30",
+      "sql": "SELECT gcd(0.00000000000000000000000000000000000001::numeric(76,38),0.00000000000000000000000000000000000005::numeric(76,38))"
+    },
+    {
+      "id": "lcm-31",
+      "sql": "SELECT lcm(-1.200::numeric(10,3),-1.200::numeric(10,3)), scale(lcm(-1.200::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-32",
+      "sql": "SELECT lcm(-1.200::numeric(10,3),0.000::numeric(10,3)), scale(lcm(-1.200::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-33",
+      "sql": "SELECT lcm(-1.200::numeric(10,3),0.450::numeric(10,3)), scale(lcm(-1.200::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-34",
+      "sql": "SELECT lcm(-1.200::numeric(10,3),3.000::numeric(10,3)), scale(lcm(-1.200::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-35",
+      "sql": "SELECT lcm(-1.200::numeric(10,3),12.750::numeric(10,3)), scale(lcm(-1.200::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-36",
+      "sql": "SELECT lcm(0.000::numeric(10,3),-1.200::numeric(10,3)), scale(lcm(0.000::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-37",
+      "sql": "SELECT lcm(0.000::numeric(10,3),0.000::numeric(10,3)), scale(lcm(0.000::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-38",
+      "sql": "SELECT lcm(0.000::numeric(10,3),0.450::numeric(10,3)), scale(lcm(0.000::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-39",
+      "sql": "SELECT lcm(0.000::numeric(10,3),3.000::numeric(10,3)), scale(lcm(0.000::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-40",
+      "sql": "SELECT lcm(0.000::numeric(10,3),12.750::numeric(10,3)), scale(lcm(0.000::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-41",
+      "sql": "SELECT lcm(0.450::numeric(10,3),-1.200::numeric(10,3)), scale(lcm(0.450::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-42",
+      "sql": "SELECT lcm(0.450::numeric(10,3),0.000::numeric(10,3)), scale(lcm(0.450::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-43",
+      "sql": "SELECT lcm(0.450::numeric(10,3),0.450::numeric(10,3)), scale(lcm(0.450::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-44",
+      "sql": "SELECT lcm(0.450::numeric(10,3),3.000::numeric(10,3)), scale(lcm(0.450::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-45",
+      "sql": "SELECT lcm(0.450::numeric(10,3),12.750::numeric(10,3)), scale(lcm(0.450::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-46",
+      "sql": "SELECT lcm(3.000::numeric(10,3),-1.200::numeric(10,3)), scale(lcm(3.000::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-47",
+      "sql": "SELECT lcm(3.000::numeric(10,3),0.000::numeric(10,3)), scale(lcm(3.000::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-48",
+      "sql": "SELECT lcm(3.000::numeric(10,3),0.450::numeric(10,3)), scale(lcm(3.000::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-49",
+      "sql": "SELECT lcm(3.000::numeric(10,3),3.000::numeric(10,3)), scale(lcm(3.000::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-50",
+      "sql": "SELECT lcm(3.000::numeric(10,3),12.750::numeric(10,3)), scale(lcm(3.000::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-51",
+      "sql": "SELECT lcm(12.750::numeric(10,3),-1.200::numeric(10,3)), scale(lcm(12.750::numeric(10,3),-1.200::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-52",
+      "sql": "SELECT lcm(12.750::numeric(10,3),0.000::numeric(10,3)), scale(lcm(12.750::numeric(10,3),0.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-53",
+      "sql": "SELECT lcm(12.750::numeric(10,3),0.450::numeric(10,3)), scale(lcm(12.750::numeric(10,3),0.450::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-54",
+      "sql": "SELECT lcm(12.750::numeric(10,3),3.000::numeric(10,3)), scale(lcm(12.750::numeric(10,3),3.000::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-55",
+      "sql": "SELECT lcm(12.750::numeric(10,3),12.750::numeric(10,3)), scale(lcm(12.750::numeric(10,3),12.750::numeric(10,3)))"
+    },
+    {
+      "id": "lcm-edge-56",
+      "sql": "SELECT lcm(1234567890123456789012345678901234567890::numeric(76,0),10::numeric(76,0))"
+    },
+    {
+      "id": "lcm-edge-57",
+      "sql": "SELECT lcm(3::integer,1.2::numeric(5,1))"
+    },
+    {
+      "id": "lcm-edge-58",
+      "sql": "SELECT lcm(1.20::numeric(5,2),0.450::numeric(5,3))"
+    },
+    {
+      "id": "lcm-edge-59",
+      "sql": "SELECT lcm(NULL::numeric(10,3),0.450::numeric(10,3))"
+    },
+    {
+      "id": "lcm-edge-60",
+      "sql": "SELECT lcm(12500::numeric(5,-2),2500::numeric(5,-2))"
+    },
+    {
+      "id": "lcm-edge-61",
+      "sql": "SELECT lcm(0.00000000000000000000000000000000000001::numeric(76,38),0.00000000000000000000000000000000000005::numeric(76,38))"
+    },
+    {
+      "id": "within-arrow-range",
+      "sql": "SELECT lcm(('1'||repeat('0',75))::numeric(76,0),3::numeric(76,0))"
+    },
+    {
+      "id": "beyond-arrow-range",
+      "sql": "SELECT lcm(repeat('9',76)::numeric(76,0),2::numeric(76,0))",
+      "unsupported": {
+        "reason": "Exact result exceeds the documented 76-digit Arrow decimal256 bound; PostgreSQL NUMERIC is unbounded.",
+        "sqlstate": "22003"
+      }
+    },
+    {
+      "id": "unsupported-type-0",
+      "sql": "SELECT gcd(1.2::numeric,true)",
+      "expect_postgres": "42883"
+    },
+    {
+      "id": "unsupported-type-1",
+      "sql": "SELECT lcm(false,1.2::numeric)",
+      "expect_postgres": "42883"
+    },
+    {
+      "id": "unsupported-type-2",
+      "sql": "SELECT gcd(1.2::numeric,'2'::text)",
+      "expect_postgres": "42883"
+    },
+    {
+      "id": "unsupported-type-3",
+      "sql": "SELECT lcm(1.2::numeric,2::float8)",
+      "expect_postgres": "42883"
+    }
+  ]
+}

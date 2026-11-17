@@ -26,7 +26,13 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 		return decimalType(76, 0), true
 	case "GCD", "LCM":
 		if len(args) >= 2 {
-			return commonType(args[0], args[1]), true
+			t := commonType(args[0], args[1])
+			if t.Kind == KindDecimal {
+				// LCM can grow beyond either input's precision. Keep the exact
+				// input scale with the full bounded Arrow decimal256 precision.
+				t = decimalType(76, max(args[0].Scale, args[1].Scale, 0))
+			}
+			return t, true
 		}
 		return typeInt32, true
 	case "TRIM_SCALE":
@@ -122,6 +128,28 @@ func pg18Scalar(f *Func, args []Value, z tzZone) (Value, error) {
 		}
 		return decimalValue(n.Quo(n, d), 76, 0), nil
 	case "GCD", "LCM":
+		if typ.Kind == KindDecimal {
+			a, as, aok := asDecimal(args[0])
+			b, bs, bok := asDecimal(args[1])
+			if !aok || !bok || !(args[0].T.Kind.isInteger() || args[0].T.Kind == KindDecimal) ||
+				!(args[1].T.Kind.isInteger() || args[1].T.Kind == KindDecimal) {
+				return Value{}, noSuchFunction(f.Name, false, argTypes(args))
+			}
+			// Rescaling copies each coefficient; the caller's values may be
+			// shared by other expressions or retained Arrow batches.
+			a = rescaleDecimal(a, as, typ.Scale)
+			b = rescaleDecimal(b, bs, typ.Scale)
+			v := new(big.Int).GCD(nil, nil, a, b)
+			if f.Name == "LCM" && v.Sign() != 0 {
+				v.Quo(a, v)
+				v.Mul(v, b)
+				v.Abs(v)
+			}
+			if decimalDigits(v) > typ.Precision {
+				return Value{}, stateErr(stateNumericRange, "numeric gcd/lcm result exceeds 76 digits")
+			}
+			return decimalValue(v, typ.Precision, typ.Scale), nil
+		}
 		if !typ.Kind.isInteger() {
 			return Value{}, stateErr(stateUndefinedFunction, "non-integer gcd/lcm is not supported")
 		}
