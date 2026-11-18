@@ -37,47 +37,114 @@ and its limits. These are separately maintained driver integrations; availabilit
 of a guide does not imply upstream endorsement, release-wheel validation, or an
 upstream contribution's acceptance.
 
+## Browse by workflow
+
+Guides use the same areas and categories as the
+[ecosystem comparison](../data-engineering-adbc-support.md#grouped-inventory).
+Only categories with dedicated guides are listed; DuckDB is included under
+SQL & Arrow access.
+
+| Area | Category |
+|---|---|
+| Data engineering | [DataFrames & arrays](#dataframes-arrays) |
+| Data engineering | [Processing & streaming](#processing-streaming) |
+| Data engineering | [SQL & Arrow access](#sql-arrow-access) |
+| Data engineering | [Orchestration](#orchestration) |
+| Data engineering | [ETL / ELT & integration](#etl-elt-integration) |
+| Data science & BI | [ML, AI & scientific computing](#ml-ai-scientific-computing) |
+| Data science & BI | [ML workflows & datasets](#ml-workflows-datasets) |
+| Data science & BI | [Notebooks, IDEs & reporting](#notebooks-ides-reporting) |
+| Data science & BI | [BI & visualization](#bi-visualization) |
+
+## Data engineering
+
+### DataFrames & arrays
+
 | Integration | Dedicated guide |
 |---|---|
 | pandas | [SQL reads and DataFrame writes](pandas.md) |
+| NumPy | [Arrow-to-array reads](numpy.md) |
 | Polars | [URI/connection reads and DataFrame writes](polars.md) |
+
+### Processing & streaming
+
+| Integration | Dedicated guide |
+|---|---|
+| Apache Spark | [Setup, example and expected result](spark.md) |
+| Apache Beam | [Setup, example and expected result](beam.md) |
+| Dask | [Partitioned worker-local reads](dask.md) |
+| Ray Data | [Worker-side Arrow reads and SQL APIs](ray.md) |
+
+### SQL & Arrow access
+
+| Integration | Dedicated guide |
+|---|---|
 | SQLAlchemy | [Dialect, reflection and autocommit](sqlalchemy.md) |
-| Apache Superset | [Driver installation, datasets and SQL Lab](superset.md) |
+| PyArrow | [Setup, example and expected result](pyarrow.md) |
+| R / DBI | [Setup, example and expected result](r-dbi.md) |
+| Ibis | [Setup, example and expected result](ibis.md) |
+| DuckDB | [Redis extension and adbc_scanner](../duckdb.md) |
+
+### Orchestration
+
+| Integration | Dedicated guide |
+|---|---|
 | Apache Airflow | [TaskFlow and the Redis hook](airflow.md) |
 | Dagster | [ADBCResource and RedisADBCIOManager](dagster.md) |
 | Prefect | [Task-local connections and flows](prefect.md) |
+| Mage | [Setup, example and expected result](mage.md) |
+| Kestra | [Setup, example and expected result](kestra.md) |
+
+### ETL / ELT & integration
+
+| Integration | Dedicated guide |
+|---|---|
+| dbt | [Core v1 starter project, seed/build/test and catalog](dbt.md) |
+| Fivetran Connector SDK | [Setup, example and expected result](fivetran.md) |
 | dlt | [Append-only custom destination](dlt.md) |
 | [Sling](https://slingdata.io) | [PostgreSQL ↔ Redis ADBC round trips and configuration limits](sling.md) |
-| Ray Data | [Worker-side Arrow reads and SQL APIs](ray.md) |
-| Dask | [Partitioned worker-local reads](dask.md) |
-| DuckDB | [Redis extension and adbc_scanner](../duckdb.md) |
-| dbt | [Core v1 starter project, seed/build/test and catalog](dbt.md) |
-| NumPy | [Arrow-to-array reads](numpy.md) |
+
+## Data science & BI
+
+### ML, AI & scientific computing
+
+| Integration | Dedicated guide |
+|---|---|
 | scikit-learn | [Feature loading and fit/predict](scikit-learn.md) |
-| Jupyter | [Kernel installation and notebook queries](jupyter.md) |
-| Hugging Face Datasets | [Arrow conversion and local persistence](huggingface-datasets.md) |
-| Streamlit | [Bound queries and interactive app reruns](streamlit.md) |
-| SciPy | [Sparse matrix construction and solving](scipy.md) |
-| PyArrow | [Setup, example and expected result](pyarrow.md) |
 | PyTorch | [Setup, example and expected result](pytorch.md) |
 | TensorFlow | [Setup, example and expected result](tensorflow.md) |
-| Keras | [Setup, example and expected result](keras.md) |
+| SciPy | [Sparse matrix construction and solving](scipy.md) |
 | XGBoost | [Setup, example and expected result](xgboost.md) |
 | Hugging Face Transformers | [Setup, example and expected result](transformers.md) |
-| Plotly | [Setup, example and expected result](plotly.md) |
-| Matplotlib | [Setup, example and expected result](matplotlib.md) |
-| Ibis | [Setup, example and expected result](ibis.md) |
+| Keras | [Setup, example and expected result](keras.md) |
+
+### ML workflows & datasets
+
+| Integration | Dedicated guide |
+|---|---|
 | MLflow | [Setup, example and expected result](mlflow.md) |
-| Apache Spark | [Setup, example and expected result](spark.md) |
 | Kubeflow Pipelines | [Setup, example and expected result](kubeflow.md) |
 | Metaflow | [Setup, example and expected result](metaflow.md) |
-| Fivetran Connector SDK | [Setup, example and expected result](fivetran.md) |
-| Apache Beam | [Setup, example and expected result](beam.md) |
-| Mage | [Setup, example and expected result](mage.md) |
-| R / DBI | [Setup, example and expected result](r-dbi.md) |
-| RStudio | [Setup, example and expected result](rstudio.md) |
+| Hugging Face Datasets | [Arrow conversion and local persistence](huggingface-datasets.md) |
+
+### Notebooks, IDEs & reporting
+
+| Integration | Dedicated guide |
+|---|---|
+| Jupyter | [Kernel installation and notebook queries](jupyter.md) |
 | Quarto | [Setup, example and expected result](quarto.md) |
-| Kestra | [Setup, example and expected result](kestra.md) |
+| RStudio | [Setup, example and expected result](rstudio.md) |
+
+### BI & visualization
+
+| Integration | Dedicated guide |
+|---|---|
+| Streamlit | [Bound queries and interactive app reruns](streamlit.md) |
+| Plotly | [Setup, example and expected result](plotly.md) |
+| Matplotlib | [Setup, example and expected result](matplotlib.md) |
+| Apache Superset | [Driver installation, datasets and SQL Lab](superset.md) |
+
+## Support and test evidence
 
 [Support and test evidence](../data-engineering-adbc-support.md) distinguishes
 recorded environments from unverified paths. Upstream contributions are tracked
