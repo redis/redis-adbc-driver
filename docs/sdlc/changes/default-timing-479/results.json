@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-17",
+  "original_base": "5b0840ce",
+  "merged_main": "8eb98ae0",
+  "candidate": "0c685f94",
+  "lifecycle_matrix": {
+    "counts": {
+      "pass": 52
+    },
+    "scored": 52,
+    "pass_rate": 1.0
+  },
+  "lifecycle_steps": 170,
+  "lifecycle_infrastructure_errors": 0,
+  "full_corpus": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "full_infrastructure_errors": 0,
+  "focused_software_race": {
+    "top_level_passes": 20,
+    "failures": 0,
+    "skips": 0
+  },
+  "go_unit_packages": "passed; endpoint and optional conformance skips expected",
+  "harness_unit_tests": 42,
+  "native_makefile_build": "passed",
+  "separate_preexisting_issues": [
+    481,
+    484
+  ],
+  "source_hashes": {
+    "go/defaults.go": "46ec8bafccb8aa16ef3d9ec5d7f218e5c5a2e79313b43803b888bf4918f67881",
+    "go/alter.go": "1797e6b6fa3404dc05979bde8b7523e95f8f49808b93a99e2c3be7ed345db7d8",
+    "go/alter_type.go": "3cece4456e661aaf5ab0f01903869fb03fd56af9c15d273f0dbb4a16b4bdb2ca",
+    "go/exec.go": "4101e6d9b6e29a9ea8baf7b024188bf7b2edcf14fac548cdde1c952489fcd6bf",
+    "go/dml.go": "bea742201ef467b399ed06ebed47cb0cf1874593bc41f91ebdcde9c86e3e5c7c",
+    "go/case_planning.go": "f106ba2988b110853505713d084615d3f5917c1c9692c09aa1b4ff2913ee3036",
+    "go/funcs.go": "724c3fbe2749edea35a7946ef4e280d4f7f84103bb68f630a90f862651a1588e",
+    "go/default_timing_test.go": "77c82120a2ea2bc58989fdd72abbf93c16b0d4c91c0da9353db122a098e3416e",
+    "go/default_timing_integration_test.go": "aecd4bef6101193947061de9c1448d43027078fb55958896fcd35cd5755c43d0",
+    "go/pgdiff/default_timing.py": "017c73b0b21310571160f9a647636b86efef7eb9c5d9a59219c904b222bb2e54"
+  }
+}

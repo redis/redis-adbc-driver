@@ -23,7 +23,7 @@ package redis
 // window functions, its calls are resolved as in a query (funcs.go), and it
 // is type-checked without evaluating computed values. Unknown string literals
 // still take their target input type at definition time.
-// A NULL default is not stored, as in Postgres. Inserted
+// A literal NULL default is not stored, as in Postgres. Inserted
 // rows that give a column no value (or DEFAULT) get its default: INSERT …
 // VALUES, INSERT … DEFAULT VALUES, INSERT … SELECT with a column list,
 // MERGE's INSERT and bulk ingest of columns the Arrow data lacks. Each
