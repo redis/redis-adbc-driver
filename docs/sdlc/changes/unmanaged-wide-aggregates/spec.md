@@ -17,9 +17,12 @@ existence. All-NULL vectors and direct native permission refusals use the existi
 complete-image fallback; missing and non-HASH rows are omitted. Transport or
 composed errors never authorize replay. No index-value numeric or string reducer
 proof is extended to unmanaged tables. Metadata pins/readiness checks remain.
-Typed aggregate scans can reserve a shared worker grant bounded by the chunks
-in one 4,096-key discovery page (at most five 1,000-key chunks). Workers fetch
-disjoint chunks; decoding/reduction follows page order. Unknown outcomes cancel
+Direct scalar aggregate scans can discover up to 32,000 keys per page, reduced
+by the fetched-field width toward the existing 200,000-value page target. Their
+shared worker grant is bounded by page chunks (at most 32 workers). Grouped
+inputs keep 4,096-key pages. Workers fetch disjoint 1,000-key chunks; decoding
+and reduction follow page order. Large values and complete-image NULL/permission
+fallbacks can exceed nominal page targets; this is not a process memory limit. Unknown outcomes cancel
 and join sibling workers before return, without replay. Cursor cleanup precedes
 release of the scan grant. The subsequent DISTINCT merge uses no fetch workers.
 
@@ -35,7 +38,9 @@ DISTINCT planner path.
 
 Buffers follow existing spill limits (8 MiB target or 65,536 entries), with at
 most 32 inputs per merge pass. Oversized individual values may exceed the target.
-Temporary files are removed on success, error and cancellation. Disk exhaustion
+Temporary files are removed on success, error and cooperative cancellation.
+Killing the process bypasses cleanup and can leave its private spill directory;
+a supervising process must reclaim abandoned files. Disk exhaustion
 is an error; no partial count escapes and the query is not replayed.
 
 ## Acceptance and evidence limits

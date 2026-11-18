@@ -29,7 +29,7 @@ func (e *executor) unmanagedCountDistinct(ctx context.Context, plan *selectPlan,
 			_ = os.RemoveAll(spill.dir)
 		}
 	}()
-	req := scanRequest{meta: plan.meta, where: wp, need: map[string]bool{ref.Name: true}}
+	req := scanRequest{aggregateInputs: true, meta: plan.meta, where: wp, need: map[string]bool{ref.Name: true}}
 	e.diagnostics.setPhase("unmanaged_distinct")
 	handled, err := e.scanAggregateProjection(ctx, req, params, []planItem{{expr: ref}}, func(values []Value) error {
 		if values[0].Null {

@@ -31,6 +31,14 @@ a connection's last admitted grant. Counters describe reserved workers, so a
 worker waiting on network I/O still counts as active. Serial fallbacks and
 server-side pushdown retain their existing paths outside this coordinator.
 
+Typed unmanaged scalar aggregates can also reserve a grant for native projected
+HASH fetches. Key-only discovery uses at most 32,000 keys per page, scaled down
+by required field width toward the existing value-count target. Each worker owns
+disjoint bounded requests; the actual grant is at most 32 and still respects
+configured ceilings and the shared budget. Client reduction follows source-page
+order. Unknown replies cancel and join every fetch before cursor cleanup and
+grant release; the later exact DISTINCT spill merge uses no fetch workers.
+
 ## Reproduce the benchmark
 
 From `go`, against a test Redis with Search:

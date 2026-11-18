@@ -14,7 +14,7 @@ import (
 )
 
 func TestUnmanagedWideFullAggregateProjection(t *testing.T) {
-	rows := 1001
+	rows := 32*pipelineChunk + 1
 	if value := os.Getenv("REDIS_UNMANAGED_FULL_PROFILE_ROWS"); value != "" {
 		var err error
 		rows, err = strconv.Atoi(value)
@@ -69,7 +69,7 @@ func TestUnmanagedWideFullAggregateProjection(t *testing.T) {
 			options := h.conn.(adbc.GetSetOptionsWithContext)
 			last, err := options.GetOption(h.ctx, OptionIntQueryWorkersLastGrant)
 			grant, parseErr := strconv.Atoi(last)
-			if err != nil || parseErr != nil || grant < 1 || grant > 5 {
+			if err != nil || parseErr != nil || grant < 1 || grant > 32 {
 				t.Fatal("unmanaged aggregate did not reserve a bounded grant", last, err, parseErr)
 			}
 			active, err := options.GetOption(h.ctx, OptionIntQueryWorkersActive)

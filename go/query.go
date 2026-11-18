@@ -513,16 +513,17 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
-	dependencies  map[string]bool      // transitive outer-column inputs for correlated predicates
-	visibility    []snapshotIndexQuery // immutable per-segment visibility for ordered merge
-	authoritative bool                 // private exact integer tuple source: fetch every needed HASH field
-	ranges        *rowIDRangeScan      // optional bounded numeric range source
-	hashScan      bool                 // lowered aggregate cap requires HASH pagination
-	meta          *tableMeta
-	where         wherePlan
-	sortBy        []sortKey
-	limit         *[2]int64
-	need          map[string]bool // columns to read from the row HASHes
+	aggregateInputs bool                 // direct scalar inputs: bounded larger unmanaged key pages
+	dependencies    map[string]bool      // transitive outer-column inputs for correlated predicates
+	visibility      []snapshotIndexQuery // immutable per-segment visibility for ordered merge
+	authoritative   bool                 // private exact integer tuple source: fetch every needed HASH field
+	ranges          *rowIDRangeScan      // optional bounded numeric range source
+	hashScan        bool                 // lowered aggregate cap requires HASH pagination
+	meta            *tableMeta
+	where           wherePlan
+	sortBy          []sortKey
+	limit           *[2]int64
+	need            map[string]bool // columns to read from the row HASHes
 	// ties re-sorts the rows that tie in the index's sort, when sortBy has
 	// keys whose values the index may round (see ties.go).
 	ties *tieSort
@@ -808,6 +809,10 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		it.store, it.unmanagedHashFetch = e.store, true
 		it.unmanagedRead = newUnmanagedProjectionRead(e.store, meta, it.need)
 		ar.load, ar.loadAll, ar.hashFetch = []string{"__key"}, false, true
+		if req.aggregateInputs && it.unmanagedRead != nil && len(it.unmanagedRead.fields) > 0 {
+			ar.aggregateInputs = true
+			ar.width = len(it.unmanagedRead.fields) + 1
+		}
 	}
 	if req.authoritative {
 		it.store, it.fetch, it.hashFetch = e.store, append(fields, it.fetch...), true

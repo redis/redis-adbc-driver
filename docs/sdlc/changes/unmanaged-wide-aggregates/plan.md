@@ -23,8 +23,11 @@ See [intent](intent.md) and [specification](spec.md).
   redis-up`; the setup verifier checks active scaling factor 4, effective Search
   workers and routing, noeviction, TLS and RESP3. Private configuration and
   infrastructure identifiers are excluded from these records.
-- Four narrow aggregate projection regressions fail against original query.go
-  via Go's source overlay: each still transfers complete 105-column HASHes.
+- The initial 1,001-row version of all four projection regressions fails
+  against original query.go via Go's source overlay: each still transfers complete
+  105-column HASHes. The final fixture spans 32,001 rows to cover the larger
+  discovery-page boundary; the original failure evidence remains scoped to its
+  initial test revision.
 - The same four projection regressions pass with the narrow source selection.
   The fixture contains NULLs, exact BIGINTs above 2^53 and binary-safe strings.
 - Final full unit suite passed: `cd go && env -u REDIS_URI -u REDIS_SNAPSHOT_URI
@@ -53,19 +56,24 @@ See [intent](intent.md) and [specification](spec.md).
 
 ## Validation steering
 
-The user explicitly authorized reusing the existing loaded RAM reproducer
-without a backup restore, under its original 300-second deadline and memory
-cap. Keep work independent: do not message the other benchmark chat or overlap
-its timed trials. The user clarified that the separate full-scale environment must be Redis
-Software on AWS EC2, specifically c8g.metal-48xl (192 vCPU / 384 GiB), rather
-than Redis Cloud. An inadvertently requested empty Cloud Pro subscription was
-deleted and its absence verified; no database data-plane use occurred there.
-The independent EC2 host matches the original image digest, Ubuntu AMI,
-availability zone, three-shard 280-GiB database, 500-GB gp2 root volume and
-loopback Docker-published TLS route. Effective 4x QPF (six Search workers,
-mnp/32), noeviction, RESP3, compact HASH configuration and disabled swap were
-verified before restore. Compute is $7.65696/hour; an independent six-hour
-expiry protects this task's resources only. Identifiers and credentials stay
-private. No new database export was requested by this change; restore will
-consume an already-running source export only after its exact S3 versions
-and complete-byte checksums are available.
+The user authorized the retained RAM reproduction for these issues. Full-scale
+validation uses a separate c8g.metal-48xl (192 vCPU / 384 GiB), with the original
+Software image digest, Ubuntu image, three-shard 280-GiB database, 500-GB gp2
+root volume and same-host Linux loopback Docker-published TLS route. Effective
+4x QPF (six Search workers, mnp/32), noeviction, RESP3, compact HASH configuration
+and disabled swap were verified before restore. Full-scale data must come from
+a complete, compatible protocol-17 backup, with all exact object versions and
+actual downloaded bytes checked before native import. No new ingestion is
+requested. Infrastructure ownership, cost/expiry controls, restore journals,
+cleanup receipts and other operational artifacts are retained privately.
+
+## Page-size refinement
+
+The initial candidate used 4,096-key pages and up to five fetch workers. A
+separately labeled Go overlay prototype on the same local 100K synthetic fixture
+used up to 32,000 keys per scalar page and yielded matching complete outputs:
+projected execution 0.274–0.353s versus 3.397–3.542s for complete images. This
+motivated the bounded larger-page follow-up; it is not full-scale acceptance
+evidence. The implementation additionally scales pages by fetched-field width,
+respects shared worker admission, and retains grouped/streamed page sizing.
+Fresh unit/race/build validation is required for this refinement before timing.

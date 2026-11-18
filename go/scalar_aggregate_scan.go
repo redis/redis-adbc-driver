@@ -16,6 +16,7 @@ func (e *executor) scanScalarAggregateValues(ctx context.Context, req scanReques
 	if !directScalarAggregateInputs(aggs) {
 		return false, nil
 	}
+	req.aggregateInputs = true
 	items := aggregateInputItems(req.meta, aggs)
 	return e.scanAggregateProjection(ctx, req, params, items, visit)
 }
@@ -87,7 +88,11 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 		return false, nil
 	}
 	if it.unmanagedRead != nil && it.unmanagedHashFetch {
-		workers := min(effectiveQueryWorkers(e.queryWorkers), (wideFetchChunk+pipelineChunk-1)/pipelineChunk)
+		pageRows := wideFetchChunk
+		if req.aggregateInputs && len(it.unmanagedRead.fields) > 0 {
+			pageRows = unmanagedAggregatePageRows(len(it.unmanagedRead.fields))
+		}
+		workers := min(effectiveQueryWorkers(e.queryWorkers), (pageRows+pipelineChunk-1)/pipelineChunk)
 		if e.workerBudget != nil {
 			grant, err = e.workerBudget.acquireBounded(ctx, e.queryWorkers, workers)
 			if err != nil {
