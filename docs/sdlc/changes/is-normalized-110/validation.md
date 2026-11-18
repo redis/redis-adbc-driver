@@ -95,3 +95,19 @@ normalization is reused without changing storage/publication or retry semantics.
 No unresolved actionable finding remains in this bounded predicate/function
 scope; the generic DEFAULT parser limitation remains explicitly #481. No full
 Software Go suite, benchmark, human approval, hosted CI or merge is asserted.
+
+## Main-branch conflict resolution
+
+Merged `3e4aecfa` (PR #482) after FACTORIAL landed on main. The only conflicts
+were the immutable-function whitelist and appended pgdiff documentation. Both
+FACTORIAL and IS_NORMALIZED remain in the whitelist, both documentation sections
+are retained, and the automatically merged registry/type/dispatch changes were
+reviewed against main to confirm the FACTORIAL implementation is preserved.
+
+Re-ran all Go unit packages with `env -u REDIS_URI go test -count=1 -p 1 ./...`
+and the native Makefile build: both passed. Integration and optional external
+conformance-data skips remain expected in the unit-only run. No live Software
+fixture or differential comparison rerun was needed for the adjacent whitelist
+and documentation merge; the matrix/race evidence and source hashes above
+describe the pre-merge qualification. Changed-document targets and
+`git diff --check` passed after resolution.

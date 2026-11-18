@@ -55,5 +55,13 @@
     "go/is_normalized_test.go": "aa4c79de3c3dab3d7ac5d02725fd455d4f484615b6acec6da2e62e4ebab20208",
     "go/is_normalized_integration_test.go": "4b5284dd19f055365e75dc126c6ea536b0d7cd144c8861a0b325af03b0c4d40f",
     "go/pgdiff/is_normalized.py": "cad9dbdcfa687a9428150e843146fdf5d59f3dbc80e840ac9d1c51d9c1526c5a"
+  },
+  "merge_verification": {
+    "main": "3e4aecfa",
+    "preserved": "FACTORIAL and IS_NORMALIZED whitelist/registry/dispatch; both pgdiff documentation sections",
+    "go_unit_packages": "passed; expected integration/external-data skips",
+    "native_makefile_build": "passed",
+    "live_matrix_and_race": "pre-merge evidence retained; not rerun for adjacent merge",
+    "source_hash_scope": "pre-merge qualification"
   }
 }
