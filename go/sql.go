@@ -3665,6 +3665,20 @@ func (p *parser) parseComparison() (Expr, error) {
 				}
 				continue
 			}
+			if p.isKeyword("NORMALIZED") || p.isKeyword("NFC") || p.isKeyword("NFD") || p.isKeyword("NFKC") || p.isKeyword("NFKD") {
+				args := []Expr{l}
+				if !p.isKeyword("NORMALIZED") {
+					args = append(args, &Literal{V: stringValue(strings.ToUpper(p.next().text))})
+				}
+				if err := p.expectKeyword("NORMALIZED"); err != nil {
+					return nil, err
+				}
+				l = &Func{Name: "IS_NORMALIZED", Args: args}
+				if not {
+					l = &Unary{Op: "NOT", X: l}
+				}
+				continue
+			}
 			if p.acceptKeyword("JSON") {
 				l = p.parseIsJSON(l)
 				if not {

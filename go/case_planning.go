@@ -183,7 +183,7 @@ func (p *casePlanner) fold(expr Expr) (Value, bool, error) {
 		pure = true
 	case *Func:
 		switch x.Name {
-		case "ABS", "MOD", "NULLIF", "GREATEST", "LEAST", "__ARRAY", "NORMALIZE", "UNISTR", "FACTORIAL":
+		case "ABS", "MOD", "NULLIF", "GREATEST", "LEAST", "__ARRAY", "NORMALIZE", "UNISTR", "IS_NORMALIZED", "FACTORIAL":
 			pure = true
 		}
 	}

@@ -365,6 +365,17 @@ ordinary cases. Before the shared CASE purity correction (coordinated with
 continuation failed (214/216 overall). With the correction, all 216 cases pass;
 none was excluded or relabeled. DEFAULT definition-time evaluation remains
 tracked separately in #479.
+## Normalization predicate comparison (#110)
+
+`python3 go/pgdiff/is_normalized.py /private/normalized-corpus` creates an
+independent 453-case corpus for `IS [NOT] [form] NORMALIZED` and
+`is_normalized(text [, form_text])`. Compare it with pgdiff's `--corpus` option.
+It covers all four forms, strict NULLs, typed arguments, empty relations,
+operator precedence, lazy expressions, fixed CHAR, long combining sequences
+and Unicode16/17 boundaries. No curated SQL, comparison policy or allowlist is
+changed. [Validation and scope](../../docs/sdlc/changes/is-normalized-110/validation.md)
+retain the separately discovered generic DEFAULT grammar issue #481.
+
 ## FACTORIAL comparison (#110)
 
 `python3 go/pgdiff/factorial.py /private/factorial-corpus` creates a separate

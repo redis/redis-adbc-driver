@@ -242,6 +242,7 @@ var funcDefs = []funcDef{
 	{name: "LCM", min: 2, max: 2, impl: implPostgres},
 	{name: "SCALE", min: 1, max: 1, impl: implPostgres},
 	{name: "NORMALIZE", min: 1, max: 2, impl: implPostgres},
+	{name: "IS_NORMALIZED", min: 1, max: 2, impl: implPostgres},
 	{name: "UNISTR", min: 1, max: 1, impl: implPostgres},
 	{name: "FACTORIAL", min: 1, max: 1, impl: implPostgres},
 	{name: "MIN_SCALE", min: 1, max: 1, impl: implPostgres},

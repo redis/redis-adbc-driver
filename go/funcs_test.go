@@ -54,6 +54,7 @@ var funcSamples = map[string]string{
 	"BIT_XOR":        "BIT_XOR(x)",
 	"TO_NUMBER":      "to_number('1,234.5','9G999D9')",
 	"NORMALIZE":      "normalize('ä')",
+	"IS_NORMALIZED":  "'ä' IS NORMALIZED",
 	"UNISTR":         `unistr('\0061')`,
 	"SETSEED":        "setseed(0.5)",
 	"RANDOM_NORMAL":  "random_normal()",
