@@ -10,7 +10,9 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-func unicodeFunction(name string) bool { return name == "NORMALIZE" || name == "UNISTR" }
+func unicodeFunction(name string) bool {
+	return name == "NORMALIZE" || name == "UNISTR" || name == "IS_NORMALIZED"
+}
 
 // Text signatures resolve before strict NULL handling, even in unused branches.
 // Value errors are evaluated separately so lazy CASE/COALESCE keep their meaning.
@@ -32,6 +34,9 @@ func pgUnicode(f *Func, args []Value) (Value, error) {
 	}
 	for _, v := range args {
 		if v.Null {
+			if f.Name == "IS_NORMALIZED" {
+				return nullValue(typeBool), nil
+			}
 			return nullValue(typeString), nil
 		}
 	}
@@ -64,7 +69,11 @@ func pgUnicode(f *Func, args []Value) (Value, error) {
 			return Value{}, stateErr(stateInvalidParameter, "invalid normalization form: %s", text(args[1]))
 		}
 	}
-	return stringValue(pgNormalize(s, form)), nil
+	normalized := pgNormalize(s, form)
+	if f.Name == "IS_NORMALIZED" {
+		return boolValue(s == normalized), nil
+	}
+	return stringValue(normalized), nil
 }
 
 // PostgreSQL 18 uses Unicode 16. These are the Unicode 17 additions with
