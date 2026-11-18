@@ -56,7 +56,16 @@ See [intent](intent.md) and [specification](spec.md).
 The user explicitly authorized reusing the existing loaded RAM reproducer
 without a backup restore, under its original 300-second deadline and memory
 cap. Keep work independent: do not message the other benchmark chat or overlap
-its timed trials. The user also requested another Redis Cloud Pro instance,
-sized for 100M rows; provisioning is a separate environment and any validation
-there must carry its actual Cloud server and settings, not the original RAM
-reproducer provenance. No database backup/export has been started.
+its timed trials. The user clarified that the separate full-scale environment must be Redis
+Software on AWS EC2, specifically c8g.metal-48xl (192 vCPU / 384 GiB), rather
+than Redis Cloud. An inadvertently requested empty Cloud Pro subscription was
+deleted and its absence verified; no database data-plane use occurred there.
+The independent EC2 host matches the original image digest, Ubuntu AMI,
+availability zone, three-shard 280-GiB database, 500-GB gp2 root volume and
+loopback Docker-published TLS route. Effective 4x QPF (six Search workers,
+mnp/32), noeviction, RESP3, compact HASH configuration and disabled swap were
+verified before restore. Compute is $7.65696/hour; an independent six-hour
+expiry protects this task's resources only. Identifiers and credentials stay
+private. No new database export was requested by this change; restore will
+consume an already-running source export only after its exact S3 versions
+and complete-byte checksums are available.
