@@ -387,6 +387,14 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 	if slices.ContainsFunc(clauses, func(c mergeClause) bool { return c.Action == MergeUpdate }) {
 		checks.need(need, dj.target.prefix)
 	}
+	defs := e.columnDefaults(ctx, im)
+	for _, c := range clauses {
+		if c.Action == MergeInsert {
+			if err := defs.planInsert(c.targets, c.Values, false, ""); err != nil {
+				return 0, err
+			}
+		}
+	}
 	rows, err := dj.rows(ctx, e, nil, need, params)
 	if err != nil {
 		return 0, err
@@ -394,7 +402,6 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 
 	// Decide and check every change before writing any.
 	env := e.newEnv(ctx, dj.joined.types(), params)
-	defs := e.columnDefaults(ctx, im)
 	var updates []rowChange
 	var deletes []string
 	var inserts [][]Value

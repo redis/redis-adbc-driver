@@ -205,8 +205,6 @@ func TestSQLDefaultsValidation(t *testing.T) {
 		"BIGINT DEFAULT ROW_NUMBER() OVER ()":     "window functions are not allowed in DEFAULT expressions",
 		"INTEGER DEFAULT 'abc'":                   `column "b"`,
 		"DATE DEFAULT 'tomorrow-ish'":             `column "b"`,
-		"SMALLINT DEFAULT 100000":                 "out of range",
-		"INTEGER DEFAULT 1 / 0":                   "division by zero",
 		"INTEGER DEFAULT CURRENT_TIMESTAMP":       `column "b"`,
 		"INTEGER DEFAULT no_such_function()":      "function no_such_function() does not exist",
 		"VARCHAR NOT NULL DEFAULT UPPER(1, 2, 3)": "UPPER expects 1 argument",

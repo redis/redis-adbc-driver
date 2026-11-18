@@ -540,7 +540,7 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	for _, c := range defs {
 		col := columnMeta{Identity: c.Identity, Sequence: c.Sequence, Name: c.Name, Type: c.Type, Nullable: !c.NotNull, Comment: c.Comment}
 		if c.Default != nil {
-			if col.Default, _, err = e.checkDefault(ctx, c); err != nil {
+			if col.Default, err = e.checkDefault(ctx, c); err != nil {
 				return err
 			}
 		}
@@ -767,6 +767,9 @@ func (e *executor) runInsert(ctx context.Context, st *InsertStmt, params []Value
 				return 0, err
 			}
 		}
+		if err := defs.planInsert(targets, exprs, false, st.Override); err != nil {
+			return 0, err
+		}
 		row, err := insertRow(env, meta, defs, checks, targets, exprs)
 		if err != nil {
 			return 0, err
@@ -876,11 +879,14 @@ func (e *executor) insertSelect(ctx context.Context, st *InsertStmt, meta *table
 			return 0, err
 		}
 	}
+	defs := e.columnDefaults(ctx, meta)
+	if err := defs.planInsert(targets, nil, true, st.Override); err != nil {
+		return 0, err
+	}
 	results, err := e.runSelect(ctx, plan, e.params)
 	if err != nil {
 		return 0, err
 	}
-	defs := e.columnDefaults(ctx, meta)
 	checks, err := e.tableChecks(ctx, meta)
 	if err != nil {
 		return 0, err
