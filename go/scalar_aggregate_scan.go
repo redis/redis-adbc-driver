@@ -16,6 +16,7 @@ func (e *executor) scanScalarAggregateValues(ctx context.Context, req scanReques
 	if !directScalarAggregateInputs(aggs) {
 		return false, nil
 	}
+	req.aggregateInputs = true
 	items := aggregateInputItems(req.meta, aggs)
 	return e.scanAggregateProjection(ctx, req, params, items, visit)
 }
@@ -75,10 +76,34 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 	if err != nil {
 		return true, err
 	}
-	defer it.close(ctx)
+	grant := 0
+	defer func() {
+		it.close(ctx)
+		if grant > 0 && e.workerBudget != nil {
+			e.workerBudget.release(grant)
+		}
+	}()
 	p := newScanProjection(it, items)
 	if p == nil {
 		return false, nil
+	}
+	if it.unmanagedRead != nil && it.unmanagedHashFetch {
+		pageRows := wideFetchChunk
+		if req.aggregateInputs && len(it.unmanagedRead.fields) > 0 {
+			pageRows = unmanagedAggregatePageRows(len(it.unmanagedRead.fields))
+		}
+		workers := min(effectiveQueryWorkers(e.queryWorkers), (pageRows+pipelineChunk-1)/pipelineChunk)
+		if e.workerBudget != nil {
+			grant, err = e.workerBudget.acquireBounded(ctx, e.queryWorkers, workers)
+			if err != nil {
+				return true, cancelled(ctx)
+			}
+			workers = grant
+		}
+		it.unmanagedRead.workers = workers
+		if e.workerGrant != nil {
+			e.workerGrant.Store(int64(workers))
+		}
 	}
 	it.projection = p
 	if e.diagnostics != nil && !e.diagnostics.metricsOnly {

@@ -39,10 +39,11 @@ import (
 // The fields are loaded last, so only the rows that survive sorting and
 // limiting are read.
 type aggRequest struct {
-	meta       *tableMeta
-	visibility []snapshotIndexQuery
-	index      string
-	query      string
+	aggregateInputs bool // direct unmanaged scalar inputs, bounded by fetched width
+	meta            *tableMeta
+	visibility      []snapshotIndexQuery
+	index           string
+	query           string
 	// rowFilter keeps the documents that are rows (tableMeta.rowFilter).
 	rowFilter string
 	groupBy   []any     // raw APPLY/GROUPBY/REDUCE arguments
@@ -61,9 +62,19 @@ type aggRequest struct {
 // pageRows returns the cursor page size.
 func (r *aggRequest) pageRows() int {
 	if r.hashFetch {
+		if r.aggregateInputs && r.meta != nil && r.meta.Unmanaged {
+			return unmanagedAggregatePageRows(r.width - 1)
+		}
 		return wideFetchChunk
 	}
 	return max(1000, min(cursorCount, pageValues/max(r.width, 1)))
+}
+
+// Key discovery amortizes cursor/lease checks without retaining unbounded
+// source values. Native fetches still use 1,000-command/1MiB request chunks;
+// fetched field count keeps the page near the existing value-count target.
+func unmanagedAggregatePageRows(fields int) int {
+	return min(32*pipelineChunk, max(1, pageValues/max(fields+1, 1)))
 }
 
 type sortKey struct {
