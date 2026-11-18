@@ -29,6 +29,9 @@ on:
       - scripts/ci_test_matrix.py
       - scripts/test_ci_test_matrix.py
       - scripts/test_ci_parallel_suites.py
+      - scripts/ci_go_suites.py
+      - scripts/ci_go_timings.json
+      - scripts/test_ci_go_suites.py
       - scripts/no_result_lifecycle.py
       - scripts/test_ci_apt_retries.py
       - scripts/pin_adbc_scanner_source.py
@@ -80,6 +83,8 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
+      go_matrix: ${{ steps.select.outputs.go_matrix }}
+      snapshot_matrix: ${{ steps.select.outputs.snapshot_matrix }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -94,6 +99,8 @@ jobs:
           matrix=$(python3 scripts/ci_test_matrix.py --event "$EVENT" --base "$BASE" --head "$HEAD")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "$matrix" >> "$GITHUB_STEP_SUMMARY"
+          echo "go_matrix=$(python3 scripts/ci_go_suites.py matrix --coverage "$matrix" --shards 3)" >> "$GITHUB_OUTPUT"
+          echo "snapshot_matrix=$(python3 scripts/ci_go_suites.py matrix --coverage "$matrix" --shards 4)" >> "$GITHUB_OUTPUT"
 
   helpers:
     runs-on: ubuntu-24.04
@@ -110,6 +117,8 @@ jobs:
         run: python3 -m unittest discover -s scripts -p test_ci_test_matrix.py -v
       - name: Check parallel CI isolation and required gates
         run: python3 -m unittest discover -s scripts -p test_ci_parallel_suites.py -v
+      - name: Check complete Go shard inventories and failure handling
+        run: python3 -m unittest discover -s scripts -p test_ci_go_suites.py -v
       - name: Check integration registry
         run: |
           python3 -m unittest discover -s scripts -p test_integration_registry.py -v
@@ -185,25 +194,9 @@ jobs:
         working-directory: go
         run: make build
 
-      - name: C bridge holder ownership with strict pointer checks
-        working-directory: go
-        run: env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOEXPERIMENT=cgocheck2 go test -count=1 -p 1 -race -gcflags=all=-d=checkptr=2 -tags driverlib ./pkg
-
       - name: Start authenticated TLS Redis Enterprise cluster
         working-directory: go
         run: make redis-up
-
-      # Keep packages sequential against the shared database; -v records test timings.
-      - name: Go tests
-        working-directory: go
-        run: |
-          if [[ "${{ matrix.environment }}" == oss-* ]]; then
-            # Probe actual runtime limits; a fixed positive option would bypass
-            # discovery. The test saves/restores every OSS primary's setting.
-            env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -v -count=1 -p 1 -timeout=30m ./...
-          else
-            go test -v -count=1 -p 1 -timeout=30m ./...
-          fi
 
       # Preserve authorization as a required failing gate, while allowing
       # independent native/platform checks to produce evidence after a refusal.
@@ -356,13 +349,76 @@ jobs:
         working-directory: go
         run: make redis-down
 
-  # Independent jobs shorten the critical path without sharing a mutable DB.
-  snapshots:
-    name: linux-${{ matrix.arch }}-${{ matrix.environment }}-snapshots
+  # No shared mutable databases between jobs; package execution stays sequential.
+  bridge:
     needs: coverage
+    name: linux-${{ matrix.arch }}-${{ matrix.environment }}-bridge
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.coverage.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: C bridge holder ownership with strict pointer checks
+        working-directory: go
+        run: env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOEXPERIMENT=cgocheck2 go test -count=1 -p 1 -race -gcflags=all=-d=checkptr=2 -tags driverlib ./pkg
+
+  go_tests:
+    needs: coverage
+    name: linux-${{ matrix.arch }}-${{ matrix.environment }}-go-${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.coverage.outputs.go_matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      REDIS_PARTITION_SCAN_CAP: "2147483648"
+      SSL_CERT_DIR: /etc/ssl/certs
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: Start authenticated TLS Redis Enterprise cluster
+        working-directory: go
+        run: make redis-up
+      - name: Run complete ordinary Go test shard
+        working-directory: go
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ matrix.shards }}
+        run: |
+          unset REDIS_SNAPSHOT_URI
+          bash software-setup.sh --exec python3 ../scripts/ci_go_suites.py run \
+            --suite ordinary --shard "$SHARD" --shards "$SHARDS" --report build/ci-ordinary.json
+      - name: Upload sanitized Go execution inventory
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: go-tests-${{ matrix.arch }}-${{ matrix.environment }}-ordinary-${{ matrix.shard }}
+          path: go/build/ci-ordinary.json
+          overwrite: true
+          if-no-files-found: warn
+      - name: Redis logs on failure
+        if: failure()
+        working-directory: go
+        run: docker compose logs --no-color redis-software
+      - name: Stop test Redis
+        if: always()
+        working-directory: go
+        run: make redis-down
+
+  # Independent jobs shorten the critical path without sharing a mutable DB.
+  snapshots:
+    name: linux-${{ matrix.arch }}-${{ matrix.environment }}-snapshots-${{ matrix.shard }}
+    needs: coverage
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.coverage.outputs.snapshot_matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
       REDIS_PARTITION_SCAN_CAP: "2147483648"
@@ -385,9 +441,22 @@ jobs:
       - name: Atomic statement snapshot regressions
         if: startsWith(matrix.environment, 'software-')
         working-directory: go
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ matrix.shards }}
         run: |
           export REDIS_SNAPSHOT_URI="${REDIS_URI:?verified Software fixture required}"
-          make test-software TEST_ARGS="-race -v -run Snapshot"
+          bash software-setup.sh --exec python3 ../scripts/ci_go_suites.py run \
+            --suite snapshot --shard "$SHARD" --shards "$SHARDS" --report build/ci-snapshot.json
+
+      - name: Upload sanitized snapshot execution inventory
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: go-tests-${{ matrix.arch }}-${{ matrix.environment }}-snapshot-${{ matrix.shard }}
+          path: go/build/ci-snapshot.json
+          overwrite: true
+          if-no-files-found: warn
 
       - name: Redis logs on failure
         if: failure()
@@ -469,24 +538,35 @@ jobs:
   # always() prevents an upstream failure/cancellation becoming a skipped gate.
   linux:
     if: always() && needs.coverage.result == 'success'
-    needs: [coverage, driver, snapshots, integrations]
+    needs: [coverage, bridge, go_tests, driver, snapshots, integrations]
     name: linux-${{ matrix.arch }}-${{ matrix.environment }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.coverage.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     steps:
+      - uses: actions/checkout@v7
       - name: Require all Linux suites
         env:
+          BRIDGE_RESULT: ${{ needs.bridge.result }}
+          GO_RESULT: ${{ needs.go_tests.result }}
           DRIVER_RESULT: ${{ needs.driver.result }}
           SNAPSHOTS_RESULT: ${{ needs.snapshots.result }}
           INTEGRATIONS_RESULT: ${{ needs.integrations.result }}
         run: |
-          for result in "$DRIVER_RESULT" "$SNAPSHOTS_RESULT" "$INTEGRATIONS_RESULT"; do
+          for result in "$BRIDGE_RESULT" "$GO_RESULT" "$DRIVER_RESULT" "$SNAPSHOTS_RESULT" "$INTEGRATIONS_RESULT"; do
             if [ "$result" != success ]; then
               echo "::error::A required Linux suite failed, was cancelled, or was skipped."
               exit 1
             fi
           done
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: go-tests-${{ matrix.arch }}-${{ matrix.environment }}-*
+          path: go-results
+          merge-multiple: false
+      - name: Verify complete disjoint shard coverage
+        run: python3 scripts/ci_go_suites.py verify --reports go-results
 
   # Framework adapters are tested in Redislabs-Solution-Architects/redis-adbc-integrations.
