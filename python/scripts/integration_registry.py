@@ -21,17 +21,10 @@ class Profile:
 # Candidate aliases map to exact pytest selectors, not arbitrary shell code.
 CANDIDATES = {
     'driver': ('test_driver.py',),
-    'airflow': ('test_airflow_hook.py', 'test_airflow.py'),
-    'dagster': ('test_dagster.py', 'test_dagster_adbc.py'),
-    'dask': ('test_dask.py',),
     'duckdb': ('test_duckdb.py',),
     'pandas': ('test_pandas.py', 'test_pandas_direct_reads.py', 'test_pandas_writes.py'),
     'polars': ('test_polars.py',),
     'ml': ('test_ml_ingest.py',),
-    'ray': ('test_ray.py', 'test_ray_arrow.py', 'test_ray_datasource.py'),
-    'ray-tls': (),
-    'prefect': ('test_prefect.py',),
-    'dlt': ('test_dlt.py',),
     'jupyter': ('test_jupyter.py',),
     'datasets': ('test_hf_datasets.py',),
     'streamlit': ('test_streamlit.py',),
@@ -68,10 +61,8 @@ STANDALONE_GUIDES = {
 PROFILES = {
     'core': Profile(
         '3.14', 'test,candidate-tests',
-        ('driver', 'pandas', 'polars', 'ml', 'sqlalchemy', 'arrow', 'duckdb', 'dask',
-         'dagster', 'prefect', 'dlt', 'ray'),
-        ('pandas', 'polars', 'sqlalchemy', 'pyarrow', 'numpy', 'scikit-learn', 'dagster',
-         'dask', 'prefect', 'dlt', 'ray', 'duckdb'),
+        ('driver', 'pandas', 'polars', 'ml', 'sqlalchemy', 'arrow', 'duckdb'),
+        ('pandas', 'polars', 'sqlalchemy', 'pyarrow', 'numpy', 'scikit-learn', 'duckdb'),
     ),
     'workflows': Profile(
         '3.14', 'workflow-tests',
@@ -89,28 +80,37 @@ PROFILES = {
         ('kubeflow', 'metaflow', 'fivetran'),
     ),
     'spark': Profile('3.14', 'spark-tests', ('spark',), ('spark',)),
-    'airflow': Profile('3.14', 'airflow-tests', ('airflow',), ('airflow',)),
     'dbt': Profile('3.14', 'dbt-tests', ('dbt',), ('dbt',)),
     'documents': Profile('3.14', 'workflow-tests', ('r', 'quarto'), ('r-dbi', 'rstudio', 'quarto')),
     'analysis': Profile('3.14', 'analysis-tests', ('ibis', 'mlflow'), ('ibis', 'mlflow')),
     'beam': Profile('3.14', 'beam-tests', ('beam',), ('beam',)),
     'mage': Profile('3.14', 'mage-tests', ('mage',), ('mage',)),
     'kestra': Profile('3.14', 'kestra-tests', ('kestra',), ('kestra',)),
-    'ray-tls': Profile('3.14', 'ray-tests', ('ray-tls',), ()),
 }
 
 # Guide execution historically visits spark before orchestrators, and analysis
 # before the document/server profiles. Keep that independent of candidate order.
 GUIDE_PROFILE_ORDER = ("core", "workflows", "models", "spark", "orchestrators",
                        "analysis", "beam", "mage", "kestra", "documents",
-                       "airflow", "dbt")
+                       "dbt")
 GUIDE_PROFILES = {name: PROFILES[name].guides for name in GUIDE_PROFILE_ORDER}
 GUIDES = tuple(guide for group in GUIDE_PROFILES.values() for guide in group)
 # These workflows do not provide the same output-write/read-back contract.
 READ_WRITE_GUIDES = frozenset(GUIDES) - {"fivetran"}
 
 
+MOVED_GUIDES = {
+    "airflow": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/airflow.md",
+    "dagster": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/dagster.md",
+    "dask": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/dask.md",
+    "ray": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/ray.md",
+    "prefect": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/prefect.md",
+    "dlt": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/dlt.md",
+    "superset": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md",
+}
+
 UNSUPPORTED_GUIDES = {
+    **{name: f"{name} moved to {url}" for name, url in MOVED_GUIDES.items()},
     "superset": "Superset 6.1 is unsupported on Python 3.14+; upstream dependency blocker: https://github.com/redis/redis-adbc-driver/issues/471",
 }
 

@@ -74,13 +74,6 @@ on:
       - scripts/test_distribution.py
       - scripts/test_ci_apt_retries.py
       - .github/workflows/publish-pypi.yml
-      - .github/workflows/duckdb-extension.yml
-      - .github/actions/duckdb-build-cache/**
-      - duckdb-extension/**
-      - CMakeLists.txt
-      - extension_config.cmake
-      - duckdb
-      - extension-ci-tools
       - scripts/build_dbc_package.py
       - scripts/test_dbc_package.py
       - scripts/install*
@@ -111,7 +104,6 @@ jobs:
   distribution:
     runs-on: ubuntu-24.04
     outputs:
-      duckdb: ${{ steps.features.outputs.duckdb }}
       platforms: ${{ steps.platforms.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
@@ -133,20 +125,9 @@ jobs:
           fi
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "$matrix" >> "$GITHUB_STEP_SUMMARY"
-      - id: features
-        run: echo "duckdb=${{ hashFiles('duckdb-extension/redis_adbc_extension.cpp') != '' }}" >> "$GITHUB_OUTPUT"
       - name: Test publication validation
         if: hashFiles('scripts/test_distribution.py') != ''
         run: python3 -m unittest discover -s scripts -p test_distribution.py -v
-
-  duckdb:
-    needs: distribution
-    # PR extension checks run in the standalone DuckDB workflow.
-    if: github.event_name != 'pull_request' && needs.distribution.outputs.duckdb == 'true'
-    uses: ./.github/workflows/duckdb-extension.yml
-    with:
-      ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
-      version: ${{ github.event.release.tag_name || inputs.tag || 'v0.0.0-dev' }}
 
   linux:
     name: linux-${{ matrix.arch }}
@@ -780,9 +761,8 @@ jobs:
       !cancelled() && github.event_name != 'pull_request' &&
       needs.distribution.result == 'success' && needs.linux.result == 'success' &&
       needs.platforms.result == 'success' && needs.macos.result == 'success' &&
-      needs.linux-wheel-clients.result == 'success' && needs.macos-wheel-clients.result == 'success' &&
-      (needs.duckdb.result == 'success' || needs.duckdb.result == 'skipped')
-    needs: [distribution, linux, platforms, macos, linux-wheel-clients, macos-wheel-clients, duckdb]
+      needs.linux-wheel-clients.result == 'success' && needs.macos-wheel-clients.result == 'success'
+    needs: [distribution, linux, platforms, macos, linux-wheel-clients, macos-wheel-clients]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -797,12 +777,6 @@ jobs:
         with:
           name: darwin-arm64
           path: dist
-      - uses: actions/download-artifact@v8
-        if: needs.duckdb.result == 'success'
-        with:
-          pattern: duckdb-*
-          path: dist
-          merge-multiple: true
       - name: Package managed native installer
         run: |
           cp scripts/install_driver.py dist/

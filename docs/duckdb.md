@@ -3,7 +3,7 @@
 Start with [driver installation and diagnostics](setup.md#duckdb-and-other-native-adbc-clients)
 to verify the library and driver-name discovery before configuring DuckDB.
 
-The standalone [`redis_adbc` extension](../duckdb-extension/README.md) targets
+The standalone [`redis_adbc` extension](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/blob/main/README.md) targets
 DuckDB 2.0 and embeds
 the driver for streaming SELECT queries without a separate driver installation.
 Its [community-registry submission](https://github.com/duckdb/community-extensions/pull/3157)

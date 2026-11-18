@@ -5043,7 +5043,7 @@ enabled in the matching DuckDB engine. Community-registry installation remains
 pending acceptance and deployment. SQL inside `redis_adbc_scan` runs through the
 Redis driver; surrounding DuckDB filters, projections, joins and aggregates run
 locally. The scanner accepts exactly one SELECT and provides no ATTACH, writes
-or ingestion API. See the [native build and behavior guide](../duckdb-extension/README.md).
+or ingestion API. See the [native build and behavior guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/blob/main/README.md).
 
 Use the community `adbc_scanner` extension for attached catalogs and Arrow
 bulk loading. Current builds support attached-table autocommit writes; explicit

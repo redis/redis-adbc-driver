@@ -40,16 +40,15 @@ class ParallelSuiteTests(unittest.TestCase):
         self.assertNotIn('build-adbc-scanner', driver)
         self.assertIn('make test-software TEST_ARGS="-race -v -run Snapshot"', snapshots)
         self.assertIn('export REDIS_SNAPSHOT_URI="${REDIS_URI:?verified Software fixture required}"', snapshots)
-        for name in ('Python analytics integrations', 'Ray worker datasource',
-                     'Airflow integration', 'dlt integration on Redis Software'):
+        for name in ('Python analytics integrations',):
             self.assertIn(f'- name: {name}', integrations)
             self.assertNotIn(f'- name: {name}', driver)
         for name in ('Python ADBC validation', 'Native C Device CPU ownership and binding',
                      'Enforced SQL SELECT grants through Software RBAC',
                      'Native partitions over Software proxy TLS and independent RBAC'):
             self.assertIn(f'- name: {name}', driver)
-        self.assertIn("if: matrix.arch == 'amd64' && matrix.environment == 'software-cluster'", integrations)
-        self.assertIn('REQUIRE_RAY_TLS:', integrations)
+        for moved in ('Ray worker datasource', 'Airflow integration', 'dlt integration on Redis Software'):
+            self.assertNotIn(f'- name: {moved}', integrations)
         self.assertIn('uses: ./.github/actions/build-adbc-scanner', integrations)
 
     def test_original_check_names_wait_for_every_suite_even_on_failure(self):

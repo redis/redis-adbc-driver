@@ -158,6 +158,27 @@ func wantArgCount(name string, min, max, n int) string {
 // argCountSyntax are the calls whose argument counts the parser checks,
 // with its errors; a missing count is valid syntax for another form.
 var argCountSyntax = map[string]map[int]string{
+	"NORMALIZE": {
+		0: `syntax error: unexpected ")"`,
+		3: `syntax error: expected NFC, NFD, NFKC or NFKD near "1"`,
+	},
+	"IS_NORMALIZED": {
+		0: "function is_normalized() does not exist",
+		3: "function is_normalized(integer, integer, integer) does not exist",
+	},
+	"UNISTR": {
+		0: "function unistr() does not exist",
+		2: "function unistr(integer, integer) does not exist",
+	},
+	"FACTORIAL": {
+		0: "function factorial() does not exist",
+		2: "function factorial(integer, integer) does not exist",
+	},
+	"SETSEED": {
+		0: "function setseed() does not exist",
+		2: "function setseed(integer, integer) does not exist",
+	},
+	"RANDOM_NORMAL": {3: "too many arguments for random_normal"},
 	"MAKE_INTERVAL": {8: "too many arguments for make_interval"},
 	"DATE_ADD":      {1: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)", 4: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)"},
 	"DATE_SUB":      {2: "syntax error: DATE_SUB expects (x, INTERVAL n part)", 4: "syntax error: DATE_SUB expects (x, INTERVAL n part)"},

@@ -70,16 +70,13 @@ use OSS single shard as before. Diff errors fail selection rather than silently
 reducing coverage. Add new sensitive files to the selector when introducing them.
 
 The full matrix also runs nightly at 09:17 UTC, on published releases and on
-manual dispatch. To validate a release candidate before publication, manually
-run Test and DuckDB extension against its branch or tag and wait for both to
-pass. Publication triggers checks; it does not wait for them as an approval gate.
+manual dispatch. To validate a driver release candidate before publication, manually
+run Test against its branch or tag. Publication triggers checks; it does not wait
+for them as an approval gate.
 
-[DuckDB extension](../../.github/workflows/duckdb-extension.yml) runs on PRs
-changing the extension, SQL tests, native ADBC wrapper, dependencies or build
-configuration. It compiles on Linux amd64 for PRs and on Linux amd64/arm64 and
-macOS arm64 nightly at 09:47 UTC, on published releases and on manual dispatch.
-Ordinary Go driver changes are covered by driver tests and the Python DuckDB
-ADBC scanner integration; they no longer rebuild this separate native extension.
+The [native DuckDB extension](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb) owns its build, SQLLogicTests,
+runtime validation and releases. This repository retains the independent Python
+ADBC scanner integration. [Framework adapters](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations) own their tests and releases.
 
 [Release binaries](../../.github/workflows/release.yml) retains its full build
 and platform validation for releases, manual rebuilds and PRs changing release

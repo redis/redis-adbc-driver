@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "adbc-driver-redis"
 version = "0.1.0"
-description = "Redis ADBC driver and analytics integrations"
+description = "Redis ADBC driver and Python bindings"
 readme = "README.md"
 requires-python = ">=3.14"
 license = "Apache-2.0"
@@ -17,20 +17,12 @@ Documentation = "https://github.com/redis/redis-adbc-driver/blob/main/docs/pytho
 Issues = "https://github.com/redis/redis-adbc-driver/issues"
 
 [project.optional-dependencies]
-airflow = ["apache-airflow-providers-apache-arrow>=0.2.0", "pyarrow>=26.0.1"]
 dbapi = ["pyarrow>=26.0.1"]
 pandas = ["pyarrow>=26.0.1", "pandas>=3.1.1"]
 polars = ["pyarrow>=26.0.1", "polars>=2.1.0"]
 sqlalchemy = ["sqlalchemy>=2.1.9", "pyarrow>=26.0.1"]
-dagster = ["dagster>=1.13.30", "pyarrow>=26.0.1"]
-dask = ["dask[dataframe,distributed]>=2026.8.0", "pandas>=3.1.1", "pyarrow>=26.0.1"]
-ray = ["ray[data]==2.60.0", "pyarrow>=26.0.1"]
-prefect = ["prefect>=3.9.3,<4", "pyarrow>=26.0.1"]
-dlt = ["dlt[parquet]>=1.32.0,<2", "pyarrow>=26.0.1"]
-test = ["dlt[parquet]>=1.32.0,<2", "prefect>=3.9.3,<4", "pytest>=9.2.0", "pyarrow>=26.0.1", "sqlalchemy>=2.1.9", "dagster>=1.13.30", "dagster-adbc>=0.0.2", "pandas>=3.1.1", "polars>=2.1.0", "duckdb==2.0.0", "dask[dataframe,distributed]>=2026.8.0"]
-ray-tests = ["ray[data]==2.60.0", "pytest>=9.2.0", "pyarrow>=26.0.1", "redis>=6"]
-candidate-tests = ["ray[data]==2.60.0", "scikit-learn>=1.5"]
-airflow-tests = ["pytest>=9.2.0", "pyarrow>=26.0.1", "apache-airflow==3.4.0", "apache-airflow-providers-apache-arrow==0.2.0"]
+test = ["pytest>=9.2.0", "pyarrow>=26.0.1", "sqlalchemy>=2.1.9", "pandas>=3.1.1", "polars>=2.1.0", "duckdb==2.0.0"]
+candidate-tests = ["scikit-learn>=1.5"]
 workflow-tests = ["pytest>=9.2.0", "pyarrow>=26.0.1", "pandas>=3.1.1", "nbclient>=0.10", "nbformat>=5", "ipykernel>=6", "datasets>=3", "streamlit>=1.40", "scipy>=1.15"]
 plotting-tests = ["pytest>=9.2.0", "pyarrow>=26.0.1", "pandas>=3.1.1", "plotly>=6", "matplotlib>=3.10"]
 model-tests = ["pytest>=9.2.0", "pyarrow>=26.0.1", "scikit-learn>=1.5", "xgboost>=3", "torch>=2.6", "tensorflow>=2.19", "transformers>=4.50", "keras>=3"]
@@ -46,13 +38,6 @@ kestra-tests = ["pytest>=9.2.0", "pyarrow>=26", "requests>=2.32", "pyyaml>=6", "
 [project.entry-points."sqlalchemy.dialects"]
 "redis.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
 "rediss.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
-
-[project.entry-points."apache_airflow_provider"]
-provider_info = "adbc_driver_redis.airflow_provider:get_provider_info"
-
-[project.entry-points."superset.db_engine_specs"]
-redis = "adbc_driver_redis.superset:RedisEngineSpec"
-rediss = "adbc_driver_redis.superset:RedisTLSEngineSpec"
 
 [tool.setuptools.packages.find]
 include = ["adbc_driver_redis*", "adbc_driver_rediss*"]

@@ -56,39 +56,11 @@ Use `rediss://` for TLS. Search is required; writes autocommit and transactions
 are unsupported. SQL support comes from this driver. Installing the package
 does not install or start a Redis server.
 
-The `airflow` extra enables the registered Redis ADBC Airflow provider. Use a
-`redis_adbc` connection with `SQLExecuteQueryOperator(autocommit=True)` or import
-`adbc_driver_redis.airflow.RedisAdbcHook` directly. See the
-[Airflow guide](../docs/integrations/airflow.md).
-
-Optional extras: `sqlalchemy` for current SQLAlchemy,
-`dagster` for the Redis ADBC IO manager, and `dask` for partitioned DataFrame
-reads with `adbc_driver_redis.dask.read_query` and worker-local Arrow appends with
-`adbc_driver_redis.dask.write_dataframe`. Writes require explicit acknowledgment
-that task recomputation can duplicate rows; see the
-[Dask guide](../docs/integrations/dask.md#write-computed-results).
-The source build's `ray` extra
-pins Ray 2.60.0 and supplies worker-side Arrow reads through
-`adbc_driver_redis.ray.read_query`; see the
-[Ray guide](https://github.com/redis/redis-adbc-driver/blob/main/docs/python-integrations.md#ray-data)
-for installation on every worker and live-read consistency limits.
-
-The `dlt` extra provides the append-only dlt destination:
-
-```python
-import dlt
-from adbc_driver_redis.dlt import redis_adbc
-
-pipeline = dlt.pipeline(
-    pipeline_name="redis_orders",
-    destination=redis_adbc(uri="redis://localhost:6379/0", schema_name="analytics"),
-)
-pipeline.run([{"id": 1, "amount": 10.5}], table_name="orders")
-```
-
-Install with `python -m pip install 'adbc-driver-redis[dlt]'`. Loads use Arrow
-batches through ADBC. Only append is supported; retries can duplicate partially
-written batches. Keep the local dlt pipeline directory for checkpoints.
+Airflow, Dagster, Dask, Ray, Prefect, dlt and Superset integrations now live in
+[redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations). They are installed separately and use the
+`redis_adbc_integrations` namespace. See its README for source installation,
+framework extras, compatibility limits and tests. The core package continues
+to provide DBAPI, Arrow, native reads, manifests and SQLAlchemy.
 
 See the [installation and integration guide](https://github.com/redis/redis-adbc-driver/blob/main/docs/python-integrations.md)
 and [server requirements](https://github.com/redis/redis-adbc-driver/blob/main/docs/driver-reference.md#server-requirements)
@@ -127,24 +99,22 @@ Set `KESTRA_JAR` and `KESTRA_PLUGINS_PATH` to reuse a prepared matching runtime.
 Its server runs only for the test, on a loopback endpoint with generated local
 authentication and temporary storage; it is stopped after the tests.
 
-The profiles remain separate because Airflow/Prefect have incompatible FastAPI
-requirements; Superset 6.1 is currently unsupported (see #471):
+The remaining profiles use separate dependency-compatible environments.
+Framework adapter profiles run in redis-adbc-integrations:
 
 | Profile | Python | Dependency extras / tools |
 |---|---|---|
-| core | 3.14 | `test,candidate-tests`: pandas, Polars, NumPy/scikit-learn, SQLAlchemy, Arrow, DuckDB, Dask, Dagster, Prefect, dlt, Ray |
+| core | 3.14 | `test,candidate-tests`: pandas, Polars, NumPy/scikit-learn, SQLAlchemy, Arrow, DuckDB |
 | workflows | 3.14 | `workflow-tests`: Jupyter, HF Datasets, Streamlit, SciPy |
 | models | 3.14 | `plotting-tests,model-tests`: Plotly, Matplotlib, XGBoost, PyTorch, TensorFlow, Keras, Transformers |
 | orchestrators | 3.14 | `orchestrator-tests`: local Kubeflow, Metaflow, Fivetran SDK |
 | spark | 3.14 | `spark-tests`: fetched Arrow results into local Spark; Java required |
-| airflow | 3.14 | `airflow-tests`: packaged hook and TaskFlow |
 | dbt | 3.14 | `dbt-tests` plus native adapter: build, model tests, catalog |
 | documents | 3.14 | `workflow-tests` plus R/Quarto: DBI reads/binding check and HTML render |
 | analysis | 3.14 | `analysis-tests`: Ibis expressions and MLflow dataset tracking; PyArrow below 26 |
 | beam | 3.14 | `beam-tests`: native ADBC reads inside local FnApi worker subprocesses |
 | mage | 3.14 | `mage-tests`: real local loader/transformer pipeline |
 | kestra | 3.14 | `kestra-tests`: native Python Script tasks, file handoff, checked task outputs; Java 25+ |
-| ray-tls | 3.14 | `ray-tests`: owned private-CA Software fixture, remote worker reads and trust rejection |
 
 Ibis, MLflow, Beam, Mage, and Kestra each cover populated and empty results.
 These are custom native ADBC/Arrow/Python workflows. They do not establish an

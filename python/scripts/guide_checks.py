@@ -16,27 +16,7 @@ def check_linked_workflow(tool, root):
     with tempfile.TemporaryDirectory(prefix=f"redis-guide-{tool}-") as directory:
         work = Path(directory)
         env = {**os.environ}
-        if tool in {"dagster", "dask"}:
-            filename = "dagster_smoke.py" if tool == "dagster" else "dask_read.py"
-            run([sys.executable, str(root / "python/examples" / filename)], work)
-        elif tool == "airflow":
-            # Execute the exact hook block with the connection configured as the guide describes.
-            env["AIRFLOW_CONN_REDIS_ANALYTICS"] = json.dumps({"conn_type": "redis_adbc", "extra": {
-                "db_kwargs": {"uri": env["REDIS_URI"]}}})
-            env["AIRFLOW_HOME"] = str(work / "airflow")
-            guide = (root / "docs/integrations/airflow.md").read_text()
-            code = "\n\n".join(re.findall(r"```python\n(.*?)```", guide, re.DOTALL))
-            code += "\nassert query.execute(context={}) == [(42,)]\n"
-            script = work / "hook.py"
-            script.write_text(code)
-            run([sys.executable, str(script)], work, env=env)
-            # The guide's runnable DAG is invoked by its documented test command.
-            env["RUN_AIRFLOW_TESTS"] = "1"
-            run([sys.executable, "-m", "pytest", "-q", str(root / "python/tests/test_airflow.py")], work, env=env)
-        elif tool == "superset":
-            env["RUN_SUPERSET_TESTS"] = "1"
-            run([sys.executable, "-m", "pytest", "-q", str(root / "python/tests/test_superset.py")], work, env=env)
-        elif tool == "dbt":
+        if tool == "dbt":
             check_dbt(root, work, env)
         elif tool == "duckdb":
             check_duckdb(root, work)

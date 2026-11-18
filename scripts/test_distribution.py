@@ -34,10 +34,9 @@ class PublicationTests(unittest.TestCase):
             with zipfile.ZipFile(self.args.downloads / name, 'w') as wheel:
                 wheel.writestr('adbc_driver_redis/libadbc_driver_redis.so', native)
                 wheel.writestr('adbc_driver_redis/sqlalchemy.py', '')
-                wheel.writestr('adbc_driver_redis/superset.py', '')
                 wheel.writestr('adbc_driver_redis-1.2.3.dist-info/METADATA',
                                'Name: adbc-driver-redis\nVersion: 1.2.3\nProvides-Extra: dbapi\n'
-                               'Provides-Extra: sqlalchemy\nProvides-Extra: dagster\n')
+                               'Provides-Extra: sqlalchemy\n')
             digest = self.checksum(name)
             assets.append({'name': name, 'digest': 'sha256:' + digest})
         self.release = {'tagName': 'v1.2.3', 'isDraft': False, 'isPrerelease': False, 'assets': assets}
