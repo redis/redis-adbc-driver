@@ -214,12 +214,12 @@ func TestSQLAlterMultiAtomic(t *testing.T) {
 			`column "n1" of relation "it_am_atom" already exists`},
 		{`ALTER TABLE it_am_atom DROP COLUMN s, ADD COLUMN n1 integer DEFAULT 'abc'`,
 			`column "n1": invalid input syntax for type integer: "abc"`},
-		// String lengths: a DEFAULT too long for the added column, and a
-		// new DEFAULT too long for a column added before it.
+		// ADD materializes its default; SET DEFAULT defers value errors.
+		// A later CHECK failure still rolls back both actions.
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ADD COLUMN n2 varchar(3) DEFAULT 'toolong'`,
 			`value too long for type character varying(3)`},
-		{`ALTER TABLE it_am_atom ADD COLUMN n2 char(3) DEFAULT 'abc', ALTER COLUMN n2 SET DEFAULT 'abcd'`,
-			`value too long for type character(3)`},
+		{`ALTER TABLE it_am_atom ADD COLUMN n2 char(3) DEFAULT 'abc', ALTER COLUMN n2 SET DEFAULT 'abcd', ADD CONSTRAINT n2_default_check CHECK (v > 0)`,
+			`check constraint "n2_default_check" of relation "it_am_atom" is violated by some row`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ALTER COLUMN nope SET DEFAULT 1`,
 			`column "nope" of relation "it_am_atom" does not exist`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ALTER COLUMN nope SET NOT NULL`,

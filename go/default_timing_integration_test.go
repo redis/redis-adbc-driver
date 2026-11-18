@@ -68,6 +68,17 @@ func TestSQLDefaultDeferredTypmods(t *testing.T) {
 	h.expectRows("SELECT * FROM it_default_typmods")
 	h.exec("INSERT INTO it_default_typmods VALUES(1,1,'ok',1),(2,NULL,NULL,NULL)")
 	h.expectRows("SELECT * FROM it_default_typmods ORDER BY id", "1|1|ok|1", "2|NULL|NULL|NULL")
+	// ADD's default is materialized for existing rows. A subsequent SET
+	// DEFAULT stores its expression without consuming the oversized value.
+	h.exec("ALTER TABLE it_default_typmods ADD c CHAR(3) DEFAULT 'abc', ALTER c SET DEFAULT 'abcd'")
+	h.expectRows("SELECT id,c FROM it_default_typmods ORDER BY id", "1|abc", "2|abc")
+	st := h.stmtWith("INSERT INTO it_default_typmods(id,s,v,n) VALUES(3,1,'ok',1)", nil)
+	if _, err := st.ExecuteUpdate(h.ctx); sqlState(err) != stateStringTooLong {
+		t.Fatalf("deferred ALTER default typmod: %v", err)
+	}
+	h.expectRows("SELECT id,c FROM it_default_typmods ORDER BY id", "1|abc", "2|abc")
+	h.exec("INSERT INTO it_default_typmods VALUES(3,1,'ok',1,'xyz')")
+	h.expectRows("SELECT id,c FROM it_default_typmods ORDER BY id", "1|abc", "2|abc", "3|xyz")
 }
 
 func TestSQLDefaultBoundAndIngest(t *testing.T) {
