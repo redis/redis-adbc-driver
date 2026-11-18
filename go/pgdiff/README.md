@@ -347,24 +347,6 @@ or allowlist. [Verification and Unicode source provenance](../../docs/sdlc/chang
 also record the full Unicode 16 conformance-vector run. General DEFAULT value
 error timing is a separate known issue, [#479](https://github.com/redis/redis-adbc-driver/issues/479).
 
-## Seeded random functions (#110)
-
-`python3 go/pgdiff/random_functions.py /private/random-corpus` generates a
-separate stateful matrix for `SETSEED`, `RANDOM_NORMAL` and existing `RANDOM()`.
-Pass that directory to `--corpus`. Uniform doubles compare exact binary values;
-normal results are explicitly rounded to nine fractional digits in the SQL,
-because Go math and the PostgreSQL server's C library can differ by a few ULP.
-No global float tolerance, oracle expectations or allowlist are changed.
-The matrix covers seeds, interleaving, reseeding/session isolation, named
-arguments, strict NULLs, signatures, empty input and logical void results.
-See [validation and source provenance](../../docs/sdlc/changes/random-functions-110/validation.md).
-
-The matrix also retains the selected-volatile CASE planning regression as three
-ordinary cases. Before the shared CASE purity correction (coordinated with
-[#479](https://github.com/redis/redis-adbc-driver/issues/479)), the CASE and its
-continuation failed (214/216 overall). With the correction, all 216 cases pass;
-none was excluded or relabeled. DEFAULT definition-time evaluation remains
-tracked separately in #479.
 ## Normalization predicate comparison (#110)
 
 `python3 go/pgdiff/is_normalized.py /private/normalized-corpus` creates an
@@ -386,3 +368,22 @@ explicitly verify the existing Arrow decimal256 precision76 rejection while
 PostgreSQL can represent the value. These are unsupported range cases, not
 passes. The curated SQL/oracles/allowlist remain unchanged. See
 [verification and range scope](../../docs/sdlc/changes/factorial-110/validation.md).
+
+## Seeded random functions (#110)
+
+`python3 go/pgdiff/random_functions.py /private/random-corpus` generates a
+separate stateful matrix for `SETSEED`, `RANDOM_NORMAL` and existing `RANDOM()`.
+Pass that directory to `--corpus`. Uniform doubles compare exact binary values;
+normal results are explicitly rounded to nine fractional digits in the SQL,
+because Go math and the PostgreSQL server's C library can differ by a few ULP.
+No global float tolerance, oracle expectations or allowlist are changed.
+The matrix covers seeds, interleaving, reseeding/session isolation, named
+arguments, strict NULLs, signatures, empty input and logical void results.
+See [validation and source provenance](../../docs/sdlc/changes/random-functions-110/validation.md).
+
+The matrix also retains the selected-volatile CASE planning regression as three
+ordinary cases. Before the shared CASE purity correction (coordinated with
+[#479](https://github.com/redis/redis-adbc-driver/issues/479)), the CASE and its
+continuation failed (214/216 overall). With the correction, all 216 cases pass;
+none was excluded or relabeled. DEFAULT definition-time evaluation remains
+tracked separately in #479.

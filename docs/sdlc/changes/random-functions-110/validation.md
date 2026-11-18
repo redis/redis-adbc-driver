@@ -137,3 +137,10 @@ asserted.
 The owned fixture, volumes, explicit project network and checkout-local test
 environment/trust files were removed after the final runs. Changed-document
 relative targets, sanitized JSON/source hashes and `git diff --check` pass.
+
+Main's normalization predicate PR #483 (`8eb98ae0`) was merged afterward.
+Its README section was retained, and code merged without conflicts; the shared
+CASE correction and FACTORIAL/predicate pure-function registry entries remain
+intact. All Go unit packages and the native build were checked again after
+that merge. The live 216/race/full-corpus evidence above precedes this final
+main merge; no additional live rerun is claimed for it.
