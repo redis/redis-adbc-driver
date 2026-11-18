@@ -153,3 +153,23 @@ func TestSQLRandomConcurrentSession(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestSQLRandomCasePlanning(t *testing.T) {
+	for _, q := range []string{
+		"CASE WHEN TRUE THEN random() ELSE 0 END",
+		"CASE WHEN FALSE THEN 0 ELSE random() END",
+		"CASE WHEN TRUE THEN random_normal() ELSE 0 END",
+		"CASE WHEN TRUE THEN setseed(-.5) ELSE NULL END",
+		"CASE WHEN TRUE THEN CASE WHEN TRUE THEN random() ELSE 0 END ELSE 0 END",
+	} {
+		e := randomEnv()
+		randomEval(t, e, "setseed(.5)")
+		_, known, err := (&casePlanner{env: e}).fold(parseTestExpr(t, q))
+		if err != nil || known {
+			t.Fatalf("volatile CASE became known: %s, %v %v", q, known, err)
+		}
+		if v := randomEval(t, e, "random()"); v.F != .9851677175347999 {
+			t.Fatalf("planning %s changed state:%.17g", q, v.F)
+		}
+	}
+}

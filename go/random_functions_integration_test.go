@@ -283,3 +283,36 @@ func TestSQLSetseedBinding(t *testing.T) {
 		t.Fatal("bound seed refusal changed state", got, want)
 	}
 }
+
+func TestSQLRandomVolatileCase(t *testing.T) {
+	h := newSQLHarness(t)
+	for _, q := range []string{
+		"SELECT CASE WHEN TRUE THEN random() ELSE 0 END",
+		"SELECT CASE WHEN FALSE THEN 0 ELSE random() END",
+	} {
+		seedSQL(t, h, ".5")
+		if _, err := h.executeSchema(q); err != nil {
+			t.Fatal(err)
+		}
+		if got := randomOne(t, h, q); got != .9851677175347999 {
+			t.Fatalf("CASE planning consumed draw:%.17g", got)
+		}
+		control := randomEnv()
+		randomEval(t, control, "setseed(.5)")
+		randomEval(t, control, "random()")
+		if got, want := randomOne(t, h, "SELECT random()"), randomEval(t, control, "random()").F; got != want {
+			t.Fatal("CASE continuation", got, want)
+		}
+	}
+	seedSQL(t, h, ".5")
+	if _, err := h.executeSchema("SELECT CASE WHEN TRUE THEN setseed(-.5) ELSE NULL END"); err != nil {
+		t.Fatal(err)
+	}
+	if got := randomOne(t, h, "SELECT random()"); got != .9851677175347999 {
+		t.Fatal("schema inspection seeded stream", got)
+	}
+	h.expectRows("SELECT CASE WHEN TRUE THEN setseed(-.5) ELSE NULL END", "")
+	if got := randomOne(t, h, "SELECT random()"); got != .6005582198295805 {
+		t.Fatal("selected seed not executed at runtime", got)
+	}
+}

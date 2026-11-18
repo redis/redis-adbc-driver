@@ -81,10 +81,11 @@ func (p *casePlanner) fold(expr Expr) (Value, bool, error) {
 				if !yes {
 					continue
 				}
-				if _, _, err = p.fold(w.Then); err != nil {
+				_, resultKnown, err := p.fold(w.Then)
+				if err != nil {
 					return Value{}, false, err
 				}
-				if !uncertain {
+				if !uncertain && resultKnown {
 					return eval()
 				}
 				return Value{}, false, nil
@@ -94,10 +95,11 @@ func (p *casePlanner) fold(expr Expr) (Value, bool, error) {
 				return Value{}, false, err
 			}
 		}
-		if _, _, err = p.fold(x.Else); err != nil {
+		_, elseKnown, err := p.fold(x.Else)
+		if err != nil {
 			return Value{}, false, err
 		}
-		if !uncertain && (x.Operand == nil || operandKnown) {
+		if !uncertain && (elseKnown || x.Else == nil) && (x.Operand == nil || operandKnown) {
 			return eval()
 		}
 		return Value{}, false, nil
