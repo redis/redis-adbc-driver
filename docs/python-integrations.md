@@ -213,6 +213,8 @@ Install it separately; adapter imports now use `redis_adbc_integrations`.
 
 ## Apache Airflow
 
+### Redis hook for get_records()
+
 The adapter, examples and tests moved to [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/airflow.md).
 Install it separately; adapter imports now use `redis_adbc_integrations`.
 
