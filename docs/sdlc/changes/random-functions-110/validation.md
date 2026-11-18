@@ -115,7 +115,8 @@ for selected/nested CASE and schema inspection, and exactly one execution-time
 draw. The three-statement independent regression remains in the generated
 matrix and passes.
 
-[#479](https://github.com/redis/redis-adbc-driver/issues/479) still owns generic
+[PR #485](https://github.com/redis/redis-adbc-driver/pull/485), closing
+[#479](https://github.com/redis/redis-adbc-driver/issues/479), handles generic
 DEFAULT definition-time evaluation. The baseline evaluates volatile defaults
 when defining them; the separate #479 change removes that
 behavior. This PR does not duplicate defaults.go changes or claim that issue
