@@ -364,3 +364,13 @@ three ordinary cases. Before [#479](https://github.com/redis/redis-adbc-driver/i
 lands, the seed setup passes and the CASE/continuation fail: 214/216 overall,
 with all 213 other feature cases matching. These are visible failures, not
 exclusions or accepted equivalent outputs.
+## FACTORIAL comparison (#110)
+
+`python3 go/pgdiff/factorial.py /private/factorial-corpus` creates a separate
+130-case corpus for `--corpus`: all exact values 0!..56!, integer widening,
+unknown literals, NULLs/signatures, argument counts, empty/lazy planning and
+PostgreSQL overflow. Four 57!/100! comparisons (ordinary and empty queries)
+explicitly verify the existing Arrow decimal256 precision76 rejection while
+PostgreSQL can represent the value. These are unsupported range cases, not
+passes. The curated SQL/oracles/allowlist remain unchanged. See
+[verification and range scope](../../docs/sdlc/changes/factorial-110/validation.md).

@@ -57,6 +57,7 @@ var funcSamples = map[string]string{
 	"UNISTR":         `unistr('\0061')`,
 	"SETSEED":        "setseed(0.5)",
 	"RANDOM_NORMAL":  "random_normal()",
+	"FACTORIAL":      "factorial(5)",
 	"MIN_SCALE":      "min_scale(1.2300)",
 	"FORMAT":         "format('%s',1)", "DIV": "div(7,2)", "GCD": "gcd(4,6)", "LCM": "lcm(4,6)", "SCALE": "scale(1.50)", "TRIM_SCALE": "trim_scale(1.500)", "MAKE_INTERVAL": "make_interval(days=>1)",
 	"CLOCK_TIMESTAMP": "clock_timestamp()",

@@ -452,7 +452,7 @@ func checkUnknowns(expr Expr, cols func() map[string]ColType, params []ColType) 
 				return false
 			}
 		}
-		if f, ok := x.(*Func); ok && (gcdLCMFunction(f.Name) || unicodeFunction(f.Name) || randomFunction(f.Name) || hasVoid) {
+		if f, ok := x.(*Func); ok && (gcdLCMFunction(f.Name) || unicodeFunction(f.Name) || randomFunction(f.Name) || f.Name == "FACTORIAL" || hasVoid) {
 			if types == nil {
 				types = cols()
 			}

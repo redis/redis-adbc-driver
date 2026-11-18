@@ -3273,6 +3273,14 @@ allow otherwise streamable queries to stream.
     Go math and the server's platform C library. Range-taking PostgreSQL
     `RANDOM` overloads remain part of the wider
     [#110](https://github.com/redis/redis-adbc-driver/issues/110) scope.
+  - `FACTORIAL(bigint)` returns an exact `NUMERIC(76,0)` (Arrow decimal256).
+    Smallint/integer inputs widen to bigint; unknown quoted literals use bigint
+    input syntax. Typed numeric, floating and text arguments give `42883`, even
+    when NULL. Integer NULL gives numeric NULL. Values 0 through 56 are exact;
+    negatives give `22003`. Results above 56! exceed this driver's 76-digit
+    numeric representation and give `22003`: PostgreSQL accepts through 32177!,
+    so this remains an explicit compatibility limit under
+    [#110](https://github.com/redis/redis-adbc-driver/issues/110).
   - `MIN_SCALE(numeric)` returns the minimum fractional digits needed to
     represent a finite value, as an `INTEGER` (Arrow int32):
     `MIN_SCALE(1.23000)` is 2, and zero/integer values return 0. Integer
