@@ -316,6 +316,8 @@ var funcDefs = []funcDef{
 	{name: "LASTVAL", min: 0, max: 0, volatile: true},
 	{name: "GEN_RANDOM_UUID", min: 0, max: 0, impl: implScalar, volatile: true},
 	{name: "RANDOM", min: 0, max: 0, impl: implScalar, volatile: true},
+	{name: "SETSEED", min: 1, max: 1, impl: implScalar, volatile: true},
+	{name: "RANDOM_NORMAL", min: 0, max: 2, impl: implScalar, volatile: true},
 	{name: "ABS", min: 1, max: 1},
 	{name: "PI", min: 0, max: 0, impl: implScalar},
 	// Trigonometric functions, in radians and (the …D ones) in degrees.
@@ -656,7 +658,7 @@ func (d *funcDef) argsError(f *Func) error {
 	if n >= d.min && (d.max == many || n <= d.max) {
 		return nil
 	}
-	if unicodeFunction(f.Name) || f.Name == "FACTORIAL" {
+	if unicodeFunction(f.Name) || f.Name == "FACTORIAL" || f.Name == "SETSEED" || f.Name == "RANDOM_NORMAL" {
 		return noSuchFunction(f.Name, false, inferArgTypes(f.Args, nil, nil))
 	}
 	if d.star && n == 0 {
@@ -731,6 +733,9 @@ func checkPrecisionArg(f *Func) error {
 // does: in lower case, without a precision or scale, and "unknown" for NULL
 // or a parameter whose type isn't known.
 func sigTypeName(t ColType) string {
+	if t.Alias == "void" {
+		return "void"
+	}
 	if t.Alias == "uuid" {
 		return "uuid"
 	}
@@ -820,6 +825,9 @@ func checkCalls(x Expr) error {
 			return
 		}
 		cerr := resolveCall(f, w != nil)
+		if cerr == nil && randomFunction(f.Name) {
+			cerr = invalidArg(randomCallError(f, inferArgTypes(f.Args, nil, nil)))
+		}
 		if cerr == nil && unicodeFunction(f.Name) {
 			cerr = invalidArg(unicodeCallError(f, inferArgTypes(f.Args, nil, nil)))
 		}

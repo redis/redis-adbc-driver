@@ -4868,6 +4868,13 @@ func (p *parser) parseColumnRef(first string) (Expr, error) {
 }
 
 func (p *parser) parseFunctionCall(name string, quotedCase bool) (Expr, error) {
+	if name == "RANDOM_NORMAL" && !quotedCase {
+		return p.parseRandomNormal()
+	}
+	if name == "SETSEED" && !quotedCase && (p.peek().kind == tokIdent || p.peek().kind == tokQuotedIdent) && (p.peekAt(1).text == "=>" || p.peekAt(1).text == ":=") {
+		return nil, stateErr(stateUndefinedFunction, "setseed has no named argument %q", p.peek().text)
+	}
+
 	if name == "MAKE_INTERVAL" && !quotedCase {
 		return p.parseMakeInterval()
 	}

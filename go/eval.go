@@ -686,6 +686,9 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		}
 		args[i] = v
 	}
+	if randomFunction(f.Name) {
+		return env.evalRandom(f, args)
+	}
 	if d.impl == implPostgres {
 		return pg18Scalar(f, args, env.zone())
 	}
@@ -1261,6 +1264,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		}
 		return ColType{}, fmt.Errorf("unknown column %q", x.Name)
 	case *Cast:
+		if from, err := inferType(x.X, cols, params); err == nil && from.Alias == "void" && (x.T.Kind != KindString || x.T.Alias != "") {
+			return ColType{}, stateErr(stateCannotCoerce, "cannot cast type void to %s", x.T.SQLName())
+		}
 		if x.T.Kind == KindRecord {
 			// CAST(r AS RECORD) keeps r's fields.
 			if t, err := inferType(x.X, cols, params); err == nil && t.Kind == KindRecord {
@@ -1366,6 +1372,12 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		if gcdLCMFunction(x.Name) {
 			t, _, err := gcdLCMTypes(x, args)
 			return t, err
+		}
+		if err := voidCallError(x, args); err != nil {
+			return ColType{}, err
+		}
+		if err := randomCallError(x, args); err != nil {
+			return ColType{}, err
 		}
 		if err := unicodeCallError(x, args); err != nil {
 			return ColType{}, err
@@ -1490,6 +1502,12 @@ func commonType(a, b ColType) ColType {
 // ok is false for types that have none, such as an INTEGER and a VARCHAR,
 // or a DATE and an INTERVAL, which Postgres doesn't match either.
 func matchTypes(a, b ColType) (ColType, bool) {
+	if a.Alias == "void" || b.Alias == "void" {
+		if a.Kind == KindNull || b.Kind == KindNull || a.Alias == b.Alias {
+			return typeVoid, true
+		}
+		return ColType{}, false
+	}
 	switch {
 	case a.Kind == KindArray && b.Kind == KindArray:
 		t, ok := matchTypes(a.element(), b.element())

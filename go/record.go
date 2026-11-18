@@ -430,6 +430,9 @@ func pseudoTypeError(name string) error {
 // table or view can't have (pseudoTypeError).
 func checkStorableColumns(cols []resultColumn) error {
 	for _, c := range cols {
+		if c.Type.Alias == "void" {
+			return stateErrorf(stateTableDefinition, "column %q has pseudo-type void", c.Name)
+		}
 		if c.Type.Kind == KindRecord && !c.Type.namedRecord() {
 			return pseudoTypeError(c.Name)
 		}

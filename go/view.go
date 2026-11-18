@@ -387,6 +387,9 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 		if st.Columns != nil {
 			n = st.Columns[i]
 		}
+		if c.Type.Alias == "void" {
+			return stateErrorf(stateTableDefinition, "column %q has pseudo-type void", n)
+		}
 		if c.Type.Kind == KindRecord && !c.Type.namedRecord() {
 			return pseudoTypeError(n)
 		}

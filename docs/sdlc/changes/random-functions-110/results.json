@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-17",
+  "base": "5b0840ce",
+  "feature_matrix": {
+    "pass": 213,
+    "fail": 0,
+    "infrastructure_errors": 0
+  },
+  "infrastructure_errors": 0,
+  "full_curated_corpus": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "full_infrastructure_errors": 0,
+  "focused_software_race": {
+    "top_level_passes": 9,
+    "failures": 0,
+    "skips": 0
+  },
+  "unit_packages": "passed; integration and optional external Unicode conformance skips expected",
+  "harness_unit_tests": 42,
+  "native_makefile_build": "passed",
+  "source_hashes": {
+    "go/random_functions.go": "0e11574044792ce2a7f23e9cf3d82aafc3659d59d555477105c9c919a6995512",
+    "go/random_functions_test.go": "6d1c705678095bbef5ffe494f5dbc78f0d2035f5b7a46df0a838330983996ebe",
+    "go/random_functions_integration_test.go": "690908566c1f0a6e36ca2286852e3c815c30dafb4de832649ee87a2c331c9f9c",
+    "go/pgdiff/random_functions.py": "9be341b9e4f2c1f67a054828ae1daeb7b76905551627fff80234f0307e181d3f",
+    "go/case_planning.go": "b18b1e0932f4fc8098bd3e03625acb9506ca7e43a4f888c783c42c5454c8c8da"
+  },
+  "matrix_before_shared_case_fix": {
+    "counts": {
+      "pass": 214,
+      "fail": 2
+    },
+    "scored": 216,
+    "pass_rate": 0.9907407407407407
+  },
+  "final_matrix": {
+    "counts": {
+      "pass": 216
+    },
+    "scored": 216,
+    "pass_rate": 1.0
+  },
+  "shared_case_fix": "included; coordinated with #479",
+  "default_definition_timing_issue": 479,
+  "merged_main": "3e4aecfa",
+  "final_main": "8eb98ae0"
+}

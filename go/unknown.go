@@ -415,18 +415,50 @@ func (o opLiteral) typeNext(t ColType) (lt ColType, ok bool, err error) {
 // it reads (called once, if it has such an expression).
 func checkUnknowns(expr Expr, cols func() map[string]ColType, params []ColType) error {
 	var types map[string]ColType
+	// SETSEED introduces logical void through expressions and derived columns.
+	// Gate its extra pseudo-type checks once per expression, not per subtree.
+	hasVoid := containsSetseed(expr)
+	if !hasVoid {
+		hasRef := false
+		walkExpr(expr, func(x Expr) {
+			if _, ok := x.(*ColumnRef); ok {
+				hasRef = true
+			}
+		})
+		if hasRef {
+			types = cols()
+			for _, t := range types {
+				if t.Alias == "void" {
+					hasVoid = true
+					break
+				}
+			}
+		}
+	}
 	var err error
 	walkExprPruned(expr, func(x Expr) bool {
 		if err != nil {
 			return false
 		}
-		if f, ok := x.(*Func); ok && (gcdLCMFunction(f.Name) || unicodeFunction(f.Name) || f.Name == "FACTORIAL") {
+		if b, ok := x.(*Binary); ok && hasVoid {
+			if types == nil {
+				types = cols()
+			}
+			lt, le := inferType(b.L, types, params)
+			rt, re := inferType(b.R, types, params)
+			allowTextConcat := b.Op == "||" && (lt.Kind == KindString && lt.Alias == "" || rt.Kind == KindString && rt.Alias == "")
+			if le == nil && re == nil && !allowTextConcat && (lt.Alias == "void" || rt.Alias == "void") {
+				err = stateErr(stateUndefinedFunction, "operator does not exist: %s %s %s", sigTypeName(lt), b.Op, sigTypeName(rt))
+				return false
+			}
+		}
+		if f, ok := x.(*Func); ok && (gcdLCMFunction(f.Name) || unicodeFunction(f.Name) || randomFunction(f.Name) || f.Name == "FACTORIAL" || hasVoid) {
 			if types == nil {
 				types = cols()
 			}
 			// Casts, IS NULL and other wrappers need not infer their
-			// children's result types. Validate these calls explicitly, including
-			// branches that will never read a row.
+			// children's result types. Validate bound numeric, Unicode and random calls
+			// explicitly, including branches that will never read a row.
 			_, err = inferType(f, types, params)
 			return err == nil
 		}

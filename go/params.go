@@ -151,6 +151,10 @@ func (e *executor) noteParams(expr Expr) {
 						}
 					}
 				}
+			case randomFunction(v.Name):
+				for _, a := range v.Args {
+					c.noteParamOf(a, typeFloat64)
+				}
 			case stringFuncs[v.Name] || unicodeFunction(v.Name):
 				for _, a := range v.Args {
 					c.noteParamOf(a, typeString)

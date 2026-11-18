@@ -388,6 +388,9 @@ func (t ColType) ArrowType() arrow.DataType {
 
 // SQLName returns the SQL type name reported through GetObjects.
 func (t ColType) SQLName() string {
+	if t.Alias == "void" {
+		return "VOID"
+	}
 	if t.Alias == "uuid" {
 		return "UUID"
 	}

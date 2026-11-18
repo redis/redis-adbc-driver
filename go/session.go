@@ -385,6 +385,7 @@ func timeZoneParam(text string) (paramValue, error) {
 
 // session is a connection's settings.
 type session struct {
+	random           sqlRandom
 	sequenceBlocks   map[string]sequenceBlock
 	lastSequenceName TableName
 	sequenceValues   map[string]int64
