@@ -595,6 +595,14 @@ read instead of exposing an older replacement or a partial successful result.
 | 15 minutes per statement/ingest | Includes complete streamed consumption |
 | Two-minute lease, renewed every 30 seconds | Ownership loss fails the operation; expired pins cannot be resurrected |
 
+A late or lost heartbeat reply is an uncertain renewal outcome, not proof that
+the lease expired. Foreground reads and writes still require their server-side
+lease proofs. At the next scheduled heartbeat, an uncertain pin must pass a
+fresh server validation before a new renewal is sent. A native refusal or a
+confirmed expired/missing pin fails the operation; neither validation nor renewal
+can revive an expired token. Each control attempt retains its ten-second bound
+and no-replay transport marker; cancellation and release retain bounded cleanup.
+
 Supported HASH copy/adoption/foreign refresh and SQL maintenance already use the
 bounded native row-image paths, so the old 100,000-HSET guard is not a public
 utility row limit. Streamed private outputs avoid rewriting unchanged TAG/NaN
