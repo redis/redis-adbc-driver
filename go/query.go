@@ -799,9 +799,12 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 			ar.width++
 		}
 	}
-	// Keep full scans on LOAD *: small-fixture measurements favor its single
-	// retrieval stage. Filtered scans fetch live HASHes after index discovery.
-	if meta.Unmanaged && req.where.query != "*" && len(req.sortBy) == 0 && req.ties == nil && req.late == nil {
+	// Wide application HASHes must not ship every field for a narrow full
+	// scan. Search still owns membership; native projected reads retain exact
+	// live values, existence and the all-NULL/ACL fallback. Keep the one-stage
+	// source for broad projections and small schemas.
+	narrowUnmanaged := len(meta.Columns) >= 64 && len(it.need)*2 <= len(meta.Columns)
+	if meta.Unmanaged && (req.where.query != "*" || narrowUnmanaged) && len(req.sortBy) == 0 && req.ties == nil && req.late == nil {
 		it.store, it.unmanagedHashFetch = e.store, true
 		it.unmanagedRead = newUnmanagedProjectionRead(e.store, meta, it.need)
 		ar.load, ar.loadAll, ar.hashFetch = []string{"__key"}, false, true
@@ -2362,6 +2365,9 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 // driverAggregate fetches the needed columns from the row HASHes and reduces
 // them in the driver.
 func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, error) {
+	if groups, handled, err := e.unmanagedCountDistinct(ctx, plan, wp, aggs, params); handled {
+		return groups, err
+	}
 	if e.gpu != nil {
 		return e.serialDriverAggregate(ctx, plan, wp, aggs, params)
 	}

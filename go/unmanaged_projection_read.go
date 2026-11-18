@@ -5,6 +5,7 @@ package redis
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -17,6 +18,7 @@ type unmanagedProjectionRead struct {
 	fields             []string
 	bytes              int  // conservative encoded HMGET request bytes excluding its key
 	prepared, fallback bool // scan-local: never cache application permissions
+	workers            int  // aggregate-only grant; disjoint chunks of one owned page
 }
 
 func newUnmanagedProjectionRead(s *store, meta *tableMeta, need map[string]bool) *unmanagedProjectionRead {
@@ -110,6 +112,9 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 			return nil, errorf(adbc.StatusInvalidArgument, "unmanaged index contains a key overlapping driver storage")
 		}
 	}
+	if workers := min(r.workers, (len(keys)+pipelineChunk-1)/pipelineChunk); workers > 1 {
+		return r.parallelRead(ctx, keys, workers)
+	}
 	if r.fallback || len(r.fields) == 0 {
 		return r.native(ctx, keys)
 	}
@@ -160,6 +165,59 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 			break
 		}
 	}
+	return out, nil
+}
+
+// Each native request observes a disjoint portion of an already discovered
+// page. Join every worker before returning an error or releasing admission;
+// neither an uncertain request nor any successful sibling is replayed.
+func (r *unmanagedProjectionRead) parallelRead(ctx context.Context, keys []string, workers int) ([]aggRow, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	jobs := make(chan int, (len(keys)+pipelineChunk-1)/pipelineChunk)
+	for start := 0; start < len(keys); start += pipelineChunk {
+		jobs <- start
+	}
+	close(jobs)
+	out := make([]aggRow, len(keys))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var first error
+	denied := false
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			local := *r
+			local.workers = 0
+			for start := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				end := min(start+pipelineChunk, len(keys))
+				rows, err := local.read(ctx, keys[start:end])
+				mu.Lock()
+				denied = denied || local.fallback
+				if err != nil && first == nil {
+					first = err
+					cancel()
+				}
+				mu.Unlock()
+				if err != nil {
+					return
+				}
+				copy(out[start:end], rows)
+			}
+		}()
+	}
+	wg.Wait()
+	if first != nil {
+		return nil, first
+	}
+	if err := cancelled(ctx); err != nil {
+		return nil, err
+	}
+	r.prepared, r.fallback = true, denied
 	return out, nil
 }
 

@@ -75,10 +75,30 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 	if err != nil {
 		return true, err
 	}
-	defer it.close(ctx)
+	grant := 0
+	defer func() {
+		it.close(ctx)
+		if grant > 0 && e.workerBudget != nil {
+			e.workerBudget.release(grant)
+		}
+	}()
 	p := newScanProjection(it, items)
 	if p == nil {
 		return false, nil
+	}
+	if it.unmanagedRead != nil && it.unmanagedHashFetch {
+		workers := min(effectiveQueryWorkers(e.queryWorkers), (wideFetchChunk+pipelineChunk-1)/pipelineChunk)
+		if e.workerBudget != nil {
+			grant, err = e.workerBudget.acquireBounded(ctx, e.queryWorkers, workers)
+			if err != nil {
+				return true, cancelled(ctx)
+			}
+			workers = grant
+		}
+		it.unmanagedRead.workers = workers
+		if e.workerGrant != nil {
+			e.workerGrant.Store(int64(workers))
+		}
 	}
 	it.projection = p
 	if e.diagnostics != nil && !e.diagnostics.metricsOnly {

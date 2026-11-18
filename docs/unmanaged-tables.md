@@ -216,9 +216,15 @@ and SQL rechecks the complete predicate against current HASH values. Other
 attribute types and text encodings retain client evaluation. Source indexing lag
 can affect predicate candidate discovery as well as membership. Vanished/non-HASH
 keys are skipped when fetching live HASHes after discovery.
-Unfiltered full scans retain `LOAD *`; filtered unordered scans can fetch live
-HASHes after Search key discovery. Sorting and value aggregates do not trust
-mutable index values.
+Filtered unordered scans fetch live HASHes after Search key discovery. Narrow
+unordered full scans do the same when the table has at least 64 columns and
+needs at most half of them; broader projections and smaller schemas retain
+`LOAD *`. Sorting and value aggregates do not trust mutable index values.
+Single-column `COUNT(DISTINCT column)` can stream exact equality keys through a
+bounded external merge. Set `TMPDIR` to storage with enough free space; disk
+errors fail the query. This path omits NULLs and preserves exact BIGINT and
+binary-safe string equality without a cardinality-sized distinct set. See
+[the change contract and validation](sdlc/changes/unmanaged-wide-aggregates/spec.md).
 A query mixing managed and unmanaged tables retains managed generations but
 does not acquire a common point-in-time view of all data.
 
@@ -281,14 +287,17 @@ exclusions.
 
 See [implementation and live validation](sdlc/changes/flex-unmanaged/validation.md).
 
-Filtered reads can fetch only required HASH fields with native HMGET after Search
-discovers keys. A non-NULL selected value, including an empty string, proves the
+Filtered reads and narrow full scans of wide schemas can fetch only required
+HASH fields with native HMGET after Search discovers keys. A non-NULL selected
+value, including an empty string, proves the
 HASH existed at that atomic native read. If every selected field is NULL, a
 fresh HGETALL supplies the complete later live image or omits a now missing or
 non-HASH key. This does not mix fields from two observations or provide a
 statement snapshot; SQL still rechecks its existing residual predicate.
 
-Full scans retain their established retrieval strategy. HMGET permission enables
+Typed aggregate scans may fetch disjoint chunks of a discovered page concurrently,
+within the shared query worker budget. All fetches finish before the scan returns
+or releases its grant; reduction retains source-page order. HMGET permission enables
 selected-field acceleration; an exact native command/key-permission refusal retains
 the existing HGETALL path. No TYPE/HSTRLEN or Lua permissions are needed, and
 large source values avoid an extra Lua copy. Requests retain bounded field and
