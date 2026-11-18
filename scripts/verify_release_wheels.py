@@ -38,8 +38,7 @@ def verify(args):
             metadata_path, = [n for n in z.namelist() if n.endswith('.dist-info/METADATA')]
             metadata = email.message_from_bytes(z.read(metadata_path))
             assert metadata['Name'] == 'adbc-driver-redis' and metadata['Version'] == version
-            assert {'dbapi', 'sqlalchemy', 'dagster'} <= set(metadata.get_all('Provides-Extra', []))
-            assert any(n.endswith('adbc_driver_redis/superset.py') for n in z.namelist())
+            assert {'dbapi', 'sqlalchemy'} <= set(metadata.get_all('Provides-Extra', []))
             assert any(n.endswith('adbc_driver_redis/sqlalchemy.py') for n in z.namelist())
         check_wheel(wheel)
         verified.append(wheel)

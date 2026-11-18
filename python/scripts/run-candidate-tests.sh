@@ -19,10 +19,6 @@ fi
 if [[ $# == 0 || ( $# == 1 && "${1:-}" == all ) ]]; then
   exec "$repo_root/python/scripts/run-all-native-candidates.sh"
 fi
-# TLS owns a fresh Software fixture and must never fall through to plaintext.
-if [[ $# == 1 && "$1" == ray-tls ]]; then
-  exec "$repo_root/python/scripts/run-ray-tls-candidates.sh"
-fi
 test_names="$(python3 "$repo_root/python/scripts/integration_registry.py" tests "$@")"
 tests=()
 while IFS= read -r test_file; do tests+=("$test_file"); done <<< "$test_names"
@@ -49,11 +45,6 @@ export REDIS_URI="redis://127.0.0.1:${SOFTWARE_DB_PORT}/0"
 export REDIS_ADBC_LIBRARY="$repo_root/go/build/libadbc_driver_redis.${driver_extension}"
 export PYTHONPATH="$repo_root/python${PYTHONPATH:+:$PYTHONPATH}"
 export RUN_DUCKDB_TESTS=1
-export RUN_AIRFLOW_TESTS=1
-export RUN_RAY_TESTS=1
-export RUN_SUPERSET_TESTS=1
-export PREFECT_SERVER_ANALYTICS_ENABLED=false
-export PREFECT_LOGGING_LEVEL=ERROR
 
 pytest_args=(-q -ra)
 if [[ -n "${CANDIDATE_JUNIT_XML:-}" ]]; then

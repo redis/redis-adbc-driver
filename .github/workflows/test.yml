@@ -36,7 +36,6 @@ on:
       - scripts/test_device_staging.c
       - scripts/test_acceptance_runner.py
       - scripts/test_integration_registry.py
-      - scripts/test_candidate_tls_runner.py
       - .github/workflows/acceptance.yml
       - .github/actions/build-adbc-scanner/**
       - .github/actions/duckdb-build-cache/**
@@ -111,10 +110,9 @@ jobs:
         run: python3 -m unittest discover -s scripts -p test_ci_test_matrix.py -v
       - name: Check parallel CI isolation and required gates
         run: python3 -m unittest discover -s scripts -p test_ci_parallel_suites.py -v
-      - name: Check integration registry and TLS runner lifecycle
+      - name: Check integration registry
         run: |
           python3 -m unittest discover -s scripts -p test_integration_registry.py -v
-          python3 -m unittest discover -s scripts -p test_candidate_tls_runner.py -v
       - name: Check upstream acceptance runner
         run: python3 -m unittest discover -s scripts -p test_acceptance_runner.py -v
       - name: Check cluster readiness gate
@@ -451,51 +449,11 @@ jobs:
           ADBC_SCANNER_EXTENSION: ${{ steps.scanner.outputs.extension }}
           QUERY_FARM_TELEMETRY_OPT_OUT: '1'
           RUN_DUCKDB_TESTS: '1'
-          PREFECT_SERVER_ANALYTICS_ENABLED: 'false'
-          PREFECT_HOME: /tmp/redis-prefect-home
         run: |
           /tmp/redis-python-tests/bin/python -m pytest -q python/tests/
           for tool in pandas polars sqlalchemy pyarrow; do
             /tmp/redis-python-tests/bin/python python/scripts/check_integration_guide.py "$tool" --require-read-write
           done
-
-      - name: Ray worker datasource
-        if: matrix.arch == 'amd64' && matrix.environment == 'software-cluster'
-        env:
-          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-          RUN_RAY_TESTS: '1'
-          REQUIRE_RAY_TLS: '1'
-          RAY_USAGE_STATS_ENABLED: '0'
-        run: |
-          uv venv --python 3.14 /tmp/redis-ray-tests
-          uv pip install --python /tmp/redis-ray-tests/bin/python './python[ray-tests]'
-          # The Software fixture verified this CA; require the worker trust
-          # check instead of silently skipping it with an empty db_options.
-          : "${SSL_CERT_FILE:?verified Software fixture must provide its CA}"
-          test -s "$SSL_CERT_FILE"
-          export REDIS_TLS_CA_FILE="$SSL_CERT_FILE"
-          /tmp/redis-ray-tests/bin/python -m pytest -q python/tests/test_ray_datasource.py
-
-      - name: Airflow integration
-        if: matrix.arch == 'amd64' && matrix.environment == 'software-cluster'
-        env:
-          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-          AIRFLOW_HOME: /tmp/redis-airflow-home
-        run: |
-          uv venv --python 3.14 /tmp/redis-airflow-tests
-          uv pip install --python /tmp/redis-airflow-tests/bin/python \
-            './python[airflow-tests]'
-          /tmp/redis-airflow-tests/bin/python -m pytest -q python/tests/test_airflow_hook.py
-
-      - name: dlt integration on Redis Software
-        if: matrix.environment == 'software-cluster'
-        env:
-          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-          RUNTIME__DLTHUB_TELEMETRY: 'false'
-        run: |
-          uv venv --python 3.14 /tmp/redis-dlt-tests
-          uv pip install --python /tmp/redis-dlt-tests/bin/python './python[dlt]' pytest
-          /tmp/redis-dlt-tests/bin/python -m pytest -q python/tests/test_dlt.py
 
       - name: Redis logs on failure
         if: failure()
@@ -531,4 +489,4 @@ jobs:
             fi
           done
 
-  # Superset 6.1 is unsupported on Python 3.14+; restoration is tracked in #471.
+  # Framework adapters are tested in Redislabs-Solution-Architects/redis-adbc-integrations.

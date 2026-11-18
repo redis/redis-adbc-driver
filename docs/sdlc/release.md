@@ -1,5 +1,13 @@
 # Release and recovery runbook
 
+## Independent integrations (2026-11-18)
+
+The [native DuckDB extension](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb) and
+[Python framework adapters](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations) own their build, tests and releases.
+Driver releases no longer wait for or publish their artifacts. The publication
+validator checks the core wheel without requiring framework modules or extras.
+The dated workflow descriptions below describe the pipeline before extraction.
+
 ## Automatic integration distributions (2026-11-01)
 
 See the [50-tool installation matrix](../integration-installation.md) and

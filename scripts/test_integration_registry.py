@@ -62,8 +62,7 @@ class InventoryTests(unittest.TestCase):
                     self.assertEqual(len(function), 1)
                     self.assertIn(function[0], {n.name for n in tree.body
                                                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))})
-        self.assertEqual(registry.PROFILES["ray-tls"].guides, ())
-        self.assertEqual(registry.CANDIDATES["ray-tls"], ())
+        self.assertNotIn("ray-tls", registry.CANDIDATES)
 
     def test_distinct_aliases_and_environments_remain_explicit(self):
         for profile, guide, alias in (("workflows", "huggingface-datasets", "datasets"),
@@ -74,7 +73,7 @@ class InventoryTests(unittest.TestCase):
             self.assertIn(alias, registry.PROFILES[profile].candidates)
             self.assertNotIn(guide, registry.CANDIDATES)
         self.assertIn("rstudio", registry.PROFILES["documents"].guides)
-        self.assertEqual(registry.PROFILES["airflow"].python, "3.14")
+        self.assertIn("airflow", registry.MOVED_GUIDES)
         self.assertEqual(registry.PROFILES["dbt"].python, "3.14")
         self.assertNotIn("superset", registry.PROFILES)
         self.assertIn("unsupported", registry.UNSUPPORTED_GUIDES["superset"])
@@ -206,7 +205,7 @@ echo '<testsuite><testcase/></testsuite>' > "$CANDIDATE_JUNIT_XML"
         self.assertEqual([Path(v[-1]).name for v in venvs], list(registry.PROFILES))
         self.assertEqual([v[3] for v in venvs], [p.python for p in registry.PROFILES.values()])
         pytest = [e for e in invocations if "pytest" in e]
-        self.assertEqual(len(pytest), len(registry.PROFILES) - 1)
+        self.assertEqual(len(pytest), len(registry.PROFILES))
         for i, line in enumerate(events):
             if line.startswith("{") and "pytest" in json.loads(line):
                 self.assertTrue(events[i - 2].endswith("redis-up"))
@@ -224,7 +223,7 @@ echo '<testsuite><testcase/></testsuite>' > "$CANDIDATE_JUNIT_XML"
         self.assertTrue(any("redis-dbt-adapter.git@" in " ".join(args) for args in installs))
         self.assertIn("Rscript", events)
         self.assertIn("kestra-prepare", events)
-        self.assertEqual(events.count("ray-tls-owned"), 1)
+        self.assertEqual(events.count("ray-tls-owned"), 0)
         self.assertEqual(sum(e.endswith("redis-up") for e in events), len(pytest))
         summary = json.loads((self.results / "summary.json").read_text())
         self.assertEqual(list(summary), list(registry.PROFILES))

@@ -186,7 +186,7 @@ DETACH r;
 
 Use your client’s parameter support for credentials. See [DuckDB setup](duckdb.md)
 for telemetry settings, writes, schema names and version limits. The standalone
-[`redis_adbc` extension](../duckdb-extension/README.md) embeds the driver and needs
+[`redis_adbc` extension](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/blob/main/README.md) embeds the driver and needs
 no manifest, and supports SELECT only. Its registry submission has merged; consult the
 extension guide for the current DuckDB version and build/distribution requirements.
 Do not assume its commands are interchangeable with `adbc_scanner`.

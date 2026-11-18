@@ -1,15 +1,9 @@
-# Apache Superset integration status
+# Superset
 
-Superset 6.1 is unsupported under this project's Python 3.14-or-newer policy.
-It requires PyArrow below 19, which has no usable CPython 3.14 wheels on the
-checked Linux platform. The older Python environment, integration extra and
-supported CI/profile entry have been removed.
+The Superset adapter, examples, installation instructions and tests moved to
+[redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md).
 
-[Issue #471](https://github.com/redis/redis-adbc-driver/issues/471) tracks upstream dependency support and restoration.
-Upstream discussion: [Superset SIP-234](https://github.com/apache/superset/issues/45019).
-The proposal's closed status does not prove a compatible released dependency set.
+The engine plugin now lives in the `redis_adbc_integrations` namespace.
+See the destination README for its dependency blocker and requalification status.
 
-A future supported Superset release must resolve/install on Python 3.14+ without
-dependency overrides and pass the real application, dataset/chart and SQL Lab
-checks against verified Redis Software. Historical test records retain their
-actual runtimes; they do not establish current support.
+Superset 6.1 remains unsupported on Python 3.14+; see [the blocker](https://github.com/redis/redis-adbc-driver/issues/471).

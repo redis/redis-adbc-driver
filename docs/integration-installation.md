@@ -6,6 +6,10 @@ for configuration, dependencies and read/write limits. A driver installation
 supplies the SQL/Arrow client; custom task/model code and separate connectors keep
 their documented scope. Redis with Search is installed separately.
 
+Framework adapters now live in [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations).
+Use its source-install instructions until a release is published; those extras
+are no longer part of the core driver wheel.
+
 ## Per-tool installation
 
 For Python rows, install the listed distribution(s) with `python -m pip install`
@@ -24,19 +28,19 @@ environment. Use Python 3.14 for current integrations; the package minimum is 3.
 | 5 | scikit-learn | `adbc-driver-redis[dbapi]` + `numpy scikit-learn` | Custom array/model input and output code; no database backend registered. [Guide](integrations/scikit-learn.md). |
 | 6 | PyTorch | `adbc-driver-redis[dbapi]` + `numpy torch` | Use the framework’s CPU/GPU distribution for the host; driver wheels are independent of CUDA. [Guide](integrations/pytorch.md). |
 | 7 | TensorFlow | `adbc-driver-redis[dbapi]` + `numpy tensorflow` | Install in training/inference processes; follow TensorFlow platform constraints. [Guide](integrations/tensorflow.md). |
-| 8 | Apache Airflow | `adbc-driver-redis[airflow]` under Airflow constraints | Install in Airflow services and workers; use redis_adbc connections and autocommit=True for SQL operators. [Guide](integrations/airflow.md). |
+| 8 | Apache Airflow | `redis-adbc-integrations[airflow]` (separate source install) under Airflow constraints | Install in Airflow services and workers; use redis_adbc connections and autocommit=True for SQL operators. [Guide](integrations/airflow.md). |
 | 9 | Polars | `adbc-driver-redis[polars]` | Use URI ADBC mode or an open Redis DB-API connection. [Guide](integrations/polars.md). |
 | 10 | dbt | Separate Redis adapter + `adbc-driver-redis[dbapi]` for Core v1 | The adapter has its own repository/release; experimental v2 requires a custom engine and native driver. [Guide](integrations/dbt.md). |
 | 11 | Apache Kafka / Kafka Connect | Separate Redis Kafka connector, or evaluate Flight SQL/JDBC | Install connector/JDBC JARs in every Connect worker; native ADBC wheels cannot serve as JARs. [Guide](data-engineering-adbc-support.md). |
 | 12 | Apache Flink | Separate Redis Flink connector, or evaluate Flight SQL/JDBC | Install Java connector artifacts in the Flink runtime; separate connector release ownership. [Guide](data-engineering-adbc-support.md). |
 | 13 | Apache Beam | `adbc-driver-redis` + `apache-beam>=2.77,<3` | Use the guide’s compatible Arrow environment in every Python SDK worker; custom DoFn. [Guide](integrations/beam.md). |
 | 14 | Trino | Separate Redis SQL Trino connector | Install the connector’s Java plugin; this ADBC library is not a Trino plugin. [Guide](data-engineering-adbc-support.md). |
-| 15 | Dask | `adbc-driver-redis[dask]` | Install matching versions on scheduler/client and every worker that opens a connection. [Guide](integrations/dask.md). |
-| 16 | Ray / Ray Data | `adbc-driver-redis[ray]` | Use a worker image/runtime environment with the wheel, matching Ray and private-CA configuration. [Guide](integrations/ray.md). |
+| 15 | Dask | `redis-adbc-integrations[dask]` (separate source install) | Install matching versions on scheduler/client and every worker that opens a connection. [Guide](integrations/dask.md). |
+| 16 | Ray / Ray Data | `redis-adbc-integrations[ray]` (separate source install) | Use a worker image/runtime environment with the wheel, matching Ray and private-CA configuration. [Guide](integrations/ray.md). |
 | 17 | Apache NiFi | Evaluate Flight SQL JDBC with JDBC processors | Separate Flight SQL server and JDBC driver required; no packaged native ADBC processor. [Guide](data-engineering-adbc-support.md). |
 | 18 | Airbyte | Build/register the separate proposed Redis ADBC source image | The source proposal pins its driver wheel; the Airbyte registry and image releases are separate. [Guide](data-engineering-adbc-support.md#airbyte-redis-adbc-source). |
 | 19 | Fivetran | `adbc-driver-redis[dbapi]` + `fivetran-connector-sdk` | Include in a custom SDK source deployment; local harness coverage does not establish hosted deployment. [Guide](integrations/fivetran.md). |
-| 20 | dlt | `adbc-driver-redis[dlt]` | Use the shipped custom destination; install in pipeline execution environments. [Guide](integrations/dlt.md). |
+| 20 | dlt | `redis-adbc-integrations[dlt]` (separate source install) | Use the shipped custom destination; install in pipeline execution environments. [Guide](integrations/dlt.md). |
 | 21 | SQLAlchemy | `adbc-driver-redis[sqlalchemy]` | Dialect entry points install with the wheel; use redis+adbc:// or rediss+adbc://. [Guide](integrations/sqlalchemy.md). |
 | 22 | Apache Arrow PyArrow | `adbc-driver-redis[dbapi]` | Use the bundled driver through DB-API; no manifest needed for package imports. [Guide](integrations/pyarrow.md). |
 | 23 | R / DBI | Managed native driver + CRAN `DBI`, `adbi`, `adbcdrivermanager` | Load the installed library in the R session; no Python package environment needed by R. [Guide](integrations/r-dbi.md). |
@@ -50,8 +54,8 @@ environment. Use Python 3.14 for current integrations; the package minimum is 3.
 | 31 | Tableau | Custom connector/Flight SQL JDBC candidate | No packaged Tableau ADBC connector supplied; installing this library does not register a Tableau source. [Guide](data-engineering-adbc-support.md). |
 | 32 | Apache Superset | Version 6.1 is unsupported on Python 3.14+ | [Upstream dependency blocker #471](https://github.com/redis/redis-adbc-driver/issues/471). |
 | 33 | Metabase | Custom Java database driver/connector required | No packaged Metabase driver supplied; a wheel cannot become a Metabase JDBC plugin. [Guide](data-engineering-adbc-support.md). |
-| 34 | Dagster | `adbc-driver-redis[dagster]` | Install in code locations and execution workers; add pandas/Polars only for those asset types. [Guide](integrations/dagster.md). |
-| 35 | Prefect | `adbc-driver-redis[prefect]` | Install in task execution images; open connections inside task processes. [Guide](integrations/prefect.md). |
+| 34 | Dagster | `redis-adbc-integrations[dagster]` (separate source install) | Install in code locations and execution workers; add pandas/Polars only for those asset types. [Guide](integrations/dagster.md). |
+| 35 | Prefect | `redis-adbc-integrations[prefect]` (separate source install) | Install in task execution images; open connections inside task processes. [Guide](integrations/prefect.md). |
 | 36 | Mage | `adbc-driver-redis` + the guide’s Mage-compatible dependencies | Keep Mage in its documented separate environment; custom loader/transformer blocks. [Guide](integrations/mage.md). |
 | 37 | Kestra | Driver wheel + Python Script task dependencies from the guide | Install inside the task container/interpreter; the server’s Python environment is insufficient. [Guide](integrations/kestra.md). |
 | 38 | Ibis | `adbc-driver-redis` + the guide’s Ibis/Arrow constraints | Custom Arrow memtable on a local backend; no Redis Ibis backend or automatic pushdown. [Guide](integrations/ibis.md). |
@@ -97,7 +101,8 @@ excludes storage products. For catalogs and writes, use the native driver with
 `redis_adbc` community extension where a matching registry build is available.
 The community submission has merged; publication is managed by the registry.
 
-As a fallback, release CI now packages the existing tested extension for DuckDB
+As a fallback, [the standalone extension repository](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/releases)
+packages extension releases independently for DuckDB
 **2.0.0**, Linux amd64/arm64 and macOS arm64, named
 `redis_adbc-<tag>-duckdb-v2.0.0-<target>.tar.gz`. Verify the adjacent SHA-256 and
 extract the matching version/platform; `DUCKDB_VERSION` and `DUCKDB_PLATFORM`
@@ -113,14 +118,16 @@ SELECT * FROM redis_adbc_scan('redis://localhost:6379/0', 'SELECT 1 AS one');
 The extension includes its driver/Go runtime and needs no separate manifest or
 wheel. Linux extension builds use Ubuntu 24.04; the native library’s glibc 2.28
 promise does not apply to these extension binaries. Match the build runtime or
-build from source. See [extension details](../duckdb-extension/README.md).
+build from source. See [extension details](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/blob/main/README.md).
 
 ## What future releases automate
 
 Publishing a GitHub release builds/tests the existing native libraries, CLI,
-Python wheels, flat dbc archives/catalog and standalone DuckDB extension. Asset
-upload waits for the current native/platform/wheel-client and DuckDB gates,
+Python wheels and flat dbc archives/catalog. Asset
+upload waits for the current native/platform/wheel-client gates,
 then attaches versioned files and the checksummed managed installer.
+The native DuckDB extension and framework adapters have independent repositories
+and release pipelines; driver releases do not rebuild them.
 
 A successful `Release binaries` run triggers `publish-pypi.yml` automatically.
 The publisher reads the completed release tag artifact, rejects PR/unrelated or

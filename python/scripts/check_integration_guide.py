@@ -43,7 +43,7 @@ def main():
     os.environ["PYTHONPATH"] = os.pathsep.join((str(root / "python/examples"), str(root / "python"),
                                               os.environ.get("PYTHONPATH", "")))
     os.environ["PATH"] = str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"]
-    if args.tool in {"dagster", "dask", "airflow", "superset", "dbt", "duckdb"}:
+    if args.tool in {"dbt", "duckdb"}:
         from guide_checks import check_linked_workflow
         check_linked_workflow(args.tool, root)
         print(json.dumps({"guide": args.tool, "status": "passed"}))
