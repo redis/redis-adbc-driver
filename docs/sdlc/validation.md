@@ -53,30 +53,28 @@ to the built library. Format changed Go files with `gofmt`; no `make lint` exist
 
 ## CI facts
 
-[Test](../../.github/workflows/test.yml) runs on PRs matching its path filters:
-driver files, selected benchmark directories and that workflow. Root guide-only
-edits do not match those filters. Routine PRs run Go, ADBC validation and
-reflection on amd64 Software single shard and OSS three-shard Cluster API.
-Python analytics integrations, Superset, partition smoke and the standalone TLS
-fixture run on Software single shard for these PRs. Helper checks run once in
-a separate job rather than repeating in each environment.
+[Test](../../.github/workflows/test.yml) runs on matching PRs and nightly,
+release and manual events. The complete PR diff selects amd64 for routine changes
+and amd64/arm64 for sensitive changes; non-PR events retain both architectures.
+Each architecture runs three ordinary Go shards, four snapshot race shards,
+C bridge ownership checks, native ADBC/RBAC/TLS validation and core Python
+integrations independently. Every mutating job owns a separate Software fixture
+and verifies active 4x QPF before tests. Packages remain sequential within a shard.
 
-[The coverage selector](../../scripts/ci_test_matrix.py) examines the complete
-PR base-to-head diff. Connection, storage, clustering, partition, TLS, ACL,
-timeout, dependency and test-infrastructure changes expand to all eight
-combinations: amd64/arm64 with Software single/three-shard and OSS
-single/three-shard, all with Search. In the full matrix, the integration checks
-use OSS single shard as before. Diff errors fail selection rather than silently
-reducing coverage. Add new sensitive files to the selector when introducing them.
+[The shard runner](../../scripts/ci_go_suites.py) discovers current test names
+using Go and distributes them with historical timing hints. New tests are always
+included. Ordinary shards preserve the full previous suite; snapshot shards
+preserve `-run Snapshot` with `-race`. The runner retains `-count=1`, `-p 1` and
+30-minute package timeouts. Each original Linux aggregate check requires every
+job to pass and verifies complete disjoint shard reports. Skips are reported;
+they do not establish compatibility. See the [scheduling record](changes/core-ci-shards/validation.md)
+for baseline timings and actual measurements.
 
-The full matrix also runs nightly at 09:17 UTC, on published releases and on
-manual dispatch. To validate a driver release candidate before publication, manually
-run Test against its branch or tag. Publication triggers checks; it does not wait
-for them as an approval gate.
-
-The [native DuckDB extension](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb) owns its build, SQLLogicTests,
-runtime validation and releases. This repository retains the independent Python
-ADBC scanner integration. [Framework adapters](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations) own their tests and releases.
+The native DuckDB extension and Python framework adapters have independent
+repositories and release pipelines; this workflow retains the upstream
+`adbc_scanner` integration. To validate a driver release candidate, manually
+run Test against its branch or tag. A published release triggers checks rather
+than waiting for them as an approval gate.
 
 [Release binaries](../../.github/workflows/release.yml) retains its full build
 and platform validation for releases, manual rebuilds and PRs changing release

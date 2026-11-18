@@ -31,6 +31,8 @@ class MatrixTests(unittest.TestCase):
             "go/validation/tests/test_partitions_retained.py",
             ".github/workflows/test.yml", "scripts/ci_test_matrix.py",
             "scripts/test_ci_parallel_suites.py",
+            "scripts/ci_go_suites.py", "scripts/ci_go_timings.json",
+            "scripts/test_ci_go_suites.py",
             "scripts/no_result_lifecycle.py",
         ):
             with self.subTest(path=path):
