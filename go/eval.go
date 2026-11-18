@@ -1370,6 +1370,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		if err := unicodeCallError(x, args); err != nil {
 			return ColType{}, err
 		}
+		if err := factorialCallError(x, args); err != nil {
+			return ColType{}, err
+		}
 		if err := minScaleCallError(x, args); err != nil {
 			return ColType{}, err
 		}

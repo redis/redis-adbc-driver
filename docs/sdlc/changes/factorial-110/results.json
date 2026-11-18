@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-17",
+  "base": "5b0840ce",
+  "independent_matrix": {
+    "counts": {
+      "pass": 126,
+      "unsupported": 4
+    },
+    "scored": 126,
+    "pass_rate": 1.0
+  },
+  "total_matrix_cases": 130,
+  "infrastructure_errors": 0,
+  "full_corpus": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "full_infrastructure_errors": 0,
+  "software_focused_race": {
+    "top_level_passes": 5,
+    "failures": 0,
+    "skips": 0
+  },
+  "go_unit_packages": "passed; endpoint integrations and optional external Unicode-vector test skip as expected",
+  "harness_tests": 42,
+  "native_makefile_build": "passed",
+  "representation": {
+    "arrow": "decimal256(76,0)",
+    "exact_nonnegative_input_max": 56,
+    "first_unrepresentable_factorial_digits": 77,
+    "postgres_nonnegative_input_max": 32177
+  },
+  "source_hashes": {
+    "go/factorial.go": "694569a3d2028b17799f30582150b334d2918c74ab288634e555f816fa844536",
+    "go/factorial_test.go": "a4ed7e0245cb2aca5350df4870c2d4e8bb3e353e9633ae10340a026601baae36",
+    "go/factorial_integration_test.go": "0af641c2c65d702aede2d8e9b7b65f48cca4d4a2378f4b83a7e2041a92190b76",
+    "go/pgdiff/factorial.py": "f828fecc16f500a6860ec4d2ea819db58689a224913c9b359baadb062fc3fde7"
+  }
+}

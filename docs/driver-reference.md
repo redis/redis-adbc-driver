@@ -3255,6 +3255,14 @@ allow otherwise streamable queries to stream.
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,
   `LOG10`, `EXP`, `SIGN`, `ABS`, `PI()`, `RANDOM()`
+  - `FACTORIAL(bigint)` returns an exact `NUMERIC(76,0)` (Arrow decimal256).
+    Smallint/integer inputs widen to bigint; unknown quoted literals use bigint
+    input syntax. Typed numeric, floating and text arguments give `42883`, even
+    when NULL. Integer NULL gives numeric NULL. Values 0 through 56 are exact;
+    negatives give `22003`. Results above 56! exceed this driver's 76-digit
+    numeric representation and give `22003`: PostgreSQL accepts through 32177!,
+    so this remains an explicit compatibility limit under
+    [#110](https://github.com/redis/redis-adbc-driver/issues/110).
   - `MIN_SCALE(numeric)` returns the minimum fractional digits needed to
     represent a finite value, as an `INTEGER` (Arrow int32):
     `MIN_SCALE(1.23000)` is 2, and zero/integer values return 0. Integer
@@ -3312,16 +3320,22 @@ allow otherwise streamable queries to stream.
     bare keyword. Use `pg_catalog.normalize(text, form_text)` for a dynamic text
     form; form names are case-insensitive. Long combining sequences preserve
     their characters without inserting stream-safe separators.
+  - `text IS [NOT] [NFC | NFD | NFKC | NFKD] NORMALIZED` tests Unicode 16
+    normalization and returns BOOLEAN (Arrow boolean). NFC is the default;
+    NOT negates the result while preserving NULL. The ordinary function
+    `IS_NORMALIZED(text [, form_text])` accepts case-insensitive form names,
+    including a dynamic text form. It shares NORMALIZE's text signatures,
+    fixed CHAR coercion and Unicode version/long-sequence behavior.
   - `UNISTR(text)` decodes `\XXXX`, `\+XXXXXX`, `\uXXXX` and `\UXXXXXXXX`
     Unicode escapes, adjacent UTF-16 surrogate pairs and `\\` for a literal
     backslash. It leaves ordinary Unicode characters intact and does not
     rescan decoded characters. Malformed escapes/pairs give `42601`;
     zero/out-of-range code points give `22023`.
-  - Both Unicode functions return text (Arrow string), preserve NULL and take
+  - `NORMALIZE` and `UNISTR` return text (Arrow string), preserve NULL and take
     fixed CHAR values without trailing padding. Incompatible typed arguments,
     including typed NULLs, give `42883`; invalid normalization forms give
-    `22023`. Unreachable CASE value errors stay unevaluated. `IS NORMALIZED`
-    is outside this implementation. General DEFAULT evaluation timing remains
+    `22023`. Unreachable CASE value errors stay unevaluated. General DEFAULT
+    evaluation timing remains
     tracked in [#479](https://github.com/redis/redis-adbc-driver/issues/479).
   - `REGEXP_REPLACE(s, pattern, replacement [, start [, n]] [, flags])`
     replaces the first match, or all of them with flag `g`; with Postgres

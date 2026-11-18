@@ -22,7 +22,7 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 		return typeInt32, true
 	case "TO_NUMBER":
 		return decimalType(76, 16), true
-	case "DIV":
+	case "DIV", "FACTORIAL":
 		return decimalType(76, 0), true
 	case "GCD", "LCM":
 		if len(args) >= 2 {
@@ -45,7 +45,7 @@ func pg18ScalarType(name string, args []ColType) (ColType, bool) {
 		return args[0], true
 	case "PG_INPUT_ERROR_INFO":
 		return inputErrorType(), true
-	case "__OVERLAPS", "PG_INPUT_IS_VALID", "ISFINITE":
+	case "__OVERLAPS", "PG_INPUT_IS_VALID", "ISFINITE", "IS_NORMALIZED":
 		return typeBool, true
 	case "CHR", "TRANSLATE", "ENCODE", "QUOTE_LITERAL", "QUOTE_NULLABLE":
 		return typeString, true
@@ -81,6 +81,9 @@ func pg18Scalar(f *Func, args []Value, z tzZone) (Value, error) {
 	}
 	if unicodeFunction(f.Name) {
 		return pgUnicode(f, args)
+	}
+	if f.Name == "FACTORIAL" {
+		return pgFactorial(f, args[0], z)
 	}
 	if f.Name == "MIN_SCALE" {
 		return pgMinScale(f, args[0])
