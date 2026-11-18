@@ -2160,10 +2160,17 @@ allow otherwise streamable queries to stream.
   - The default is checked when it is defined: it may not read columns or
     use subqueries, parameters, aggregates, `GROUPING` or window functions,
     its function calls are checked as in a query (`DEFAULT nosuchfunc(NULL)`
-    is `function nosuchfunc(unknown) does not exist`), and it must convert
-    to the column's type and fit its length (`INTEGER DEFAULT 'abc'` and
-    `VARCHAR(3) DEFAULT 'abcd'` are errors then).
-    `DEFAULT NULL` is the same as no default.
+    is `function nosuchfunc(unknown) does not exist`), and its result type
+    must be assignable to the column. Unknown string literals and explicit
+    typed literals are parsed then (`INTEGER DEFAULT 'abc'` is an error).
+    Computed value errors, numeric precision/width and string-length checks
+    are deferred: `INTEGER DEFAULT 1/0` and `VARCHAR(3) DEFAULT 'abcd'` can be
+    defined and fail when their default is used. Explicit values or NULLs
+    bypass that default. SQL planning checks referenced immutable constants,
+    so an omitted default can still fail for `INSERT … SELECT … WHERE FALSE`.
+    `ADD COLUMN … DEFAULT` evaluates/materializes its default immediately.
+    `DEFAULT NULL` is the same as no default; nontrivial typed NULL
+    conversion expressions retain their stored SQL/type identity.
   - It is computed once per statement (or bulk ingest), so all the rows of
     a statement get the same `CURRENT_TIMESTAMP` / `NOW()` /
     `CURRENT_DATE`, the statement's time. A volatile default (`RANDOM()`)
@@ -2171,7 +2178,9 @@ allow otherwise streamable queries to stream.
   - `information_schema.columns.column_default` and `GetObjects`'
     `xdbc_column_def` show the default as written, except that a local-time
     literal is stored as its instant (see Session time zone). `CREATE TABLE
-    … AS` copies values, not defaults
+    … AS` copies values, not defaults. Retained-default literal typing
+    during some `ALTER COLUMN … TYPE` conversions remains tracked in
+    [#484](https://github.com/redis/redis-adbc-driver/issues/484)
 - String lengths, as in Postgres:
   - **Types:** `VARCHAR(n)` (also `CHARACTER VARYING(n)`, `CHAR VARYING(n)`
     and `NVARCHAR(n)`) holds at most `n` characters. `CHAR(n)` (also
@@ -3334,9 +3343,9 @@ allow otherwise streamable queries to stream.
   - `NORMALIZE` and `UNISTR` return text (Arrow string), preserve NULL and take
     fixed CHAR values without trailing padding. Incompatible typed arguments,
     including typed NULLs, give `42883`; invalid normalization forms give
-    `22023`. Unreachable CASE value errors stay unevaluated. General DEFAULT
-    evaluation timing remains
-    tracked in [#479](https://github.com/redis/redis-adbc-driver/issues/479).
+    `22023`. Unreachable CASE value errors stay unevaluated. DEFAULT
+    definitions validate types without executing these functions; value errors
+    occur when the default is used (see Column defaults above).
   - `REGEXP_REPLACE(s, pattern, replacement [, start [, n]] [, flags])`
     replaces the first match, or all of them with flag `g`; with Postgres
     16's `start` and `n`, the `n`-th match from `start` (all of them if `n`

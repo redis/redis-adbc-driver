@@ -259,8 +259,8 @@ func TestSQLLengthWrites(t *testing.T) {
 	h.expectRows(`SELECT COUNT(*) FROM it_len_w`, "8")
 }
 
-// Defaults: a default too long for its column is an error when it is
-// defined; one that fits is cut like a value and padded for CHAR.
+// Defaults: a default too long for its column is an error when it is used;
+// one that fits is cut like a value and padded for CHAR.
 func TestSQLLengthDefaults(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_len_d", "it_len_dbad")
@@ -270,7 +270,9 @@ func TestSQLLengthDefaults(t *testing.T) {
 		`CREATE TABLE it_len_dbad (v varchar(2) default 'a' || 'bc')`:       "character varying(2)",
 		`CREATE TABLE it_len_dbad (id integer, v varchar(2) default 'é é')`: "character varying(2)",
 	} {
-		h.expectTooLong(sql, typ)
+		h.exec(sql)
+		h.expectTooLong(`INSERT INTO it_len_dbad DEFAULT VALUES`, typ)
+		h.exec(`DROP TABLE it_len_dbad`)
 	}
 	h.expectRows(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'it_len_dbad'`, "0")
 
@@ -279,7 +281,9 @@ func TestSQLLengthDefaults(t *testing.T) {
 	h.exec(`INSERT INTO it_len_d VALUES (2, DEFAULT, DEFAULT)`)
 	h.exec(`INSERT INTO it_len_d DEFAULT VALUES`)
 	h.expectRows(`SELECT id, v, LENGTH(v), c FROM it_len_d ORDER BY id`, "1|ab |3|x  ", "2|ab |3|x  ", "NULL|ab |3|x  ")
-	h.expectTooLong(`ALTER TABLE it_len_d ALTER COLUMN v SET DEFAULT 'wxyz'`, "character varying(3)")
+	h.exec(`ALTER TABLE it_len_d ALTER COLUMN v SET DEFAULT 'wxyz'`)
+	h.expectTooLong(`INSERT INTO it_len_d(id) VALUES (4)`, "character varying(3)")
+	h.exec(`ALTER TABLE it_len_d ALTER COLUMN v SET DEFAULT 'ab   '`)
 	h.expectTooLong(`ALTER TABLE it_len_d ADD COLUMN w char(2) DEFAULT 'abc'`, "character(2)")
 	h.expectRows(`SELECT column_name, column_default FROM information_schema.columns WHERE table_name = 'it_len_d' ORDER BY ordinal_position`,
 		"id|NULL", "v|'ab   '", "c|'x'")

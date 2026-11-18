@@ -273,7 +273,7 @@ var funcDefs = []funcDef{
 	{name: "CURRENT_USER", aliases: []string{"SESSION_USER", "CURRENT_ROLE", "USER"}, min: 0, max: 0},
 	{name: "PG_TYPEOF", min: 1, max: 1},
 	{name: "CURRENT_SETTING", min: 1, max: 2},
-	{name: "SET_CONFIG", min: 3, max: 3},
+	{name: "SET_CONFIG", min: 3, max: 3, volatile: true},
 	{name: "FORMAT_TYPE", min: 2, max: 2},
 	{name: "OBJ_DESCRIPTION", min: 1, max: 2},
 	{name: "TO_REGCLASS", min: 1, max: 1},

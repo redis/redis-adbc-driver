@@ -21,8 +21,9 @@ package redis
 // creationzone.go) and checked when it is defined: it may not read
 // columns, run subqueries, take parameters or call aggregates, GROUPING or
 // window functions, its calls are resolved as in a query (funcs.go), and it
-// is evaluated once so that a value the column can't hold is an error then.
-// A NULL default is not stored, as in Postgres. Inserted
+// is type-checked without evaluating computed values. Unknown string literals
+// still take their target input type at definition time.
+// A literal NULL default is not stored, as in Postgres. Inserted
 // rows that give a column no value (or DEFAULT) get its default: INSERT …
 // VALUES, INSERT … DEFAULT VALUES, INSERT … SELECT with a column list,
 // MERGE's INSERT and bulk ingest of columns the Arrow data lacks. Each
@@ -127,9 +128,9 @@ func addedMissing(meta *tableMeta, raw string) []any {
 }
 
 // checkDefault checks the DEFAULT of a column definition (see the top of
-// this file) and returns the text to store, "" for a NULL default, and the
-// value it gave.
-func (e *executor) checkDefault(ctx context.Context, def ColumnDef) (string, Value, error) {
+// this file) and returns the text to store, "" for a literal NULL default.
+// It never evaluates a computed default or consumes volatile/sequence values.
+func (e *executor) checkDefault(ctx context.Context, def ColumnDef) (string, error) {
 	var err error
 	walkExpr(def.Default, func(x Expr) {
 		if err != nil {
@@ -161,50 +162,214 @@ func (e *executor) checkDefault(ctx context.Context, def ColumnDef) (string, Val
 		err = checkCalls(def.Default)
 	}
 	if err != nil {
-		return "", Value{}, err
+		return "", err
 	}
-	sequenceCall := false
+	if err := checkUnknowns(def.Default, func() map[string]ColType { return nil }, nil); err != nil {
+		return "", columnErr(def.Name, err)
+	}
+	// A direct unknown literal is converted by parse analysis, even in a
+	// branch that will not execute. A cast of typed text remains an expression.
 	walkExpr(def.Default, func(x Expr) {
-		if f, ok := x.(*Func); ok && sequenceFunction(f.Name) {
-			sequenceCall = true
+		if err != nil {
+			return
+		}
+		// Single-field INTERVAL literals use a parser-internal call. This
+		// is literal input parsing, not evaluation of a computed expression.
+		if f, ok := x.(*Func); ok && f.Name == "__INTERVAL" && len(f.Args) == 2 {
+			value, vok := f.Args[0].(*Literal)
+			unit, uok := f.Args[1].(*Literal)
+			if vok && uok && value.V.T.Kind == KindString && !value.V.Null {
+				if fields, ok := typmodFields[unit.V.S]; ok {
+					_, err = typedIntervalLiteral(value.V.S, intervalTypmod{fields: fields, precision: -1})
+				}
+			}
+		}
+		if f, ok := x.(*Func); ok && (f.Name == "__JSON" || f.Name == "__JSONB") {
+			to := typeJSON
+			if f.Name == "__JSONB" {
+				to = typeJSONB
+			}
+			from, inferErr := inferType(f.Args[0], nil, nil)
+			if inferErr != nil {
+				err = inferErr
+				return
+			}
+			if !defaultCastable(from, to) {
+				err = stateErr(stateCannotCoerce, "cannot cast type %s to %s", pgTypeName(from, false), pgTypeName(to, false))
+				return
+			}
+			if unknownLiteral(f.Args[0]) {
+				err = e.checkDefaultLiteral(f.Args[0].(*Literal), to)
+			}
+		}
+		if b, ok := x.(*Binary); ok && arithmeticOps[b.Op] {
+			types := inferArgTypes([]Expr{b.L, b.R}, nil, nil)
+			if types[0].Kind == KindBool || types[1].Kind == KindBool {
+				err = stateErr(stateUndefinedFunction, "operator does not exist: %s %s %s", sigTypeName(types[0]), b.Op, sigTypeName(types[1]))
+				return
+			}
+		}
+		if c, ok := x.(*Cast); ok && c.OnError == nil {
+			from, inferErr := inferType(c.X, nil, nil)
+			if inferErr != nil {
+				err = inferErr
+				return
+			}
+			canCast := defaultCastable(from, c.T)
+			if !canCast {
+				err = stateErr(stateCannotCoerce, "cannot cast type %s to %s", pgTypeName(from, false), pgTypeName(c.T, false))
+				return
+			}
+			if unknownLiteral(c.X) {
+				err = e.checkDefaultLiteral(c.X.(*Literal), c.T)
+			}
+			if c.T.Kind == KindArray {
+				err = e.checkDefaultArrayLiterals(c.X, c.T)
+			}
 		}
 	})
-	if sequenceCall {
-		return def.DefaultText, nullValue(def.Type), nil
+	if err != nil {
+		// Errors inside an explicit cast retain cannot_coerce (42846);
+		// only the outer assignment translates it to datatype_mismatch.
+		return "", invalidArg(err)
 	}
+	if unknownLiteral(def.Default) {
+		if err := e.checkDefaultLiteral(def.Default.(*Literal), def.Type); err != nil {
+			return "", columnErr(def.Name, err)
+		}
+	} else {
+		t, err := inferType(def.Default, nil, nil)
+		if err != nil {
+			return "", invalidArg(err)
+		}
+		if !defaultAssignable(t, def.Type) {
+			return "", stateErrorf(stateDatatypeMismatch, "column %q is of type %s but default expression is of type %s", def.Name, pgTypeName(def.Type, false), pgTypeName(t, false))
+		}
+	}
+	if l, ok := def.Default.(*Literal); ok && l.V.Null {
+		return "", nil
+	}
+	// An unknown NULL directly coerced to its input type becomes a NULL
+	// constant. Keep conversion expressions such as (NULL::integer)::text:
+	// their stored type still matters to later ALTER TYPE validation.
+	if c, ok := def.Default.(*Cast); ok && c.OnError == nil {
+		if l, ok := c.X.(*Literal); ok && l.V.Null && l.V.T.Kind == KindNull && c.T == def.Type {
+			return "", nil
+		}
+	}
+
+	if f, ok := def.Default.(*Func); ok && (f.Name == "__JSON" || f.Name == "__JSONB") {
+		if l, ok := f.Args[0].(*Literal); ok && l.V.Null && l.V.T.Kind == KindNull {
+			t, _ := jsonFuncType(f)
+			if t == def.Type {
+				return "", nil
+			}
+		}
+	}
+
+	// Freeze local-time literals; values of computed expressions stay deferred.
+	return e.foldDefault(def.DefaultText, def.Type), nil
+}
+
+// Default assignment must retain logical UUID identity and array element
+// compatibility; their physical string/array kinds alone do not imply a cast.
+func defaultAssignable(from, to ColType) bool {
+	if from.Kind == KindNull {
+		return true
+	}
+	if to.Alias == "uuid" {
+		return from.Alias == "uuid"
+	}
+	if from.Kind.isJSON() && to.Kind.isJSON() {
+		return true
+	}
+	if from.Kind == KindArray && to.Kind == KindArray {
+		return defaultAssignable(from.element(), to.element())
+	}
+	return assignable(from, to)
+}
+
+// Explicit casts use element cast compatibility, rather than assignment
+// compatibility; UUID retains its logical identity despite physical strings.
+func defaultCastable(from, to ColType) bool {
+	if to.Kind.isJSON() {
+		return from.Kind == KindNull || from.Kind == KindString || from.Kind.isJSON()
+	}
+
+	if from.Kind == KindArray && to.Kind == KindArray {
+		return defaultCastable(from.element(), to.element())
+	}
+	if from.Alias == "uuid" && to.Kind != KindString && to.Kind != KindNull {
+		return false
+	}
+	if to.Alias == "uuid" && from.Kind != KindString && from.Kind != KindNull {
+		return false
+	}
+	return castable(from, to)
+}
+
+// PostgreSQL pushes an explicit array target into ARRAY constructors while
+// resolving unknown elements. Typed text expressions remain deferred casts.
+func (e *executor) checkDefaultArrayLiterals(expr Expr, to ColType) error {
+	f, ok := expr.(*Func)
+	if !ok || f.Name != "__ARRAY" {
+		return nil
+	}
+	for _, arg := range f.Args {
+		if unknownLiteral(arg) {
+			if err := e.checkDefaultLiteral(arg.(*Literal), to.element()); err != nil {
+				return err
+			}
+		}
+		if nested, ok := arg.(*Func); ok && nested.Name == "__ARRAY" {
+			if err := e.checkDefaultArrayLiterals(arg, to); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Parse an unknown literal as its input type, without assignment typmods.
+// Numeric input can be valid before precision/scale is enforced at use time.
+func (e *executor) checkDefaultLiteral(l *Literal, t ColType) error {
+	if t.Kind == KindDecimal {
+		_, err := parseNumericText(l.V.S, decimalType(maxNumericIntDigits, 0))
+		return err
+	}
+	_, err := coerceIn(l.V, t.withoutTypmod(), e.zone())
+	return err
+}
+
+// ADD COLUMN materializes existing rows, unlike CREATE/SET DEFAULT. Keep its
+// immediate value conversion separate from definition-only validation.
+func (e *executor) addedDefaultValue(ctx context.Context, def ColumnDef) (Value, error) {
 	v, err := e.newEnv(ctx, nil, nil).eval(def.Default)
 	if err != nil {
-		return "", Value{}, invalidArg(err)
+		return Value{}, invalidArg(err)
 	}
-	cv, err := coerceIn(v, def.Type, e.zone())
+	v, err = coerceIn(v, def.Type, e.zone())
 	if err != nil {
-		return "", Value{}, columnErr(def.Name, err)
+		return Value{}, columnErr(def.Name, err)
 	}
-	if cv, err = fitLength(def.Type, cv); err != nil {
-		return "", Value{}, err
-	}
-	if cv.Null && !hasVolatile(def.Default) {
-		return "", cv, nil
-	}
-	// Its local-time literals are stored as instants, read in the session
-	// time zone, as cv was (see creationzone.go).
-	return e.foldDefault(def.DefaultText, def.Type), cv, nil
+	return fitLength(def.Type, v)
 }
 
 // columnDefaults computes the defaults of a table's columns for the rows of
 // one statement.
 type columnDefaults struct {
-	meta  *tableMeta
-	env   *evalEnv
-	exprs []Expr  // parsed when first needed
-	vals  []Value // the defaults computed once for the statement
-	done  []bool
+	meta    *tableMeta
+	env     *evalEnv
+	exprs   []Expr  // parsed when first needed
+	vals    []Value // the defaults computed once for the statement
+	done    []bool
+	planned []bool
 }
 
 func (e *executor) columnDefaults(ctx context.Context, meta *tableMeta) *columnDefaults {
 	n := len(meta.Columns)
 	return &columnDefaults{meta: meta, env: e.newEnv(ctx, nil, nil),
-		exprs: make([]Expr, n), vals: make([]Value, n), done: make([]bool, n)}
+		exprs: make([]Expr, n), vals: make([]Value, n), done: make([]bool, n), planned: make([]bool, n)}
 }
 
 // value returns the default of column i, coerced to its type: evaluated
@@ -217,17 +382,8 @@ func (d *columnDefaults) value(i int) (Value, error) {
 	if d.done[i] {
 		return d.vals[i], nil
 	}
-	if d.exprs[i] == nil {
-		x, err := parseExprText(c.Default)
-		if err != nil {
-			return Value{}, errorf(adbc.StatusInternal, "invalid DEFAULT %q of column %q: %v", c.Default, c.Name, err)
-		}
-		// A default stored before its calls were checked (funcs.go) gets
-		// the same errors as a new one.
-		if err := checkCalls(x); err != nil {
-			return Value{}, err
-		}
-		d.exprs[i] = x
+	if err := d.parse(i); err != nil {
+		return Value{}, err
 	}
 	v, err := d.env.eval(d.exprs[i])
 	if err != nil {
@@ -241,6 +397,79 @@ func (d *columnDefaults) value(i int) (Value, error) {
 		d.vals[i], d.done[i] = cv, true
 	}
 	return cv, nil
+}
+
+// parse resolves stored definitions without consuming a default value.
+func (d *columnDefaults) parse(i int) error {
+	if d.exprs[i] != nil || d.meta.Columns[i].Default == "" {
+		return nil
+	}
+	c := d.meta.Columns[i]
+	x, err := parseExprText(c.Default)
+	if err != nil {
+		return errorf(adbc.StatusInternal, "invalid DEFAULT %q of column %q: %v", c.Default, c.Name, err)
+	}
+	if err := checkCalls(x); err != nil {
+		return err
+	}
+	d.exprs[i] = x
+	return nil
+}
+
+// SQL planning inspects referenced immutable defaults even with an empty source,
+// as PostgreSQL does. A stable/volatile expression stays deferred; the folder's
+// explicit pure-function list never executes session or sequence operations.
+func (d *columnDefaults) plan(i int) error {
+	if d.planned[i] || d.meta.Columns[i].Default == "" {
+		return nil
+	}
+	if err := d.parse(i); err != nil {
+		return err
+	}
+	v, known, err := (&casePlanner{env: d.env}).fold(d.exprs[i])
+	if err != nil {
+		return invalidArg(err)
+	}
+	if known {
+		c := d.meta.Columns[i]
+		v, err = coerceIn(v, c.Type, d.env.zone())
+		if err != nil {
+			return columnErr(c.Name, err)
+		}
+		v, err = fitLength(c.Type, v)
+		if err != nil {
+			return err
+		}
+		d.vals[i], d.done[i] = v, true
+	}
+	d.planned[i] = true
+	return nil
+}
+
+func (d *columnDefaults) planInsert(targets []int, exprs []Expr, selectInput bool, override string) error {
+	given := make([]bool, len(d.meta.Columns))
+	for j, i := range targets {
+		if override == "USER" && d.meta.Columns[i].Identity != "" {
+			continue
+		}
+		if !selectInput {
+			if j >= len(exprs) {
+				continue
+			}
+			if _, ok := exprs[j].(*DefaultValue); ok {
+				continue
+			}
+		}
+		given[i] = true
+	}
+	for i, yes := range given {
+		if !yes {
+			if err := d.plan(i); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // fill sets the columns of an inserted row that were given no value (given

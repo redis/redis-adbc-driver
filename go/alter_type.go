@@ -189,7 +189,7 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 // alterTypeDefault checks that the DEFAULT of a column whose type becomes
 // to converts, as Postgres does: the expression's type must be assignable to
 // to (a string literal has the column's type, as Postgres stores it), and
-// the value is checked as for a new DEFAULT (see checkDefault).
+// the expression is validated as for a new DEFAULT, without evaluation.
 func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColType) error {
 	x, err := parseExprText(col.Default)
 	if err != nil {
@@ -201,10 +201,10 @@ func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColT
 			t = it
 		}
 	}
-	if !assignable(t, to) {
+	if !defaultAssignable(t, to) {
 		return stateErrorf(stateDatatypeMismatch, "default for column %q cannot be cast automatically to type %s", col.Name, pgTypeName(to, false))
 	}
-	_, _, err = e.checkDefault(ctx, ColumnDef{Name: col.Name, Type: to, Default: x, DefaultText: col.Default})
+	_, err = e.checkDefault(ctx, ColumnDef{Name: col.Name, Type: to, Default: x, DefaultText: col.Default})
 	return err
 }
 

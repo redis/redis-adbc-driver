@@ -330,6 +330,24 @@ fixture/infrastructure problems. CI is optional and doesn't run on every PR.
 make pgdiff PGDIFF_ARGS='--corpus /path/to/corpus --report build/other-report.json'
 ```
 
+## DEFAULT definition/use comparison (#479)
+
+Generate the independent lifecycle corpus outside the curated sources:
+
+```sh
+python3 go/pgdiff/default_timing.py /private/default-corpus
+```
+
+Pass it to pgdiff with `--corpus`. The 52 scenarios contain 170 ordered steps,
+with exact expected PostgreSQL error phases/SQLSTATEs, later row checks and
+metadata checks. They cover deferred CREATE/SET/retained TYPE defaults,
+assignment versus explicit casts, UUID/array/JSON identity, interval inputs,
+typed NULLs, typmods, empty SQL sources, MERGE, volatile effects and sequence
+consumption. No curated SQL, expected result or allowlist changes.
+[Verification and review](../../docs/sdlc/changes/default-timing-479/validation.md)
+record the additional native binding/race coverage and separate remaining
+retained-literal ALTER TYPE defect (#484).
+
 ## Unicode function comparison (#110)
 
 Generate an independent corpus outside the curated source tree:

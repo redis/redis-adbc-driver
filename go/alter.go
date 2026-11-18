@@ -792,11 +792,15 @@ func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCm
 		if hasVolatile(def.Default) {
 			return false, errorf(adbc.StatusNotImplemented, "ADD COLUMN with a volatile DEFAULT is not supported: existing rows would each need their own value")
 		}
-		text, v, err := e.checkDefault(ctx, def)
+		text, err := e.checkDefault(ctx, def)
 		if err != nil {
 			return false, err
 		}
 		col.Default = text
+		v, err := e.addedDefaultValue(ctx, def)
+		if err != nil {
+			return false, err
+		}
 		if !v.Null {
 			col.Missing, missing = encodeStored(v), true
 		}
@@ -911,7 +915,7 @@ func (e *executor) alterDefault(ctx context.Context, m *tableMeta, cmd AlterCmd,
 		def := cmd.Def
 		def.Name, def.Type = col.Name, col.Type
 		var err error
-		if text, _, err = e.checkDefault(ctx, def); err != nil {
+		if text, err = e.checkDefault(ctx, def); err != nil {
 			return err
 		}
 	}
