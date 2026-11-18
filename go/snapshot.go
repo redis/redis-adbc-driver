@@ -731,6 +731,12 @@ func (p *snapshotPin) leaseKey() string {
 }
 
 func (p *snapshotPin) heartbeat() {
+	tick := time.NewTicker(snapshotLease / 4)
+	defer tick.Stop()
+	p.heartbeatTicks(tick.C)
+}
+
+func (p *snapshotPin) heartbeatTicks(ticks <-chan time.Time) {
 	defer close(p.done)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -740,8 +746,7 @@ func (p *snapshotPin) heartbeat() {
 		p.releaseErr = err
 		p.releaseMu.Unlock()
 	}()
-	tick := time.NewTicker(snapshotLease / 4)
-	defer tick.Stop()
+	uncertain := false
 	for {
 		select {
 		case <-p.stop:
@@ -751,16 +756,36 @@ func (p *snapshotPin) heartbeat() {
 			p.err = cancelled(p.ctx)
 			p.mu.Unlock()
 			return
-		case <-tick.C:
+		case <-ticks:
 			p.mu.Lock()
 			id := p.workspace
 			p.mu.Unlock()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			n, err := p.control(ctx, "renew", id).Int()
+			op := "renew"
+			if uncertain {
+				op = "valid"
+			}
+			n, err := p.control(ctx, op, id).Int()
+			if uncertain && err == nil && n == 1 {
+				// Resolve an uncertain heartbeat with a fresh server proof before
+				// issuing the next scheduled renewal. Never replay its command.
+				n, err = p.control(ctx, "renew", id).Int()
+			}
 			cancel()
+			if err != nil && executionPoolUncertain(err) {
+				// A lost/late reply does not prove ownership loss. Foreground
+				// reads and writes still require their unchanged server fences;
+				// neither a later proof nor renewal can revive an expired token.
+				uncertain = true
+				continue
+			}
+			uncertain = false
 			if err != nil || n != 1 {
 				p.mu.Lock()
 				p.err = errorf(adbc.StatusIO, "statement snapshot lease lost; retry the statement")
+				if err != nil {
+					p.err = errorf(adbc.StatusIO, "statement snapshot lease lost; retry the statement: %v", err)
+				}
 				if err == nil && id == "" && p.materialized {
 					p.err = matviewLeaseExpired()
 				}
