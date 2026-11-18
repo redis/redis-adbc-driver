@@ -1,8 +1,8 @@
 # Verification and review
 
 Date: 2026-11-17. Requestor: Albert Wong. Author: Codex.
-Base: `5b0840ce`. Local feature verification complete; #479 integration and
-PR review pending. See [intent](intent.md), [spec](spec.md), [plan](plan.md)
+Base: `5b0840ce`, with main `3e4aecfa` (FACTORIAL) merged. Local verification
+complete; PR review pending. See [intent](intent.md), [spec](spec.md), [plan](plan.md)
 and [sanitized results/source hashes](results.json).
 
 ## Design and provenance
@@ -61,18 +61,21 @@ Raw logs, credentials, trust material and infrastructure identifiers stay privat
   interleaved normal draws, reseeding, named argument errors, types/typed NULLs,
   unknown literals, seed ranges/NaN/infinity, empty relations, Arrow-equivalent
   result types, isolated sessions and logical void behavior.
-- Full matrix with the retained selected-volatile CASE regression:
-  **214/216 matches, two known #479 failures**, zero infrastructure errors.
-  The seed setup passes; CASE and its continuation expose an extra planning
-  draw. These failures remain visible in the generated matrix, with no
-  allowlist, context policy, skip or unsupported classification.
-- Focused Software race run: **seven top-level tests pass**, zero failures or
+- Final full matrix, including the retained selected-volatile CASE regression:
+  **216/216 matches**, zero exclusions or infrastructure errors. Before the
+  shared CASE purity correction, 214/216 matched: the selected CASE consumed
+  an extra planning draw and shifted its continuation. The two previously
+  failing SQL statements remain ordinary passing cases after the fix; no
+  allowlist, context policy, skip or unsupported classification was added.
+- Focused Software race run: **nine top-level tests pass**, zero failures or
   skips, plus bound-array subtests. Covers independent PostgreSQL seed/stream
   vectors, session isolation, NULL/empty/lazy calls, failed seed preservation,
   a failed managed CHECK consuming RANDOM exactly once without publishing a
   row, rollback preserving state, Arrow void validity, bound means/deviations,
   NULL/empty/invalid arrays, parameter metadata, caller ownership and reuse
-  after refused bindings. A concurrent session-state test uses eight workers.
+  after refused bindings. Selected THEN/ELSE and nested CASE, normal draws,
+  seed operations and schema inspection are tested for zero planning-time
+  consumption. A concurrent session-state test uses eight workers.
 - `env -u REDIS_URI go test -count=1 -p 1 ./...`: all packages pass. Endpoint
   integration and the optional external Unicode conformance test skip in this
   unit-only run. The latter is unrelated to this random-function change.
@@ -98,25 +101,39 @@ cd go
 bash software-setup.sh --exec make pgdiff PGDIFF_ARGS='--corpus /private/random-corpus --report build/random-functions.json'
 ```
 
-Use a disposable verified Software fixture. Until #479 lands, the command
-retains two CASE failures as described above rather than exiting successfully.
+Use a disposable verified Software fixture.
 
-## Required integration dependency and review
+## Shared CASE correction and remaining DEFAULT issue
 
-[#479](https://github.com/redis/redis-adbc-driver/issues/479) is required before
-claiming complete DEFAULT/selected-CASE evaluation timing. Its existing generic
-DEFAULT path evaluates expressions at definition time; its existing CASE folder
-also evaluates a selected volatile result during planning. With seed .5,
-PostgreSQL's selected CASE returns the first uniform draw, while this baseline
-returns the second and shifts the next draw too. Existing RANDOM() reproduces
-this independently of the new functions. The root change fixes that planning
-boundary; this branch does not duplicate defaults.go or case_planning.go changes.
-The three-statement probe is retained in the default generated matrix.
+The generic CASE folder previously treated a selected volatile result as a
+known value even when its child folder said it was unknown. The exact two
+known-propagation corrections coordinated with #479 are included as a separate
+commit: selected THEN and ELSE values must be known before evaluating the
+whole CASE. No function whitelist change was copied, and the merged FACTORIAL
+whitelist is preserved. Native seeded tests now prove zero planning-time draws
+for selected/nested CASE and schema inspection, and exactly one execution-time
+draw. The three-statement independent regression remains in the generated
+matrix and passes.
+
+[#479](https://github.com/redis/redis-adbc-driver/issues/479) still owns generic
+DEFAULT definition-time evaluation. The baseline evaluates volatile defaults
+when defining them; the separate #479 change removes that
+behavior. This PR does not duplicate defaults.go changes or claim that issue
+closed. CREATE/SET DEFAULT lifecycle qualification should include that fix.
+
+After main's FACTORIAL PR #482 landed, shared registry, type-validation and
+documentation conflicts were resolved preserving both features. All Go unit
+packages and the native build passed again after integration; focused race
+and 216-case comparison runs also passed with the shared CASE fix.
 
 Agent review followed REVIEW.md for signed seed conversion, strict NULL and
 literal precedence, partial/failed statement effects, Arrow validity/ownership,
 stream lifetimes and consumption, session locking, pseudo-type persistence and
-unchanged retry semantics. No other reproduced actionable finding remains in
-this bounded function scope. PostgreSQL range-taking RANDOM overloads remain
+unchanged retry semantics. No unresolved reproduced actionable finding remains in
+this bounded function scope beyond the separately documented generic DEFAULT issue. PostgreSQL range-taking RANDOM overloads remain
 #110. No full Software suite, benchmark, human approval, hosted CI or merge is
 asserted.
+
+The owned fixture, volumes, explicit project network and checkout-local test
+environment/trust files were removed after the final runs. Changed-document
+relative targets, sanitized JSON/source hashes and `git diff --check` pass.

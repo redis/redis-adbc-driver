@@ -60,7 +60,7 @@ def corpus():
     add('SELECT setseed(-.5)::text', connection='seed_a')
     add('SELECT random()', connection='seed_b')
     # Retain the pre-existing selected-volatile CASE planner regression (#479).
-    # Until that fix lands, its extra planning draw remains a visible failure.
+    # Without the shared purity fix, its extra planning draw is a visible failure.
     add('SELECT setseed(.5)::text')
     add('SELECT CASE WHEN TRUE THEN random() ELSE 0 END')
     add('SELECT random()')

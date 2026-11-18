@@ -6,16 +6,7 @@
     "fail": 0,
     "infrastructure_errors": 0
   },
-  "matrix_with_retained_case_regression": {
-    "counts": {
-      "pass": 214,
-      "fail": 2
-    },
-    "scored": 216,
-    "pass_rate": 0.9907407407407407
-  },
   "infrastructure_errors": 0,
-  "case_dependency": 479,
   "full_curated_corpus": {
     "counts": {
       "pass": 605,
@@ -30,7 +21,7 @@
   },
   "full_infrastructure_errors": 0,
   "focused_software_race": {
-    "top_level_passes": 7,
+    "top_level_passes": 9,
     "failures": 0,
     "skips": 0
   },
@@ -39,8 +30,27 @@
   "native_makefile_build": "passed",
   "source_hashes": {
     "go/random_functions.go": "0e11574044792ce2a7f23e9cf3d82aafc3659d59d555477105c9c919a6995512",
-    "go/random_functions_test.go": "cbffda7880443e47fde2511020d80a31904736ac056e07391d5c1ab6d503da92",
-    "go/random_functions_integration_test.go": "3310dc0a08ddf0ffca9d2fc3afe4d559797ad639c228554b7097563ef948eec9",
-    "go/pgdiff/random_functions.py": "2e42853380df97a5071f45c3c13c69cae56d0d917c7758cd99f68cae93da0f1d"
-  }
+    "go/random_functions_test.go": "6d1c705678095bbef5ffe494f5dbc78f0d2035f5b7a46df0a838330983996ebe",
+    "go/random_functions_integration_test.go": "690908566c1f0a6e36ca2286852e3c815c30dafb4de832649ee87a2c331c9f9c",
+    "go/pgdiff/random_functions.py": "9be341b9e4f2c1f67a054828ae1daeb7b76905551627fff80234f0307e181d3f",
+    "go/case_planning.go": "85b6737730e5ead2482dc2987e5c43e70758ed547aff818d270050ace9f6aa4e"
+  },
+  "matrix_before_shared_case_fix": {
+    "counts": {
+      "pass": 214,
+      "fail": 2
+    },
+    "scored": 216,
+    "pass_rate": 0.9907407407407407
+  },
+  "final_matrix": {
+    "counts": {
+      "pass": 216
+    },
+    "scored": 216,
+    "pass_rate": 1.0
+  },
+  "shared_case_fix": "included; coordinated with #479",
+  "default_definition_timing_issue": 479,
+  "merged_main": "3e4aecfa"
 }

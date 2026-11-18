@@ -359,11 +359,12 @@ The matrix covers seeds, interleaving, reseeding/session isolation, named
 arguments, strict NULLs, signatures, empty input and logical void results.
 See [validation and source provenance](../../docs/sdlc/changes/random-functions-110/validation.md).
 
-The matrix also retains the existing selected-volatile CASE planning bug as
-three ordinary cases. Before [#479](https://github.com/redis/redis-adbc-driver/issues/479)
-lands, the seed setup passes and the CASE/continuation fail: 214/216 overall,
-with all 213 other feature cases matching. These are visible failures, not
-exclusions or accepted equivalent outputs.
+The matrix also retains the selected-volatile CASE planning regression as three
+ordinary cases. Before the shared CASE purity correction (coordinated with
+[#479](https://github.com/redis/redis-adbc-driver/issues/479)), the CASE and its
+continuation failed (214/216 overall). With the correction, all 216 cases pass;
+none was excluded or relabeled. DEFAULT definition-time evaluation remains
+tracked separately in #479.
 ## FACTORIAL comparison (#110)
 
 `python3 go/pgdiff/factorial.py /private/factorial-corpus` creates a separate
