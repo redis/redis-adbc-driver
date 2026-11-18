@@ -3255,6 +3255,24 @@ allow otherwise streamable queries to stream.
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,
   `LOG10`, `EXP`, `SIGN`, `ABS`, `PI()`, `RANDOM()`
+  - `SETSEED(double precision)` sets the current connection's pseudorandom
+    stream from a finite seed in `[-1,1]`; an invalid seed gives `22023` and a
+    NULL seed leaves the stream unchanged. Its logical result is PostgreSQL
+    `void`, represented as a non-NULL empty Arrow string (or NULL for a NULL
+    input). `PG_TYPEOF` reports `void`; the pseudo-type cannot be stored as a
+    table/view column. Explicit text conversion is available.
+  - `RANDOM_NORMAL([mean double precision [, stddev double precision]])`
+    samples a normal distribution, with defaults 0 and 1. The `mean` and
+    `stddev` named arguments also work. Both it and `RANDOM()` consume the same
+    session stream; repeating a seed and the same ordered calls repeats that
+    stream. Negative standard deviations and IEEE special-value arithmetic
+    follow PostgreSQL. NULL arguments return NULL without drawing. These are
+    pseudorandom functions, not cryptographic random generators.
+  - Seeded uniform draws follow PostgreSQL 18's generator exactly. Normal draws
+    use its Box-Muller algorithm; final floating-point bits may vary between
+    Go math and the server's platform C library. Range-taking PostgreSQL
+    `RANDOM` overloads remain part of the wider
+    [#110](https://github.com/redis/redis-adbc-driver/issues/110) scope.
   - `MIN_SCALE(numeric)` returns the minimum fractional digits needed to
     represent a finite value, as an `INTEGER` (Arrow int32):
     `MIN_SCALE(1.23000)` is 2, and zero/integer values return 0. Integer

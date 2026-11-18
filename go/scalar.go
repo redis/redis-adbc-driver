@@ -32,7 +32,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"math/rand/v2"
 	"regexp"
 	"slices"
 	"strconv"
@@ -88,6 +87,10 @@ func scalarFuncType(f *Func, args []ColType) (ColType, bool) {
 		return typeNull
 	}
 	switch f.Name {
+	case "SETSEED":
+		return typeVoid, true
+	case "RANDOM_NORMAL":
+		return typeFloat64, true
 	case "GEN_RANDOM_UUID":
 		return typeUUID, true
 	case "ROUND", "TRUNC", "FLOOR", "CEIL", "CEILING":
@@ -386,8 +389,6 @@ func scalarFunc(f *Func, args []Value, z tzZone) (Value, error) {
 		return trigFunc(f, args)
 	case "PI":
 		return floatValue(typeFloat64, math.Pi), nil
-	case "RANDOM":
-		return floatValue(typeFloat64, rand.Float64()), nil
 
 	// ---- strings ----
 	case "SUBSTRING", "SUBSTR":

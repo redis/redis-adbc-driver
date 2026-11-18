@@ -346,3 +346,21 @@ empty input and parser distinctions. It changes no curated SQL, expected results
 or allowlist. [Verification and Unicode source provenance](../../docs/sdlc/changes/unicode-functions-110/validation.md)
 also record the full Unicode 16 conformance-vector run. General DEFAULT value
 error timing is a separate known issue, [#479](https://github.com/redis/redis-adbc-driver/issues/479).
+
+## Seeded random functions (#110)
+
+`python3 go/pgdiff/random_functions.py /private/random-corpus` generates a
+separate stateful matrix for `SETSEED`, `RANDOM_NORMAL` and existing `RANDOM()`.
+Pass that directory to `--corpus`. Uniform doubles compare exact binary values;
+normal results are explicitly rounded to nine fractional digits in the SQL,
+because Go math and the PostgreSQL server's C library can differ by a few ULP.
+No global float tolerance, oracle expectations or allowlist are changed.
+The matrix covers seeds, interleaving, reseeding/session isolation, named
+arguments, strict NULLs, signatures, empty input and logical void results.
+See [validation and source provenance](../../docs/sdlc/changes/random-functions-110/validation.md).
+
+The matrix also retains the existing selected-volatile CASE planning bug as
+three ordinary cases. Before [#479](https://github.com/redis/redis-adbc-driver/issues/479)
+lands, the seed setup passes and the CASE/continuation fail: 214/216 overall,
+with all 213 other feature cases matching. These are visible failures, not
+exclusions or accepted equivalent outputs.

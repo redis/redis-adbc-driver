@@ -852,6 +852,19 @@ func Coerce(v Value, t ColType) (Value, error) {
 // fractional digits (roundUnit), so a TIMESTAMP(2) holds milliseconds
 // rounded to 2 digits.
 func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
+	if v.T.Alias == "void" && (t.Kind != KindString || t.Alias != "" && t.Alias != "void") {
+		return Value{}, stateErr(stateCannotCoerce, "cannot cast type void to %s", t.SQLName())
+	}
+	if t.Alias == "void" {
+		if v.Null {
+			return nullValue(t), nil
+		}
+		if v.T.Kind == KindString {
+			return Value{T: t, S: ""}, nil
+		}
+		return Value{}, stateErr(stateCannotCoerce, "cannot cast type %s to void", v.T.SQLName())
+	}
+
 	if t.Kind.isJSON() {
 		return coerceJSON(v, t)
 	}

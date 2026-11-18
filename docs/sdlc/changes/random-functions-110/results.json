@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-17",
+  "base": "5b0840ce",
+  "feature_matrix": {
+    "pass": 213,
+    "fail": 0,
+    "infrastructure_errors": 0
+  },
+  "matrix_with_retained_case_regression": {
+    "counts": {
+      "pass": 214,
+      "fail": 2
+    },
+    "scored": 216,
+    "pass_rate": 0.9907407407407407
+  },
+  "infrastructure_errors": 0,
+  "case_dependency": 479,
+  "full_curated_corpus": {
+    "counts": {
+      "pass": 605,
+      "allowed": 2,
+      "context": 5,
+      "fail": 40,
+      "extension": 1,
+      "unsupported": 2
+    },
+    "scored": 645,
+    "pass_rate": 0.937984496124031
+  },
+  "full_infrastructure_errors": 0,
+  "focused_software_race": {
+    "top_level_passes": 7,
+    "failures": 0,
+    "skips": 0
+  },
+  "unit_packages": "passed; integration and optional external Unicode conformance skips expected",
+  "harness_unit_tests": 42,
+  "native_makefile_build": "passed",
+  "source_hashes": {
+    "go/random_functions.go": "0e11574044792ce2a7f23e9cf3d82aafc3659d59d555477105c9c919a6995512",
+    "go/random_functions_test.go": "cbffda7880443e47fde2511020d80a31904736ac056e07391d5c1ab6d503da92",
+    "go/random_functions_integration_test.go": "3310dc0a08ddf0ffca9d2fc3afe4d559797ad639c228554b7097563ef948eec9",
+    "go/pgdiff/random_functions.py": "2e42853380df97a5071f45c3c13c69cae56d0d917c7758cd99f68cae93da0f1d"
+  }
+}
