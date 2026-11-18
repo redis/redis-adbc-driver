@@ -2,6 +2,7 @@
 
 Date: 2026-11-18. Author: Codex; requestor: repository user. Base: `8eb98ae0`.
 Status: implemented and verified; awaiting human review. No separate tracking issue.
+PR: [#488](https://github.com/redis/redis-adbc-driver/pull/488).
 
 See [intent](intent.md) and [spec](spec.md).
 
