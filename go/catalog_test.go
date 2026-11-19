@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	redisclient "github.com/redis/go-redis/v9"
 )
 
 func TestCatalogSchemaIdentity(t *testing.T) {
@@ -76,5 +77,54 @@ func TestNamedCatalogAdvancedExecutionRefusals(t *testing.T) {
 	}{{named, TableName{Name: "t"}}, {"public", TableName{Catalog: "analytics", Schema: "public", Name: "t"}}} {
 		_, err := (&executor{schema: test.schema}).partitionPlan(ctx, &SelectStmt{From: &test.source}, 1, 2)
 		requireUnsupported("deferred partition target", err)
+	}
+}
+
+// Unimplemented UniversalClient methods deliberately remain nil: a switch to
+// HKEYS/HEXISTS would fail this fixture instead of silently adding reader ACLs.
+type catalogReaderClient struct {
+	redisclient.UniversalClient
+	entries  map[string]string
+	commands []string
+}
+
+func (c *catalogReaderClient) HGet(ctx context.Context, key, field string) *redisclient.StringCmd {
+	c.commands = append(c.commands, "hget")
+	if id, ok := c.entries[field]; ok {
+		return redisclient.NewStringResult(id, nil)
+	}
+	return redisclient.NewStringResult("", redisclient.Nil)
+}
+func (c *catalogReaderClient) HGetAll(ctx context.Context, key string) *redisclient.MapStringStringCmd {
+	c.commands = append(c.commands, "hgetall")
+	return redisclient.NewMapStringStringResult(c.entries, nil)
+}
+func TestCatalogDiscoveryUsesExistingReaderCommands(t *testing.T) {
+	ctx := context.Background()
+	client := &catalogReaderClient{entries: map[string]string{"analytics": "generation"}}
+	s := &store{client: client}
+	catalogs, err := s.listCatalogs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalogs) != 2 || catalogs[0] != "analytics" || catalogs[1] != "redis" {
+		t.Fatalf("unexpected catalogs: %v", catalogs)
+	}
+	if exists, err := s.catalogExists(ctx, "analytics"); err != nil || !exists {
+		t.Fatalf("existing catalog: %v %v", exists, err)
+	}
+	if exists, err := s.catalogExists(ctx, "missing"); err != nil || exists {
+		t.Fatalf("missing catalog: %v %v", exists, err)
+	}
+	if exists, err := s.catalogExists(ctx, "redis"); err != nil || !exists {
+		t.Fatalf("default catalog: %v %v", exists, err)
+	}
+	if len(client.commands) != 3 {
+		t.Fatalf("unexpected commands: %v", client.commands)
+	}
+	for _, command := range client.commands {
+		if !strings.Contains(" "+rbacBaseACL+" ", " +"+command+" ") {
+			t.Fatalf("catalog discovery needs ungranted command %q", command)
+		}
 	}
 }

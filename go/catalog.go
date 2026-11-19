@@ -90,7 +90,14 @@ func (s *store) catalogExists(ctx context.Context, name string) (bool, error) {
 	if name == catalogName {
 		return true, nil
 	}
-	return s.redis(ctx).HExists(ctx, catalogsKey, name).Result()
+	_, err := s.redis(ctx).HGet(ctx, catalogsKey, name).Result()
+	if err == redisclient.Nil {
+		return false, nil
+	}
+	if err != nil {
+		return false, wrapRedis(err, "failed to check catalog")
+	}
+	return true, nil
 }
 func (e *executor) validateCurrentCatalog(ctx context.Context) error {
 	if e.currentCatalog() == catalogName {
@@ -126,9 +133,15 @@ func requireCatalogWrite(ctx context.Context) error {
 	return nil
 }
 func (s *store) listCatalogs(ctx context.Context) ([]string, error) {
-	names, err := s.redis(ctx).HKeys(ctx, catalogsKey).Result()
+	// Keep discovery within the existing read-only ACL (HGET/HGETALL). The
+	// registry is bounded by maxCatalogs; no additional Redis privilege is needed.
+	entries, err := s.redis(ctx).HGetAll(ctx, catalogsKey).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to list catalogs")
+	}
+	names := make([]string, 0, len(entries)+1)
+	for name := range entries {
+		names = append(names, name)
 	}
 	if !slices.Contains(names, catalogName) {
 		names = append(names, catalogName)
