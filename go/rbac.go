@@ -54,6 +54,7 @@ const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft
 	" %R~" + snapshotPrefix + "absent:*" +
 	" %R~" + snapshotPrefix + "workspace:*:__keys" +
 	" %R~" + snapshotPrefix + "workspace:*:schemas" +
+	" %R~" + snapshotPrefix + "workspace:*:catalogs" +
 	" %R~" + snapshotPrefix + "workspace:*:namespace:*" +
 	" %R~" + snapshotPrefix + "workspace:*:tables:*" +
 	" %R~" + snapshotPrefix + "workspace:*:table:*" +

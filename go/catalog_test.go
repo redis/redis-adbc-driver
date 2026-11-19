@@ -5,6 +5,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"path"
 	"strings"
 	"testing"
 
@@ -126,5 +127,38 @@ func TestCatalogDiscoveryUsesExistingReaderCommands(t *testing.T) {
 		if !strings.Contains(" "+rbacBaseACL+" ", " +"+command+" ") {
 			t.Fatalf("catalog discovery needs ungranted command %q", command)
 		}
+	}
+}
+
+func TestCatalogRegistryACLExcludesWorkspacePayload(t *testing.T) {
+	// resolveSnapshotMetadata routes catalogsKey to its immutable workspace owner.
+	owner := snapshotID()
+	registry := snapshotWorkspace(owner) + strings.TrimPrefix(catalogsKey, metaPrefix)
+	mayRead := func(key string) bool {
+		for _, rule := range strings.Fields(rbacBaseACL) {
+			pattern, ok := strings.CutPrefix(rule, "%R~")
+			if !ok {
+				continue
+			}
+			matches, err := path.Match(pattern, key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if matches {
+				return true
+			}
+		}
+		return false
+	}
+	if !mayRead(registry) {
+		t.Fatal("reader cannot access physical catalog registry owner")
+	}
+	for _, key := range []string{snapshotWorkspace(owner) + "import:rows:" + owner, snapshotWorkspace(owner) + "import:keys:" + owner, snapshotWorkspace(owner) + "private-payload", snapshotRows(owner) + "1"} {
+		if mayRead(key) {
+			t.Fatalf("catalog registry grant exposed private payload %q", key)
+		}
+	}
+	if !strings.Contains(" "+rbacBaseACL+" ", " %R~"+snapshotPrefix+"workspace:*:catalogs ") {
+		t.Fatal("catalog registry requires an exact metadata suffix grant")
 	}
 }
