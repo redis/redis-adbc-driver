@@ -20,3 +20,8 @@ The user subsequently requested automatic keys for live SQL inserts. Reuse
 `GEN_RANDOM_UUID()` as a per-row SQL default on the virtual `__key` column,
 prefixed by the registered collection prefix. Keep explicit keys and existing
 unmanaged insert behavior.
+
+Documentation follow-up: rewrite the README and ownership guide around exactly
+three combinations: driver owns data and indexes; application owns both; or
+application owns data and the driver owns indexes. SQL access exists in all
+three. Explain managed imports as copies rather than a fourth ownership mode.

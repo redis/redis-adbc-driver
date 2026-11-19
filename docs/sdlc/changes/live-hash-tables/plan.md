@@ -21,3 +21,7 @@ Follow-up: use a live-only SQL default for omitted/DEFAULT `__key`; verify
 per-row UUID generation in VALUES and INSERT SELECT, generated-key RETURNING,
 implicit target lists, prefix quoting, explicit NULL/collisions and source HASH
 identity. Rebuild the source binaries and update PR #510.
+
+Documentation follow-up: rewrite the README and ownership comparison, preserve
+incoming documentation anchors, and check local links plus shell/Python example
+syntax. Update the existing PR after documentation review.

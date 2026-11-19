@@ -106,3 +106,20 @@ checks.
   `make -C go build adbc-cli` rebuilt the native macOS ARM64 driver and CLI.
 - Self-review confirmed that only live insert metadata receives the default;
   explicit keys and other table modes preserve their existing behavior.
+
+## README and ownership-guide rewrite
+
+Rewrote the README around the three ownership combinations and a source-build
+quick start, with an end-to-end SQL/Redis-client example using automatic keys.
+Replaced the two-column ownership comparison and its misplaced storage-cost row
+with a three-mode guide. Managed imports are described as separate copies,
+rather than a fourth table mode. The guide makes clear that all three support
+SQL, all indexes reside on the server, and Redis maintains index entries while
+the owner controls index definitions and lifecycle.
+
+Checked 67 local documentation links/anchors and syntax-checked 13 shell/Python
+blocks, including incoming repository links to both rewritten files. Existing
+sample-loader, compatibility and feature-matrix anchors remain valid. Reviewed
+commands/options against the Makefile, CLI, Python wrapper, and per-mode guides.
+`git diff --check` passed. These are documentation-only edits; examples were not
+executed and runtime suites were not rerun for this rewrite.

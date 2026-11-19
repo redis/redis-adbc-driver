@@ -51,3 +51,10 @@ managed snapshot behavior. Server checks require Redis Software with verified
 active 4x QPF. No performance improvement is claimed without measurement.
 
 Pull request: [#510](https://github.com/redis/redis-adbc-driver/pull/510).
+
+Documentation must compare all three ownership combinations consistently,
+separate index ownership from server-side storage and automatic index-entry
+maintenance, and keep source-build requirements and per-mode write guarantees
+explicit. The README should provide an end-to-end SQL/Redis example with
+generated keys, without implying that installing a published wheel enables
+unreleased source features.
