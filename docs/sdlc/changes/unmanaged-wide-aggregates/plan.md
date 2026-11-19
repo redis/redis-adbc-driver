@@ -149,3 +149,13 @@ dedicated Software race selection in 66 seconds, including direct server
 predicate equivalence and complete-image/Arrow comparisons with excluded corrupt
 rows and legacy included binary/trailing-colon/empty-suffix rows. Full-scale
 acceptance is still required.
+
+## Investigation outcome
+
+`7a0120ef` again hit Q3's original deadline (78,880,000 rows at 299 seconds).
+An instrumented 64K-page private overlay was also flat (22,848,000 rows at
+89 seconds); the implementation retains its 32K bound. Allocation savings and
+client predicate relocation have not met full-scale acceptance. All candidate
+trials are stopped, their evidence is retained, and PR #503 remains draft.
+The issues remain open; a different scan design or server improvement requires
+new evidence. Do not claim these experimental changes resolve the reports.

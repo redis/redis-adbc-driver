@@ -60,3 +60,22 @@ to cursor discovery, 9.98 to native fetches and 3.27 to reduction
 benchmark result. The next refinement applies the existing exact single-prefix
 row-key filter in the client before native fetch, retaining all source-index
 checks and keeping other source shapes on their established filtering path.
+
+## Current conclusion: no full-scale fix demonstrated
+
+Candidate `7a0120ef` also hit the original 300-second Q3 deadline, with
+78,880,000 consumed rows at its last 299-second sample. See
+[diagnostics](7a0120ef-q3-execution.json) and [outcome](7a0120ef-q3-outcome.json).
+A separate instrumented private overlay doubling discovery pages to 64,000
+(within the existing fetched-value target) consumed 22,848,000 rows in its last
+89-second sample before its 90-second diagnostic cap
+([partial diagnostics](7a0120ef-page64-diagnostic.json)). This showed no useful
+throughput improvement and was not promoted to the implementation.
+
+Allocation reductions and predicate relocation have not demonstrated a
+complete result within the deadline. PR #503 remains an experimental draft;
+#493–#496 remain unresolved. Q3–Q5 have failed in the attempts recorded here;
+Q6 has not yet been attempted by these candidates. There is no evidence here
+that further incremental tuning of this cursor source will meet acceptance.
+A materially different source design or server-side improvement would need
+its own measured proof. No universal impossibility is claimed.
