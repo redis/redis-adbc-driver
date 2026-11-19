@@ -52,3 +52,9 @@ query execution, and connection-bound shared read snapshots. Ordinary managed
 statement snapshots continue to protect named-catalog SQL and Arrow operations.
 These advanced features remain available in `redis`; selecting or explicitly
 referencing a named catalog cannot bypass their restriction.
+
+Restricted readers need the current generated snapshot reader policy to discover
+named catalogs. The added key grant covers only immutable
+`workspace:*:catalogs` metadata; discovery uses the existing `HGET` and `HGETALL`
+commands. Keep captured import payloads and arbitrary workspace values outside
+reader grants.
