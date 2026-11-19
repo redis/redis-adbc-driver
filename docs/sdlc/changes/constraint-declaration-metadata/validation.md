@@ -37,3 +37,14 @@ Follow-up review found and corrected two lifecycle gaps before consolidation:
   Regression verifies Arrow append retains usage and same-name replace clears it.
 * The full selected Software declaration/CHECK/PRIMARY KEY suite was rerun and
   passed after both fixes, with setup-verified active 4x QPF.
+
+The consolidating full Software suite exposed an existing cleanup-test scheduling
+assumption after an ACL fixture left unrelated retired data. A reaper step may
+retire another manifest and enqueue its data before retrying the denied group;
+its equal-score data queue orders candidates by ID. The test helper now allows
+at most 256 successful successor steps within the same 10-second context, checks
+the pinned live source after every step, fails any error, and requires the target
+three rows plus its index/directory/graph registration to be removed. An explicit
+10-second < 2-minute snapshot lease assertion preserves the no-lease-wait check.
+No production cleanup behavior changes. Root's original-pair reproduction and
+patched Software rerun are pending; the helper compiles in unit-only mode.

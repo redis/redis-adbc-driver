@@ -414,7 +414,14 @@ func (h *snapshotCleanupDenied) ProcessHook(next goredis.ProcessHook) goredis.Pr
 
 func snapshotCheckCleanupRecovery(t *testing.T, h *sqlHarness, authorized, limited *store, raw goredis.UniversalClient, meta *tableMeta) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(h.ctx, 10*time.Second)
+	// The entire denial/recovery check must finish before any failed-owner
+	// snapshot lease could expire; successful recovery cannot be explained by
+	// waiting out a lease. Data claims themselves intentionally have no lease.
+	const recoveryBudget = 10 * time.Second
+	if recoveryBudget >= snapshotLease {
+		t.Fatal("cleanup recovery budget must be shorter than snapshot lease")
+	}
+	ctx, cancel := context.WithTimeout(h.ctx, recoveryBudget)
 	defer cancel()
 	denied := false
 	for range 256 {
@@ -458,10 +465,26 @@ func snapshotCheckCleanupRecovery(t *testing.T, h *sqlHarness, authorized, limit
 		}
 	}
 	checkLive()
-	// A fresh collector immediately claims the same zero-reference generation.
-	result, err := authorized.reapSnapshotStep(ctx)
-	if err != nil || result.prefix != meta.prefix() || result.deleted != 3 {
-		t.Fatalf("authorized collector could not immediately resume: %+v %v", result, err)
+	// Every step may retire another manifest and enqueue unrelated data ahead
+	// of the denied generation (the global queue orders equal scores by data ID).
+	// Permit bounded successful queue progress, without sleeps or error replay.
+	resumed := false
+	for range 256 {
+		result, err := authorized.reapSnapshotStep(ctx)
+		if err != nil {
+			t.Fatalf("authorized cleanup failed while resuming: %+v %v", result, err)
+		}
+		checkLive()
+		if result.prefix == meta.prefix() {
+			if result.deleted != 3 {
+				t.Fatalf("authorized cleanup resumed with wrong row count: %+v", result)
+			}
+			resumed = true
+			break
+		}
+	}
+	if !resumed {
+		t.Fatal("authorized collector did not resume within bounded queue progress")
 	}
 	if raw.Exists(ctx, meta.prefix()+"1", meta.prefix()+"2", meta.prefix()+"3", directory).Val() != 0 || raw.HExists(ctx, snapshotMetadataGraph, "d:"+snapshotDataID(meta.prefix())).Val() {
 		t.Fatal("resumed cleanup left registered garbage")
