@@ -49,7 +49,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 	if s.params == nil {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
 	}
-	if s.isLiveIngest() {
+	if s.liveSource != nil || s.isLiveIngest() {
 		return s.executeLiveIngest(ctx)
 	}
 	if s.unmanagedSource != nil {

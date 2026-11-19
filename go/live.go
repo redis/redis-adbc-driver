@@ -147,30 +147,18 @@ func RegisterLiveHashes(ctx context.Context, options map[string]string, o HashAd
 	if used {
 		return res, errorf(adbc.StatusAlreadyExists, "redis_live already exists as a managed schema")
 	}
-	raw, err := json.Marshal(liveRecord{State: "building", Meta: meta})
+	raw, err := c.st.reserveLive(ctx, meta)
 	if err != nil {
 		return res, err
 	}
-	if len(raw) > 1<<20 {
-		return res, errorf(adbc.StatusInvalidArgument, "live descriptor exceeds 1 MiB")
-	}
-	n, err := once(ctx, c.client, "EVAL", `
-if redis.call('HEXISTS',KEYS[1],ARGV[1]) == 1 then return 0 end
-if redis.call('HLEN',KEYS[1]) >= tonumber(ARGV[3]) then return -1 end
-redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); return 1`, 1, liveRegistry, name, string(raw), liveMaxTables).Int()
-	if err != nil {
-		return res, wrapRedis(err, "live registration outcome is uncertain; inspect the registration before retrying")
-	}
-	if n != 1 {
-		return res, errorf(adbc.StatusAlreadyExists, "live table already registered or live table capacity reached; use ResumeLiveHashes for an unfinished registration")
-	}
+
 	if err := c.st.searchDo(ctx, a.index, liveIndexArgs(meta)...).Err(); err != nil {
 		return res, wrapRedis(err, "live index creation failed; registration identity retained; do not replay an uncertain create")
 	}
 	if err := a.waitIndexed(ctx); err != nil {
 		return res, err
 	}
-	if err := c.st.publishLive(ctx, name, string(raw), meta); err != nil {
+	if err := c.st.publishLive(ctx, name, raw, meta); err != nil {
 		return res, err
 	}
 	res.Applied = true
@@ -375,7 +363,7 @@ func (s *store) checkLiveIdentity(ctx context.Context, m *tableMeta) error {
 	if err != nil {
 		return err
 	}
-	if r.State != "ready" || r.Meta.prefix() != m.prefix() || r.Meta.index() != m.index() {
+	if r.State != "ready" || r.Meta.prefix() != m.prefix() || r.Meta.index() != m.index() || r.Meta.LiveVersion != m.LiveVersion {
 		return errorf(adbc.StatusInvalidState, "live registration changed during execution")
 	}
 	return nil

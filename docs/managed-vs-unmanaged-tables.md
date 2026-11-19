@@ -136,8 +136,7 @@ Direct Redis writes must respect registered field encodings; they do not receive
 SQL type/constraint validation. New source fields do not automatically become
 SQL columns.
 
-The mode supports SELECT, INSERT, UPDATE, DELETE, RETURNING, and Arrow append to
-registered tables. It excludes shared managed snapshots, retained execution, MERGE,
+The mode supports SELECT, INSERT, UPDATE, DELETE, RETURNING, and Arrow ingestion with explicit creation/replacement configuration. It excludes shared managed snapshots, retained execution, MERGE,
 TRUNCATE, schema-changing DDL, and mixed managed/live write statements. Ordinary
 SELECTs may join live and managed tables; only the managed portion is frozen.
 Collection queries use bounded key scans and can materialize results.
@@ -159,8 +158,10 @@ Managed ingestion has atomic supported create/append/replace behavior. Unmanaged
 ingestion writes original source HASHes and has a separate partial-write contract;
 source replacement requires explicit dedicated-source configuration and consent.
 Live HASH tables accept `append` and `create_append` on existing registrations,
-writing original HASHes with per-row acknowledgments. Omitting `__key` generates
-UUID keys. Arrow ingestion cannot create a live registration or replace its data;
+writing original HASHes with per-row acknowledgments. Explicit `live_source`
+configuration enables creation under an empty prefix and dedicated replacement
+with exact target/index and quiescence, TTL-loss and index-reset consent.
+Omitting `__key` generates UUID keys;
 see [live Arrow ingestion](live-hash-tables.md#write-arrow-data-to-live-hashes).
 
 See the [unmanaged Arrow write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes)

@@ -54,6 +54,7 @@ type statementImpl struct {
 	// indexable columns).
 	indexColumns    map[string]bool
 	unmanagedSource *unmanagedIngestSource
+	liveSource      *unmanagedIngestSource
 	// aggPushdown overrides the connection's aggregate pushdown mode.
 	aggPushdown     string
 	diagnosticsFile string
@@ -93,6 +94,12 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return s.operationOption(ctx, key)
 	}
 	switch key {
+	case OptionStringIngestLiveSource:
+		if s.liveSource == nil {
+			return "", nil
+		}
+		b, err := json.Marshal(s.liveSource)
+		return string(b), err
 	case OptionStringIngestUnmanagedSource:
 		if s.unmanagedSource == nil {
 			return "", nil
@@ -274,6 +281,13 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		return err
 	}
 	switch key {
+	case OptionStringIngestLiveSource:
+		cfg, err := parseLiveIngestSource(val)
+		if err != nil {
+			return err
+		}
+		s.liveSource = cfg
+		return nil
 	case OptionStringIngestUnmanagedSource:
 		cfg, err := parseUnmanagedIngestSource(val)
 		if err != nil {

@@ -214,6 +214,9 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 type tableMeta struct {
 	// Live descriptors own indexes and metadata, but never application HASHes.
 	Live bool `json:"live,omitempty"`
+	// LiveVersion changes with Arrow replacement, including identical schemas.
+	// Unlike columns, it survives query projection/aliasing unchanged.
+	LiveVersion string `json:"live_version,omitempty"`
 	// Unmanaged descriptors own only catalog metadata, never source rows or
 	// indexes. Their schema is pinned but source values remain live.
 	Unmanaged         bool     `json:"unmanaged,omitempty"`
