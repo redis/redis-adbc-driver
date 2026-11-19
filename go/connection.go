@@ -426,7 +426,7 @@ func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, db
 		}
 	}
 	if catalog != nil && *catalog != "" {
-		if _, err := c.executor().targetCatalog(ctx, *catalog); err != nil {
+		if _, err := c.store.catalogIdentity(ctx, *catalog); err != nil {
 			return nil, err
 		}
 	}
@@ -511,9 +511,6 @@ func (c *connectionImpl) GetCatalogs(ctx context.Context, catalogFilter *string)
 }
 
 func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog string, schemaFilter *string) ([]string, error) {
-	if catalog != catalogName && c.store.hasSharedReadView() {
-		return nil, namedCatalogExecutionUnsupported()
-	}
 	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return nil, snapshotErr
@@ -547,9 +544,6 @@ func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog str
 }
 
 func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog string, schema string, tableFilter *string, columnFilter *string, includeColumns bool) ([]driverbase.TableInfo, error) {
-	if catalog != catalogName && c.store.hasSharedReadView() {
-		return nil, namedCatalogExecutionUnsupported()
-	}
 	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
 	if snapshotErr != nil {
 		return nil, snapshotErr

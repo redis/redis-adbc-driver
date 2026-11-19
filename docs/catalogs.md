@@ -49,10 +49,11 @@ and resource configuration; existing managed table ownership, immutable snapshot
 publication and prefix-based RBAC checks still apply.
 
 Named catalogs currently reject deferred partition production/reading, retained
-query execution, and connection-bound shared read snapshots. Ordinary managed
-statement snapshots continue to protect named-catalog SQL and Arrow operations.
-These advanced features remain available in `redis`; selecting or explicitly
-referencing a named catalog cannot bypass their restriction.
+query execution, and row execution through connection-bound shared read snapshots.
+A shared read snapshot acquired in `redis` can still discover metadata and fetch
+table schemas across catalogs within its pinned global metadata root. Selecting
+or reading named-catalog rows remains unsupported while that snapshot is bound.
+Ordinary managed statement snapshots protect named-catalog SQL and Arrow operations.
 
 Restricted readers need the current generated snapshot reader policy to discover
 named catalogs. The added key grant covers only immutable
