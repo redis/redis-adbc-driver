@@ -17,7 +17,7 @@ The snapshot contract below applies to managed data.
 
 A third [live HASH mode](live-hash-tables.md) keeps the HASHes application-owned
 while the driver creates and manages its indexes. SQL and Redis clients read
-and write the same data; this mode requires a source build.
+and write the same data; this mode is included in v0.0.30 and later.
 
 ## Managed-table snapshot format
 

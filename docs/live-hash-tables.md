@@ -1,6 +1,7 @@
 # Live HASH tables
 
-This feature requires a source build of this checkout.
+Live HASH tables and their Arrow ingestion modes are included in
+[v0.0.30](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.30) and later.
 
 Live tables are a third ownership mode: **your application owns the HASHes; the
 driver owns the SQL definition and its Search index**. SQL and Redis clients
@@ -75,9 +76,10 @@ deletes the selected source HASHes.
 
 ## SQL and Redis client example
 
-Use the source build and Redis fixture from the
-[README quick start](../README.md#quick-start), with its Python virtual environment
-active and connection environment loaded. Register the example collection once.
+Use the Redis fixture and Python environment from the
+[README quick start](../README.md#quick-start), with the virtual environment
+active and connection environment loaded. Use v0.0.30 or later, or a current
+source build. Register the example collection once.
 Install the Redis Python client:
 
 ```bash
