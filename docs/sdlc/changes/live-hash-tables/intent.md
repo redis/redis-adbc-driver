@@ -25,3 +25,7 @@ Documentation follow-up: rewrite the README and ownership guide around exactly
 three combinations: driver owns data and indexes; application owns both; or
 application owns data and the driver owns indexes. SQL access exists in all
 three. Explain managed imports as copies rather than a fourth ownership mode.
+
+Keep the README balanced across all three ownership modes; put mode-specific
+SQL/Redis examples in the corresponding guide rather than a standalone README
+section that implies live access is unique to the driver-index-owned mode.

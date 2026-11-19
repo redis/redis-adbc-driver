@@ -123,3 +123,16 @@ sample-loader, compatibility and feature-matrix anchors remain valid. Reviewed
 commands/options against the Makefile, CLI, Python wrapper, and per-mode guides.
 `git diff --check` passed. These are documentation-only edits; examples were not
 executed and runtime suites were not rerun for this rewrite.
+
+## Balanced README follow-up
+
+Removed the standalone “Live SQL and Redis access” section, its contents entry,
+and references to a live example below the quick start. Kept comparable short
+ownership descriptions and links for managed, unmanaged, and live HASH tables.
+Moved the end-to-end SQL/Redis-client example into the live HASH guide; generated
+keys, source ownership, and consistency details remain documented there.
+
+Checked 57 local links/anchors and syntax-checked 12 shell/Python blocks across
+the README and live guide. Incoming repository links remain valid, removed
+section references are absent, and `git diff --check` passed. Documentation-only
+changes; runtime tests and example execution were not repeated.

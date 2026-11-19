@@ -55,6 +55,7 @@ Pull request: [#510](https://github.com/redis/redis-adbc-driver/pull/510).
 Documentation must compare all three ownership combinations consistently,
 separate index ownership from server-side storage and automatic index-entry
 maintenance, and keep source-build requirements and per-mode write guarantees
-explicit. The README should provide an end-to-end SQL/Redis example with
-generated keys, without implying that installing a published wheel enables
-unreleased source features.
+explicit. The README should present all three ownership modes with comparable
+prominence and link to their guides. End-to-end SQL/Redis examples and generated
+key instructions belong in the live HASH guide, with source-build requirements
+that do not imply a published wheel contains unreleased features.

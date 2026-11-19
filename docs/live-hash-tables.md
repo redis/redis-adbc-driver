@@ -73,6 +73,54 @@ SQL NULL removes the corresponding field; an UPDATE that would remove the last
 field is refused because Redis would delete the entire HASH. DELETE deliberately
 deletes the selected source HASHes.
 
+## SQL and Redis client example
+
+Use the source build and Redis fixture from the
+[README quick start](../README.md#quick-start), with its Python virtual environment
+active and connection environment loaded. Register the example collection once.
+Install the Redis Python client:
+
+```bash
+python -m pip install redis
+```
+
+This example creates an application HASH, registers its collection, inserts a row
+through SQL, and edits that same row through a Redis client. The driver creates
+and maintains the Search index.
+
+```python
+import os
+import subprocess
+import redis
+from adbc_driver_redis import dbapi
+
+uri = os.environ["REDIS_URI"]
+redis_options = {"decode_responses": True}
+if uri.startswith("rediss://") and os.environ.get("SSL_CERT_FILE"):
+    redis_options["ssl_ca_certs"] = os.environ["SSL_CERT_FILE"]
+r = redis.Redis.from_url(uri, **redis_options)
+r.hset("demo:users:seed", mapping={"name": "Ada", "age": 37})
+
+# Register once; the application HASHes stay where they are.
+subprocess.run(
+    ["go/build/redis-adbc", "live", "register",
+     "-prefix", "demo:users:", "-table", "users", "-apply"],
+    check=True, stdout=subprocess.DEVNULL,
+)
+
+with dbapi.connect(uri, db_kwargs={"adbc.redis.live_tables": "true"}) as conn:
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO redis_live.users (name, age)
+            VALUES ('Grace', 40) RETURNING __key
+        """)
+        key = cur.fetch_arrow_table()["__key"][0].as_py()
+        print(r.hgetall(key))          # Read the SQL-created HASH directly.
+        r.hset(key, "age", 41)         # Edit it with a Redis client.
+        cur.execute("SELECT name, age FROM redis_live.users WHERE __key = ?", (key,))
+        print(cur.fetch_arrow_table()) # SQL reads the updated value.
+```
+
 ## Consistency and schema
 
 Live tables have no managed statement snapshot. Queries, joins and cursor pages

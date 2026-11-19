@@ -37,7 +37,6 @@ and updating those same HASHes through SQL.
 
 - [How tables and snapshots work](#how-tables-and-snapshots-work)
 - [Quick start](#quick-start)
-- [Live SQL and Redis access](#live-sql-and-redis-access)
 - [Data tools and integration status](#data-tools-and-integration-status)
 - [Compatibility and validation](#compatibility-and-validation)
 - [Apache Arrow feature matrix](#apache-arrow-feature-matrix)
@@ -61,21 +60,24 @@ and who maintains the Search indexes.
 | Copy of application data | Import creates a private copy | No copy | No copy |
 | Arrow ingestion | Supported | Supported within the unmanaged write contract | Not supported initially |
 
-**Choose managed tables** for SQL/Arrow pipelines and consistent analytical reads.
-They are the default. SQL and Arrow writes go through the driver, which maintains
-schema, indexes, snapshots, compaction, and reclamation. Importing application
-HASHes creates a managed copy; later source changes require an explicit refresh.
+**Choose managed tables** when the driver should own both data and indexes.
+They are the default for SQL/Arrow pipelines and consistent analytical reads.
+Supported writes go through the driver; importing application HASHes creates a
+private copy that needs explicit refresh. See the
+[managed-table walkthrough](docs/sql-redis-example.md) and
+[snapshot contract](docs/snapshots.md).
 
-**Choose unmanaged tables** when your application already owns a compatible Search
-index and should keep responsibility for its configuration and lifecycle. Register
-that index for SQL access to the original HASHes. See [unmanaged tables](docs/unmanaged-tables.md)
-for registration, source writes, Arrow ingestion, and limits.
+**Choose unmanaged tables** when the application should own both data and indexes.
+Register an existing compatible Search index for SQL access to the original
+HASHes. SQL and Redis clients operate on the same data; the application controls
+index configuration and lifecycle. See the
+[unmanaged guide](docs/unmanaged-tables.md) for registration, examples, and limits.
 
-**Choose live HASH tables** when you want SQL and Redis clients to read and write
-one set of application-owned HASHes, while the driver handles indexes. Register a
-collection once; subsequent source changes need no import or refresh. Live mode
-currently requires a source build. See the [example below](#live-sql-and-redis-access)
-and the [live-mode contract](docs/live-hash-tables.md).
+**Choose live HASH tables** when the application should own the data and the
+driver should own the indexes. SQL and Redis clients operate on the original
+HASHes; the driver creates and manages its Search index. This mode currently
+requires a source build. See the [live HASH guide](docs/live-hash-tables.md) for
+registration, SQL/Redis examples, automatic keys, and limits.
 
 All modes use autocommit; multi-statement transactions and rollback are unsupported.
 Unmanaged and live tables have no managed row snapshot: concurrent SQL and Redis
@@ -88,8 +90,7 @@ or the [ownership comparison](docs/managed-vs-unmanaged-tables.md) for more deta
 ## Quick start
 
 This walkthrough builds the current source, starts a disposable Redis Software
-fixture, and queries sample managed tables. The source build also includes live
-HASH mode and automatic insert keys.
+fixture, and queries sample managed tables.
 
 You need Git, Make, the Go toolchain declared in [go/go.mod](go/go.mod), a C compiler,
 Python 3.14+, Docker with Compose, OpenSSL, `curl`, and `jq`. For a packaged release instead,
@@ -184,76 +185,10 @@ functions, date/time expressions, views, and writes.
 
 ### 5. Clean up
 
-When finished with the examples, including the optional live-mode example below:
+When finished with the examples:
 
 ```bash
 make -C go redis-down
-```
-
-## Live SQL and Redis access
-
-Use the source build and Redis fixture from the quick start, with the Python
-virtual environment active and its connection environment loaded. If you already
-stopped the fixture, run `make -C go redis-up` and source `go/build/test.env` again.
-Install the Redis Python client:
-
-```bash
-python -m pip install redis
-```
-
-This example creates an application HASH, registers its collection, inserts a row
-through SQL, and edits that same row through a Redis client. The driver creates
-and maintains the Search index.
-
-```python
-import os
-import subprocess
-import redis
-from adbc_driver_redis import dbapi
-
-uri = os.environ["REDIS_URI"]
-redis_options = {"decode_responses": True}
-if uri.startswith("rediss://") and os.environ.get("SSL_CERT_FILE"):
-    redis_options["ssl_ca_certs"] = os.environ["SSL_CERT_FILE"]
-r = redis.Redis.from_url(uri, **redis_options)
-r.hset("demo:users:seed", mapping={"name": "Ada", "age": 37})
-
-# Register once; the application HASHes stay where they are.
-subprocess.run(
-    ["go/build/redis-adbc", "live", "register",
-     "-prefix", "demo:users:", "-table", "users", "-apply"],
-    check=True, stdout=subprocess.DEVNULL,
-)
-
-with dbapi.connect(uri, db_kwargs={"adbc.redis.live_tables": "true"}) as conn:
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO redis_live.users (name, age)
-            VALUES ('Grace', 40) RETURNING __key
-        """)
-        key = cur.fetch_arrow_table()["__key"][0].as_py()
-        print(r.hgetall(key))          # Read the SQL-created HASH directly.
-        r.hset(key, "age", 41)         # Edit it with a Redis client.
-        cur.execute("SELECT name, age FROM redis_live.users WHERE __key = ?", (key,))
-        print(cur.fetch_arrow_table()) # SQL reads the updated value.
-```
-
-Omitting `__key`, or specifying `DEFAULT`, generates a key such as
-`demo:users:<uuid>` using the SQL function `GEN_RANDOM_UUID()`. Use
-`RETURNING __key` to retrieve it, or supply your own key. Existing keys are refused;
-explicit NULL is rejected. The driver adds no internal row/version fields to the
-application HASHes, and SQL UPDATE preserves TTLs and unrelated fields.
-
-Live mode supports SELECT, INSERT, UPDATE, DELETE, and RETURNING. It initially
-excludes Arrow ingestion, shared managed snapshots, retained execution, MERGE,
-TRUNCATE, schema-changing DDL, and mixed managed/live write statements. Collection
-queries scan keys in bounded batches and can materialize results; no speedup over
-managed tables is promised. See [schema, consistency, and query limits](docs/live-hash-tables.md).
-
-Remove the registration and its driver-owned index while keeping the source HASHes:
-
-```bash
-go/build/redis-adbc live unregister -table users -apply
 ```
 
 ## Data tools and integration status

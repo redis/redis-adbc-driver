@@ -25,3 +25,7 @@ identity. Rebuild the source binaries and update PR #510.
 Documentation follow-up: rewrite the README and ownership comparison, preserve
 incoming documentation anchors, and check local links plus shell/Python example
 syntax. Update the existing PR after documentation review.
+
+Remove the standalone live-access README section and its navigation entry,
+move the end-to-end example to the live HASH guide, and give each ownership
+mode a brief description and links to its detailed documentation.
