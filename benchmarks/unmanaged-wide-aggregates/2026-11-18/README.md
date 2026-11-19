@@ -31,3 +31,20 @@ full-scale evidence before issue closure.
 Raw sanitized [execution diagnostics](b1a535fb-q3-execution.json) and
 [supervised outcome](b1a535fb-q3-outcome.json) are retained here. Infrastructure
 identifiers, credentials, native backups and operational journals remain private.
+
+## Vector follow-up and attribution
+
+Candidate `c4ed9f71` also exceeded the fixed 300-second deadline: Q3 consumed
+78,080,000 rows at its last sample, and a separate Q4 trial consumed 80,608,000.
+Neither produced a complete result. See Q3 [diagnostics](c4ed9f71-q3-execution.json)
+and [outcome](c4ed9f71-q3-outcome.json), and Q4
+[diagnostics](c4ed9f71-q4-execution.json) and [outcome](c4ed9f71-q4-outcome.json).
+
+A separate read-only Q3 diagnostic, capped at 90 seconds and instrumented for a
+50-second CPU profile, attributed 34% of sampled client CPU to background GC
+marking. Generic RESP map decoding accounted for 48% of sampled allocation
+volume; copying aggregate row maps added another 19%. These diagnostic shares
+are scoped to that instrumented partial run, not acceptance timings. A follow-up
+therefore uses an owned raw key-only cursor frame to avoid those containers.
+Other cursor shapes retain generic decoding. No deadline, memory, source-value
+proof, TLS or lease setting is relaxed.

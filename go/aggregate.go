@@ -40,6 +40,7 @@ import (
 // limiting are read.
 type aggRequest struct {
 	aggregateInputs bool // direct unmanaged scalar inputs, bounded by fetched width
+	unmanagedKeys   bool // exact key-only scalar discovery; owned raw RESP frame
 	meta            *tableMeta
 	visibility      []snapshotIndexQuery
 	index           string
@@ -186,15 +187,17 @@ func (s *store) aggregate(ctx context.Context, req *aggRequest) ([]aggRow, error
 // read through the same connection. Redis deletes a cursor left unread for
 // its idle time (300 seconds by default).
 type aggCursor struct {
-	sources  []aggRequest
-	child    *aggCursor
-	source   int
-	snapshot bool
-	store    *store
-	node     searchConn
-	index    string
-	count    int
-	bounded  *rangeReader
+	keyOnly   bool
+	firstKeys []string
+	sources   []aggRequest
+	child     *aggCursor
+	source    int
+	snapshot  bool
+	store     *store
+	node      searchConn
+	index     string
+	count     int
+	bounded   *rangeReader
 	// first is the page the pipeline returned, until next returns it.
 	first   []aggRow
 	pending bool
@@ -237,6 +240,23 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 	if err != nil {
 		return nil, err
 	}
+	if req.unmanagedKeys {
+		raw, err := node.raw(ctx, req.args(maxRows)...)
+		if err != nil {
+			return nil, wrapRedis(err, "FT.AGGREGATE failed")
+		}
+		c := &aggCursor{store: s, snapshot: s.snapshots, node: node, index: req.index, count: req.pageRows(), pending: true, keyOnly: true}
+		var warning bool
+		c.firstKeys, c.cursor, warning, err = parseUnmanagedKeyCursor(raw)
+		if err == nil && c.snapshot && warning {
+			err = errorf(adbc.StatusIO, "snapshot aggregation returned a partial-result warning")
+		}
+		if err != nil {
+			c.close(ctx)
+			return nil, err
+		}
+		return c, nil
+	}
 	reply, err := node.Do(ctx, req.args(maxRows)...).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "FT.AGGREGATE failed")
@@ -256,6 +276,9 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 // next returns the next page of rows, or io.EOF after the last one. The
 // cursor is deleted when next fails.
 func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
+	if c.keyOnly {
+		return nil, errorf(adbc.StatusInvalidState, "key-only cursor requires native key consumption")
+	}
 	if c.sources != nil {
 		for c.source < len(c.sources) {
 			if err := cancelled(ctx); err != nil {
@@ -357,6 +380,7 @@ func (c *aggCursor) close(ctx context.Context) {
 		c.cursor = 0
 	}
 	c.pending, c.first = false, nil
+	c.firstKeys = nil
 }
 
 // parseCursorReply parses a WITHCURSOR reply. The outer reply is

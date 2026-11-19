@@ -29,6 +29,12 @@ can decode exact native vectors in metadata order without building a HASH map;
 complete-image fallback rows remain intact and are never combined with a
 previous vector. Residual predicates keep their established map consumer.
 
+Key-only scalar cursor discovery may decode an owned raw RESP3 frame through
+its existing client and coordinator. Exact binary source keys are copied;
+partial-result warnings and malformed replies fail without replay. Recoverable
+cursor IDs are retained for bounded cleanup, including parser failures. Ordinary
+and grouped cursor shapes retain their established decoder.
+
 ## DISTINCT contract
 
 A lone COUNT(DISTINCT direct_column), without grouping, aggregate FILTER,

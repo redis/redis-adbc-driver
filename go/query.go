@@ -811,6 +811,7 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		ar.load, ar.loadAll, ar.hashFetch = []string{"__key"}, false, true
 		if req.aggregateInputs && it.unmanagedRead != nil && len(it.unmanagedRead.fields) > 0 {
 			ar.aggregateInputs = true
+			ar.unmanagedKeys = true
 			ar.width = len(it.unmanagedRead.fields) + 1
 		}
 	}
@@ -985,7 +986,14 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 	if err := it.checkReadiness(ctx); err != nil {
 		return nil, nil, err
 	}
-	page, err := it.cur.next(ctx)
+	var page []aggRow
+	var keys []string
+	var err error
+	if it.cur.keyOnly {
+		keys, err = it.cur.nextKeys(ctx)
+	} else {
+		page, err = it.cur.next(ctx)
+	}
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, nil, err
 	}
@@ -995,7 +1003,9 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 	if err != nil {
 		return nil, nil, err
 	}
-	keys := make([]string, len(page))
+	if !it.cur.keyOnly {
+		keys = make([]string, len(page))
+	}
 	for i, r := range page {
 		if !it.unmanagedHashFetch && !it.exists(r) {
 			page[i] = nil // deleted after the index matched it

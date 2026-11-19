@@ -50,9 +50,10 @@ See [intent](intent.md) and [specification](spec.md).
   the complete-image source took 3.409–3.460 s. These are instrumented local
   synthetic results, exclude planning/Python/C-boundary costs, have no cold-cache
   claim, and are not full-scale ClickBench acceptance evidence.
-- No 100M-row improvement or original-query resolution is claimed yet. A
-  separately owned full-scale host is importing the existing compatible backup.
-  This change requested no new full-scale ingestion or source export.
+- No completed 100M-row improvement or original-query resolution is claimed.
+  The separately owned full-scale host restored the compatible backup and
+  passed typed readiness. The first full-scale Q3 trial timed out. No new
+  full-scale ingestion or source export was requested by this change.
 
 ## Validation steering
 
@@ -96,5 +97,23 @@ page order, cancellation, cursor cleanup and shared admission remain in place.
 Validate exact vector/map equivalence, schema binding and existing fault paths,
 then rebuild the Linux arm64 candidate and repeat the original bounded trials.
 
-Follow-up full unit suite and broad dedicated Software race selection passed
-(Go 1.27.4, active verified 4x QPF); Linux arm64 build/full-scale proof pending.
+For the vector follow-up, full unit and broad dedicated Software race tests
+passed (Go 1.27.4, active verified 4x QPF), and the Linux arm64 library built.
+Full-scale Q3 and Q4 then failed the original deadline, as recorded below.
+
+Candidate `c4ed9f71` also missed Q3 at 300 seconds (78,080,000 rows at the
+last sample), and separately missed Q4 (80,608,000 rows). A bounded 90-second
+read-only Q3 diagnostic with a 50-second CPU profile found substantial generic
+RESP Search map allocation and GC work. It is not acceptance timing. Eligible
+key-only scalar discovery now uses an owned raw RESP frame from the existing
+client, retaining TLS/RESP3, coordinator routing, no retry, exact binary keys,
+warning rejection, cursor cleanup and all readiness checks. Other cursor shapes
+retain generic decoding. This requires parser fault/fuzz checks and fresh full
+Software and full-scale validation; no issue resolution is claimed.
+
+The raw-key decoder passes the full unit suite, broad dedicated Software race
+selection, focused parser/native-error/lost-reply/cleanup race checks, and a
+15-second parser fuzz run (212,325 executions). Exact keys include zero bytes,
+UTF-8 and CRLF; tests cover truncation at every byte, malformed attributes,
+partial warnings, nested NULL warnings and preserved cleanup cursor IDs.
+Shared-library build and fresh full-scale acceptance remain pending.
