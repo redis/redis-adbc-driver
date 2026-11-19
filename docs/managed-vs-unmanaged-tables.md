@@ -28,8 +28,7 @@ names the mode with application-owned data and driver-owned indexes specifically
 | **Unmanaged: application owns data + indexes** | Your application already has a compatible Search index and wants to retain its configuration and lifecycle | The application manages schema compatibility, indexing, and coordination |
 
 Use **live HASH tables** when the requirement is: “I want to access and change my
-HASHes directly, and I do not want to manage indexes.” This mode currently
-requires a source build. Use managed tables when consistency across a statement
+HASHes directly, and I do not want to manage indexes.” This mode is included in v0.0.30 and later. Use managed tables when consistency across a statement
 matters more than direct access to application keys.
 
 ## At a glance
