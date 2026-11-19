@@ -58,7 +58,7 @@ and who maintains the Search indexes.
 | Read consistency | Statement snapshots | Live source values | Live source values |
 | SQL write publication | Supported writes publish atomically | Source writes can partially succeed | Per-row writes; a statement can partially succeed |
 | Copy of application data | Import creates a private copy | No copy | No copy |
-| Arrow ingestion | Supported | Supported within the unmanaged write contract | Append to registered tables |
+| Arrow ingestion | Supported | Supported within the unmanaged write contract | Supported within the [live write contract](docs/live-hash-tables.md#write-arrow-data-to-live-hashes) |
 
 **Choose managed tables** when the driver should own both data and indexes.
 They are the default for SQL/Arrow pipelines and consistent analytical reads.
@@ -78,6 +78,14 @@ driver should own the indexes. SQL and Redis clients operate on the original
 HASHes; the driver creates and manages its Search index. This mode currently
 requires a source build. See the [live HASH guide](docs/live-hash-tables.md) for
 registration, SQL/Redis examples, automatic keys, and limits.
+
+Live Arrow ingestion supports `create`, `append`, `create_append`, and `replace`.
+Creation requires an explicitly configured empty application prefix. Replacement
+requires exact target/index consent and stopped application/driver writers and
+DDL users; it removes old HASHes and TTLs and resets the index. Live writes can partially
+succeed, and replacement has no whole-call rollback. See the
+[live write contract](docs/live-hash-tables.md#write-arrow-data-to-live-hashes)
+for configuration and recovery.
 
 All modes use autocommit; multi-statement transactions and rollback are unsupported.
 Unmanaged and live tables have no managed row snapshot: concurrent SQL and Redis

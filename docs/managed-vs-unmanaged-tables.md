@@ -38,14 +38,14 @@ matters more than direct access to application keys.
 |---|---|---|---|
 | SQL data source | Driver-owned rows | Original application HASHes | Original application HASHes |
 | Index management | Driver creates and maintains private indexes | Application provides and maintains a compatible index | Driver creates and maintains its own index over the source prefix |
-| Creation/registration | SQL, Arrow ingestion, or managed import | Explicit unmanaged adoption or foreign-index registration | Live registration API or `redis-adbc live register` |
+| Creation/registration | SQL, Arrow ingestion, or managed import | Explicit unmanaged adoption or foreign-index registration | Live registration API, `redis-adbc live register`, or Arrow creation with an explicit empty application prefix |
 | Direct Redis writes | Unsupported for driver-owned storage | Supported; bypass SQL validation | Supported; bypass SQL validation |
 | SQL INSERT key | Driver manages physical row identity | Explicit `__key`, or a generated prefixed UUID when omitted/DEFAULT | Explicit `__key`, or a generated prefixed UUID when omitted/DEFAULT |
 | Read consistency | One committed managed version per statement | Source values can change during execution | Source values can change during execution |
 | SQL write behavior | Supported changes publish atomically | Writes affect source HASHes and can partially succeed | Writes affect source HASHes per row and can partially succeed |
 | Source changes | An imported copy needs an explicit refresh | No data refresh; indexed visibility follows the source index | No data refresh; indexed visibility follows the driver-owned index |
 | TTLs | Do not directly expire driver-owned rows | Application controls source TTLs | Application controls source TTLs; SQL UPDATE preserves them |
-| Arrow ingestion | Supported | Supported within the unmanaged write contract | Append to registered tables |
+| Arrow ingestion | Supported | Supported within the unmanaged write contract | Supported within the [live write contract](live-hash-tables.md#write-arrow-data-to-live-hashes) |
 | Data copy | Managed import creates a copy; SQL-created tables need no external source | No private data copy | No private data copy |
 | Storage costs | Rows, indexes, catalog, staging, and retained versions | Source data/indexes plus SQL registration metadata | Source data, driver-owned indexes, and SQL registration metadata |
 | Removal | DROP removes the logical table; managed references govern physical reclamation | DROP removes the registration and leaves source data/indexes | Unregister removes the registration and its driver-owned index, leaving source data |
@@ -161,6 +161,9 @@ Live HASH tables accept `append` and `create_append` on existing registrations,
 writing original HASHes with per-row acknowledgments. Explicit `live_source`
 configuration enables creation under an empty prefix and dedicated replacement
 with exact target/index and quiescence, TTL-loss and index-reset consent.
+All application/driver writers and DDL users must remain stopped throughout
+replacement.
+Live writes can partially succeed; replacement has no whole-call rollback.
 Omitting `__key` generates UUID keys;
 see [live Arrow ingestion](live-hash-tables.md#write-arrow-data-to-live-hashes).
 
