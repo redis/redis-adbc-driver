@@ -102,6 +102,7 @@ func reservedSchema(schema string) bool { return isTempAlias(schema) || isTempSc
 // displaySchema is the name a schema is reported as: pg_temp for a temporary
 // schema.
 func displaySchema(schema string) string {
+	schema = logicalSchema(schema)
 	if isTempSchema(schema) {
 		return tempAlias
 	}

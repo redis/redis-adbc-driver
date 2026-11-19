@@ -385,6 +385,7 @@ func timeZoneParam(text string) (paramValue, error) {
 
 // session is a connection's settings.
 type session struct {
+	catalog          string // logical current catalog; empty preserves the default redis catalog
 	random           sqlRandom
 	sequenceBlocks   map[string]sequenceBlock
 	lastSequenceName TableName
