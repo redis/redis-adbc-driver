@@ -26,13 +26,59 @@ type scanProjection struct {
 	// consume is installed while a stream fills Arrow builders or a scalar
 	// aggregate consumes an ephemeral decoded row. Other
 	// projection users retain the row-returning diagnostic path.
-	consume func(aggRow) error
+	consume          func(aggRow) error
+	consumeUnmanaged func(string, []any) error
 	// Positional HASH bindings are private to authoritative simple projections.
 	consumeHash       func([]any) error
 	hashExclusive     bool // scalar consumer: every needed field comes from HMGET
 	hashFields        []string
 	hashPositions     []int
 	hashNullPositions []int
+}
+
+// Bind only matching authoritative native fields in metadata decode order.
+func (p *scanProjection) bindUnmanagedInputs(fields []string) bool {
+	if !p.keyRows || p.predicate != nil || len(fields) != len(p.columns) {
+		return false
+	}
+	for i, c := range p.columns {
+		if fields[i] != c.field || c.column.MissingThrough > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Native unmanaged fields and projection columns share metadata order. Decode
+// exact native values directly without constructing a per-row HASH map.
+func (p *scanProjection) decodeUnmanagedInto(key string, values []any, row []Value) error {
+	if len(values) != len(p.columns) {
+		return errorf(adbc.StatusInternal, "unexpected unmanaged input width %d", len(values))
+	}
+	for _, output := range p.key {
+		row[output] = stringValue(key)
+	}
+	for i := range p.columns {
+		c := &p.columns[i]
+		var v Value
+		var err error
+		rawValue := values[i]
+		if c.field == keyField {
+			rawValue = key
+		}
+		if raw, ok := rawValue.(string); ok {
+			v, err = c.decode(raw)
+		} else {
+			v, err = c.column.missingValue(nil)
+		}
+		if err != nil {
+			return errorf(adbc.StatusInternal, "column %q: %v", c.column.Name, err)
+		}
+		for _, output := range c.outputs {
+			row[output] = v
+		}
+	}
+	return nil
 }
 
 type projectionColumn struct {

@@ -134,6 +134,14 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 		}
 		return consume()
 	}
+	if it.unmanagedRead != nil && p.bindUnmanagedInputs(it.unmanagedRead.fields) {
+		p.consumeUnmanaged = func(key string, values []any) error {
+			if err := p.decodeUnmanagedInto(key, values, scratch); err != nil {
+				return err
+			}
+			return consume()
+		}
+	}
 	if p.hashFields != nil {
 		p.consumeHash = func(raw []any) error {
 			if err := p.decodeHashInto(raw, scratch); err != nil {
@@ -142,7 +150,13 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 			return consume()
 		}
 	}
-	defer func() { p.consume = nil; p.consumeHash = nil; p.consumeMatched = nil; p.predicateRow = nil }()
+	defer func() {
+		p.consume = nil
+		p.consumeHash = nil
+		p.consumeUnmanaged = nil
+		p.consumeMatched = nil
+		p.predicateRow = nil
+	}()
 	for {
 		reduction = 0
 		started = time.Now()

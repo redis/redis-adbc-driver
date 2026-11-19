@@ -13,7 +13,7 @@ See [intent](intent.md) and [specification](spec.md).
 4. Verify semantics, source ownership, cancellation, failure and temporary cleanup.
 5. Run unit tests and focused Software race tests; review correctness/lifecycle,
    ownership/security and intent/evidence against REVIEW.md.
-6. Coordinate a separately labeled full-scale retest without overlapping other
+6. Run a separately labeled full-scale retest without overlapping other
    timed queries. Preserve deadline, memory cap, complete fetch and independent
    reference validation. Close only issues actually demonstrated resolved.
 
@@ -50,9 +50,9 @@ See [intent](intent.md) and [specification](spec.md).
   the complete-image source took 3.409–3.460 s. These are instrumented local
   synthetic results, exclude planning/Python/C-boundary costs, have no cold-cache
   claim, and are not full-scale ClickBench acceptance evidence.
-- No 100M-row improvement or original-query resolution is claimed yet. The live
-  full-scale host is running another chat's main-code baseline retest. No new
-  full-scale benchmark or export has been started by this change.
+- No 100M-row improvement or original-query resolution is claimed yet. A
+  separately owned full-scale host is importing the existing compatible backup.
+  This change requested no new full-scale ingestion or source export.
 
 ## Validation steering
 
@@ -76,4 +76,25 @@ projected execution 0.274–0.353s versus 3.397–3.542s for complete images. Th
 motivated the bounded larger-page follow-up; it is not full-scale acceptance
 evidence. The implementation additionally scales pages by fetched-field width,
 respects shared worker admission, and retains grouped/streamed page sizing.
-Fresh unit/race/build validation is required for this refinement before timing.
+The final full unit suite, broad Software race selection and macOS/Linux arm64
+shared-library builds passed for this refinement at candidate `b1a535fb`.
+The compatible full-scale backup has now been restored and typed readiness
+passed. The first Q3 trial still exceeded 300 seconds; see the
+[full-scale evidence](../../../../benchmarks/unmanaged-wide-aggregates/2026-11-18/README.md).
+
+## Full-scale follow-up
+
+The first `b1a535fb` Q3 trial consumed 76,608,000 rows by its last 299-second
+sample, then hit the unchanged 300-second deadline. The supervisor stopped;
+Q4–Q6 remain untested in this attempt. All four issues remain open.
+
+Eligible scalar consumers now decode authoritative native vectors directly,
+avoiding one transient HASH map per successful projected row. Native all-NULL
+and ACL fallbacks still retain the complete later HASH image, while other
+projection users retain map results. Reader worker joins, outcome checks,
+page order, cancellation, cursor cleanup and shared admission remain in place.
+Validate exact vector/map equivalence, schema binding and existing fault paths,
+then rebuild the Linux arm64 candidate and repeat the original bounded trials.
+
+Follow-up full unit suite and broad dedicated Software race selection passed
+(Go 1.27.4, active verified 4x QPF); Linux arm64 build/full-scale proof pending.

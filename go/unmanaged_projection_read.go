@@ -103,7 +103,61 @@ func unmanagedProjectionSameNativeError(a, b error) bool {
 // unmanaged scans do not promise a statement snapshot. Never combine the first
 // vector with fields or existence from the later read: emit the complete later
 // image, and let the caller recheck the existing residual predicate.
+// A projected native vector owns one complete HMGET observation. Complete-image
+// fallbacks remain maps and must never be combined with an earlier vector.
+type unmanagedProjectionInput struct {
+	values []any
+	row    aggRow
+}
+
 func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]aggRow, error) {
+	inputs, err := r.readInputs(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	return r.inputRows(keys, inputs), nil
+}
+
+func (r *unmanagedProjectionRead) inputRows(keys []string, inputs []unmanagedProjectionInput) []aggRow {
+	out := make([]aggRow, len(inputs))
+	for i, input := range inputs {
+		if input.values == nil {
+			out[i] = input.row
+			continue
+		}
+		row := make(aggRow, len(r.fields)+1)
+		for n, v := range input.values {
+			if v != nil {
+				row[r.fields[n]] = v.(string)
+			}
+		}
+		row[keyField] = keys[i]
+		out[i] = row
+	}
+	return out
+}
+
+func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]aggRow, bool, error) {
+	inputs, denied, err := r.batchInputs(ctx, keys)
+	if err != nil {
+		return nil, false, err
+	}
+	return r.inputRows(keys, inputs), denied, nil
+}
+
+func (r *unmanagedProjectionRead) nativeInputs(ctx context.Context, keys []string) ([]unmanagedProjectionInput, error) {
+	rows, err := r.native(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]unmanagedProjectionInput, len(rows))
+	for i, row := range rows {
+		out[i].row = row
+	}
+	return out, nil
+}
+
+func (r *unmanagedProjectionRead) readInputs(ctx context.Context, keys []string) ([]unmanagedProjectionInput, error) {
 	if r == nil {
 		return nil, errorf(adbc.StatusInvalidState, "missing unmanaged projection reader")
 	}
@@ -113,12 +167,12 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 		}
 	}
 	if workers := min(r.workers, (len(keys)+pipelineChunk-1)/pipelineChunk); workers > 1 {
-		return r.parallelRead(ctx, keys, workers)
+		return r.parallelInputs(ctx, keys, workers)
 	}
 	if r.fallback || len(r.fields) == 0 {
-		return r.native(ctx, keys)
+		return r.nativeInputs(ctx, keys)
 	}
-	out := make([]aggRow, len(keys))
+	out := make([]unmanagedProjectionInput, len(keys))
 	for start := 0; start < len(keys); {
 		if err := cancelled(ctx); err != nil {
 			return nil, err
@@ -140,7 +194,7 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 			end++
 		}
 		if end == start {
-			rows, err := r.native(ctx, keys[start:start+1])
+			rows, err := r.nativeInputs(ctx, keys[start:start+1])
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +202,7 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 			start++
 			continue
 		}
-		rows, denied, err := r.batch(ctx, keys[start:end])
+		rows, denied, err := r.batchInputs(ctx, keys[start:end])
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +211,7 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 		r.fallback = denied
 		start = end
 		if r.fallback && start < len(keys) {
-			rows, err := r.native(ctx, keys[start:])
+			rows, err := r.nativeInputs(ctx, keys[start:])
 			if err != nil {
 				return nil, err
 			}
@@ -171,7 +225,7 @@ func (r *unmanagedProjectionRead) read(ctx context.Context, keys []string) ([]ag
 // Each native request observes a disjoint portion of an already discovered
 // page. Join every worker before returning an error or releasing admission;
 // neither an uncertain request nor any successful sibling is replayed.
-func (r *unmanagedProjectionRead) parallelRead(ctx context.Context, keys []string, workers int) ([]aggRow, error) {
+func (r *unmanagedProjectionRead) parallelInputs(ctx context.Context, keys []string, workers int) ([]unmanagedProjectionInput, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	jobs := make(chan int, (len(keys)+pipelineChunk-1)/pipelineChunk)
@@ -179,7 +233,7 @@ func (r *unmanagedProjectionRead) parallelRead(ctx context.Context, keys []strin
 		jobs <- start
 	}
 	close(jobs)
-	out := make([]aggRow, len(keys))
+	out := make([]unmanagedProjectionInput, len(keys))
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var first error
@@ -195,7 +249,7 @@ func (r *unmanagedProjectionRead) parallelRead(ctx context.Context, keys []strin
 					return
 				}
 				end := min(start+pipelineChunk, len(keys))
-				rows, err := local.read(ctx, keys[start:end])
+				rows, err := local.readInputs(ctx, keys[start:end])
 				mu.Lock()
 				denied = denied || local.fallback
 				if err != nil && first == nil {
@@ -221,7 +275,7 @@ func (r *unmanagedProjectionRead) parallelRead(ctx context.Context, keys []strin
 	return out, nil
 }
 
-func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]aggRow, bool, error) {
+func (r *unmanagedProjectionRead) batchInputs(ctx context.Context, keys []string) ([]unmanagedProjectionInput, bool, error) {
 	pipe := r.store.redis(ctx).Pipeline()
 	cmds := make([]*goredis.SliceCmd, len(keys))
 	for i, key := range keys {
@@ -256,7 +310,7 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]a
 	if pipelineErr != nil && !accounted {
 		return nil, false, wrapRedis(transportContextError(ctx, pipelineErr), "failed to read unmanaged projection pipeline")
 	}
-	out := make([]aggRow, len(keys))
+	out := make([]unmanagedProjectionInput, len(keys))
 	var fallback []int
 	denied := false
 	for i, cmd := range cmds {
@@ -272,33 +326,29 @@ func (r *unmanagedProjectionRead) batch(ctx context.Context, keys []string) ([]a
 		if len(values) != len(r.fields) {
 			return nil, false, errorf(adbc.StatusInternal, "unexpected unmanaged projection width %d", len(values))
 		}
-		var row aggRow
-		for field, value := range values {
+		present := false
+		for _, value := range values {
 			if value == nil {
 				continue
 			}
-			text, ok := value.(string)
+			_, ok := value.(string)
 			if !ok {
 				return nil, false, errorf(adbc.StatusInternal, "unexpected unmanaged projection field %T", value)
 			}
-			if row == nil {
-				row = make(aggRow, len(r.fields)+1)
-			}
-			row[r.fields[field]] = text
+			present = true
 		}
-		if row == nil {
+		if !present {
 			fallback = append(fallback, i)
 			continue
 		}
-		row[keyField] = keys[i]
-		out[i] = row
+		out[i].values = values
 	}
 	if len(fallback) > 0 {
 		retry := make([]string, len(fallback))
 		for i, n := range fallback {
 			retry[i] = keys[n]
 		}
-		rows, err := r.native(ctx, retry)
+		rows, err := r.nativeInputs(ctx, retry)
 		if err != nil {
 			return nil, false, err
 		}

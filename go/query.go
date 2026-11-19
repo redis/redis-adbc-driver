@@ -1007,6 +1007,37 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		}
 	}
 	if it.unmanagedHashFetch {
+		if it.unmanagedRead != nil && it.projection != nil && it.projection.consumeUnmanaged != nil {
+			inputs, err := it.unmanagedRead.readInputs(ctx, keys)
+			if err != nil {
+				return nil, nil, err
+			}
+			if it.diagnostics != nil {
+				it.diagnostics.processed.Add(int64(len(inputs)))
+			}
+			var matched int64
+			for i, input := range inputs {
+				if input.values == nil && input.row == nil {
+					continue
+				}
+				if err := cancelled(ctx); err != nil {
+					return nil, nil, err
+				}
+				if input.values != nil {
+					err = it.projection.consumeUnmanaged(keys[i], input.values)
+				} else {
+					err = it.projection.consume(input.row)
+				}
+				if err != nil {
+					return nil, nil, err
+				}
+				matched++
+			}
+			if it.diagnostics != nil {
+				it.diagnostics.matched.Add(matched)
+			}
+			return nil, nil, nil
+		}
 		var fetched []aggRow
 		var err error
 		if it.unmanagedRead != nil {
