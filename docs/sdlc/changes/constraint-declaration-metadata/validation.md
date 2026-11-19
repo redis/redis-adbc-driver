@@ -51,3 +51,13 @@ queue state); the patched pair also passed ten runs. Final Go unit packages,
 25 focused Software tests and the native 581-test suite passed. See the
 [combined evidence](../adbc-validation-gaps/validation.md) and
 [PR #543](https://github.com/redis/redis-adbc-driver/pull/543).
+
+Hosted ARM driver/wheel acceptance exposed another stale checker expectation:
+`partition_metadata_tls.py` still required PK/CHECK-only metadata for a fixture
+that declared UNIQUE/FK. Its exact constraint comparison now includes named
+ordered composite UNIQUE/FK declarations and logical referenced-column usage.
+The same checker verifies quoted column rename, CHECK drop, UNIQUE/FK drop and
+re-add, and final restored metadata under independently provisioned readers.
+Existing statistics and denied-permission assertions are retained. Syntax and
+diff checks pass; root's existing verified Software/API-principal acceptance run
+will provide integration evidence for this checker correction.

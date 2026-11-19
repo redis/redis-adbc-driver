@@ -56,7 +56,8 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands, 
         assert len(by_name) == len(declared), 'duplicate constraint metadata'
         return by_name
 
-    def expect_constraints(conn, key_columns, check_columns, has_check=True):
+    def expect_constraints(conn, key_columns, check_columns, has_check=True,
+                           has_unique=True, has_foreign=True):
         expected = {'metadata_pk': {'constraint_name': 'metadata_pk',
             'constraint_type': 'PRIMARY KEY', 'constraint_column_names': key_columns,
             'constraint_column_usage': None}}
@@ -64,15 +65,31 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands, 
             expected['metadata_check'] = {'constraint_name': 'metadata_check',
                 'constraint_type': 'CHECK', 'constraint_column_names': check_columns,
                 'constraint_column_usage': None}
+        if has_unique:
+            expected['metadata_unique'] = {'constraint_name': 'metadata_unique',
+                'constraint_type': 'UNIQUE',
+                'constraint_column_names': ['label', 'b'],
+                'constraint_column_usage': None}
+        if has_foreign:
+            expected['metadata_foreign'] = {'constraint_name': 'metadata_foreign',
+                'constraint_type': 'FOREIGN KEY',
+                'constraint_column_names': list(reversed(key_columns)),
+                'constraint_column_usage': [
+                    {'fk_catalog': 'redis', 'fk_db_schema': schema,
+                     'fk_table': table, 'fk_column_name': column}
+                    for column in key_columns]}
         assert constraints(conn) == expected, 'constraint names, columns or usage mismatch'
 
-    # Exercise declared key order, CHECK reference deduplication, and ignored
-    # UNIQUE/FOREIGN KEY declarations without claiming enforcement.
+    # Exercise ordered PK/UNIQUE/FK declarations and CHECK reference
+    # deduplication. Duplicate and orphan rows remain accepted: declarations
+    # do not claim uniqueness or referential enforcement.
     with connect(planner_uri) as planner, planner.cursor() as cur:
         cur.execute(f'CREATE TABLE {qualified} (a BIGINT, b BIGINT, label TEXT, '
                     'CONSTRAINT metadata_pk PRIMARY KEY (b,a), '
                     'CONSTRAINT metadata_check CHECK (a + b > 0 AND a > 0), '
-                    'UNIQUE (label), FOREIGN KEY (a) REFERENCES ' + qualified + ' (a))')
+                    'CONSTRAINT metadata_unique UNIQUE (label,b), '
+                    'CONSTRAINT metadata_foreign FOREIGN KEY (a,b) REFERENCES '
+                    + qualified + ' (b,a))')
         cur.execute(f"INSERT INTO {qualified} VALUES (1,2,'x'),(1,2,'x'),(3,4,NULL)")
 
         cur.execute("SELECT key_prefix FROM information_schema.tables WHERE table_schema='" + schema + "' AND table_name='" + table + "'")
@@ -116,8 +133,20 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands, 
                         expect_constraints(worker, ['b', 'Renamed a'], ['Renamed a', 'b'])
                         cur.execute(f'ALTER TABLE {qualified} DROP CONSTRAINT metadata_check')
                         expect_constraints(worker, ['b', 'Renamed a'], [], has_check=False)
+                        cur.execute(f'ALTER TABLE {qualified} DROP CONSTRAINT metadata_foreign')
+                        expect_constraints(worker, ['b', 'Renamed a'], [], has_check=False,
+                                           has_foreign=False)
+                        cur.execute(f'ALTER TABLE {qualified} DROP CONSTRAINT metadata_unique')
+                        expect_constraints(worker, ['b', 'Renamed a'], [], has_check=False,
+                                           has_unique=False, has_foreign=False)
+                        cur.execute(f'ALTER TABLE {qualified} ADD CONSTRAINT metadata_unique UNIQUE (label,b)')
+                        cur.execute(f'ALTER TABLE {qualified} ADD CONSTRAINT metadata_foreign '
+                                    'FOREIGN KEY ("Renamed a",b) REFERENCES '
+                                    + qualified + ' (b,"Renamed a")')
+                        expect_constraints(worker, ['b', 'Renamed a'], [], has_check=False)
                         cur.execute(f'ALTER TABLE {qualified} RENAME COLUMN "Renamed a" TO a')
                         cur.execute(f'ALTER TABLE {qualified} ADD CONSTRAINT metadata_check CHECK (a + b > 0 AND a > 0)')
+                        expect_constraints(worker, ['b', 'a'], ['a', 'b'])
                         checks.append('restricted_statistics_both_paths_and_constraint_ddl')
                     elif role == 'hash':
                         expect_count(worker, False)
