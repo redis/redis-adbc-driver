@@ -14,3 +14,5 @@ See [intent](intent.md) and [specification](spec.md).
 
 See [validation and review](validation.md) for actual results and limits.
 No maintainer approval or release is implied.
+
+Pull request: [#510](https://github.com/redis/redis-adbc-driver/pull/510).

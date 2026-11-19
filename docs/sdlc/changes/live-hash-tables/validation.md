@@ -74,3 +74,12 @@ the native macOS ARM64 shared library and CLI rebuilt successfully, and all
 14 focused live/adoption/managed SQL integration checks passed again with race
 detection on verified Redis Software 4x QPF. No new Python/C runtime acceptance
 or full Software/snapshot/Cluster API run is claimed.
+
+Pull request: [#510](https://github.com/redis/redis-adbc-driver/pull/510).
+
+A supplemental selection of `TestUnmanagedLiveSourceWrites` and
+`TestUnmanagedEncodingAndMissingIndexDrop` was attempted after rebasing. Its
+three server cases skipped because `REDIS_SNAPSHOT_URI` was unset; these cases
+clear a disposable snapshot database and were not redirected to the ordinary
+fixture. This adds no unmanaged integration evidence beyond the passing unit
+and focused live/adoption/managed checks above.

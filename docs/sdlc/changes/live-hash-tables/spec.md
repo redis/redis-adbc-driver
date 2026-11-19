@@ -45,3 +45,5 @@ field and TTL preservation, missing/invalid values, nested keys, source survival
 after unregister/managed sweep, rejection of excluded operations, and unchanged
 managed snapshot behavior. Server checks require Redis Software with verified
 active 4x QPF. No performance improvement is claimed without measurement.
+
+Pull request: [#510](https://github.com/redis/redis-adbc-driver/pull/510).
