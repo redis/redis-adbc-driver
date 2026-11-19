@@ -1,0 +1,13 @@
+{
+  "seconds": null,
+  "error_type": "QueryDeadline",
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 1,
+    "trial_memory_peak_bytes": 152244224,
+    "seconds": null,
+    "error_type": "QueryDeadline"
+  },
+  "independent_reference_valid": false
+}

@@ -614,6 +614,7 @@ type scanIter struct {
 	hashFetch          bool
 	unmanagedHashFetch bool // Search owns membership; live HASHes own values/existence
 	unmanagedRead      *unmanagedProjectionRead
+	unmanagedRowPrefix string // client equivalent of the single-prefix rowKeyFilter
 	// ties is set for a scan with a tieSort, which also records the page
 	// keep last saw (raw) and which of its rows it kept.
 	ties       *tieScan
@@ -813,6 +814,12 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 			ar.aggregateInputs = true
 			ar.unmanagedKeys = true
 			ar.width = len(it.unmanagedRead.fields) + 1
+			// Only an exact single-prefix source can move this key predicate.
+			// NUL prefixes retain Search matching and its legacy prefix behavior.
+			if len(meta.UnmanagedPrefixes) == 1 && meta.UnmanagedPrefixes[0] == meta.prefix() && !strings.ContainsRune(meta.prefix(), 0) && ar.rowFilter == rowKeyFilter(meta.prefix()) {
+				it.unmanagedRowPrefix = meta.prefix()
+				ar.rowFilter = ""
+			}
 		}
 	}
 	if req.authoritative {
@@ -1017,6 +1024,18 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		}
 	}
 	if it.unmanagedHashFetch {
+		if it.unmanagedRowPrefix != "" {
+			kept := keys[:0]
+			for _, key := range keys {
+				if !strings.HasPrefix(key, it.unmanagedRowPrefix) {
+					return nil, nil, errorf(adbc.StatusInvalidState, "unmanaged source index returned a key outside its registered prefix")
+				}
+				if unmanagedSearchRowKey(it.unmanagedRowPrefix, key) {
+					kept = append(kept, key)
+				}
+			}
+			keys = kept
+		}
 		if it.unmanagedRead != nil && it.projection != nil && it.projection.consumeUnmanaged != nil {
 			inputs, err := it.unmanagedRead.readInputs(ctx, keys)
 			if err != nil {

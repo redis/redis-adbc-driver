@@ -117,3 +117,35 @@ selection, focused parser/native-error/lost-reply/cleanup race checks, and a
 UTF-8 and CRLF; tests cover truncation at every byte, malformed attributes,
 partial warnings, nested NULL warnings and preserved cleanup cursor IDs.
 Shared-library build and fresh full-scale acceptance remain pending.
+
+Candidate `81cbc851` reduced Q3 allocation substantially but again missed
+300 seconds (74,944,000 rows at its last sample). A separate bounded diagnostic
+attributed 36.6 of 50 sampled wall seconds to cursor discovery, 10.0 to native
+fetches and 3.3 to reduction. The next refinement moves the established
+single-prefix row-key filter to the client for eligible scalar discovery.
+The registered source index still supplies membership and SQL candidates;
+nested collections are removed before native reads, while unexpected prefixes
+fail. Foreign/multiple-prefix shapes keep existing filtering. Complete-image
+regressions now include corrupt excluded nested HASHes and an included empty
+suffix row to verify matching membership and decode/error behavior.
+
+Membership regression testing caught existing Search expression edges: its
+negative-length substring omits the final byte and contains stops at NUL. The
+client predicate now preserves those exact historical semantics rather than
+substituting canonical `isRowKey`. Dedicated Software tests compare key sets
+against the server expression for empty/UTF-8/NUL prefixes and suffixes, nested
+colons and trailing colons. Existing incorrect membership is not silently
+changed by this optimization. See Redis Search's
+[string function implementation](https://github.com/RediSearch/RediSearch/blob/v2.10.24/src/aggregate/functions/string.c)
+and the current Software equivalence regression.
+
+The fast source retains server filtering for prefixes containing NUL: native
+Search prefix matching itself can include shorter keys in that case. Predicate
+equivalence is tested for those cases too, but they do not receive this source
+optimization. This preserves their existing behavior without a new prefix proof.
+
+The final client-filter refinement passed the full unit suite and broad
+dedicated Software race selection in 66 seconds, including direct server
+predicate equivalence and complete-image/Arrow comparisons with excluded corrupt
+rows and legacy included binary/trailing-colon/empty-suffix rows. Full-scale
+acceptance is still required.

@@ -48,3 +48,15 @@ are scoped to that instrumented partial run, not acceptance timings. A follow-up
 therefore uses an owned raw key-only cursor frame to avoid those containers.
 Other cursor shapes retain generic decoding. No deadline, memory, source-value
 proof, TLS or lease setting is relaxed.
+
+## Cursor wall-time attribution
+
+Candidate `81cbc851` again hit Q3's 300-second deadline; its last sample had
+74,944,000 consumed rows despite substantially fewer allocated bytes. See
+[diagnostics](81cbc851-q3-execution.json) and [outcome](81cbc851-q3-outcome.json).
+A separate bounded, instrumented diagnostic attributed 36.62 of 50 wall seconds
+to cursor discovery, 9.98 to native fetches and 3.27 to reduction
+([stage counters](81cbc851-diagnostic-stages.json)). This is not a completed
+benchmark result. The next refinement applies the existing exact single-prefix
+row-key filter in the client before native fetch, retaining all source-index
+checks and keeping other source shapes on their established filtering path.

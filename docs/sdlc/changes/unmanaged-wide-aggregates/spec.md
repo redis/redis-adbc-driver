@@ -35,6 +35,14 @@ partial-result warnings and malformed replies fail without replay. Recoverable
 cursor IDs are retained for bounded cleanup, including parser failures. Ordinary
 and grouped cursor shapes retain their established decoder.
 
+For a single verified registered prefix without zero bytes, eligible scalar key
+discovery can apply the existing Search rowKeyFilter in the client before
+native reads. Preserve its negative-length substring and zero-terminated
+contains edges; do not substitute the stronger canonical isRowKey rule. A key
+outside the registered prefix fails. Foreign, multiple-prefix and zero-byte
+prefix shapes keep their existing filtering. Source-index definition checks
+are never cached or skipped.
+
 ## DISTINCT contract
 
 A lone COUNT(DISTINCT direct_column), without grouping, aggregate FILTER,
