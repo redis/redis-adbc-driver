@@ -36,6 +36,7 @@ class RedisQuirks(model.DriverQuirks):
         # Autocommit only
         connection_transactions=False,
         get_objects=True,
+        get_objects_tabletypes_filter=True,
         # GetObjects lists CHECK constraints and the primary key, the only
         # constraints kept (UNIQUE and FOREIGN KEY are accepted and ignored).
         get_objects_constraints_check=True,

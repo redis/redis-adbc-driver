@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/google/uuid"
 	goredis "github.com/redis/go-redis/v9"
@@ -181,6 +182,34 @@ func TestSQLRBACSelect(t *testing.T) {
 		}
 		if err := objects.Err(); err != nil || !seen {
 			t.Fatal("metadata enumeration failed", err)
+		}
+		for _, filter := range [][]string{nil, {}, {"TABLE"}, {"VIEW", "TABLE"}, {"VIEW"}, {"MATERIALIZED VIEW"}, {"UNKNOWN"}} {
+			objects, err := reader.conn.GetObjects(ctx, adbc.ObjectDepthTables, ptr("redis"), ptr("public"), ptr("it_rbac_allowed"), nil, filter)
+			if err != nil {
+				t.Fatal("restricted filtered metadata failed", filter, err)
+			}
+			var names []string
+			for objects.Next() {
+				// Inspect actual nested tables: an empty table list can still
+				// produce a catalog record batch.
+				catalogSchemas := objects.RecordBatch().Column(1).(*array.List)
+				schemas := catalogSchemas.ListValues().(*array.Struct)
+				schemaTables := schemas.Field(1).(*array.List)
+				tables := schemaTables.ListValues().(*array.Struct)
+				tableNames := tables.Field(0).(*array.String)
+				for i := 0; i < tableNames.Len(); i++ {
+					names = append(names, tableNames.Value(i))
+				}
+			}
+			err = objects.Err()
+			objects.Release()
+			if err != nil {
+				t.Fatal("restricted filtered metadata stream failed", filter, err)
+			}
+			wantTable := len(filter) == 0 || slices.Contains(filter, "TABLE")
+			if wantTable && !slices.Equal(names, []string{"it_rbac_allowed"}) || !wantTable && len(names) != 0 {
+				t.Fatalf("filter %v: unexpected restricted tables %v", filter, names)
+			}
 		}
 		if aclWrites.Load() != writesBefore {
 			t.Fatal("metadata discovery mutated management ACLs")
