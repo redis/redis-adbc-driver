@@ -215,7 +215,7 @@ ADBC manager binding. See the [device adapter contract and example](https://gith
 for explicit device IDs, ownership, cancellation, supported versions and CUDA
 availability. Importing CPU clients does not require CUDA Python packages.
 
-## Native HASH reads (experimental source implementation)
+## Native HASH reads (experimental)
 
 `adbc_driver_redis.native.NativeClient` exposes HASH-style methods over managed
 tables through a shared native snapshot reader, without SQL translation. Bind
@@ -223,7 +223,8 @@ an exact table with `client.table("customers")`, then call `hgetall(1)`,
 `hmget(1, ["name", "country"])`, `hget`, `hexists`, `hlen`, or `exists`.
 The row argument is the internal `__rowid`, not an application primary key.
 Use `with client.snapshot() as view:` for a dedicated shared read view.
-Build the current native library; see the [contract and examples](../docs/native-client.md)
+The wrapper and native-read ABI are included in the v0.0.29 Python wheel;
+a source build is optional. See the [contract and examples](../docs/native-client.md)
 for installation, raw-byte/NULL semantics, ownership, and current limitations.
 
 Superset 6.1 is unsupported with the Python 3.14 minimum. Its older PyArrow

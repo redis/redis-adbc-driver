@@ -1,8 +1,13 @@
 # Native managed-table HASH client
 
-Experimental source implementation for [#385](https://github.com/redis/redis-adbc-driver/issues/385).
-Build the current shared library with `make -C go build`; this is not a claim
-that existing released wheels contain the new native ABI.
+Experimental managed-table reader for [#385](https://github.com/redis/redis-adbc-driver/issues/385),
+included in [v0.0.29](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.29).
+The Python wheel includes both `NativeClient` and the native-read ABI; a source
+build is optional. Python 3.14 or newer is required.
+
+```sh
+python -m pip install 'adbc-driver-redis==0.0.29'
+```
 
 The Python wrapper calls a shared Go snapshot reader directly. It does not
 generate SQL, parse SQL, build a SQL plan, or execute SQL for reads. SQL and
