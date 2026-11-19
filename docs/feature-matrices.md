@@ -26,7 +26,7 @@ for their implemented scope and boundaries. Restrictions stay in the behavior co
 |---|---|---|---|
 | Columnar record batches, schemas and NULL values | 🟢 Supported | Queries return typed Arrow batches with validity information. | — |
 | Arrow C Data and C Stream interfaces | 🟢 Supported | The native ADBC boundary exchanges Arrow schemas, arrays and `ArrowArrayStream` results/bindings. | — |
-| Arrow bulk ingestion | 🟢 Supported | Bind a batch or stream; create, append, replace and create-or-append modes are available. Writes autocommit. | — |
+| Arrow bulk ingestion | 🟢 Supported | Bind a batch or stream; managed create, append, replace and create-or-append. Application-owned modes have separate source-write contracts; [live tables](live-hash-tables.md#write-arrow-data-to-live-hashes) accept append/create-or-append on existing registrations. Writes autocommit. | — |
 | Arrow IPC stream and file formats | 🟢 Supported | Native import/export through statement options and local files; [IPC contract and examples](arrow-ipc.md). | — |
 | Incremental scans, key lookups and UNION ALL | 🟢 Supported | Eligible indexed single-table queries, unordered key lookups and eligible `UNION ALL` trees fetch pages/chunks as batches are consumed. Blocking plans can materialize results; this is finite streaming. See [streamed results](driver-reference.md#streamed-results). | [#198](https://github.com/redis/redis-adbc-driver/issues/198) |
 | In-process buffer interchange and ownership | 🟢 Supported | C export shares Arrow buffers under release callbacks; binding/ingest retain or copy as required for lifetime safety. [Ownership contract](arrow-interoperability.md#ownership-and-extension-policy). | [#199](https://github.com/redis/redis-adbc-driver/issues/199) |

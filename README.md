@@ -58,7 +58,7 @@ and who maintains the Search indexes.
 | Read consistency | Statement snapshots | Live source values | Live source values |
 | SQL write publication | Supported writes publish atomically | Source writes can partially succeed | Per-row writes; a statement can partially succeed |
 | Copy of application data | Import creates a private copy | No copy | No copy |
-| Arrow ingestion | Supported | Supported within the unmanaged write contract | Not supported initially |
+| Arrow ingestion | Supported | Supported within the unmanaged write contract | Append to registered tables |
 
 **Choose managed tables** when the driver should own both data and indexes.
 They are the default for SQL/Arrow pipelines and consistent analytical reads.

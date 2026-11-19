@@ -4411,7 +4411,7 @@ before opting in; unsupported CUDA operations return errors without fallback.
 
 | Option | Level | Meaning |
 |-|-|-|
-| `adbc.redis.live_tables` | database, connection | `false` by default. Enables registered live HASH tables in `redis_live`, including SQL SELECT/INSERT/UPDATE/DELETE over original keys. See [live HASH tables](live-hash-tables.md). |
+| `adbc.redis.live_tables` | database, connection | `false` by default. Enables registered live HASH tables in `redis_live`, including SQL SELECT/INSERT/UPDATE/DELETE and Arrow append/create-or-append over original keys. Arrow targets must already be registered. See [live HASH tables](live-hash-tables.md). |
 | `adbc.redis.statement_snapshots` | database, connection | Always `true` for managed tables. Explicit `true` is accepted; `false` is rejected. See [snapshots](snapshots.md). |
 | `adbc.redis.read_snapshot_action` | connection, write-only | `acquire` binds one read-only managed catalog view across metadata and sequential SELECTs; `release` unbinds while existing readers retain their view. Native connection only. See [shared read snapshots](shared-read-snapshots.md). |
 | `adbc.redis.read_snapshot_status` | connection, read-only | JSON `state`, `generation` and `deadline` while valid, or `state=unbound`. Unavailable bound views return an error. No attachment capability is exported. |
