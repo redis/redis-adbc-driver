@@ -333,20 +333,21 @@ document, and fully validate the `FT.SEARCH` result. Clean up the owned probe
 index and document. A missing Search capability is a setup blocker; successful
 Search probes alone do not establish driver SQL or snapshot compatibility.
 
-## Driver functions not implemented independent of Flex
+## Driver capability scope independent of Flex
 
-These are current driver-level ADBC gaps and should not be confused with the
-Redis Flex server gaps:
+These driver-level ADBC capabilities and limits are independent of Redis Flex
+server gaps:
 
 | ADBC capability | Current behavior |
 |-|-|
 | Transactions | Autocommit only; connection `Commit` and `Rollback` return unsupported/invalid-state errors. |
-| Partitioned result execution | `ExecutePartitions` and `ReadPartition` return `NotImplemented`. |
+| Partitioned result execution | Supported within the [partitioned read contract](partitioned-reads.md). |
 | Substrait plans | Bounded binary Substrait 0.108.0 read/filter/project; [subset and limits](substrait.md). |
-| Statistics metadata | `GetStatistics` and `GetStatisticNames` are not implemented. |
-| Multiple catalogs | Only the `redis` catalog exists; cross-database references are not implemented. |
-| `UNIQUE` and `FOREIGN KEY` enforcement/metadata | Accepted by the SQL parser but ignored; they are not returned as constraints by `GetObjects`. `CHECK` and `PRIMARY KEY` are supported. |
+| Statistics metadata | Supported within the [statistics contract](adbc-statistics.md). |
+| Multiple catalogs | Managed catalogs support `CREATE DATABASE`, catalog selection, metadata discovery, and explicit Arrow destinations. See [catalogs](catalogs.md) for scope. |
+| `UNIQUE` and `FOREIGN KEY` enforcement/metadata | Declarations are retained and returned by ADBC `GetObjects`, with ordered FK usage for resolvable targets; uniqueness and referential integrity/actions are not enforced. SQL information_schema/pg_constraint coverage is separate. `CHECK` and `PRIMARY KEY` are supported. |
 
-The standard ADBC validation suite therefore skips tests for transactions,
-statistics, a second catalog, and unsupported constraint kinds. These gaps
-also exist on ordinary RAM-only Redis and are not caused by Flex.
+Multi-statement transactions and UNIQUE/FOREIGN KEY enforcement remain outside
+the supported contract. These limits also apply to ordinary RAM-only Redis and
+are not caused by Flex. The current native suite keeps transaction toggling
+disabled; historical skip counts elsewhere describe their recorded revisions.

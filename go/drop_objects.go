@@ -15,7 +15,7 @@ func (e *executor) runDropObjects(ctx context.Context, names []TableName, ifExis
 	var targets []TableName
 	seen := map[TableName]bool{}
 	for _, n := range names {
-		schema, name, err := e.resolveTable(n)
+		schema, name, err := e.resolveCatalogTable(ctx, n)
 		if err != nil {
 			return err
 		}

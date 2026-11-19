@@ -863,7 +863,7 @@ func checkCalls(x Expr) error {
 // function that isn't an aggregate) or TABLE, and max_arguments is NULL
 // for no maximum. As in Postgres, the built-in functions are in pg_catalog,
 // though a call can't name the schema.
-func routineRows() [][]Value {
+func routineRows(catalog string) [][]Value {
 	kinds := map[funcKind]string{scalarKind: "SCALAR", aggregateKind: "AGGREGATE", windowKind: "WINDOW", tableKind: "TABLE"}
 	var rows [][]Value
 	for i := range funcDefs {
@@ -880,7 +880,7 @@ func routineRows() [][]Value {
 			if j > 0 {
 				aliasOf = stringValue(strings.ToLower(d.name))
 			}
-			rows = append(rows, []Value{stringValue(catalogName), stringValue("pg_catalog"), stringValue(strings.ToLower(n)),
+			rows = append(rows, []Value{stringValue(catalog), stringValue("pg_catalog"), stringValue(strings.ToLower(n)),
 				stringValue("FUNCTION"), stringValue(kinds[d.kind]), intValue(typeInt32, int64(d.min)), maxArgs, aliasOf})
 		}
 	}

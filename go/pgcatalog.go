@@ -101,7 +101,11 @@ func intArray(nums []int64) Value {
 }
 func quoteSQLName(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
 func qualifiedName(schema, name string) string {
-	return quoteSQLName(schema) + "." + quoteSQLName(name)
+	catalog, logical := splitCatalogSchema(schema)
+	if catalog != catalogName {
+		return quoteSQLName(catalog) + "." + quoteSQLName(displaySchema(logical)) + "." + quoteSQLName(name)
+	}
+	return quoteSQLName(displaySchema(schema)) + "." + quoteSQLName(name)
 }
 
 func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
@@ -118,7 +122,14 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 			return nil, err
 		}
 	}
-	if e.store != nil && e.store.hasTempObjects() {
+	filtered := schemas[:0]
+	for _, schema := range schemas {
+		if schemaCatalog(schema) == e.currentCatalog() {
+			filtered = append(filtered, schema)
+		}
+	}
+	schemas = filtered
+	if e.currentCatalog() == catalogName && e.store != nil && e.store.hasTempObjects() {
 		schemas = append(schemas, e.store.tempSchema())
 	}
 	for _, schema := range append(slices.Clone(schemas), pgCatalog, infoSchema) {
@@ -130,9 +141,12 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 				return nil, wrapRedis(err, "failed to read namespace OID")
 			}
 		}
-		c.add("pg_namespace", map[string]Value{"oid": oidValue(c.namespaceOID(schema)), "nspname": str(schema), "nspowner": oidValue(10)})
+		c.add("pg_namespace", map[string]Value{"oid": oidValue(c.namespaceOID(schema)), "nspname": str(displaySchema(schema)), "nspowner": oidValue(10)})
 	}
 	for _, schema := range schemas {
+		if schemaCatalog(schema) != e.currentCatalog() && !isTempSchema(schema) {
+			continue
+		}
 		if e.store == nil {
 			continue
 		}
@@ -244,7 +258,7 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 	}
 	c.add("pg_am", map[string]Value{"oid": oidValue(4096), "amname": str("redis_search"), "amtype": str("i")})
 	c.add("pg_opclass", map[string]Value{"oid": oidValue(10001), "opcmethod": oidValue(4096), "opcname": str("redis_ops"), "opcnamespace": oidValue(11), "opcdefault": boolValue(true)})
-	c.add("pg_database", map[string]Value{"oid": oidValue(5), "datname": str(catalogName), "datdba": oidValue(10), "encoding": oidValue(6), "datlocprovider": str("c"), "datistemplate": boolValue(false), "datallowconn": boolValue(true), "datconnlimit": oidValue(-1), "datcollate": str("C"), "datctype": str("C")})
+	c.add("pg_database", map[string]Value{"oid": oidValue(5), "datname": str(e.currentCatalog()), "datdba": oidValue(10), "encoding": oidValue(6), "datlocprovider": str("c"), "datistemplate": boolValue(false), "datallowconn": boolValue(true), "datconnlimit": oidValue(-1), "datcollate": str("C"), "datctype": str("C")})
 	c.add("pg_roles", map[string]Value{"oid": oidValue(10), "rolname": str(e.catalogUser()), "rolsuper": boolValue(false), "rolinherit": boolValue(true), "rolcanlogin": boolValue(true), "rolconnlimit": oidValue(-1), "rolpassword": str("********")})
 	c.add("pg_user", map[string]Value{"usesysid": oidValue(10), "usename": str(e.catalogUser()), "usesuper": boolValue(false), "usecreatedb": boolValue(false), "userepl": boolValue(false), "usebypassrls": boolValue(false), "passwd": str("********")})
 	sess := e.sess

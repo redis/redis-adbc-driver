@@ -494,7 +494,8 @@ type ColumnDef struct {
 	// PrimaryKeys are the column's PRIMARY KEY constraints, each of the
 	// column alone (more than one is an error; ADD COLUMN only: CREATE TABLE
 	// moves them to CreateTableStmt.PrimaryKeys).
-	PrimaryKeys []KeyDef
+	PrimaryKeys  []KeyDef
+	Declarations []DeclarationDef
 }
 
 // CheckDef is a CHECK constraint: its CONSTRAINT name ("" if it has none),
@@ -510,6 +511,15 @@ type CheckDef struct {
 type KeyDef struct {
 	Name    string
 	Columns []string
+}
+
+// DeclarationDef describes UNIQUE or FOREIGN KEY metadata; it does not enforce integrity.
+type DeclarationDef struct {
+	Name             string
+	Kind             string
+	Columns          []string
+	Reference        TableName
+	ReferenceColumns []string
 }
 
 type AlterAction int
@@ -555,11 +565,11 @@ type AlterCmd struct {
 	UsingText         string
 	IfColumnExists    bool
 	IfColumnNotExists bool
-	// Check is the CHECK of ADD CONSTRAINT, and Key its PRIMARY KEY (both
-	// nil for the UNIQUE and FOREIGN KEY constraints, which are accepted and
-	// ignored). Constraint is the name DROP CONSTRAINT drops.
+	// Check, Key and Declaration describe ADD CONSTRAINT. Constraint is the
+	// name DROP CONSTRAINT drops.
 	Check              *CheckDef
 	Key                *KeyDef
+	Declaration        *DeclarationDef
 	Constraint         string
 	IfConstraintExists bool
 }
@@ -576,7 +586,8 @@ type CreateTableStmt struct {
 	Checks []CheckDef
 	// PrimaryKeys are the PRIMARY KEY constraints, column and table ones, in
 	// the order written (more than one is an error).
-	PrimaryKeys []KeyDef
+	PrimaryKeys  []KeyDef
+	Declarations []DeclarationDef
 	// AsSelect is set for CREATE TABLE … AS SELECT.
 	AsSelect *SelectStmt
 	// Comment is the text of a table-level COMMENT [=] 'text' clause.
@@ -2155,6 +2166,12 @@ func (p *parser) parseCreate() (Stmt, error) {
 	if err := p.expectKeyword("CREATE"); err != nil {
 		return nil, err
 	}
+	if p.acceptKeyword("DATABASE") || p.acceptKeyword("CATALOG") {
+		st := &CreateCatalogStmt{IfNotExists: p.acceptKeyword("IF", "NOT", "EXISTS")}
+		name, err := p.parseIdent()
+		st.Name = name
+		return st, err
+	}
 	if p.acceptKeyword("SEQUENCE") {
 		return p.parseSequence("CREATE")
 	}
@@ -2247,9 +2264,12 @@ func (p *parser) parseCreate() (Stmt, error) {
 	}
 	for {
 		if p.isTableConstraint() {
-			chk, key, err := p.parseTableConstraint(false)
+			chk, key, declaration, err := p.parseTableConstraint(false)
 			if err != nil {
 				return nil, err
+			}
+			if declaration != nil {
+				st.Declarations = append(st.Declarations, *declaration)
 			}
 			if chk != nil {
 				st.Checks = append(st.Checks, *chk)
@@ -2264,6 +2284,8 @@ func (p *parser) parseCreate() (Stmt, error) {
 			}
 			st.Checks = append(st.Checks, col.Checks...)
 			st.PrimaryKeys = append(st.PrimaryKeys, col.PrimaryKeys...)
+			st.Declarations = append(st.Declarations, col.Declarations...)
+			col.Declarations = nil
 			col.Checks, col.PrimaryKeys = nil, nil
 			st.Columns = append(st.Columns, col)
 		}
@@ -2301,37 +2323,33 @@ func (p *parser) isTableConstraint() bool {
 		p.isKeyword("FOREIGN") || p.isKeyword("CHECK")
 }
 
-// parseTableConstraint parses a table constraint: `[CONSTRAINT name] CHECK
-// (expr)`, `[CONSTRAINT name] PRIMARY KEY (cols)`, or one of the UNIQUE and
-// FOREIGN KEY constraints, which are accepted and ignored. After PRIMARY
-// KEY's columns, and in place of the others, everything up to the next ','
-// or ')' (in ALTER TABLE … ADD, the end of the statement) is skipped: index
-// parameters (INCLUDE, WITH, USING INDEX TABLESPACE) and DEFERRABLE mean
-// nothing here. It returns the CHECK or the PRIMARY KEY, or neither.
-func (p *parser) parseTableConstraint(inAlter bool) (*CheckDef, *KeyDef, error) {
+// parseTableConstraint parses CHECK, PRIMARY KEY and declaration-only UNIQUE
+// and FOREIGN KEY constraints. Index parameters and deferral clauses are
+// skipped and do not change enforcement. EXCLUDE remains ignored.
+func (p *parser) parseTableConstraint(inAlter bool) (*CheckDef, *KeyDef, *DeclarationDef, error) {
 	name := ""
 	if p.acceptKeyword("CONSTRAINT") {
 		var err error
 		if name, err = p.parseIdent(); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if !p.isKeyword("CHECK") && !p.isKeyword("PRIMARY") && !p.isKeyword("UNIQUE") &&
 			!p.isKeyword("FOREIGN") && !p.isKeyword("EXCLUDE") {
-			return nil, nil, syntaxErr("expected a constraint after CONSTRAINT %s near %q", name, p.peek().text)
+			return nil, nil, nil, syntaxErr("expected a constraint after CONSTRAINT %s near %q", name, p.peek().text)
 		}
 	}
 	if p.acceptKeyword("PRIMARY", "KEY") {
 		key := &KeyDef{Name: name}
 		if err := p.expectOp("("); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if p.isOp(")") {
-			return nil, nil, pgSyntaxErr(")")
+			return nil, nil, nil, pgSyntaxErr(")")
 		}
 		for {
 			c, err := p.parseIdent()
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			key.Columns = append(key.Columns, c)
 			if !p.acceptOp(",") {
@@ -2339,27 +2357,48 @@ func (p *parser) parseTableConstraint(inAlter bool) (*CheckDef, *KeyDef, error) 
 			}
 		}
 		if err := p.expectOp(")"); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
-		return nil, key, p.skipBalanced(inAlter)
+		return nil, key, nil, p.skipBalanced(inAlter)
+	}
+	if p.isKeyword("UNIQUE") || p.isKeyword("FOREIGN") {
+		d := &DeclarationDef{Name: name, Kind: "UNIQUE"}
+		if p.acceptKeyword("FOREIGN", "KEY") {
+			d.Kind = "FOREIGN KEY"
+		} else {
+			p.acceptKeyword("UNIQUE")
+		}
+		var err error
+		if d.Columns, err = p.parseConstraintColumns(); err != nil {
+			return nil, nil, nil, err
+		}
+		if d.Kind == "FOREIGN KEY" {
+			if err = p.expectKeyword("REFERENCES"); err != nil {
+				return nil, nil, nil, err
+			}
+			if d.Reference, d.ReferenceColumns, err = p.parseReferenceDefinition(len(d.Columns)); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+		return nil, nil, d, p.skipBalanced(inAlter)
 	}
 	if !p.acceptKeyword("CHECK") {
-		return nil, nil, p.skipBalanced(inAlter)
+		return nil, nil, nil, p.skipBalanced(inAlter)
 	}
 	chk, err := p.parseCheck(name)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// Postgres's NO INHERIT and NOT VALID (which CREATE TABLE ignores) mean
 	// nothing here.
 	for p.acceptKeyword("NO", "INHERIT") || p.acceptKeyword("NOT", "VALID") {
 	}
-	return &chk, nil, nil
+	return &chk, nil, nil, nil
 }
 
 // parseColumnDef parses `name TYPE [constraint …]`, where each constraint
-// may be named with CONSTRAINT name. UNIQUE and REFERENCES are accepted and
-// ignored.
+// may be named with CONSTRAINT name. UNIQUE and REFERENCES retain declaration
+// metadata without enforcing integrity.
 func (p *parser) parseColumnDef() (ColumnDef, error) {
 	name, err := p.parseIdent()
 	if err != nil {
@@ -2426,10 +2465,13 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 		case p.acceptKeyword("PRIMARY", "KEY"):
 			col.PrimaryKeys = append(col.PrimaryKeys, KeyDef{Name: named, Columns: []string{name}})
 		case p.acceptKeyword("UNIQUE"):
+			col.Declarations = append(col.Declarations, DeclarationDef{Name: named, Kind: "UNIQUE", Columns: []string{name}})
 		case p.acceptKeyword("REFERENCES"):
-			if err := p.parseReferences(); err != nil {
+			ref, cols, err := p.parseReferenceDefinition(1)
+			if err != nil {
 				return ColumnDef{}, err
 			}
+			col.Declarations = append(col.Declarations, DeclarationDef{Name: named, Kind: "FOREIGN KEY", Columns: []string{name}, Reference: ref, ReferenceColumns: cols})
 		case p.acceptKeyword("DEFAULT"):
 			if col.Default != nil {
 				return ColumnDef{}, &sqlError{msg: fmt.Sprintf("multiple default values specified for column %q", name)}
@@ -2482,40 +2524,53 @@ func (p *parser) parseCheck(name string) (CheckDef, error) {
 	return CheckDef{Name: name, Expr: x, Text: text}, nil
 }
 
-// parseReferences parses what follows REFERENCES in a column definition:
-// t [(column)] [MATCH {FULL | PARTIAL | SIMPLE}] [ON DELETE action] [ON
-// UPDATE action], as in Postgres. Foreign keys aren't enforced, so nothing
-// is kept, and the table needn't exist.
-func (p *parser) parseReferences() error {
-	if _, err := p.parseTableName(); err != nil {
-		return err
+// parseConstraintColumns parses an ordered, nonempty column list.
+func (p *parser) parseConstraintColumns() ([]string, error) {
+	if err := p.expectOp("("); err != nil {
+		return nil, err
 	}
-	if p.acceptOp("(") {
-		n := 0
-		for {
-			if _, err := p.parseIdent(); err != nil {
-				return err
-			}
-			n++
-			if !p.acceptOp(",") {
-				break
-			}
+	var cols []string
+	for {
+		name, err := p.parseIdent()
+		if err != nil {
+			return nil, err
 		}
-		if err := p.expectOp(")"); err != nil {
-			return err
+		cols = append(cols, name)
+		if !p.acceptOp(",") {
+			break
 		}
-		if n != 1 {
-			return &sqlError{msg: "number of referencing and referenced columns for foreign key disagree"}
+	}
+	if err := p.expectOp(")"); err != nil {
+		return nil, err
+	}
+	return cols, nil
+}
+
+// parseReferenceDefinition retains the ordered target while accepting
+// referential actions without enforcing them. Target existence is not required.
+func (p *parser) parseReferenceDefinition(count int) (TableName, []string, error) {
+	ref, err := p.parseTableName()
+	if err != nil {
+		return TableName{}, nil, err
+	}
+	var cols []string
+	if p.isOp("(") {
+		cols, err = p.parseConstraintColumns()
+		if err != nil {
+			return TableName{}, nil, err
+		}
+		if len(cols) != count {
+			return TableName{}, nil, &sqlError{msg: "number of referencing and referenced columns for foreign key disagree"}
 		}
 	}
 	if p.acceptKeyword("MATCH") && !p.acceptKeyword("FULL") && !p.acceptKeyword("PARTIAL") && !p.acceptKeyword("SIMPLE") {
-		return syntaxErr("expected FULL, PARTIAL or SIMPLE after MATCH near %q", p.peek().text)
+		return TableName{}, nil, syntaxErr("expected FULL, PARTIAL or SIMPLE after MATCH near %q", p.peek().text)
 	}
 	seen := map[string]bool{}
 	for p.isKeyword("ON") && (p.isKeywordAt(1, "DELETE") || p.isKeywordAt(1, "UPDATE")) {
 		event := strings.ToUpper(p.peekAt(1).text)
 		if seen[event] {
-			return syntaxErr("ON %s specified more than once", event)
+			return TableName{}, nil, syntaxErr("ON %s specified more than once", event)
 		}
 		seen[event] = true
 		p.pos += 2
@@ -2526,21 +2581,21 @@ func (p *parser) parseReferences() error {
 			if p.acceptOp("(") {
 				for {
 					if _, err := p.parseIdent(); err != nil {
-						return err
+						return TableName{}, nil, err
 					}
 					if !p.acceptOp(",") {
 						break
 					}
 				}
 				if err := p.expectOp(")"); err != nil {
-					return err
+					return TableName{}, nil, err
 				}
 			}
 		default:
-			return syntaxErr("expected NO ACTION, RESTRICT, CASCADE, SET NULL or SET DEFAULT near %q", p.peek().text)
+			return TableName{}, nil, syntaxErr("expected NO ACTION, RESTRICT, CASCADE, SET NULL or SET DEFAULT near %q", p.peek().text)
 		}
 	}
-	return nil
+	return ref, cols, nil
 }
 
 // parseAlter parses ALTER TABLE [IF EXISTS] t followed by RENAME TO u, by
@@ -2647,7 +2702,7 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 	switch {
 	case p.acceptKeyword("ADD"):
 		if p.isTableConstraint() {
-			if cmd.Check, cmd.Key, err = p.parseTableConstraint(true); err != nil {
+			if cmd.Check, cmd.Key, cmd.Declaration, err = p.parseTableConstraint(true); err != nil {
 				return cmd, err
 			}
 			cmd.Action = AlterAddConstraint
@@ -2799,6 +2854,13 @@ func (p *parser) skipBalanced(toEnd bool) error {
 func (p *parser) parseDrop() (Stmt, error) {
 	if err := p.expectKeyword("DROP"); err != nil {
 		return nil, err
+	}
+	if p.acceptKeyword("DATABASE") || p.acceptKeyword("CATALOG") {
+		st := &DropCatalogStmt{IfExists: p.acceptKeyword("IF", "EXISTS")}
+		name, err := p.parseIdent()
+		st.Name = name
+		st.Cascade = p.parseDropBehavior()
+		return st, err
 	}
 	if p.acceptKeyword("SEQUENCE") {
 		return p.parseSequence("DROP")

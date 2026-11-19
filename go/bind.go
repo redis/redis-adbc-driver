@@ -711,10 +711,10 @@ func (q qualName) String() string {
 // checkCatalog is Postgres's error for a qualifier naming another catalog;
 // last is the rest of the reference (its column, or "*").
 func (q qualName) checkCatalog(last string) error {
-	if q.catalog == "" || (q.catalog == catalogName) {
-		return nil
+	if q.catalog != "" {
+		return validateCatalogName(q.catalog)
 	}
-	return errorf(adbc.StatusNotImplemented, "cross-database references are not implemented: %s.%s", q, last)
+	return nil
 }
 
 // names reports whether a qualifier names rel, as Postgres's
@@ -724,6 +724,9 @@ func (q qualName) checkCatalog(last string) error {
 func (e *executor) names(q qualName, rel relation) bool {
 	if q.item != "" {
 		return rel.prefix == q.item
+	}
+	if q.catalog != "" && q.catalog != schemaCatalog(rel.schema) {
+		return false
 	}
 	if !(rel.name == q.name) {
 		return false
@@ -738,13 +741,16 @@ func (e *executor) inSchema(rel relation, schema string) bool {
 	if isTempAlias(schema) {
 		schema = e.store.tempSchema()
 	}
-	return rel.schema != "" && (rel.schema == schema)
+	return rel.schema != "" && (displaySchema(rel.schema) == schema || rel.schema == schema)
 }
 
 // readsTable reports whether rel is the table or view q names, under any
 // alias. Without a schema, that is any table, view or CTE of that name
 // (Postgres: the table the search path finds, or the CTE).
 func (e *executor) readsTable(q qualName, rel relation) bool {
+	if q.catalog != "" && q.catalog != schemaCatalog(rel.schema) {
+		return false
+	}
 	if rel.meta == nil || !(rel.meta.Name == q.name) {
 		return false
 	}
@@ -825,6 +831,9 @@ func (e *executor) fromColumns(name string) int {
 // mentions reports whether q names rel, or the table rel reads (under an
 // alias): the items Postgres's errorMissingRTE looks for.
 func (e *executor) mentions(q qualName, rel relation) bool {
+	if q.catalog != "" && q.catalog != schemaCatalog(rel.schema) {
+		return false
+	}
 	return rel.name != "" && ((rel.name == q.name) || e.readsTable(q, rel))
 }
 
@@ -1280,17 +1289,23 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 		rel.meta = m
 		return rel, nil
 	case table != nil:
+		if table.Catalog != "" && table.Catalog != e.currentCatalog() && (isInfoSchema(table.Schema) || isPgCatalog(table.Schema)) {
+			if _, err := e.targetCatalog(ctx, table.Catalog); err != nil {
+				return rel, err
+			}
+			return rel, errorf(adbc.StatusNotImplemented, "cross-catalog virtual schemas require you to select that catalog first")
+		}
 		if alias == "" {
 			rel.name = table.Name
 		}
-		if isInfoSchema(table.Schema) && (table.Catalog == "" || table.Catalog == catalogName) {
+		if isInfoSchema(table.Schema) && (table.Catalog == "" || table.Catalog == e.currentCatalog()) {
 			meta, err := e.infoSchemaTable(ctx, table.Name)
-			rel.meta, rel.schema = meta, infoSchema
+			rel.meta, rel.schema = meta, catalogSchema(e.currentCatalog(), infoSchema)
 			return rel, err
 		}
-		if isPgCatalog(table.Schema) && (table.Catalog == "" || table.Catalog == catalogName) {
+		if isPgCatalog(table.Schema) && (table.Catalog == "" || table.Catalog == e.currentCatalog()) {
 			meta, err := e.pgCatalogTable(ctx, table.Name)
-			rel.meta, rel.schema = meta, pgCatalog
+			rel.meta, rel.schema = meta, catalogSchema(e.currentCatalog(), pgCatalog)
 			return rel, err
 		}
 		if table.Schema == "" && table.Catalog == "" {
@@ -1309,7 +1324,7 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 			}
 			if pgCatalogRelation(table.Name) {
 				meta, err := e.pgCatalogTable(ctx, table.Name)
-				rel.meta, rel.schema = meta, pgCatalog
+				rel.meta, rel.schema = meta, catalogSchema(e.currentCatalog(), pgCatalog)
 				return rel, err
 			}
 		}

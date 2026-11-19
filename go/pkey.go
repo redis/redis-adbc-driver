@@ -114,7 +114,7 @@ func resolveKey(meta *tableMeta, def KeyDef, inAlter bool) ([]int, error) {
 // keyName names a new primary key of meta (see the top of this file).
 func keyName(meta *tableMeta, name string) (string, error) {
 	used := func(n string) bool {
-		return slices.ContainsFunc(meta.Checks, func(c checkMeta) bool { return (c.Name == n) })
+		return slices.ContainsFunc(meta.Declarations, func(d declarationMeta) bool { return d.Name == n }) || slices.ContainsFunc(meta.Checks, func(c checkMeta) bool { return (c.Name == n) })
 	}
 	if name != "" {
 		if used(name) {

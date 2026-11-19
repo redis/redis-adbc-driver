@@ -123,6 +123,9 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 	}
 }
 func (e *executor) snapshotWriteTarget(ctx context.Context, target *TableName) (*tableMeta, error) {
+	if _, err := e.targetCatalog(ctx, target.Catalog); err != nil {
+		return nil, err
+	}
 	if err := e.store.refreshSnapshotTemp(ctx); err != nil {
 		return nil, err
 	}
@@ -134,10 +137,14 @@ func (e *executor) snapshotWriteTarget(ctx context.Context, target *TableName) (
 }
 func (s *statementImpl) snapshotIngestTarget(ctx context.Context) (*tableMeta, error) {
 	opts := s.ingest
-	if opts.Mode != adbc.OptionValueIngestModeAppend && opts.Mode != adbc.OptionValueIngestModeCreateAppend {
-		return nil, nil
+	catalog, err := s.conn.executor().targetCatalog(ctx, opts.CatalogName)
+	if err != nil {
+		return nil, err
 	}
-	if opts.CatalogName != "" && opts.CatalogName != catalogName {
+	if err := validateLogicalSchema(opts.SchemaName); err != nil {
+		return nil, err
+	}
+	if opts.Mode != adbc.OptionValueIngestModeAppend && opts.Mode != adbc.OptionValueIngestModeCreateAppend {
 		return nil, nil
 	}
 	schema := opts.SchemaName
@@ -149,6 +156,9 @@ func (s *statementImpl) snapshotIngestTarget(ctx context.Context) (*tableMeta, e
 		schema = s.conn.store.tempSchema()
 	case schema == "":
 		schema = s.conn.sess.currentSchema()
+	}
+	if !isTempSchema(schema) {
+		schema = catalogSchema(catalog, schema)
 	}
 	meta, err := s.conn.store.getTable(ctx, schema, opts.TableName)
 	var ae adbc.Error

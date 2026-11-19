@@ -54,6 +54,7 @@ const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft
 	" %R~" + snapshotPrefix + "absent:*" +
 	" %R~" + snapshotPrefix + "workspace:*:__keys" +
 	" %R~" + snapshotPrefix + "workspace:*:schemas" +
+	" %R~" + snapshotPrefix + "workspace:*:catalogs" +
 	" %R~" + snapshotPrefix + "workspace:*:namespace:*" +
 	" %R~" + snapshotPrefix + "workspace:*:tables:*" +
 	" %R~" + snapshotPrefix + "workspace:*:table:*" +
@@ -310,7 +311,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	if e.rbac == nil {
 		return errorf(adbc.StatusNotImplemented, "SQL GRANT/REVOKE requires administrator-configured adbc.redis.rbac")
 	}
-	schema, name, err := e.resolveTable(st.Table)
+	schema, name, err := e.resolveCatalogTable(ctx, st.Table)
 	if err != nil {
 		return err
 	}
@@ -432,6 +433,9 @@ func (e *executor) rbacGrantTable(ctx context.Context, name string, cols []resul
 			return nil, err
 		}
 		for _, schema := range schemas {
+			if schemaCatalog(schema) != e.currentCatalog() {
+				continue
+			}
 			names, err := e.store.listTables(ctx, schema)
 			if err != nil {
 				return nil, err
@@ -442,7 +446,7 @@ func (e *executor) rbacGrantTable(ctx context.Context, name string, cols []resul
 			}
 			for _, m := range metas {
 				if m != nil && slices.Contains(prefixes, e.store.rbacTablePrefix(m)) {
-					rows = append(rows, []Value{str("redis_rbac"), str(role), str(catalogName), str(schema), str(m.Name), str("SELECT"), str("NO"), str("NO")})
+					rows = append(rows, []Value{str("redis_rbac"), str(role), str(schemaCatalog(schema)), str(displaySchema(schema)), str(m.Name), str("SELECT"), str("NO"), str("NO")})
 				}
 			}
 		}

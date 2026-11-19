@@ -212,6 +212,11 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
+	// DeclarationEpoch distinguishes fresh SQL/Arrow column declarations even
+	// when replacement preserves the public table OID. Empty legacy epochs
+	// remain empty through clones/rewrites; only fresh constructors assign one.
+	DeclarationEpoch string            `json:"declaration_epoch,omitempty"`
+	Declarations     []declarationMeta `json:"declarations,omitempty"`
 	// Live descriptors own indexes and metadata, but never application HASHes.
 	Live bool `json:"live,omitempty"`
 	// LiveVersion changes with Arrow replacement, including identical schemas.
@@ -1783,17 +1788,17 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 		if ifNotExists {
 			return nil
 		}
-		return stateErrorf(stateDuplicateSchema, "schema %q already exists", schema)
+		return stateErrorf(stateDuplicateSchema, "schema %q already exists", displaySchema(schema))
 	}
 	if reservedSchema(schema) {
-		return errorf(adbc.StatusInvalidArgument, "schema name %q is reserved for temporary tables and views", schema)
+		return errorf(adbc.StatusInvalidArgument, "schema name %q is reserved for temporary tables and views", displaySchema(schema))
 	}
 	n, err := once(ctx, s.redis(ctx), "SADD", schemasKey, schema).Int64()
 	if err != nil {
 		return wrapRedis(err, "failed to create schema")
 	}
 	if (n == 0 || schema == defaultSchema) && !ifNotExists {
-		return stateErrorf(stateDuplicateSchema, "schema %q already exists", schema)
+		return stateErrorf(stateDuplicateSchema, "schema %q already exists", displaySchema(schema))
 	}
 	return s.ensureNamespaceOID(ctx, schema)
 }
@@ -1813,7 +1818,7 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 		if ifExists {
 			return nil
 		}
-		return stateErrorf(stateUndefinedSchema, "schema %q does not exist", schema)
+		return stateErrorf(stateUndefinedSchema, "schema %q does not exist", displaySchema(schema))
 	}
 	tables, err := s.listTables(ctx, schema)
 	if err != nil {
@@ -1828,13 +1833,13 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 		return err
 	}
 	if len(sequences) > 0 && !cascade {
-		return stateErrorf("2BP01", "schema %q is not empty; use CASCADE", schema)
+		return stateErrorf("2BP01", "schema %q is not empty; use CASCADE", displaySchema(schema))
 	}
 	if len(tables)+len(views) > 0 {
 		if !cascade {
 			return errorf(adbc.StatusInvalidState,
 				"schema %q is not empty (%d tables, %d views); use DROP SCHEMA … CASCADE to drop them too",
-				schema, len(tables), len(views))
+				displaySchema(schema), len(tables), len(views))
 		}
 		for _, v := range views {
 			if err := s.dropView(ctx, schema, v, true); err != nil {

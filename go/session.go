@@ -385,6 +385,8 @@ func timeZoneParam(text string) (paramValue, error) {
 
 // session is a connection's settings.
 type session struct {
+	catalogID        string
+	catalog          string // logical current catalog; empty preserves the default redis catalog
 	random           sqlRandom
 	sequenceBlocks   map[string]sequenceBlock
 	lastSequenceName TableName
@@ -508,7 +510,7 @@ func (e *executor) runTransaction(st *TransactionStmt) error {
 		s.endTransaction()
 		s.inBlock = st.Chain
 	}
-	e.schema = s.currentSchema()
+	e.schema = catalogSchema(s.currentCatalog(), s.currentSchema())
 	return nil
 }
 
@@ -523,7 +525,7 @@ func (e *executor) runSet(st *SetStmt) error {
 	s := e.sess
 	if st.All {
 		s.vals, s.local = map[string]paramValue{}, nil
-		e.schema = s.currentSchema()
+		e.schema = catalogSchema(s.currentCatalog(), s.currentSchema())
 		return nil
 	}
 	def, ok := settings[st.Name]
@@ -554,7 +556,7 @@ func (e *executor) runSet(st *SetStmt) error {
 		s.vals[st.Name] = v
 		delete(s.local, st.Name)
 	}
-	e.schema = s.currentSchema()
+	e.schema = catalogSchema(s.currentCatalog(), s.currentSchema())
 	return nil
 }
 
@@ -883,6 +885,9 @@ func parseSearchPath(vals []SetValue, _ paramValue) (paramValue, error) {
 	names := make([]string, len(vals))
 	schema := ""
 	for i, v := range vals {
+		if err := validateLogicalSchema(v.Text); err != nil {
+			return paramValue{}, err
+		}
 		if v.Kind == SetNumber {
 			return paramValue{}, invalidValue("search_path", v.Text)
 		}

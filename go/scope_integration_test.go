@@ -736,7 +736,7 @@ func TestSQLSchemaScopeChecks(t *testing.T) {
 	h.expectScopeError(`ALTER TABLE it_sc1.c ADD CHECK (public.c.b < 100)`, invalidEntry("c", "c"), true)
 	h.expectScopeError(`CREATE TABLE it_sc1.c2 (a INTEGER CHECK (it_sc2.c2.a > 0))`, invalidEntry("c2", "c2"), true)
 	h.expectScopeError(`CREATE TABLE it_sc1.c3 (a INTEGER CHECK (other.it_sc1.c3.a > 0))`,
-		`cross-database references are not implemented: other.it_sc1.c3.a`, true)
+		`missing FROM-clause entry for table "c3"`, true)
 	h.expectScopeError(`CREATE TABLE it_sc1.c4 (a INTEGER CHECK (a.b.it_sc1.c4.a > 0))`,
 		`improper qualified name (too many dotted names): a.b.it_sc1.c4.a`, true)
 	h.expectRows(`SELECT a, b FROM it_sc1.c`, "1|2")
@@ -784,8 +784,8 @@ func TestSQLSchemaScopeErrors(t *testing.T) {
 	h.expectScopeError(`select 1 from it_sc1.t, (select 1) t`, `table name "t" specified more than once`, false)
 
 	// Other catalogs, and too many names.
-	h.expectScopeError(`select other.it_sc1.t.v from it_sc1.t`, `cross-database references are not implemented: other.it_sc1.t.v`, false)
-	h.expectScopeError(`select other.it_sc1.t.* from it_sc1.t`, `cross-database references are not implemented: other.it_sc1.t.*`, false)
+	h.expectScopeError(`select other.it_sc1.t.v from it_sc1.t`, `missing FROM-clause entry for table "t"`, false)
+	h.expectScopeError(`select other.it_sc1.t.* from it_sc1.t`, `missing FROM-clause entry for table "t"`, false)
 	h.expectScopeError(`select a.b.it_sc1.t.v from it_sc1.t`, `improper qualified name (too many dotted names): a.b.it_sc1.t.v`, false)
 	h.expectScopeError(`select a.b.c.d.* from it_sc1.t`, `improper qualified name (too many dotted names): a.b.c.d.*`, false)
 }

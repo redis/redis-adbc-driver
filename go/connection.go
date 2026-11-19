@@ -68,7 +68,7 @@ type connectionImpl struct {
 func (c *connectionImpl) executor() *executor {
 	metrics := &partitionMetrics{}
 	c.aggregateMetrics.Store(metrics)
-	return &executor{store: c.store, rbac: c.rbac, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
+	return &executor{store: c.store, rbac: c.rbac, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: catalogSchema(c.sess.currentCatalog(), c.sess.currentSchema()), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
@@ -360,7 +360,7 @@ func (c *connectionImpl) NewStatement(ctx context.Context) (adbc.StatementWithCo
 // ---- CurrentNamespacer ----
 
 func (c *connectionImpl) GetCurrentCatalog(ctx context.Context) (string, error) {
-	return catalogName, nil
+	return c.sess.currentCatalog(), nil
 }
 
 func (c *connectionImpl) GetCurrentDbSchema(ctx context.Context) (string, error) {
@@ -368,9 +368,20 @@ func (c *connectionImpl) GetCurrentDbSchema(ctx context.Context) (string, error)
 }
 
 func (c *connectionImpl) SetCurrentCatalog(ctx context.Context, catalog string) error {
-	if catalog != catalogName {
-		return errorf(adbc.StatusNotFound, "catalog %q does not exist", catalog)
+	if catalog != catalogName && c.store.hasSharedReadView() {
+		return namedCatalogExecutionUnsupported()
 	}
+	ctx, pin, err := c.store.acquireSnapshot(ctx)
+	if err != nil {
+		return err
+	}
+	defer pin.release()
+	id, err := c.store.catalogIdentity(ctx, catalog)
+	if err != nil {
+		return err
+	}
+	c.sess.catalog, c.sess.catalogID = catalog, id
+	c.sess.setSchema(defaultSchema)
 	return nil
 }
 
@@ -380,7 +391,13 @@ func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) 
 		return snapshotErr
 	}
 	defer pin.release()
-	ok, err := c.store.schemaExists(ctx, schema)
+	if err := validateLogicalSchema(schema); err != nil {
+		return err
+	}
+	if err := c.executor().validateCurrentCatalog(ctx); err != nil {
+		return err
+	}
+	ok, err := c.store.schemaExists(ctx, catalogSchema(c.sess.currentCatalog(), schema))
 	if err != nil {
 		return err
 	}
@@ -403,6 +420,16 @@ func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, db
 		return nil, snapshotErr
 	}
 	defer pin.release()
+	if catalog == nil || *catalog == "" {
+		if err := c.executor().validateCurrentCatalog(ctx); err != nil {
+			return nil, err
+		}
+	}
+	if catalog != nil && *catalog != "" {
+		if _, err := c.store.catalogIdentity(ctx, *catalog); err != nil {
+			return nil, err
+		}
+	}
 	name := TableName{Name: tableName}
 	if catalog != nil {
 		name.Catalog = *catalog
@@ -465,10 +492,22 @@ func matchPattern(value string, pattern *string) bool {
 }
 
 func (c *connectionImpl) GetCatalogs(ctx context.Context, catalogFilter *string) ([]string, error) {
-	if !matchPattern(catalogName, catalogFilter) {
-		return nil, nil
+	ctx, pin, err := c.store.acquireSnapshot(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return []string{catalogName}, nil
+	defer pin.release()
+	all, err := c.store.listCatalogs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, name := range all {
+		if matchPattern(name, catalogFilter) {
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }
 
 func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog string, schemaFilter *string) ([]string, error) {
@@ -477,7 +516,9 @@ func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog str
 		return nil, snapshotErr
 	}
 	defer pin.release()
-	if catalog != catalogName {
+	if ok, err := c.store.catalogExists(ctx, catalog); err != nil {
+		return nil, err
+	} else if !ok {
 		return nil, nil
 	}
 	all, err := c.store.listSchemas(ctx)
@@ -485,12 +526,16 @@ func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog str
 		return nil, err
 	}
 	// The connection's own temporary objects are listed under pg_temp.
-	if c.store.hasTempObjects() {
+	if catalog == catalogName && c.store.hasTempObjects() {
 		all = append(all, tempAlias)
 		slices.Sort(all)
 	}
 	var out []string
 	for _, s := range all {
+		if schemaCatalog(s) != catalog {
+			continue
+		}
+		s = displaySchema(s)
 		if matchPattern(s, schemaFilter) {
 			out = append(out, s)
 		}
@@ -504,13 +549,24 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 		return nil, snapshotErr
 	}
 	defer pin.release()
-	if catalog != catalogName {
+	if ok, err := c.store.catalogExists(ctx, catalog); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, nil
+	}
+	if err := validateLogicalSchema(schema); err != nil {
+		return nil, err
+	}
+	if catalog != catalogName && (isTempAlias(schema) || isTempSchema(schema)) {
 		return nil, nil
 	}
 	if isTempAlias(schema) {
 		schema = c.store.tempSchema()
 	} else if isTempSchema(schema) {
 		return []driverbase.TableInfo{}, nil
+	}
+	if !isTempSchema(schema) {
+		schema = catalogSchema(catalog, schema)
 	}
 	tables, err := c.store.listTables(ctx, schema)
 	if err != nil {
@@ -525,6 +581,13 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 	metas, err := c.store.getTables(ctx, schema, tables)
 	if err != nil {
 		return nil, err
+	}
+	var declarationTargets map[string]*tableMeta
+	if includeColumns {
+		declarationTargets, err = c.store.declarationTargets(ctx, metas)
+		if err != nil {
+			return nil, err
+		}
 	}
 	for i, n := range tables {
 		kind := "TABLE"
@@ -608,10 +671,13 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 				}
 				info.TableColumns = append(info.TableColumns, ci)
 			}
-			// The primary key (its columns in key order, see pkey.go) and
-			// the CHECK constraints are the only ones kept (see check.go).
+			// Report persisted constraint declarations. UNIQUE/FK metadata
+			// describes no enforcement or unique indexes (see declaration.go).
 			info.TableConstraints = []driverbase.ConstraintInfo{}
 			if meta != nil {
+				for _, d := range meta.Declarations {
+					info.TableConstraints = append(info.TableConstraints, declarationInfo(meta, d, declarationTargets))
+				}
 				if k := meta.PrimaryKey; k != nil {
 					name := k.Name
 					info.TableConstraints = append(info.TableConstraints, driverbase.ConstraintInfo{

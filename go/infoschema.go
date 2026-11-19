@@ -255,6 +255,8 @@ func postgresTypeNames(t ColType) (string, string) {
 
 // columnRow renders one information_schema.columns row.
 func columnRow(schema, table string, pos int, c columnMeta) []Value {
+	catalog := schemaCatalog(schema)
+	schema = displaySchema(schema)
 	t := c.Type
 	null := nullValue(typeInt32)
 	prec, radix, scale, dtPrec, chars, octets := null, null, null, null, null, null
@@ -291,12 +293,12 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 	dataType, udtName := postgresTypeNames(t)
 	nullString := nullValue(typeString)
 	row := []Value{
-		stringValue(catalogName), stringValue(schema), stringValue(table),
+		stringValue(catalog), stringValue(schema), stringValue(table),
 		stringValue(c.Name), intValue(typeInt32, int64(pos)), optString(c.Default), yesNo(c.Nullable), stringValue(dataType),
 		chars, octets, prec, radix, scale, dtPrec,
 		nullString, null, nullString, nullString, nullString, nullString, nullString, nullString,
 		nullString, nullString, nullString,
-		stringValue(catalogName), stringValue("pg_catalog"), stringValue(udtName),
+		stringValue(catalog), stringValue("pg_catalog"), stringValue(udtName),
 		nullString, nullString, nullString, null,
 		stringValue(strconv.Itoa(pos)), yesNo(false), yesNo(false),
 		nullString, nullString, nullString, nullString, nullString, nullString,
@@ -312,7 +314,7 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 		row[8], row[9] = null, null
 	}
 	if t.Collation != "" && t.Collation != "default" {
-		row[19], row[20], row[21] = str(catalogName), str(pgCatalog), str(t.Collation)
+		row[19], row[20], row[21] = str(catalog), str(pgCatalog), str(t.Collation)
 	}
 	return row
 }
@@ -331,7 +333,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 		return e.rbacGrantTable(ctx, key, cols)
 	}
 	if key == "routines" {
-		return memTable(key, cols, routineRows(), nil)
+		return memTable(key, cols, routineRows(e.currentCatalog()), nil)
 	}
 	schemas, err := e.store.listSchemas(ctx)
 	if err != nil {
@@ -342,15 +344,17 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 	type space struct{ name, stored string }
 	spaces := make([]space, 0, len(schemas)+1)
 	for _, s := range schemas {
-		spaces = append(spaces, space{s, s})
+		if schemaCatalog(s) == e.currentCatalog() {
+			spaces = append(spaces, space{displaySchema(s), s})
+		}
 	}
-	if e.store.hasTempObjects() {
+	if e.currentCatalog() == catalogName && e.store.hasTempObjects() {
 		spaces = append(spaces, space{tempAlias, e.store.tempSchema()})
 	}
 	var rows [][]Value
 	if key == "schemata" {
 		for _, s := range append(spaces, space{name: infoSchema}, space{name: pgCatalog}) {
-			rows = append(rows, []Value{stringValue(catalogName), stringValue(s.name)})
+			rows = append(rows, []Value{stringValue(e.currentCatalog()), stringValue(s.name)})
 		}
 		return memTable(key, cols, rows, nil)
 	}
@@ -384,7 +388,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 				if metas[i] == nil {
 					continue // dropped meanwhile
 				}
-				rows = append(rows, []Value{stringValue(catalogName), stringValue(schema), stringValue(t), stringValue(tableType),
+				rows = append(rows, []Value{stringValue(e.currentCatalog()), stringValue(schema), stringValue(t), stringValue(tableType),
 					stringValue(metas[i].prefix()), stringValue(metas[i].index()), optString(metas[i].Comment)})
 			}
 			vms, err := e.store.getViews(ctx, stored, views)
@@ -395,7 +399,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 				if vms[i] == nil {
 					continue // dropped meanwhile
 				}
-				rows = append(rows, []Value{stringValue(catalogName), stringValue(schema), stringValue(v), stringValue("VIEW"),
+				rows = append(rows, []Value{stringValue(e.currentCatalog()), stringValue(schema), stringValue(v), stringValue("VIEW"),
 					nullValue(typeString), nullValue(typeString), optString(vms[i].Comment)})
 			}
 		case "columns":
@@ -405,7 +409,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 					continue // dropped meanwhile
 				}
 				for i, c := range meta.Columns {
-					row := columnRow(schema, t, i+1, c)
+					row := columnRow(stored, t, i+1, c)
 					if c.Identity != "" {
 						seq, err := e.store.getSequence(ctx, c.Sequence.Schema, c.Sequence.Name)
 						if err != nil {
@@ -425,7 +429,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 					continue
 				}
 				for i, c := range vm.Columns {
-					rows = append(rows, columnRow(schema, v, i+1, c))
+					rows = append(rows, columnRow(stored, v, i+1, c))
 				}
 			}
 		case "views":
@@ -434,7 +438,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 				if err != nil {
 					continue
 				}
-				rows = append(rows, []Value{stringValue(catalogName), stringValue(schema), stringValue(v), stringValue(vm.SQL)})
+				rows = append(rows, []Value{stringValue(e.currentCatalog()), stringValue(schema), stringValue(v), stringValue(vm.SQL)})
 			}
 		case "table_constraints", "key_column_usage":
 			metas, err := e.store.getTables(ctx, stored, tables)
@@ -443,7 +447,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 			}
 			for _, m := range metas {
 				if m != nil { // nil: dropped meanwhile
-					rows = append(rows, constraintRows(key, schema, m)...)
+					rows = append(rows, constraintRows(key, stored, m)...)
 				}
 			}
 		}
@@ -455,7 +459,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 // or key_column_usage (key), listed under schema: the primary key, then the
 // CHECK constraints.
 func constraintRows(key, schema string, m *tableMeta) [][]Value {
-	cat, sch, table := stringValue(catalogName), stringValue(schema), stringValue(m.Name)
+	cat, sch, table := stringValue(schemaCatalog(schema)), stringValue(displaySchema(schema)), stringValue(m.Name)
 	var rows [][]Value
 	if key == "key_column_usage" {
 		if m.PrimaryKey != nil {

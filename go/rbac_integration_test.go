@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/google/uuid"
 	goredis "github.com/redis/go-redis/v9"
@@ -182,8 +184,99 @@ func TestSQLRBACSelect(t *testing.T) {
 		if err := objects.Err(); err != nil || !seen {
 			t.Fatal("metadata enumeration failed", err)
 		}
+		for _, filter := range [][]string{nil, {}, {"TABLE"}, {"VIEW", "TABLE"}, {"VIEW"}, {"MATERIALIZED VIEW"}, {"UNKNOWN"}} {
+			objects, err := reader.conn.GetObjects(ctx, adbc.ObjectDepthTables, ptr("redis"), ptr("public"), ptr("it_rbac_allowed"), nil, filter)
+			if err != nil {
+				t.Fatal("restricted filtered metadata failed", filter, err)
+			}
+			var names []string
+			for objects.Next() {
+				// Inspect actual nested tables: an empty table list can still
+				// produce a catalog record batch.
+				catalogSchemas := objects.RecordBatch().Column(1).(*array.List)
+				schemas := catalogSchemas.ListValues().(*array.Struct)
+				schemaTables := schemas.Field(1).(*array.List)
+				tables := schemaTables.ListValues().(*array.Struct)
+				tableNames := tables.Field(0).(*array.String)
+				for i := 0; i < tableNames.Len(); i++ {
+					names = append(names, tableNames.Value(i))
+				}
+			}
+			err = objects.Err()
+			objects.Release()
+			if err != nil {
+				t.Fatal("restricted filtered metadata stream failed", filter, err)
+			}
+			wantTable := len(filter) == 0 || slices.Contains(filter, "TABLE")
+			if wantTable && !slices.Equal(names, []string{"it_rbac_allowed"}) || !wantTable && len(names) != 0 {
+				t.Fatalf("filter %v: unexpected restricted tables %v", filter, names)
+			}
+		}
 		if aclWrites.Load() != writesBefore {
 			t.Fatal("metadata discovery mutated management ACLs")
+		}
+	})
+	t.Run("named_catalog_metadata_preserves_reader_acl", func(t *testing.T) {
+		catalog := "it_rbac_catalog_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+		schemaName, tableName := "public", "metadata_target"
+		admin.exec("CREATE DATABASE " + quoteSQLName(catalog))
+		defer admin.exec("DROP DATABASE " + quoteSQLName(catalog) + " CASCADE")
+		admin.exec("CREATE TABLE " + quoteSQLName(catalog) + ".public.metadata_target(id BIGINT,note TEXT)")
+		writesBefore := aclWrites.Load()
+		schema, err := reader.conn.GetTableSchema(ctx, &catalog, &schemaName, tableName)
+		if err != nil {
+			t.Fatal("named catalog restricted schema metadata failed", err)
+		}
+		if len(schema.Fields()) != 2 || schema.Field(0).Name != "id" || schema.Field(0).Type.String() != "int64" || schema.Field(1).Name != "note" {
+			t.Fatalf("unexpected named catalog Arrow schema: %s", schema)
+		}
+		objects, err := reader.conn.GetObjects(ctx, adbc.ObjectDepthAll, &catalog, &schemaName, &tableName, nil, nil)
+		if err != nil {
+			t.Fatal("named catalog restricted discovery failed", err)
+		}
+		defer objects.Release()
+		var paths []string
+		for objects.Next() {
+			var buf bytes.Buffer
+			if err := array.RecordToJSON(objects.RecordBatch(), &buf); err != nil {
+				t.Fatal(err)
+			}
+			dec := json.NewDecoder(&buf)
+			for dec.More() {
+				var row struct {
+					Name    string `json:"catalog_name"`
+					Schemas []struct {
+						Name   string `json:"db_schema_name"`
+						Tables []struct {
+							Name    string `json:"table_name"`
+							Type    string `json:"table_type"`
+							Columns []struct {
+								Name string `json:"column_name"`
+							} `json:"table_columns"`
+						} `json:"db_schema_tables"`
+					} `json:"catalog_db_schemas"`
+				}
+				if err := dec.Decode(&row); err != nil {
+					t.Fatal(err)
+				}
+				if row.Name != catalog || len(row.Schemas) != 1 || row.Schemas[0].Name != schemaName || len(row.Schemas[0].Tables) != 1 {
+					t.Fatalf("unexpected logical catalog/schema metadata: %+v", row)
+				}
+				table := row.Schemas[0].Tables[0]
+				if table.Name != tableName || table.Type != "TABLE" || len(table.Columns) != 2 || table.Columns[0].Name != "id" || table.Columns[1].Name != "note" {
+					t.Fatalf("unexpected logical table metadata: %+v", table)
+				}
+				paths = append(paths, row.Name+"."+row.Schemas[0].Name+"."+table.Name)
+			}
+		}
+		if err := objects.Err(); err != nil {
+			t.Fatal("named catalog metadata stream failed", err)
+		}
+		if len(paths) != 1 || paths[0] != catalog+".public.metadata_target" {
+			t.Fatalf("unexpected named catalog metadata paths: %v", paths)
+		}
+		if aclWrites.Load() != writesBefore {
+			t.Fatal("named catalog metadata discovery mutated management ACLs")
 		}
 	})
 	reader.expectError(`SELECT * FROM it_rbac_allowed`, "NOPERM")

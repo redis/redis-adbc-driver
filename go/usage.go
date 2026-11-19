@@ -498,7 +498,7 @@ func usageKind(st Stmt) string {
 		return "delete"
 	case *MergeStmt:
 		return "merge"
-	case *CreateTableStmt, *DropTableStmt, *AlterTableStmt, *CreateSchemaStmt, *DropSchemaStmt, *CreateViewStmt, *DropViewStmt, *TruncateStmt, *CommentStmt:
+	case *CreateCatalogStmt, *DropCatalogStmt, *CreateTableStmt, *DropTableStmt, *AlterTableStmt, *CreateSchemaStmt, *DropSchemaStmt, *CreateViewStmt, *DropViewStmt, *TruncateStmt, *CommentStmt:
 		return "ddl"
 	case *ShowStmt:
 		return "metadata"

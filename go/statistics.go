@@ -60,7 +60,11 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 	defer pin.release()
 	b := array.NewRecordBuilder(c.Alloc, adbc.GetStatisticsSchema)
 	defer b.Release()
-	if matchPattern(catalogName, catalog) {
+	catalogs, err := c.GetCatalogs(ctx, catalog)
+	if err != nil {
+		return nil, err
+	}
+	for _, catalogName := range catalogs {
 		schemas, err := c.GetDBSchemasForCatalog(ctx, catalogName, dbSchema)
 		if err != nil {
 			return nil, err
@@ -73,7 +77,7 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 			if isTempAlias(name) || isTempSchema(name) {
 				continue
 			}
-			tables, err := c.store.listTables(ctx, name)
+			tables, err := c.store.listTables(ctx, catalogSchema(catalogName, name))
 			if err != nil {
 				return nil, err
 			}
@@ -86,7 +90,7 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 				if !matchPattern(table, tableName) {
 					continue
 				}
-				meta, err := c.store.getTable(ctx, name, table)
+				meta, err := c.store.getTable(ctx, catalogSchema(catalogName, name), table)
 				if err != nil {
 					return nil, err
 				}

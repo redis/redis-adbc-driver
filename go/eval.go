@@ -749,7 +749,7 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 	case "VERSION":
 		return stringValue("PostgreSQL " + postgresCompatibilityVersion + " (Redis ADBC driver)"), nil
 	case "CURRENT_DATABASE":
-		return stringValue(catalogName), nil
+		return stringValue(env.exec.currentCatalog()), nil
 	case "CURRENT_SCHEMA":
 		if env.exec == nil || env.exec.sess == nil {
 			return stringValue(defaultSchema), nil

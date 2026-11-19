@@ -662,6 +662,9 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		}
 		d.db = n
 	case OptionStringDefaultSchema:
+		if err := validateLogicalSchema(value); err != nil {
+			return err
+		}
 		if value == "" {
 			return errorf(adbc.StatusInvalidArgument, "%s must not be empty", key)
 		}

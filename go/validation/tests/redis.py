@@ -30,19 +30,21 @@ class RedisQuirks(model.DriverQuirks):
     features = model.DriverFeatures(
         connection_get_statistics=True,
         connection_get_table_schema=True,
-        # There is a single catalog ("redis"); schemas are key namespaces.
-        connection_set_current_catalog=False,
+        # Catalogs have independent managed schemas and table identities.
+        connection_set_current_catalog=True,
         connection_set_current_schema=True,
         # Autocommit only
         connection_transactions=False,
         get_objects=True,
-        # GetObjects lists CHECK constraints and the primary key, the only
-        # constraints kept (UNIQUE and FOREIGN KEY are accepted and ignored).
+        get_objects_tabletypes_filter=True,
+        # GetObjects reports declarations; UNIQUE/FK integrity is not enforced.
         get_objects_constraints_check=True,
         get_objects_constraints_primary=True,
+        get_objects_constraints_unique=True,
+        get_objects_constraints_foreign=True,
         statement_bind=True,
         statement_bulk_ingest=True,
-        statement_bulk_ingest_catalog=False,
+        statement_bulk_ingest_catalog=True,
         statement_bulk_ingest_schema=True,
         # Temporary tables are per connection, in a schema it sees as pg_temp.
         statement_bulk_ingest_temporary=True,
@@ -57,6 +59,8 @@ class RedisQuirks(model.DriverQuirks):
         current_catalog="redis",
         current_schema="public",
         secondary_schema="secondary",
+        secondary_catalog="validation_secondary",
+        secondary_catalog_schema="secondary",
     )
     setup = model.DriverSetup(
         database={

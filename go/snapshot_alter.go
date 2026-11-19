@@ -19,6 +19,11 @@ import (
 // Ordinary DML continues to append deltas without copying existing rows.
 func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cmds []AlterCmd) error {
 	in := &alterInputs{}
+	var refErr error
+	in.references, refErr = e.alterDeclarationReferences(ctx, source, cmds)
+	if refErr != nil {
+		return refErr
+	}
 	if err := e.viewDependencies(ctx, source, cmds, in); err != nil {
 		return err
 	}

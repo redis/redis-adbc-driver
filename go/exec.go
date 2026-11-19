@@ -119,46 +119,55 @@ func invalidArg(err error) error {
 // always the temporary one.
 func (e *executor) resolveTable(t TableName) (string, string, error) {
 
-	if (t.Schema == foreignSchema || t.Schema == "" && e.schema == foreignSchema) && !e.store.foreignIndexes &&
-		(e.partitionForeignTable == "" || t.Name != e.partitionForeignTable) {
-		return "", "", tableNotFound(foreignSchema, t.Name)
+	catalog := t.Catalog
+	if catalog == "" {
+		catalog = e.currentCatalog()
+	}
+	if err := validateCatalogName(catalog); err != nil {
+		return "", "", err
+	}
+	if err := validateLogicalSchema(t.Schema); err != nil {
+		return "", "", err
 	}
 	schema := t.Schema
-	if t.Catalog != "" && t.Catalog != catalogName {
-		if schema == "" {
-			schema = e.schema
-		}
-		return "", "", tableNotFound(schema, t.Name)
+	if schema == "" {
+		schema = logicalSchema(e.schema)
 	}
-	switch {
-	case schema == "":
-		if !e.noTemp && e.store.isTempObject(t.Name) {
+	if catalog != catalogName && (isTempAlias(schema) || isTempSchema(schema) || schema == liveSchema || schema == foreignSchema) {
+		return "", "", errorf(adbc.StatusNotImplemented, "temporary, live and foreign schemas require the redis catalog")
+	}
+	if catalog == catalogName {
+		if (schema == foreignSchema) && !e.store.foreignIndexes && (e.partitionForeignTable == "" || t.Name != e.partitionForeignTable) {
+			return "", "", tableNotFound(schema, t.Name)
+		}
+		if t.Schema == "" && !e.noTemp && e.store.isTempObject(t.Name) {
 			e.markTemp()
 			return e.store.tempSchema(), t.Name, nil
 		}
-		return e.schema, t.Name, nil
-	case isTempAlias(schema):
-		e.markTemp()
-		return e.store.tempSchema(), t.Name, nil
-	case isTempSchema(schema):
-		// Temporary schemas are only reachable as pg_temp by their owner.
-		return "", "", stateErrorf(stateUndefinedTable, "table %q.%q does not exist", schema, t.Name)
+		if isTempAlias(schema) {
+			e.markTemp()
+			return e.store.tempSchema(), t.Name, nil
+		}
+		if isTempSchema(schema) {
+			return "", "", tableNotFound(schema, t.Name)
+		}
 	}
-	return schema, t.Name, nil
+	return catalogSchema(catalog, schema), t.Name, nil
 }
-
-// resolveCreate returns the schema and name of a table or view being
-// created: the connection's temporary schema (created on first use) for
-// CREATE TEMP and for pg_temp.<name>, otherwise the given or current schema.
-// Unlike resolveTable, an unqualified name never means a temporary object.
 func (e *executor) resolveCreate(ctx context.Context, t TableName, temporary bool) (string, string, error) {
-	if t.Catalog != "" && t.Catalog != catalogName {
-		return "", "", errorf(adbc.StatusNotFound, "catalog %q does not exist", t.Catalog)
+	catalog, err := e.targetCatalog(ctx, t.Catalog)
+	if err != nil {
+		return "", "", err
+	}
+	if err := validateLogicalSchema(t.Schema); err != nil {
+		return "", "", err
 	}
 	if temporary || isTempAlias(t.Schema) {
+		if catalog != catalogName {
+			return "", "", errorf(adbc.StatusNotImplemented, "temporary objects require the redis catalog")
+		}
 		if t.Schema != "" && !isTempAlias(t.Schema) {
-			return "", "", errorf(adbc.StatusInvalidArgument,
-				"cannot create a temporary table or view in schema %q (temporary objects are in pg_temp)", t.Schema)
+			return "", "", errorf(adbc.StatusInvalidArgument, "cannot create a temporary table or view in schema %q (temporary objects are in pg_temp)", t.Schema)
 		}
 		schema, err := e.store.ensureTempSchema(ctx)
 		return schema, t.Name, err
@@ -168,9 +177,12 @@ func (e *executor) resolveCreate(ctx context.Context, t TableName, temporary boo
 	}
 	schema := t.Schema
 	if schema == "" {
-		schema = e.schema
+		schema = logicalSchema(e.schema)
 	}
-	return schema, t.Name, nil
+	if catalog != catalogName && (schema == liveSchema || schema == foreignSchema) {
+		return "", "", errorf(adbc.StatusNotImplemented, "live and foreign objects require the redis catalog")
+	}
+	return catalogSchema(catalog, schema), t.Name, nil
 }
 
 // markTemp records that the statement being planned refers to a temporary
@@ -182,7 +194,7 @@ func (e *executor) markTemp() {
 }
 
 func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, error) {
-	schema, name, err := e.resolveTable(t)
+	schema, name, err := e.resolveCatalogTable(ctx, t)
 	if err != nil {
 		return nil, err
 	}
@@ -249,6 +261,9 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 			return result, err
 		}
 		return e.executeSnapshot(ctx, ps, params, paramTypes, so)
+	}
+	if err := e.validateCurrentCatalog(ctx); err != nil {
+		return execResult{}, err
 	}
 	if e.retained != nil {
 		if _, ok := ps.Stmt.(*SelectStmt); !ok {
@@ -377,10 +392,26 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		return execResult{affected: -1}, e.runCreateView(ctx, st, ps.NumParams)
 	case *DropViewStmt:
 		return execResult{affected: -1}, e.runDropObjects(ctx, append([]TableName{st.Name}, st.Names...), st.IfExists, true)
+	case *CreateCatalogStmt:
+		return execResult{affected: -1}, e.store.createCatalog(ctx, st.Name, st.IfNotExists)
+	case *DropCatalogStmt:
+		if st.Name == e.currentCatalog() {
+			return execResult{}, errorf(adbc.StatusInvalidState, "cannot drop the current catalog")
+		}
+		return execResult{affected: -1}, e.store.dropCatalog(ctx, st.Name, st.IfExists, st.Cascade)
 	case *CreateSchemaStmt:
-		return execResult{affected: -1}, e.store.createSchema(ctx, st.Name, st.IfNotExists)
+		if e.currentCatalog() != catalogName && (st.Name == liveSchema || st.Name == foreignSchema || st.Name == pgCatalog || st.Name == infoSchema || reservedSchema(st.Name)) {
+			return execResult{}, errorf(adbc.StatusInvalidArgument, "reserved schema name")
+		}
+		if err := validateLogicalSchema(st.Name); err != nil {
+			return execResult{}, err
+		}
+		return execResult{affected: -1}, e.store.createSchema(ctx, catalogSchema(e.currentCatalog(), st.Name), st.IfNotExists)
 	case *DropSchemaStmt:
-		return execResult{affected: -1}, e.store.dropSchema(ctx, st.Name, st.IfExists, st.Cascade)
+		if err := validateLogicalSchema(st.Name); err != nil {
+			return execResult{}, err
+		}
+		return execResult{affected: -1}, e.store.dropSchema(ctx, catalogSchema(e.currentCatalog(), st.Name), st.IfExists, st.Cascade)
 	case *TruncateStmt:
 		return execResult{affected: -1}, e.runTruncate(ctx, st)
 	case *CommentStmt:
@@ -461,7 +492,7 @@ func (e *executor) runTruncate(ctx context.Context, st *TruncateStmt) error {
 	var metas []*tableMeta
 	seen := map[string]bool{}
 	for _, t := range st.Tables {
-		schema, name, err := e.resolveTable(t)
+		schema, name, err := e.resolveCatalogTable(ctx, t)
 		if err != nil {
 			return err
 		}
@@ -538,7 +569,7 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	if err != nil {
 		return err
 	}
-	meta := &tableMeta{Schema: schema, Name: name, Comment: st.Comment}
+	meta := &tableMeta{DeclarationEpoch: snapshotID(), Schema: schema, Name: name, Comment: st.Comment}
 	noIndex := map[string]bool{}
 	for _, c := range defs {
 		col := columnMeta{Identity: c.Identity, Sequence: c.Sequence, Name: c.Name, Type: c.Type, Nullable: !c.NotNull, Comment: c.Comment}
@@ -560,6 +591,13 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 		return err
 	})
 	if err != nil {
+		return err
+	}
+	refs, err := e.declarationReferences(ctx, meta, st.Declarations)
+	if err != nil {
+		return err
+	}
+	if err = addDeclarations(meta, st.Declarations, refs, nil); err != nil {
 		return err
 	}
 	keep, err = e.store.createTable(ctx, meta, st.IfNotExists)
@@ -600,7 +638,7 @@ func (e *executor) runCreateTableAs(ctx context.Context, st *CreateTableStmt) (i
 	if err != nil {
 		return 0, err
 	}
-	meta := &tableMeta{Schema: schema, Name: name}
+	meta := &tableMeta{DeclarationEpoch: snapshotID(), Schema: schema, Name: name}
 	cols := plan.columns()
 	resolveNumericColumns(cols, rows)
 	for j, c := range cols {

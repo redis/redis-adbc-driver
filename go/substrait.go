@@ -210,9 +210,6 @@ func translateSubstrait(ctx context.Context, p *sp.Plan) (*subPlan, error) {
 	}
 	if len(table.Names) == 3 {
 		out.table.Catalog = table.Names[0]
-		if out.table.Catalog != catalogName {
-			return nil, errorf(adbc.StatusNotFound, "Substrait: catalog not found")
-		}
 	}
 	bs := read.BaseSchema
 	if bs == nil || bs.Struct == nil || bs.Struct.Nullability != sp.Type_NULLABILITY_REQUIRED || bs.Struct.TypeVariationReference != 0 || len(bs.Names) == 0 || len(bs.Names) != len(bs.Struct.Types) {
@@ -506,6 +503,9 @@ func subLiteral(l *sp.Expression_Literal) (subExpr, error) {
 }
 
 func (p *subPlan) bind(ctx context.Context, e *executor) (*selectPlan, error) {
+	if _, err := e.targetCatalog(ctx, p.table.Catalog); err != nil {
+		return nil, err
+	}
 	if err := cancelled(ctx); err != nil {
 		return nil, err
 	}

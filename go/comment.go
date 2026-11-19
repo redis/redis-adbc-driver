@@ -53,10 +53,7 @@ import (
 const remarksKey = "ARROW:FLIGHT:SQL:REMARKS"
 
 func (e *executor) runComment(ctx context.Context, st *CommentStmt) error {
-	if st.Table.Catalog != "" && st.Table.Catalog != catalogName {
-		return errorf(adbc.StatusNotImplemented, "cross-database references are not implemented: %s", st.name())
-	}
-	schema, name, err := e.resolveTable(st.Table)
+	schema, name, err := e.resolveCatalogTable(ctx, st.Table)
 	if err != nil {
 		return relationNotFound(st.Table)
 	}
