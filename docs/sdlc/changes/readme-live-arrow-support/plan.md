@@ -1,6 +1,6 @@
 # Plan
 
-Date: 2026-11-19. Author: Codex. Status: local validation passed; PR checks pending. PR: pending creation.
+Date: 2026-11-19. Author: Codex. Status: local validation passed; PR checks pending. PR: [#533](https://github.com/redis/redis-adbc-driver/pull/533).
 See [intent](intent.md), [specification](spec.md), and [validation](validation.md).
 
 1. Compare summaries with the merged live Arrow contract and implementation.

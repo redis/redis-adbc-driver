@@ -1,6 +1,6 @@
 # Validation
 
-Date: 2026-11-19. Author: Codex. Status: local checks passed. PR: pending creation.
+Date: 2026-11-19. Author: Codex. Status: local checks passed. PR: [#533](https://github.com/redis/redis-adbc-driver/pull/533).
 See [intent](intent.md), [specification](spec.md), and [plan](plan.md).
 
 Documentation only. Reviewed against the merged live Arrow guide and dispatch

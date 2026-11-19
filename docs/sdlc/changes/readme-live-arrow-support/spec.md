@@ -1,6 +1,6 @@
 # Specification
 
-Date: 2026-11-19. Status: implemented documentation update. PR: pending creation.
+Date: 2026-11-19. Status: implemented documentation update. PR: [#533](https://github.com/redis/redis-adbc-driver/pull/533).
 See [intent](intent.md), [plan](plan.md), and [validation](validation.md).
 
 - Both capability tables say supported within the linked live write contract.
