@@ -2,7 +2,12 @@
 // Licensed under the Apache License, Version 2.0.
 package redis
 
-import "testing"
+import (
+	"errors"
+	"github.com/apache/arrow-adbc/go/adbc"
+	"strings"
+	"testing"
+)
 
 func TestCatalogIsolationAndLifecycle(t *testing.T) {
 	h, _, _ := newSnapshotHarnessMode(t, false, false)
@@ -83,4 +88,64 @@ func TestCatalogSelectionGenerationAndBoundaries(t *testing.T) {
 	peerHarness.exec("INSERT INTO t VALUES(3)")
 	h.expectRows("SELECT * FROM analytics.public.t", "3")
 	h.exec("DROP DATABASE analytics CASCADE")
+}
+
+// Stage qualified metadata DDL once, then replace the catalog before its
+// publication. The original registry owner is a required publication dependency
+// even when the connection's selected catalog remains redis throughout.
+func TestCatalogQualifiedDDLConflictsWithRecreatedCatalog(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	h.exec("CREATE DATABASE analytics")
+	h.exec("CREATE TABLE analytics.public.t(id INTEGER)")
+	h.exec("INSERT INTO analytics.public.t VALUES(1)")
+	s := snapshotTestStore(t, raw)
+	wctx, pin, work := snapshotStageSQL(t, s, h.ctx, "", "COMMENT ON TABLE analytics.public.t IS 'stale comment'")
+	scope := snapshotOf(wctx)
+	registryKey := strings.TrimPrefix(catalogsKey, metaPrefix)
+	scope.metadataMu.Lock()
+	registryOwner, tracked := scope.metadata.reads[registryKey]
+	scope.metadataMu.Unlock()
+	if !tracked || registryOwner == "" {
+		t.Fatal("qualified DDL did not retain the existing catalog registry dependency")
+	}
+	oldID, err := s.catalogIdentity(wctx, "analytics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.exec("DROP DATABASE analytics CASCADE")
+	h.exec("CREATE DATABASE analytics")
+	h.exec("CREATE TABLE analytics.public.t(id INTEGER)")
+	h.exec("INSERT INTO analytics.public.t VALUES(2)")
+	latest, latestPin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newID, err := s.catalogIdentity(latest, "analytics")
+	latestPin.release()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if oldID == newID {
+		t.Fatal("catalog generation was reused")
+	}
+	var ae adbc.Error
+	err = s.publishSnapshot(wctx, pin, work)
+	if !errors.As(err, &ae) || string(ae.SqlState[:]) != "40001" {
+		t.Fatalf("stale catalog DDL publication did not conflict: %v", err)
+	}
+	s.abortSnapshot(pin, work)
+	pin.release()
+	h.expectRows("SELECT * FROM analytics.public.t", "2")
+	check, checkPin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer checkPin.release()
+	meta, err := s.getTable(check, catalogSchema("analytics", "public"), "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if meta.Comment != "" {
+		t.Fatalf("stale DDL touched recreated catalog table: %q", meta.Comment)
+	}
 }
