@@ -297,9 +297,6 @@ func TestSnapshotLiveArrowCreateAppendNewAndEncoding(t *testing.T) {
 	defer rec.Release()
 	bindUnmanagedCustom(t, h, st, fields, rec.Columns())
 	setLiveSource(t, h, st, unmanagedIngestSource{Prefix: "liveapp:", Encodings: map[string]string{"active": "text"}})
-	if err := st.SetOption(h.ctx, OptionStringIngestIndexColumns, "n"); err != nil {
-		t.Fatal(err)
-	}
 	if n, err := st.ExecuteUpdate(h.ctx); n != 1 || err != nil {
 		t.Fatalf("create_append %d %v", n, err)
 	}

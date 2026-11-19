@@ -21,7 +21,7 @@ outputs. No Community service, unsupported service, or ClickBench run was used.
   REDIS_URI unset: new TestSnapshotLiveArrow tests plus existing unmanaged Arrow
   creation/append/replacement/source-option tests, under the race detector.
   Four existing restricted-principal permission subtests skip because dedicated
-  denied-command principals are not configured. Final race run passed: 48
+  denied-command principals are not configured. Final race run passed: 50
   top-level tests, including eight live creation/replacement tests.
 - `make -C go build adbc-cli` passed on macOS arm64, including the native library.
 - Python/PyArrow native-boundary smoke passed Arrow Table creation, C-stream
@@ -44,6 +44,11 @@ An ordinary join regression exposed that column-based schema checks also compare
 query-projected metadata. Replaced that check with an immutable registration
 version changed on replacement; existing mixed live/managed joins now pass.
 The new stale-writer check covers identical-schema replacement as well.
+
+A focused failing Software regression reproduced text-encoded boolean creation
+receiving a numeric Search attribute. Creation now applies the same text/UUID
+index exclusions as ordinary live adoption, including explicit column policies.
+The default-policy integration case and explicit-policy unit case pass.
 
 Ownership/security: reserve a generated index identity create-only, CAS replacement
 metadata, never use DD or managed row publication/GC for source HASHes. Reuse

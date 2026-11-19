@@ -125,7 +125,26 @@ func (s *statementImpl) newSourceIngestMeta(schema string, cfg *unmanagedIngestS
 		if len(meta.Columns) > 1024 {
 			return nil, errorf(adbc.StatusInvalidArgument, "live tables support at most 1024 columns")
 		}
-		if err := meta.applyIndexPolicy(s.indexColumns, nil); err != nil {
+		// Text-encoded temporal/boolean fields and UUIDs cannot use the
+		// numeric/native attribute layout. Match ordinary live adoption, even
+		// when an explicit policy names one of these fields.
+		noIndex := map[string]bool{}
+		for _, c := range meta.Columns {
+			noIndex[c.Name] = c.Encoding == "text" || c.Type.Alias == "uuid"
+		}
+		only := s.indexColumns
+		if only != nil {
+			only = map[string]bool{}
+			for name := range s.indexColumns {
+				if _, ok := meta.resolve(name); !ok {
+					return nil, errorf(adbc.StatusInvalidArgument, "index column %q does not exist", name)
+				}
+				if !noIndex[name] {
+					only[name] = true
+				}
+			}
+		}
+		if err := meta.applyIndexPolicy(only, noIndex); err != nil {
 			return nil, err
 		}
 		for i := range meta.Columns {

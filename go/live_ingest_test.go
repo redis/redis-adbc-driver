@@ -4,6 +4,8 @@ package redis
 
 import (
 	"context"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"testing"
 )
 
@@ -21,6 +23,25 @@ func TestLiveIngestSourceOption(t *testing.T) {
 		}
 		if _, err := s.GetOption(ctx, OptionStringIngestLiveSource); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+func TestLiveIngestTextIndexPolicy(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{{Name: "active", Type: arrow.FixedWidthTypes.Boolean}, {Name: "n", Type: arrow.PrimitiveTypes.Int64}}, nil)
+	reader, err := array.NewRecordReader(schema, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Release()
+	for _, policy := range []map[string]bool{nil, {"active": true, "n": true}} {
+		s := &statementImpl{params: reader, indexColumns: policy}
+		meta, err := s.newSourceIngestMeta(liveSchema, &unmanagedIngestSource{Prefix: "app:", Encodings: map[string]string{"active": "text"}}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if meta.Columns[0].Indexed || !meta.Columns[1].Indexed {
+			t.Fatal("live text encoding indexed as a native numeric field")
 		}
 	}
 }
