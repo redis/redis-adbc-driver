@@ -43,18 +43,28 @@ binary suffixes.
 ```sql
 SELECT __key, name, age FROM redis_live.users;
 
+-- Omit __key to generate app:users:<uuid> with GEN_RANDOM_UUID().
+INSERT INTO redis_live.users (name, age)
+VALUES ('Bob', 40) RETURNING __key;
+
+-- An explicit Redis key is also supported.
 INSERT INTO redis_live.users (__key, name, age)
-VALUES ('app:users:bob', 'Bob', 40);
+VALUES ('app:users:carol', 'Carol', 42);
 
 UPDATE redis_live.users SET age = 41
-WHERE __key = 'app:users:bob';
+WHERE __key = 'app:users:carol';
 
-DELETE FROM redis_live.users WHERE __key = 'app:users:bob';
+DELETE FROM redis_live.users WHERE __key = 'app:users:carol';
 ```
 
-`__key` is the original Redis key. INSERT requires it and refuses an existing
-key, including one created concurrently. A key under the prefix with another
-colon after that prefix belongs to a nested collection and is excluded. No
+`__key` is the original Redis key. Omitting it, or specifying `DEFAULT`, uses
+the SQL default `<registered-prefix> || GEN_RANDOM_UUID()::TEXT`, evaluated
+separately for every inserted row. Use `RETURNING __key` to retrieve generated
+keys. An explicit key is preserved, explicit NULL is rejected, and an existing
+key is refused, including one created concurrently. This default applies only
+to live HASH tables; unmanaged registrations still require explicit keys. A key
+under the prefix with another colon after that prefix belongs to a nested
+collection and is excluded. No
 internal row ID or version fields are added to the HASHes.
 
 An application can use ordinary `HGETALL`, `HSET`, `HDEL`, `DEL` and expiry on those

@@ -16,3 +16,8 @@ See [validation and review](validation.md) for actual results and limits.
 No maintainer approval or release is implied.
 
 Pull request: [#510](https://github.com/redis/redis-adbc-driver/pull/510).
+
+Follow-up: use a live-only SQL default for omitted/DEFAULT `__key`; verify
+per-row UUID generation in VALUES and INSERT SELECT, generated-key RETURNING,
+implicit target lists, prefix quoting, explicit NULL/collisions and source HASH
+identity. Rebuild the source binaries and update PR #510.

@@ -6,10 +6,12 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/google/uuid"
 )
 
 func TestLiveHashesSQLAndRedis(t *testing.T) {
@@ -40,7 +42,7 @@ func TestLiveHashesSQLAndRedis(t *testing.T) {
 		t.Fatalf("Redis sees %q", v)
 	}
 	h.expectError("INSERT INTO redis_live.it_live_users(__key,name) VALUES ('"+f.prefix+"two','collision')", "already exists")
-	h.expectError("INSERT INTO redis_live.it_live_users(name) VALUES ('missing key')", "__key")
+	h.expectError("INSERT INTO redis_live.it_live_users(__key,name) VALUES (NULL,'null key')", "__key")
 	if err := f.raw.Expire(h.ctx, f.prefix+"one", time.Hour).Err(); err != nil {
 		t.Fatal(err)
 	}
@@ -69,6 +71,64 @@ func TestLiveHashesSQLAndRedis(t *testing.T) {
 	h.expectRows("SELECT table_name FROM information_schema.tables WHERE table_schema='redis_live'", "it_live_users")
 	h.expectError("TRUNCATE redis_live.it_live_users", "live")
 	h.expectError("DROP TABLE redis_live.it_live_users", "read-only")
+}
+
+func TestLiveGeneratedInsertKeys(t *testing.T) {
+	f := newHashFixture(t, "it:live:gen'\\key:")
+	h := f.h
+	f.hset(f.prefix+"seed", "v", "0")
+	if _, err := RegisterLiveHashes(h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_live_generated", Apply: true}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := UnregisterLiveHashes(h.ctx, f.opts, "it_live_generated"); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringLiveTables, "true"); err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	check := func(query string, values ...string) {
+		t.Helper()
+		rows, _ := h.query(query)
+		if len(rows) != len(values) {
+			t.Fatalf("got %d generated rows, want %d", len(rows), len(values))
+		}
+		for i, row := range rows {
+			key, value, ok := strings.Cut(row, "|")
+			if !ok || value != values[i] {
+				t.Fatalf("unexpected RETURNING row %q", row)
+			}
+			suffix, ok := strings.CutPrefix(key, f.prefix)
+			id, err := uuid.Parse(suffix)
+			if !ok || err != nil || id.Version() != 4 || suffix != id.String() {
+				t.Fatalf("invalid generated key %q", key)
+			}
+			if seen[key] {
+				t.Fatalf("reused generated key %q", key)
+			}
+			seen[key] = true
+			if got := f.raw.HGet(h.ctx, key, "v").Val(); got != value {
+				t.Fatalf("Redis value %q, want %q", got, value)
+			}
+			for _, field := range []string{keyField, rowIDField} {
+				if f.raw.HExists(h.ctx, key, field).Val() {
+					t.Fatalf("stored internal field %s", field)
+				}
+			}
+		}
+	}
+	check("INSERT INTO redis_live.it_live_generated(v) VALUES(1),(2) RETURNING __key,v", "1", "2")
+	check("INSERT INTO redis_live.it_live_generated VALUES(3) RETURNING __key,v", "3")
+	check("INSERT INTO redis_live.it_live_generated(__key,v) VALUES(DEFAULT,4) RETURNING __key,v", "4")
+	check("INSERT INTO redis_live.it_live_generated(v) SELECT v+10 FROM redis_live.it_live_generated WHERE v=1 RETURNING __key,v", "11")
+	key := f.prefix + "manual"
+	quoted := "'" + strings.ReplaceAll(key, "'", "''") + "'"
+	h.expectRows("INSERT INTO redis_live.it_live_generated(__key,v) VALUES("+quoted+",7) RETURNING __key,v", key+"|7")
+	h.expectError("INSERT INTO redis_live.it_live_generated(__key,v) VALUES(NULL,8)", "__key")
+	h.expectError("INSERT INTO redis_live.it_live_generated(v) VALUES(NULL)", "without fields")
+	h.expectRows("SELECT COUNT(*) FROM redis_live.it_live_generated", "7")
 }
 
 func TestLiveExactValuesAndSchema(t *testing.T) {

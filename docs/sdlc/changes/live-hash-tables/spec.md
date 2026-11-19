@@ -7,7 +7,11 @@ See [intent](intent.md) and [plan](plan.md).
   collections. The application owns the keys and their values; the driver owns
   only its registered SQL definitions and generated Search indexes.
 - SQL SELECT, INSERT, UPDATE and DELETE operate on the original HASHes. INSERT
-  requires an explicit `__key`; collisions are refused. UPDATE preserves unknown
+  generates `<registered-prefix><uuid>` through the existing volatile SQL
+  `GEN_RANDOM_UUID()` default when `__key` is omitted or DEFAULT. Explicit keys
+  are preserved; explicit NULL and collisions are refused. Generated keys are
+  returned by `RETURNING __key`; no internal fields are added to the HASH.
+  UPDATE preserves unknown
   HASH fields and TTLs, does not recreate vanished rows, and refuses an update
   that removes the last field. DELETE removes the selected source keys.
 - SQL writes use per-row Redis operations, not managed statement snapshots.

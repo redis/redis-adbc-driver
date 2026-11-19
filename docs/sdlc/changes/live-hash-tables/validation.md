@@ -83,3 +83,26 @@ three server cases skipped because `REDIS_SNAPSHOT_URI` was unset; these cases
 clear a disposable snapshot database and were not redirected to the ordinary
 fixture. This adds no unmanaged integration evidence beyond the passing unit
 and focused live/adoption/managed checks above.
+
+## Automatic live INSERT keys
+
+The follow-up generated-key regression was run before the change and failed
+with SQLSTATE 23502 when INSERT omitted `__key`. The live virtual key column now
+uses the normal SQL default evaluator with a safely quoted prefix concatenated
+with `GEN_RANDOM_UUID()::TEXT`. The volatile function is evaluated for every row;
+this default is neither persisted as a public column nor applied to unmanaged
+registrations. Explicit NULL still fails, and explicit keys keep their collision
+checks.
+
+- `make -C go test-software TEST_ARGS='-race -run TestLive\|TestAdoptInsertCollisionAtomic -timeout 5m'`:
+  nine focused integration tests passed, including the CLI case; no selected
+  tests skipped. Redis Software 8.8, active verified 4x QPF and noeviction were
+  checked by the setup gate before execution.
+- `TestLiveGeneratedInsertKeys` checks omitted keys in named and implicit target
+  lists, multirow VALUES, DEFAULT, INSERT SELECT, unique canonical UUIDv4 keys,
+  RETURNING, quoted/backslash prefixes, explicit keys and NULL, empty-HASH
+  refusal, and absence of internal fields in the original source HASHes.
+- The unit-only suite passed again with expected server-dependent skips, and
+  `make -C go build adbc-cli` rebuilt the native macOS ARM64 driver and CLI.
+- Self-review confirmed that only live insert metadata receives the default;
+  explicit keys and other table modes preserve their existing behavior.

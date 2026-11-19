@@ -15,3 +15,8 @@ SQL validation and do not participate in managed statement publication.
 See the [specification](spec.md) and [implementation plan](plan.md).
 
 Pull request: [#510](https://github.com/redis/redis-adbc-driver/pull/510).
+
+The user subsequently requested automatic keys for live SQL inserts. Reuse
+`GEN_RANDOM_UUID()` as a per-row SQL default on the virtual `__key` column,
+prefixed by the registered collection prefix. Keep explicit keys and existing
+unmanaged insert behavior.
