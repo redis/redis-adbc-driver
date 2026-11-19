@@ -34,7 +34,7 @@ func insertMeta(meta *tableMeta) *tableMeta {
 	}
 	m := *meta
 	key := columnMeta{Name: keyField, Type: typeString}
-	if meta.Live {
+	if meta.Live || meta.Unmanaged {
 		// Use the normal SQL default evaluator: GEN_RANDOM_UUID is volatile,
 		// so VALUES and INSERT SELECT each receive a fresh key for every row.
 		// Explicit keys (including NULL) bypass the default as usual.

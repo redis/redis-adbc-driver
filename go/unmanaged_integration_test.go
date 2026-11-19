@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/google/uuid"
 )
 
 func TestUnmanagedLiveSourceWrites(t *testing.T) {
@@ -77,7 +78,46 @@ func TestUnmanagedLiveSourceWrites(t *testing.T) {
 				t.Fatal("unmanaged source DML published a managed generation")
 			}
 			h.expectRows("SELECT n FROM "+table+" ORDER BY n", "21", "30")
-			h.expectError("INSERT INTO "+table+" (n) VALUES (99)", "__key")
+			seen := map[string]bool{}
+			// Adoption retains inferred column order; foreign columns are sorted.
+			implicitValues := "(93,'keep')"
+			if foreign {
+				implicitValues = "('keep',93)"
+			}
+			for _, query := range []string{
+				"INSERT INTO " + table + " (n) VALUES (91),(92) RETURNING __key,n",
+				"INSERT INTO " + table + " VALUES " + implicitValues + " RETURNING __key,n",
+				"INSERT INTO " + table + " (__key,n) VALUES (DEFAULT,94) RETURNING __key,n",
+				"INSERT INTO " + table + " (n) SELECT n+100 FROM " + table + " RETURNING __key,n",
+			} {
+				rows, _ := h.query(query)
+				if len(rows) == 0 {
+					t.Fatal("generated INSERT returned no rows")
+				}
+				for _, row := range rows {
+					key, value, ok := strings.Cut(row, "|")
+					suffix, prefixed := strings.CutPrefix(key, "app:")
+					id, err := uuid.Parse(suffix)
+					if !ok || !prefixed || err != nil || id.Version() != 4 || suffix != id.String() || seen[key] {
+						t.Fatalf("invalid or reused generated key: %q", key)
+					}
+					seen[key] = true
+					if got := raw.HGet(h.ctx, key, "n").Val(); got != value {
+						t.Fatalf("source value %q, want %q", got, value)
+					}
+					if raw.HExists(h.ctx, key, keyField).Val() || raw.HExists(h.ctx, key, rowIDField).Val() {
+						t.Fatal("generated INSERT stored internal fields")
+					}
+					h.exec("DELETE FROM " + table + " WHERE __key='" + key + "'")
+				}
+			}
+			if len(seen) != 6 {
+				t.Fatalf("generated %d distinct keys, want 6", len(seen))
+			}
+			if root != raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() {
+				t.Fatal("generated INSERT published a managed generation")
+			}
+			h.expectError("INSERT INTO "+table+" (__key,n) VALUES (NULL,99)", "__key")
 			h.expectError("INSERT INTO "+table+" (__key,n) VALUES ('other:1',99)", "prefix")
 			h.expectError("ALTER TABLE "+table+" ADD COLUMN bad INTEGER", "unmanaged")
 			h.expectError("TRUNCATE "+table, "unmanaged")

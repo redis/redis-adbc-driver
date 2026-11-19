@@ -257,7 +257,7 @@ func (a *adopter) unmanagedAdopt(ctx context.Context) (*HashAdoption, error) {
 	if choice.index == nil || choice.blocker != "" {
 		cl.add(CheckBlocker, "a compatible application-owned HASH Search index is required", "create an index on exactly this prefix without a FILTER; select it with -index")
 	}
-	cl.add(CheckWarn, "SQL writes change source HASHes; reads and multi-row writes have no statement snapshot or rollback", "INSERT requires __key; application writers and expiry remain independent")
+	cl.add(CheckWarn, "SQL writes change source HASHes; reads and multi-row writes have no statement snapshot or rollback", "SQL INSERT generates omitted __key values; application writers and expiry remain independent")
 	command := adoptCommand(a.o.Prefix, a.schema, a.table, a.c.db.schema, a.o.Types, a.o.Renames)
 	for _, name := range sortedKeys(a.o.Encodings) {
 		command += " -encoding " + shellQuote(name+"="+a.o.Encodings[name])

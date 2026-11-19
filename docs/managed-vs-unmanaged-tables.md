@@ -40,7 +40,7 @@ matters more than direct access to application keys.
 | Index management | Driver creates and maintains private indexes | Application provides and maintains a compatible index | Driver creates and maintains its own index over the source prefix |
 | Creation/registration | SQL, Arrow ingestion, or managed import | Explicit unmanaged adoption or foreign-index registration | Live registration API or `redis-adbc live register` |
 | Direct Redis writes | Unsupported for driver-owned storage | Supported; bypass SQL validation | Supported; bypass SQL validation |
-| SQL INSERT key | Driver manages physical row identity | Explicit new `__key` required | Explicit `__key`, or a generated prefixed UUID when omitted/DEFAULT |
+| SQL INSERT key | Driver manages physical row identity | Explicit `__key`, or a generated prefixed UUID when omitted/DEFAULT | Explicit `__key`, or a generated prefixed UUID when omitted/DEFAULT |
 | Read consistency | One committed managed version per statement | Source values can change during execution | Source values can change during execution |
 | SQL write behavior | Supported changes publish atomically | Writes affect source HASHes and can partially succeed | Writes affect source HASHes per row and can partially succeed |
 | Source changes | An imported copy needs an explicit refresh | No data refresh; indexed visibility follows the source index | No data refresh; indexed visibility follows the driver-owned index |
@@ -91,7 +91,9 @@ go/build/redis-adbc adopt -prefix app:user: -table users \
 The application remains responsible for the index's schema, settings, memory,
 and lifecycle, as well as source field encodings and coordination. Source value
 changes need no import/refresh; explicit registration refresh updates the SQL
-schema and recorded source definition. INSERT requires a new explicit `__key`.
+schema and recorded source definition. SQL INSERT accepts a new explicit `__key`
+or generates `<registered-prefix> || GEN_RANDOM_UUID()::TEXT` per row when the
+key is omitted or DEFAULT. Arrow ingestion requires explicit keys.
 
 This mode supports direct SQL writes and specific Arrow ingestion operations,
 but has no managed row snapshot or atomic multi-row publication. A failure can
