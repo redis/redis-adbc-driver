@@ -11,3 +11,14 @@ scripts/check_docs.py verified all 45 public pages and their links/publication
 scope; git diff --check passed. No runtime tests were needed for this prose-only
 change. Self-review found no remaining actionable ownership/contract discrepancy;
 this is not maintainer approval. Remote checks are tracked on the PR.
+
+Follow-up review: reordered comparison cells with their values intact to
+Managed (default), Live, Unmanaged; matched the README explanation order and the
+detailed guide's introductory/use-case tables. Documentation checks rerun.
+Native access wording was checked against docs/native-client.md,
+python/adbc_driver_redis/native.py and the read-only native ABI dispatch. No
+native writes or application-primary-key lookup claimed. The v0.0.29 tag contains
+the wrapper/ABI, and the released macOS arm64 wheel was downloaded and inspected:
+NativeClient is packaged and its bundled library loads and exports both
+RedisNativeReadV1 and RedisNativeReadFreeV1. This verifies packaged availability,
+not a new Redis integration test or an all-platform runtime validation.

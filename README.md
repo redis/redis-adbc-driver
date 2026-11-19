@@ -49,16 +49,22 @@ and updating those same HASHes through SQL.
 The driver has **three table modes**. The main difference is who owns the HASHes
 and who maintains the Search indexes.
 
-| | Managed | Unmanaged | Live HASH tables |
+| | Managed (default) | Live HASH tables | Unmanaged |
 |---|---|---|---|
 | HASH owner | Driver | Application | Application |
-| Index manager | Driver | Application | Driver |
-| SQL reads and writes | Yes | Yes, through a registered application index | Yes, on the original HASHes |
-| Direct Redis reads and writes | Physical storage is internal; direct writes unsupported | Yes | Yes |
+| Index manager | Driver | Driver | Application |
+| SQL reads and writes | Yes | Yes, on the original HASHes | Yes, through a registered application index |
+| Redis-style reads | Experimental snapshot-aware [NativeClient](docs/native-client.md) | Yes, through ordinary Redis clients | Yes, through ordinary Redis clients |
+| Direct Redis writes | Unsupported; use SQL or Arrow | Yes | Yes |
 | Read consistency | Statement snapshots | Live source values | Live source values |
-| SQL write publication | Supported writes publish atomically | Source writes can partially succeed | Per-row writes; a statement can partially succeed |
+| SQL write publication | Supported writes publish atomically | Per-row writes; a statement can partially succeed | Source writes can partially succeed |
 | Copy of application data | Import creates a private copy | No copy | No copy |
-| Arrow ingestion | Supported | Supported within the unmanaged write contract | Supported within the [live write contract](docs/live-hash-tables.md#write-arrow-data-to-live-hashes) |
+| Arrow ingestion | Supported | Supported within the [live write contract](docs/live-hash-tables.md#write-arrow-data-to-live-hashes) | Supported within the unmanaged write contract |
+
+The experimental native HASH client provides managed-table reads without SQL
+translation. It is included in v0.0.29, uses internal `__rowid` values, and is
+read-only. Ordinary Redis reads of physical managed keys do not resolve table
+snapshots, row versions, or tombstones.
 
 **Choose managed tables** when the driver should own both data and indexes.
 They are the default for SQL/Arrow pipelines and consistent analytical reads.
@@ -66,12 +72,6 @@ Supported writes go through the driver; importing application HASHes creates a
 private copy that needs explicit refresh. See the
 [managed-table walkthrough](docs/sql-redis-example.md) and
 [snapshot contract](docs/snapshots.md).
-
-**Choose unmanaged tables** when the application should own both data and indexes.
-Register an existing compatible Search index for SQL access to the original
-HASHes. SQL and Redis clients operate on the same data; the application controls
-index configuration and lifecycle. See the
-[unmanaged guide](docs/unmanaged-tables.md) for registration, examples, and limits.
 
 **Choose live HASH tables** when the application should own the data and the
 driver should own the indexes. SQL and Redis clients operate on the original
@@ -86,6 +86,12 @@ DDL users; it removes old HASHes and TTLs and resets the index. Live writes can 
 succeed, and replacement has no whole-call rollback. See the
 [live write contract](docs/live-hash-tables.md#write-arrow-data-to-live-hashes)
 for configuration and recovery.
+
+**Choose unmanaged tables** when the application should own both data and indexes.
+Register an existing compatible Search index for SQL access to the original
+HASHes. SQL and Redis clients operate on the same data; the application controls
+index configuration and lifecycle. See the
+[unmanaged guide](docs/unmanaged-tables.md) for registration, examples, and limits.
 
 All modes use autocommit; multi-statement transactions and rollback are unsupported.
 Unmanaged and live tables have no managed row snapshot: concurrent SQL and Redis

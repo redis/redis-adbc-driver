@@ -4,11 +4,11 @@ The driver has three ownership modes. All three support SQL reads and writes;
 what changes is who owns the HASH data, who maintains the Search indexes, and
 which consistency guarantees apply.
 
-| Mode | HASH data owner | Search index owner | Direct Redis reads/writes |
+| Mode | HASH data owner | Search index owner | Redis-style access |
 |---|---|---|---|
-| **Managed** | Driver | Driver | Physical storage is internal; direct writes unsupported |
-| **Unmanaged** | Application | Application | Yes, on the original HASHes |
+| **Managed (default)** | Driver | Driver | Experimental [native client](native-client.md) for reads; writes use SQL/Arrow |
 | **Live HASH tables** | Application | Driver | Yes, on the original HASHes |
+| **Unmanaged** | Application | Application | Yes, on the original HASHes |
 
 All HASHes and Search indexes reside on the Redis server. Ownership describes
 who creates, changes, and removes them; it does not describe client-side storage.
@@ -23,9 +23,9 @@ names the mode with application-owned data and driver-owned indexes specifically
 
 | Choose | When it fits | Main tradeoff |
 |---|---|---|
-| **Managed: driver owns data + indexes** | SQL/Arrow pipelines and analytics that need statement snapshots and atomic supported writes | Write through the driver; importing application data creates a private copy |
-| **Unmanaged: application owns data + indexes** | Your application already has a compatible Search index and wants to retain its configuration and lifecycle | The application manages schema compatibility, indexing, and coordination |
+| **Managed (default): driver owns data + indexes** | SQL/Arrow pipelines and analytics that need statement snapshots and atomic supported writes | Write through the driver; importing application data creates a private copy |
 | **Live: application owns data + driver owns indexes** | You want to inspect and edit HASHes with Redis clients, use SQL on the same data, and let the driver handle indexes | Per-row writes and live source reads replace managed statement guarantees; initial features are narrower |
+| **Unmanaged: application owns data + indexes** | Your application already has a compatible Search index and wants to retain its configuration and lifecycle | The application manages schema compatibility, indexing, and coordination |
 
 Use **live HASH tables** when the requirement is: “I want to access and change my
 HASHes directly, and I do not want to manage indexes.” This mode currently
@@ -34,21 +34,22 @@ matters more than direct access to application keys.
 
 ## At a glance
 
-| Aspect | Managed | Unmanaged | Live HASH tables |
+| Aspect | Managed (default) | Live HASH tables | Unmanaged |
 |---|---|---|---|
 | SQL data source | Driver-owned rows | Original application HASHes | Original application HASHes |
-| Index management | Driver creates and maintains private indexes | Application provides and maintains a compatible index | Driver creates and maintains its own index over the source prefix |
-| Creation/registration | SQL, Arrow ingestion, or managed import | Explicit unmanaged adoption or foreign-index registration | Live registration API, `redis-adbc live register`, or Arrow creation with an explicit empty application prefix |
-| Direct Redis writes | Unsupported for driver-owned storage | Supported; bypass SQL validation | Supported; bypass SQL validation |
+| Index management | Driver creates and maintains private indexes | Driver creates and maintains its own index over the source prefix | Application provides and maintains a compatible index |
+| Creation/registration | SQL, Arrow ingestion, or managed import | Live registration API, `redis-adbc live register`, or Arrow creation with an explicit empty application prefix | Explicit unmanaged adoption or foreign-index registration |
+| Redis-style reads | Experimental snapshot-aware [NativeClient](native-client.md) | Yes, through ordinary Redis clients | Yes, through ordinary Redis clients |
+| Direct Redis writes | Unsupported; use SQL or Arrow | Supported; bypass SQL validation | Supported; bypass SQL validation |
 | SQL INSERT key | Driver manages physical row identity | Explicit `__key`, or a generated prefixed UUID when omitted/DEFAULT | Explicit `__key`, or a generated prefixed UUID when omitted/DEFAULT |
 | Read consistency | One committed managed version per statement | Source values can change during execution | Source values can change during execution |
-| SQL write behavior | Supported changes publish atomically | Writes affect source HASHes and can partially succeed | Writes affect source HASHes per row and can partially succeed |
-| Source changes | An imported copy needs an explicit refresh | No data refresh; indexed visibility follows the source index | No data refresh; indexed visibility follows the driver-owned index |
-| TTLs | Do not directly expire driver-owned rows | Application controls source TTLs | Application controls source TTLs; SQL UPDATE preserves them |
-| Arrow ingestion | Supported | Supported within the unmanaged write contract | Supported within the [live write contract](live-hash-tables.md#write-arrow-data-to-live-hashes) |
+| SQL write behavior | Supported changes publish atomically | Writes affect source HASHes per row and can partially succeed | Writes affect source HASHes and can partially succeed |
+| Source changes | An imported copy needs an explicit refresh | No data refresh; indexed visibility follows the driver-owned index | No data refresh; indexed visibility follows the source index |
+| TTLs | Do not directly expire driver-owned rows | Application controls source TTLs; SQL UPDATE preserves them | Application controls source TTLs |
+| Arrow ingestion | Supported | Supported within the [live write contract](live-hash-tables.md#write-arrow-data-to-live-hashes) | Supported within the unmanaged write contract |
 | Data copy | Managed import creates a copy; SQL-created tables need no external source | No private data copy | No private data copy |
-| Storage costs | Rows, indexes, catalog, staging, and retained versions | Source data/indexes plus SQL registration metadata | Source data, driver-owned indexes, and SQL registration metadata |
-| Removal | DROP removes the logical table; managed references govern physical reclamation | DROP removes the registration and leaves source data/indexes | Unregister removes the registration and its driver-owned index, leaving source data |
+| Storage costs | Rows, indexes, catalog, staging, and retained versions | Source data, driver-owned indexes, and SQL registration metadata | Source data/indexes plus SQL registration metadata |
+| Removal | DROP removes the logical table; managed references govern physical reclamation | Unregister removes the registration and its driver-owned index, leaving source data | DROP removes the registration and leaves source data/indexes |
 
 All modes are autocommit-only. Multi-statement transactions and rollback are
 unsupported. Index ownership alone does not establish which mode will run a
@@ -69,8 +70,9 @@ when references are released.
 The cost is private storage and lifecycle control. Long-lived readers retain old
 versions, and staging/retention limits can backpressure writes. Direct Redis
 reads of physical keys do not resolve row versions or tombstones; direct edits,
-expiry, and eviction bypass the storage protocol. Use SQL/ADBC or the supported
-[snapshot-aware native reader](native-client.md).
+expiry, and eviction bypass the storage protocol. Use SQL/ADBC or the experimental
+[snapshot-aware native reader](native-client.md). The native client is included in v0.0.29,
+reads by internal `__rowid`, and provides no write methods.
 
 See [managed snapshots](snapshots.md) for the precise guarantees, fixed limits,
 ACL/noeviction requirements, and storage compatibility.

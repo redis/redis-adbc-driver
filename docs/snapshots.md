@@ -20,7 +20,7 @@ and can partially succeed, including within an already-submitted pipeline.
 ingestion. Read through SQL/ADBC or the experimental
 [native client wrapper](native-client.md).** The wrapper provides supported
 HASH-style methods through the shared native snapshot reader, without SQL
-translation. It currently requires a source build and uses internal `__rowid`
+translation. It is included in v0.0.29 and uses internal `__rowid`
 values; application-key lookup and `FT.SEARCH` are not implemented. Ordinary
 Redis client reads of physical HASHes or indexes do not automatically resolve
 managed-table snapshots, row versions or tombstones. Direct writes to managed
