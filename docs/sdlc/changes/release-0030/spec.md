@@ -1,6 +1,6 @@
 # Specification
 
-Date: 2026-11-19. Status: preparation. PR: pending creation.
+Date: 2026-11-19. Status: preparation. PR: [#534](https://github.com/redis/redis-adbc-driver/pull/534).
 See [intent](intent.md), [plan](plan.md), and [validation](validation.md).
 
 - Create a new immutable v0.0.30 tag and stable GitHub release from reviewed main.

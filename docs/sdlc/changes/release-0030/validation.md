@@ -1,6 +1,6 @@
 # Validation and release tracking
 
-Date: 2026-11-19. Author: Codex. Status: preparation. PR: pending creation.
+Date: 2026-11-19. Author: Codex. Status: preparation. PR: [#534](https://github.com/redis/redis-adbc-driver/pull/534).
 See [intent](intent.md), [specification](spec.md), and [plan](plan.md).
 
 User explicitly requested a GitHub release. Latest published release inspected:

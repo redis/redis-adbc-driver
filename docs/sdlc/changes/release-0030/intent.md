@@ -1,7 +1,7 @@
 # Intent
 
 Date: 2026-11-19. Requestor: Albert Wong. Author: Codex.
-Baseline: `3a7d0a93`. Status: release preparation. PR: pending creation.
+Baseline: `3a7d0a93`. Status: release preparation. PR: [#534](https://github.com/redis/redis-adbc-driver/pull/534).
 See [specification](spec.md), [plan](plan.md), and [validation](validation.md).
 
 Publish the next stable GitHub release, v0.0.30, from merged main changes since

@@ -1,6 +1,6 @@
 # Plan
 
-Date: 2026-11-19. Author: Codex. Status: preparation. PR: pending creation.
+Date: 2026-11-19. Author: Codex. Status: preparation. PR: [#534](https://github.com/redis/redis-adbc-driver/pull/534).
 See [intent](intent.md), [specification](spec.md), and [validation](validation.md).
 
 1. Inspect latest release, main, merged checks and current publication workflows.
