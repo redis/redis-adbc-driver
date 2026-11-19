@@ -158,8 +158,12 @@ func TestSweepCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal([]byte(out), &res); err != nil || !res.ManagedSnapshots || res.Applied || res.Found != 0 || res.Deleted != 0 || res.More {
-		t.Fatalf("post-Apply JSON: %+v %v", res, err)
+	// Optional false/empty fields are omitted from JSON. Decode this response
+	// independently so a true More/MetadataPending from the pinned preview
+	// cannot survive a completed cleanup (nor can its old prefix list).
+	var after redis.Sweep
+	if err := json.Unmarshal([]byte(out), &after); err != nil || !after.ManagedSnapshots || after.Applied || after.Found != 0 || after.Deleted != 0 || after.More {
+		t.Fatalf("post-Apply JSON: %+v %v", after, err)
 	}
 	if _, _, err := runCmd(t, "sweep", "x"); err == nil || !strings.Contains(err.Error(), "unexpected arguments") {
 		t.Fatal("sweep accepted unexpected arguments", err)

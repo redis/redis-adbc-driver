@@ -57,4 +57,10 @@ final key verification; keep arbitrary-client exclusivity an explicit operator
 attestation. Failure remains partial and non-replaying, without rollback/resume.
 
 Intent/evidence: no throughput claim, benchmark, merge or release. Remote checks
-and any review feedback are tracked on the PR.
+and any review feedback are tracked on the PR. The first full run exposed an
+existing cleanup CLI test decoding a second response into the pinned preview's
+nonzero struct: omitted false flags and empty prefix lists retained old values.
+Decode the final response into a fresh struct, preserving every final cleanup
+assertion. Both architecture failures were in this same test; live ingestion,
+Python ADBC validation and other completed jobs passed. The corrected CLI
+cleanup test passed ten consecutive runs on the verified Software fixture.
