@@ -2,7 +2,7 @@
 
 Date: 2026-11-18. Status: implemented; local validation passed.
 See [intent](intent.md), [plan](plan.md) and [validation](validation.md).
-PR: pending creation.
+PR: [#532](https://github.com/redis/redis-adbc-driver/pull/532).
 
 - Statement `adbc.redis.ingest.live_source` accepts strict JSON prefix, optional
   encodings, and replacement-only current index and consent. Require enabled

@@ -3,7 +3,7 @@
 Date: 2026-11-18. Requestor: Albert Wong. Author: Codex.
 Source: `393f4c0b`. Status: implemented; local validation passed.
 See [specification](spec.md), [plan](plan.md) and [validation](validation.md).
-PR: pending creation.
+PR: [#532](https://github.com/redis/redis-adbc-driver/pull/532).
 
 Extend registered live Arrow append with creation and dedicated replacement.
 The application retains ownership of source HASHes; the driver retains ownership

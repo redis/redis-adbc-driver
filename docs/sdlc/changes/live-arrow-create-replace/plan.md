@@ -2,7 +2,7 @@
 
 Date: 2026-11-18. Author: Codex. Status: local validation passed; PR checks pending.
 See [intent](intent.md), [specification](spec.md) and [validation](validation.md).
-PR: pending creation.
+PR: [#532](https://github.com/redis/redis-adbc-driver/pull/532).
 
 1. Extend upstream live dispatch with strict source options and create-only
    generated-index registration; preserve the existing live Arrow converter.

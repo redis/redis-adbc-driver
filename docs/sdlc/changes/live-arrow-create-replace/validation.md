@@ -2,7 +2,7 @@
 
 Date: 2026-11-18. Author: Codex. Status: local validation; PR checks pending.
 See [intent](intent.md), [specification](spec.md) and [plan](plan.md).
-PR: pending creation. No maintainer approval or release implied.
+PR: [#532](https://github.com/redis/redis-adbc-driver/pull/532). No maintainer approval or release implied.
 
 ## Environment and checks
 
@@ -24,6 +24,9 @@ outputs. No Community service, unsupported service, or ClickBench run was used.
   denied-command principals are not configured. Final race run passed: 48
   top-level tests, including eight live creation/replacement tests.
 - `make -C go build adbc-cli` passed on macOS arm64, including the native library.
+- Python/PyArrow native-boundary smoke passed Arrow Table creation, C-stream
+  replacement, exact integers, generated UUID keys, schema/TTL replacement and
+  unregister preserving source HASHes. The temporary registration/keys were removed.
 - Documentation staging, strict MkDocs build and `scripts/check_docs.py` passed
   for all 45 public pages. Formatting and `git diff --check` passed.
 
