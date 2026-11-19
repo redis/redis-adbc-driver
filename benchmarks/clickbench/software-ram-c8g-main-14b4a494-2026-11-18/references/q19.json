@@ -1,0 +1,77 @@
+{
+  "query": 19,
+  "sql": "SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, m, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10;",
+  "metadata": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "rows": [
+    [
+      1313338681122956954,
+      31,
+      "",
+      589
+    ],
+    [
+      1313338681122956954,
+      28,
+      "",
+      578
+    ],
+    [
+      1313338681122956954,
+      29,
+      "",
+      572
+    ],
+    [
+      1313338681122956954,
+      33,
+      "",
+      567
+    ],
+    [
+      1313338681122956954,
+      27,
+      "",
+      557
+    ],
+    [
+      1313338681122956954,
+      32,
+      "",
+      554
+    ],
+    [
+      1313338681122956954,
+      30,
+      "",
+      552
+    ],
+    [
+      1313338681122956954,
+      34,
+      "",
+      546
+    ],
+    [
+      1313338681122956954,
+      26,
+      "",
+      540
+    ],
+    [
+      1313338681122956954,
+      10,
+      "",
+      539
+    ]
+  ]
+}

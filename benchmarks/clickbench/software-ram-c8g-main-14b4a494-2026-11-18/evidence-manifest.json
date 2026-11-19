@@ -1,0 +1,257 @@
+{
+  "source_record_hashes": {
+    "load-ram.json": "c7fb59ed53d33f00a004dc908341163355f9f6ef59f7f9ade1163c2124d92401",
+    "c8g-full-main-14b4a494.json": "7b9a741ab50103a205f47854ceea5a46f01f54b3f0d55327dbbb20d22504dfd1",
+    "c8g-full-main-14b4a494-correctness.json": "ecbe0e26c59c08344566a864b4da12187a8bf600340ea7b43a202b54512b4e98",
+    "full-main-14b4a494-readiness.json": "1841027bac15bab95cf146e10fea5a3e4c52a6d20e27f44ee3ffa0bfdd5c5763",
+    "full-main-14b4a494-build.json": "0c611523534eac90c7f60d80a33494e5e01650123f090dca60c1b756ba12d7c2",
+    "provenance.json": "5294af4c90179063dd279261575f9ded0a0a26ce377dec53f924591e81e7d472"
+  },
+  "public_trial_slots": 129,
+  "attempted_trial_count": 69,
+  "skipped_trial_count": 60,
+  "full_rows": 99997497,
+  "columns": 105,
+  "correctness_counts": {
+    "valid": 33,
+    "failed": 36,
+    "skipped": 60
+  },
+  "raw_redactions": {
+    "q01-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q01-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q01-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q02-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q02-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q02-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q03-1.json": [],
+    "q03-2.json": [],
+    "q03-3.json": [],
+    "q04-1.json": [],
+    "q04-2.json": [],
+    "q04-3.json": [],
+    "q05-1.json": [],
+    "q05-2.json": [],
+    "q05-3.json": [],
+    "q06-1.json": [],
+    "q06-2.json": [],
+    "q06-3.json": [],
+    "q07-1.json": [],
+    "q07-2.json": [],
+    "q07-3.json": [],
+    "q08-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q08-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q08-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q09-1.json": [],
+    "q09-2.json": [],
+    "q09-3.json": [],
+    "q10-1.json": [],
+    "q10-2.json": [],
+    "q10-3.json": [],
+    "q11-1.json": [],
+    "q11-2.json": [],
+    "q11-3.json": [],
+    "q12-1.json": [],
+    "q12-2.json": [],
+    "q12-3.json": [],
+    "q13-1.json": [],
+    "q13-2.json": [],
+    "q13-3.json": [],
+    "q14-1.json": [],
+    "q14-2.json": [],
+    "q14-3.json": [],
+    "q15-1.json": [],
+    "q15-2.json": [],
+    "q15-3.json": [],
+    "q16-1.json": [],
+    "q16-2.json": [],
+    "q16-3.json": [],
+    "q17-1.json": [],
+    "q17-2.json": [],
+    "q17-3.json": [],
+    "q18-1.json": [],
+    "q18-2.json": [],
+    "q18-3.json": [],
+    "q19-1.json": [],
+    "q19-2.json": [],
+    "q19-3.json": [],
+    "q20-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q20-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q20-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q21-1.json": [],
+    "q21-2.json": [],
+    "q21-3.json": [],
+    "q22-1.json": [],
+    "q22-2.json": [],
+    "q22-3.json": [],
+    "q23-1.json": [],
+    "q23-2.json": [],
+    "q23-3.json": [],
+    "q24-1.json": [],
+    "q24-2.json": [],
+    "q24-3.json": [],
+    "q25-1.json": [],
+    "q25-2.json": [],
+    "q25-3.json": [],
+    "q26-1.json": [],
+    "q26-2.json": [],
+    "q26-3.json": [],
+    "q27-1.json": [],
+    "q27-2.json": [],
+    "q27-3.json": [],
+    "q28-1.json": [],
+    "q28-2.json": [],
+    "q28-3.json": [],
+    "q29-1.json": [],
+    "q29-2.json": [],
+    "q29-3.json": [],
+    "q30-1.json": [],
+    "q30-2.json": [],
+    "q30-3.json": [],
+    "q31-1.json": [],
+    "q31-2.json": [],
+    "q31-3.json": [],
+    "q32-1.json": [],
+    "q32-2.json": [],
+    "q32-3.json": [],
+    "q33-1.json": [],
+    "q33-2.json": [],
+    "q33-3.json": [],
+    "q34-1.json": [],
+    "q34-2.json": [],
+    "q34-3.json": [],
+    "q35-1.json": [],
+    "q35-2.json": [],
+    "q35-3.json": [],
+    "q36-1.json": [],
+    "q36-2.json": [],
+    "q36-3.json": [],
+    "q37-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q37-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q37-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q38-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q38-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q38-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q39-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q39-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q39-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q40-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q40-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q40-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q41-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q41-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q41-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q42-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q42-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q42-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q43-1.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q43-2.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "q43-3.json": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ]
+  },
+  "operational_evidence_retained_privately": true,
+  "cleanup_pending": false,
+  "cleanup": {
+    "remaining_owned_instances": 0,
+    "remaining_owned_volumes": 0,
+    "private_s3_evidence_and_unmanaged_backup_retained": true
+  }
+}

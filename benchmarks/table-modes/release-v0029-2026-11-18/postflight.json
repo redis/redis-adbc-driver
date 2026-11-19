@@ -1,0 +1,46 @@
+{
+  "phase": "postflight; standalone transport control, not SQL timings",
+  "tls_certificate_and_hostname_verified": true,
+  "protocol": 3,
+  "qpf": 4,
+  "redis_version": "8.8.0",
+  "modules": [
+    {
+      "name": "search",
+      "version": 80808
+    },
+    {
+      "name": "bf",
+      "version": 80801
+    },
+    {
+      "name": "ReJSON",
+      "version": 80802
+    },
+    {
+      "name": "vectorset",
+      "version": 1
+    },
+    {
+      "name": "timeseries",
+      "version": 80809
+    }
+  ],
+  "samples": {
+    "0": {
+      "repetitions": 20,
+      "p50_ms": 0.025584,
+      "max_ms": 0.048583
+    },
+    "131072": {
+      "repetitions": 20,
+      "p50_ms": 0.214042,
+      "max_ms": 0.315
+    },
+    "1048576": {
+      "repetitions": 20,
+      "p50_ms": 1.8430415,
+      "max_ms": 2.2005
+    }
+  }
+}

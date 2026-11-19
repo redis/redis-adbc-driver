@@ -1,0 +1,10 @@
+{
+  "all_benchmark_clients_exited": true,
+  "both_exact_owner_markers_verified_before_flush": true,
+  "final_database_empty_index_free_tls_resp3_verified": true,
+  "owned_server_and_network_removed": true,
+  "preexisting_running_containers_preserved": true,
+  "unrelated_network_configuration_preserved_from_teardown_inventory": true,
+  "task_client_image_tag_removed": true,
+  "generated_env_owner_files_and_fixture_tls_removed": true
+}

@@ -1,0 +1,93 @@
+{
+  "version": "v0.0.29",
+  "source_commit": "30a9eefbf13d19b3e3129171f8ecdc5579b852a2",
+  "release_url": "https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.29",
+  "release_published_at": "2026-11-17T22:18:41Z",
+  "release_archives_verified": true,
+  "binary_origin": "Official published Linux arm64 tarballs; no local rebuild or driver changes",
+  "sha256": {
+    "library": "65d65d9bce610d027b2619cbc4f9e97188978acc74e1d4f83d299f43eea778ab",
+    "cli": "b2dfb15c71eda75d9384480093b9e8955f2b9817c88c49d5e3a6b747774f42b4",
+    "source_fixture": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+    "run.py": "316af52b3fd603a714a07606c5acd5fa3c175b1bd17de01aae91fce36319e642",
+    "scenarios.py": "792dd8d0a96ef530a146da610b02b3d19ec9c7714badae57df2243282eaabdf6",
+    "arrow_compare.py": "cf55cd229832ab22ede372a229471c86f827244fd2deddb873ea7ddbbc221c2c",
+    "redis-adbc-v0.0.29-linux-arm64.tar.gz": "c1560fceffa19ce0eefc210fd0b6d2122b382181f2671bee1f669115a92498e9",
+    "adbc_driver_redis-v0.0.29-linux-arm64.tar.gz": "5d537b2647fd86d4bf64720add001b9da91c88ea0a718afef6af9df39fa44a2f"
+  },
+  "client": {
+    "os": "Linux",
+    "architecture": "arm64",
+    "cpu_limit": 4,
+    "memory_bytes": 4294967296,
+    "route": "Software server network namespace; localhost verified TLS/RESP3",
+    "python": "3.14.10",
+    "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.36",
+    "packages": {
+      "pyarrow": "26.0.1",
+      "adbc-driver-manager": "1.13.0",
+      "redis": "8.1.0",
+      "hiredis": "3.5.0",
+      "requests": "2.34.2"
+    }
+  },
+  "server": {
+    "distribution": "Redis Software",
+    "software_version": "8.2.6-58",
+    "redis_version": "8.8.0",
+    "cpu_limit": 4,
+    "container_memory_bytes": 8589934592,
+    "database_memory_bytes": 4294967296,
+    "shards": 1,
+    "qpf": 4,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "eviction": "noeviction",
+    "protocol": 3,
+    "tls_certificate_and_hostname_verified": true,
+    "modules": [
+      {
+        "name": "search",
+        "version": 80808
+      },
+      {
+        "name": "bf",
+        "version": 80801
+      },
+      {
+        "name": "ReJSON",
+        "version": 80802
+      },
+      {
+        "name": "vectorset",
+        "version": 1
+      },
+      {
+        "name": "timeseries",
+        "version": 80809
+      }
+    ],
+    "search_module_version": 80808
+  },
+  "host": {
+    "platform": "macOS-26.7.3-arm64-arm-64bit-Mach-O",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664,
+    "cpu": "Apple M5 Max"
+  },
+  "docker_vm_cpus": 18,
+  "driver_options": {
+    "adbc.redis.stream_batch_rows": 4096,
+    "adbc.redis.writer_admission_queue": false
+  },
+  "scope": "Fresh released-driver reference, not a matched speedup comparison. Software build differs from November 14. No ClickBench rerun. Existing other-task containers were left running; host scheduling was not isolated. Source deck export/render work overlapped part of the scan window; no causal small-delta claims. All samples retained.",
+  "bulk_owner_wrapper_sha256": "487d21aa9fb3f06705d37fa393d496640065ef9d05bb6625faa007e38f0f59a5",
+  "release_build_metadata": {
+    "native_go_version": "1.27.4",
+    "cli_embedded_vcs_revision": "30a9eefbf13d19b3e3129171f8ecdc5579b852a2",
+    "cli_embedded_vcs_modified": true,
+    "library_embeds_vcs_revision": false,
+    "source_revision_basis": "Release tag association and verified official release archives; shared library does not embed a VCS revision. CLI release artifact records vcs.modified=true; no clean-build claim."
+  }
+}

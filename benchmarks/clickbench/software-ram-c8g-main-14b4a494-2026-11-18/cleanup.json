@@ -1,0 +1,16 @@
+{
+  "started_at": "2026-11-19T03:50:51.040097+00:00",
+  "instances": 1,
+  "removed_resources": [
+    "expiry schedule",
+    "expiry function",
+    "instance profile",
+    "task IAM role",
+    "task IAM role",
+    "security group"
+  ],
+  "already_absent_instances": 1,
+  "remaining_owned_instances": 0,
+  "remaining_owned_volumes": 0,
+  "completed_at": "2026-11-19T03:55:38.260917+00:00"
+}

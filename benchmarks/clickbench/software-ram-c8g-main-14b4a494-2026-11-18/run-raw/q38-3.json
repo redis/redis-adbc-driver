@@ -1,0 +1,73 @@
+{
+  "seconds": 8.850157363995095,
+  "stage_seconds": {
+    "connect": 0.018862894001358654,
+    "session_setup": 0.0032099039963213727,
+    "execute": 8.84936449000088,
+    "arrow_fetch": 0.00019485600205371156,
+    "output_fingerprint": 0.00016195699572563171
+  },
+  "query_workers": 32,
+  "worker_grant": 0,
+  "rows": 10,
+  "values": [
+    [
+      "Тест (Россия) - Яндекс",
+      122407
+    ],
+    [
+      "Шарарай), Выбрать! - обсуждаются на голд: Шоубиз - Свободная историс",
+      82935
+    ],
+    [
+      "Приморск - IRR.ru",
+      80958
+    ],
+    [
+      "Брюки New Era H (Асус) 258 общая выплаток, горшечными",
+      39098
+    ],
+    [
+      "Теплоску на",
+      23123
+    ],
+    [
+      "Dave and Hotpoint sport – самые вещие",
+      14329
+    ],
+    [
+      "AUTO.ria.ua ™ - Аппер",
+      14053
+    ],
+    [
+      "Приморск (Россия) - Яндекс.Видео",
+      13912
+    ],
+    [
+      "OWAProfessign), продать",
+      10919
+    ],
+    [
+      "Труси - Шоубиз",
+      10157
+    ]
+  ],
+  "fingerprint": "4d1292da8f0f400024b2325d630ea04916c607acd628a5f895a7eca12f0c6e73",
+  "trial_wall_seconds": 8.88587432300119,
+  "process_user_cpu_seconds": 13.025716000000001,
+  "process_system_cpu_seconds": 0.559223,
+  "process_peak_rss_bytes": 215793664,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "f9e9d00a90c52ee4570b062d5719f36199219f59974649b4c14a7729327040c9",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

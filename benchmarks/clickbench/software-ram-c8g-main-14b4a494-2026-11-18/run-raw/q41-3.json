@@ -1,0 +1,83 @@
+{
+  "seconds": 1.4785647280004923,
+  "stage_seconds": {
+    "connect": 0.019039865001104772,
+    "session_setup": 0.006720388002577238,
+    "execute": 1.4779698149941396,
+    "arrow_fetch": 0.00013538700295612216,
+    "output_fingerprint": 0.00014372300211107358
+  },
+  "query_workers": 32,
+  "worker_grant": 0,
+  "rows": 10,
+  "values": [
+    [
+      -7935301293059993474,
+      "2013-07-15",
+      27
+    ],
+    [
+      8165850906391446088,
+      "2013-07-15",
+      27
+    ],
+    [
+      -8505838588544217213,
+      "2013-07-15",
+      26
+    ],
+    [
+      2512899255762264913,
+      "2013-07-15",
+      26
+    ],
+    [
+      -6025761452198030778,
+      "2013-07-15",
+      25
+    ],
+    [
+      -3611962581960090019,
+      "2013-07-15",
+      25
+    ],
+    [
+      -6048157399675510565,
+      "2013-07-15",
+      25
+    ],
+    [
+      1851128641780263854,
+      "2013-07-15",
+      24
+    ],
+    [
+      5381918128490835791,
+      "2013-07-15",
+      24
+    ],
+    [
+      2033248414344857063,
+      "2013-07-15",
+      24
+    ]
+  ],
+  "fingerprint": "40cdcf0ced8878654a45db6887b1b9e9bb479bfe94fa4279edcdff74f5f27a20",
+  "trial_wall_seconds": 1.5159524179980508,
+  "process_user_cpu_seconds": 2.0118440000000004,
+  "process_system_cpu_seconds": 0.12308,
+  "process_peak_rss_bytes": 204800000,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "cbb0e5f8024558240b9eb7989522c241efa4b1fded57f16b643f243f5fd40067",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

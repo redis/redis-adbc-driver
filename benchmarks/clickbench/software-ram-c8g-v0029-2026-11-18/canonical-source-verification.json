@@ -1,0 +1,11 @@
+{
+  "create": {
+    "sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "url": "https://raw.githubusercontent.com/ClickHouse/ClickBench/2b3c03476e801589683007ac9164341e481a6fc6/postgresql/create.sql"
+  },
+  "queries": {
+    "sha256": "a7d6673357348ee9680443216b6f26f30d1dce9f313b419d38502417b2c2a219",
+    "url": "https://raw.githubusercontent.com/ClickHouse/ClickBench/2b3c03476e801589683007ac9164341e481a6fc6/postgresql/queries.sql"
+  },
+  "matches_reference_sqls_and_loaded_schema": true
+}

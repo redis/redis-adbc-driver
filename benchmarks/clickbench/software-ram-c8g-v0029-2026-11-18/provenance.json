@@ -1,0 +1,32 @@
+{
+  "driver_version": "v0.0.29",
+  "driver_source_commit": "30a9eefbf13d19b3e3129171f8ecdc5579b852a2",
+  "server_distribution": "Redis Software",
+  "node_versions": [
+    {
+      "architecture": "aarch64",
+      "os_version": "Red Hat Enterprise Linux 9.9 (Plow)",
+      "software_version": "8.2.6-58"
+    }
+  ],
+  "server_image_digests": [
+    "redislabs/redis@sha256:679d117a56fc26cf94a394e2c2e619a51235b109254b189ae65f9da499b293e6"
+  ],
+  "redis_version": "8.8.0",
+  "modules": {},
+  "client_os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+  "kernel": "Linux 7.0.0-1017-aws aarch64 GNU/Linux",
+  "logical_cpus": 192,
+  "packages": {
+    "pyarrow": "26.0.1",
+    "adbc-driver-manager": "1.13.0",
+    "redis": "8.1.0",
+    "hiredis": "3.5.0",
+    "duckdb": "1.5.6"
+  },
+  "route": "Linux same-instance loopback Docker published port; verified TLS hostname and CA; RESP3",
+  "tls": true,
+  "resp": 3,
+  "release_url": "https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.29",
+  "driver_sha256": "65d65d9bce610d027b2619cbc4f9e97188978acc74e1d4f83d299f43eea778ab"
+}

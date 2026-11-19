@@ -1,0 +1,93 @@
+{
+  "status": "complete",
+  "expected_rows": 99997497,
+  "loaded_rows": 99997497,
+  "columns": 105,
+  "table_mode": "unmanaged",
+  "namespace": "clickbench",
+  "storage": "ram",
+  "driver_version": "v0.0.29",
+  "driver_sha256": "65d65d9bce610d027b2619cbc4f9e97188978acc74e1d4f83d299f43eea778ab",
+  "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+  "index_columns": [
+    "advengineid",
+    "counterid",
+    "dontcounthits",
+    "eventdate",
+    "eventtime",
+    "isdownload",
+    "islink",
+    "isrefresh",
+    "refererhash",
+    "searchphrase",
+    "traficsourceid",
+    "urlhash",
+    "userid"
+  ],
+  "hash_max_listpack_value": 4096,
+  "load_workers": 8,
+  "shards": 3,
+  "started_at": "2026-11-18T19:13:46.473588+00:00",
+  "setup_seconds": 0.09743673399998443,
+  "data_ingestion_seconds": 7035.958632605,
+  "total_load_and_readiness_seconds": 7590.458958,
+  "final_used_memory_bytes": 262259371888,
+  "validated_source_row_ids": [
+    1,
+    49998748,
+    99997497
+  ],
+  "post_load_validation_status": "verified_source_data_with_sql_count_failure",
+  "original_post_load_check": {
+    "status": "failed",
+    "error_type": "OperationalError",
+    "error_message": "IO: [redis] statement snapshot lease lost; retry the statement",
+    "source_record_sha256": "dd13e00d2602b175f71f73a6e99e12446d7f2ad5d9f12a61c7d62974ad71c212"
+  },
+  "fresh_client_validation": {
+    "ingestion_workers_complete": 8,
+    "acknowledged_rows": 99997497,
+    "index_num_docs": 99997497,
+    "indexing_failures": 0,
+    "new_process": true,
+    "status": "data_verified_sql_count_failed",
+    "constant_query_passed": true,
+    "typed_schema_passed": true,
+    "all_105_values_in_source_probes_passed": [
+      1,
+      49998748,
+      99997497
+    ],
+    "dataset_ready": true,
+    "sql_count_passed": false,
+    "sql_count_error_type": "OperationalError",
+    "sql_count_error_message": "IO: [redis] statement snapshot lease lost; retry the statement",
+    "failed_verifier_log_sha256": "3bece7477cd94e69beed66dbd667171f47a3e7287cb88ef11da86c40c16bd42f",
+    "verification_basis": "All eight complete disjoint ingestion acknowledgements; exact full external index cardinality with zero indexing failures; canonical 105-field Arrow schema; all105 source values in first/middle/last probes. SQL COUNT is a recorded failure and is not claimed as passed."
+  },
+  "qpf_before": {
+    "factor": 4,
+    "active": true,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "shards": 3,
+    "eviction_policy": "noeviction",
+    "storage": "ram",
+    "database_memory_bytes": 300647710720,
+    "tls_mode": "enabled"
+  },
+  "qpf_after": {
+    "factor": 4,
+    "active": true,
+    "search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "shards": 3,
+    "eviction_policy": "noeviction",
+    "storage": "ram",
+    "database_memory_bytes": 300647710720,
+    "tls_mode": "enabled"
+  },
+  "source_record_sha256": "c7fb59ed53d33f00a004dc908341163355f9f6ef59f7f9ade1163c2124d92401"
+}

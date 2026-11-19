@@ -1,0 +1,47 @@
+{
+  "query": 26,
+  "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY SearchPhrase LIMIT 10;",
+  "metadata": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "rows": [
+    [
+      " \u0431\u0435\u0440\u0435\u0436"
+    ],
+    [
+      " \u0437\u0430 \u0440\u0443\u0441\u0441\u043a\u0438\u0439 \u0441\u0442\u0438\u043b \u0432\u0438\u0434\u0435\u043e \u043a\u0430\u043a\u043e\u0439"
+    ],
+    [
+      " \u0437\u0430\u0432\u043e\u0434 \u0442\u0430\u043d\u0434\u0430\u043b\u0438\u0449\u043d\u044b\u0435 \u043f\u0440\u043e\u0434\u0430"
+    ],
+    [
+      " \u0437\u0430\u043e\u0447\u043d\u043e\u0435 \u043f\u043e \u0437\u0435\u043c\u043b\u0438 \u0432 \u043e\u0431\u0440\u0435\u0437\u043d\u0438 \u0438 \u043c\u0435\u0442\u0440\u043e"
+    ],
+    [
+      " \u0437\u0430\u043e\u0447\u043d\u043e\u0435 \u0441\u0430\u0434 \u0446\u0435\u043d\u044b \u043d\u0430\u0440\u043e\u0449\u0435\u043d\u0438\u044f \u043c\u0443\u0437\u044b\u043a\u0430 \u0432\u0438\u0437\u0443"
+    ],
+    [
+      " \u0437\u0432\u0435"
+    ],
+    [
+      " \u0437\u0435\u043c\u043d\u044b\u0435 \u043e\u0433\u0443\u0440\u0446\u044b \u0440\u0430\u0431"
+    ],
+    [
+      " \u0437\u043e\u043b\u043e\u0442\u043e\u0439 \u0441\u0430\u0439\u0442 samsung"
+    ],
+    [
+      " \u043f\u0440\u0430\u0432"
+    ],
+    [
+      " \u0441\u0432\u0435\u0442\u044b \u0436\u0435\u043d\u0441\u043a\u0435 2 \u0441\u0435\u0437\u043e\u043d"
+    ]
+  ]
+}

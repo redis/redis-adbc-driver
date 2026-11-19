@@ -1,0 +1,602 @@
+{
+  "reported_driver_version_verified": "v0.0.29+main.14b4a494",
+  "harness_control": {
+    "passed": true,
+    "resolved_query_workers": 32,
+    "returned_rows": 1,
+    "memory_limit_mib": 2048
+  },
+  "host_memory_bytes": {
+    "MemTotal": 404876271616,
+    "MemAvailable": 128747769856,
+    "SwapTotal": 0,
+    "SwapFree": 0
+  },
+  "swap_disabled": true,
+  "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+  "queries_sha256": "a7d6673357348ee9680443216b6f26f30d1dce9f313b419d38502417b2c2a219",
+  "typed_schema": [
+    {
+      "name": "watchid",
+      "arrow_type": "int64",
+      "nullable": true
+    },
+    {
+      "name": "javaenable",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "title",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "goodevent",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "eventtime",
+      "arrow_type": "timestamp[us]",
+      "nullable": true
+    },
+    {
+      "name": "eventdate",
+      "arrow_type": "date32[day]",
+      "nullable": true
+    },
+    {
+      "name": "counterid",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "clientip",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "regionid",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "userid",
+      "arrow_type": "int64",
+      "nullable": true
+    },
+    {
+      "name": "counterclass",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "os",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "useragent",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "url",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "referer",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "isrefresh",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "referercategoryid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "refererregionid",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "urlcategoryid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "urlregionid",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "resolutionwidth",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "resolutionheight",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "resolutiondepth",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "flashmajor",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "flashminor",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "flashminor2",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "netmajor",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "netminor",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "useragentmajor",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "useragentminor",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "cookieenable",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "javascriptenable",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "ismobile",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "mobilephone",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "mobilephonemodel",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "params",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "ipnetworkid",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "traficsourceid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "searchengineid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "searchphrase",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "advengineid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "isartifical",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "windowclientwidth",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "windowclientheight",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "clienttimezone",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "clienteventtime",
+      "arrow_type": "timestamp[us]",
+      "nullable": true
+    },
+    {
+      "name": "silverlightversion1",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "silverlightversion2",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "silverlightversion3",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "silverlightversion4",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "pagecharset",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "codeversion",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "islink",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "isdownload",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "isnotbounce",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "funiqid",
+      "arrow_type": "int64",
+      "nullable": true
+    },
+    {
+      "name": "originalurl",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "hid",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "isoldcounter",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "isevent",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "isparameter",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "dontcounthits",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "withhash",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "hitcolor",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "localeventtime",
+      "arrow_type": "timestamp[us]",
+      "nullable": true
+    },
+    {
+      "name": "age",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "sex",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "income",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "interests",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "robotness",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "remoteip",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "windowname",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "openername",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "historylength",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "browserlanguage",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "browsercountry",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "socialnetwork",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "socialaction",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "httperror",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "sendtiming",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "dnstiming",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "connecttiming",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "responsestarttiming",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "responseendtiming",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "fetchtiming",
+      "arrow_type": "int32",
+      "nullable": true
+    },
+    {
+      "name": "socialsourcenetworkid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "socialsourcepage",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "paramprice",
+      "arrow_type": "int64",
+      "nullable": true
+    },
+    {
+      "name": "paramorderid",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "paramcurrency",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "paramcurrencyid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "openstatservicename",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "openstatcampaignid",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "openstatadid",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "openstatsourceid",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "utmsource",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "utmmedium",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "utmcampaign",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "utmcontent",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "utmterm",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "fromtag",
+      "arrow_type": "string",
+      "nullable": true
+    },
+    {
+      "name": "hasgclid",
+      "arrow_type": "int16",
+      "nullable": true
+    },
+    {
+      "name": "refererhash",
+      "arrow_type": "int64",
+      "nullable": true
+    },
+    {
+      "name": "urlhash",
+      "arrow_type": "int64",
+      "nullable": true
+    },
+    {
+      "name": "clid",
+      "arrow_type": "int32",
+      "nullable": true
+    }
+  ],
+  "reference_rows": 99997497,
+  "reference_queries": 43,
+  "reference_file_sha256": {
+    "manifest.json": "bccf8358447d9acd7f4d728ae90f50df15459019a89ac58998c39d49a67ef840",
+    "q01.json": "c3cf7559dc690cb7fe89c195bf160ef9120aad2b0a5f86279fa7a864e17cfaa2",
+    "q02.json": "fe9c8301d6dcee8191cf99bc26c376fe39b5464db6b471109249d5e859dad39a",
+    "q03.json": "edf4bc41d305d7d4c9cc9658239e5fc68fa0fb79a3a27a57565986b0f5d37a39",
+    "q04.json": "17cd368df2d7e52343ba9922650f8ca61a195ef94615f5a9bc038d6a99ea15a8",
+    "q05.json": "bbe6358070b4d430e87baca38a8afa65b253064f176159079416e2f65680d21e",
+    "q06.json": "15b257f6b8804c1812bd5071bbabbc9d7f9e22a77e27a9a9fbbb6db59ef970e3",
+    "q07.json": "aeb4877031cd0ff80779a13f271442187d6c03d11cf7ce863e03885e6ffc4cf3",
+    "q08.json": "7e957ea3fd0305f0e40a96cab0731772ffb8124adf591c6f0e058811a4e5770c",
+    "q09.json": "c6e817654cac95f6863648525d8a88fc6190db2772b95dc98a7811dde0335dd9",
+    "q10.json": "95c610afc587a84af006f61f7701b959009340209c982f9b9faf65c00ad81995",
+    "q11.json": "abea4cf15a9fdc87e6f1233ae14c1816db8c1c1f3ad0da43692a7f078571ce36",
+    "q12.json": "02091979e2a4df0df7402785e64829f355acd0118746642aa31c42db739f5db1",
+    "q13.json": "a5f64f4520deb208497e1a91120c7b813be4ca38b50c904f3882293c5e0cf1e1",
+    "q14.json": "7a2babfe5c96d7c2537aa5ab49637811e7280c69e4179dad7576d168ba544633",
+    "q15.json": "84bb2794ed259c5b046b1895e4fc2e3c6d13a4ad7cfd3aedc361db45281ad5d3",
+    "q16.json": "5d2fafdff58f28ca762d146d19c4df635fcfd1c540132064d94b21925bb47171",
+    "q17.json": "3b39a1871e01b62c674fd88afde3ce77ec1ef9a5ccb9adafbbc66d35a96c6102",
+    "q18.json": "53265ccd1a6e0b2bf237268102ce69218acd7434d2173f2272b365ad56ff7fed",
+    "q19.json": "e3dde9b8fe0d5f39abce0988045e80f01f2ebc3511e01f0817e9d40da5af2573",
+    "q20.json": "c95fd7d64a49f1a15d5b94f98b0864ff7c7df63ba989314ee907de217707ffe1",
+    "q21.json": "a4482f4bffe1449320fd0bb1ef6d3c161b06a36f833d7567000c7e6b72eb4964",
+    "q22.json": "084fe8575a30210f519908763a46bf2826444448107c2cbdca69e185800116a1",
+    "q23.json": "64e845898290aaec04e374b0fb2d6ba3b443e8ed260d9d19754b5ac37c976bc0",
+    "q24.json": "40b8a3e5987e6dad6bf463b6a7a6a9f778da5077d22d2d02dbe5ea30ad3727cb",
+    "q25.json": "7f378948dca3af7e5fdd44f6c56f4169ca964d385e0403256604386fc7d79ebd",
+    "q26.json": "41174ea3cf666e1d0cd1876602d5da705be866085e43a8d17c1749cd22eecc79",
+    "q27.json": "ad26c292436d3be5e14e1f41ab4083bb3f490d942da18aa0b59dbbb09a7f4458",
+    "q28.json": "4a4cfae24c8161722ca93e056ab84e249703bcbe90d5c3545237162d5b0e00e8",
+    "q29.json": "3528d438c08e3621f5ea33177380c61d415fdddcbde32d02bd5f14d408983ec0",
+    "q30.json": "423cfa07dbff8f0f4c81aeb3164c840a6fa5f0559748f56128b946d037a950bf",
+    "q31.json": "83988ba9fe6ba33da030f7a2e7284e1ff1b3f30d87da1183a6296349bb81aa32",
+    "q32.json": "053a55c5a1a39232a6e07ca01e1335faee8d2e2e72f933c4f564015d1414cb16",
+    "q33.json": "30a1bc3008d9442fac753b3c7b9e2ed55f89bff94f9cacd347b5c8e74f4e7779",
+    "q34.json": "ccc1481297644c8936d15e91ee836b4f48ced25891b98f953510e57abe503845",
+    "q35.json": "4daa973c58c539c940ab117ca713bb3a8fc8a8f778869e06e7e7ce2251582518",
+    "q36.json": "18adc1de76c9b6e696bf7c422ce03f0a67740fa346801c82e045445c8020f231",
+    "q37.json": "b5ebae6c36af5c0a415f16ee06156f13f987b0a6a2e9b91d98d524c7465e155f",
+    "q38.json": "987b00ddf29b663223418450851a612b4458fc59be697125da56a580495cd11c",
+    "q39.json": "d767c36c614d010c4947570798e77195e50fa40e14b388056b63816ceb8bc7c7",
+    "q40.json": "691ca34d96c34f461274416b86cfc4c807bf8d1225b98d4be397e2f149c59f8f",
+    "q41.json": "aa3d6d634b74ea771b37a97a538388427278c4eca273c60c00203fc5535269c6",
+    "q42.json": "776545bc491a073f50acab489b8d639cb361214bc45f3f990cac2e12ea2cf671",
+    "q43.json": "7e23f34aa4f3b6d553bac827182301c25c800b4b87695ac541fac0fa8b3eda71"
+  },
+  "driver_sha256": "1cc9a55002f2a1a77a40a7c6eaa4ad6b75d22f14028d0eadbf7b026f4e4426c4",
+  "index_num_docs": 99997497,
+  "hash_indexing_failures": 0,
+  "indexing": 0,
+  "hash_max_listpack_value": 4096,
+  "client_os": "Linux 7.0.0-1017-aws aarch64 GNU/Linux",
+  "logical_cpus": 192,
+  "memory_total_line": "MemTotal:       395386984 kB"
+}

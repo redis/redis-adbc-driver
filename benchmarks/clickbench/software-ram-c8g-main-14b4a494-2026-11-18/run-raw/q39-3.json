@@ -1,0 +1,73 @@
+{
+  "seconds": 2.3951938840036746,
+  "stage_seconds": {
+    "connect": 0.01910817500174744,
+    "session_setup": 0.00661619400489144,
+    "execute": 2.3946564080033568,
+    "arrow_fetch": 0.00013425599900074303,
+    "output_fingerprint": 9.818300168262795e-05
+  },
+  "query_workers": 32,
+  "worker_grant": 0,
+  "rows": 10,
+  "values": [
+    [
+      "http://video.yandex.html",
+      2
+    ],
+    [
+      "http://stalker-pub-20087898675494,960948/#page_type%3D260117152337&spn=1395,9455989.ya.ru/world.ru/search/keup.aspx#location=202686307/22/women.asp?whichpage/15051/details/?cat=5716194.htm?from]=&int[44][from]=&int[22711988&xdm_c=default.ru%2Fproduct_id",
+      2
+    ],
+    [
+      "http://slovari.yandex.ru&pvid=1&ms=1",
+      2
+    ],
+    [
+      "http://amobiles.php?f=12&prr=http://stroitelnoe-tolko",
+      2
+    ],
+    [
+      "http://expressa.ru/GameMain.aspx?CItemID",
+      2
+    ],
+    [
+      "http://tattion/rusradiorecord.ru/GameMain.aspx",
+      2
+    ],
+    [
+      "http://tattion/rusradiorecord.ru/filmId=vjt9JZoks3M",
+      2
+    ],
+    [
+      "http://stalker-pub-20087898675494,960948/#page_type%3D260117152337&spn=1395,9455989.ya.ru/work=che&bank-ros-baner Jeanswersweb.info/user/Klapa8585865a7ce40d5c8/91e006a61dd7c591364.172 YaBrowser%2F12.14&he=8000005&pt=b&pd=9&pw=6&pw=5&page4/?er=27-recept",
+      2
+    ],
+    [
+      "http://db.travel/?Filter",
+      2
+    ],
+    [
+      "http://stalker-pub-20087898675494,960948/#page_type%3D0%26pz%3D0%26rleurl%3D%26CompPath=diary.ru/messages/0000400&matched_countpage=0&damagecache.ru/GameMain.aspx#location=2&input_bdsmpeople.ru/film/57862953725/mediaplus",
+      2
+    ]
+  ],
+  "fingerprint": "69696985a5432d6cc463efed180173c3139a92ebd42df6d6d842391869cba5c1",
+  "trial_wall_seconds": 2.430811222002376,
+  "process_user_cpu_seconds": 0.8715219999999999,
+  "process_system_cpu_seconds": 0.106345,
+  "process_peak_rss_bytes": 154472448,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "00b3b512488131937786ae4b56fabf5fe27ec6bf91349ec279e55ce84074d3f8",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

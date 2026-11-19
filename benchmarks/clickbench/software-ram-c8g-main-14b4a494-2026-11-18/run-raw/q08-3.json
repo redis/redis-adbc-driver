@@ -1,0 +1,105 @@
+{
+  "seconds": 4.0279761659985525,
+  "stage_seconds": {
+    "connect": 0.018243348997202702,
+    "session_setup": 0.0030731750011909753,
+    "execute": 4.027464421000332,
+    "arrow_fetch": 0.00011598399942158721,
+    "output_fingerprint": 9.449000208405778e-05
+  },
+  "query_workers": 32,
+  "worker_grant": 5,
+  "rows": 18,
+  "values": [
+    [
+      2,
+      404602
+    ],
+    [
+      27,
+      113167
+    ],
+    [
+      13,
+      45631
+    ],
+    [
+      45,
+      38960
+    ],
+    [
+      44,
+      9730
+    ],
+    [
+      3,
+      6896
+    ],
+    [
+      62,
+      5266
+    ],
+    [
+      52,
+      3554
+    ],
+    [
+      50,
+      938
+    ],
+    [
+      28,
+      836
+    ],
+    [
+      53,
+      350
+    ],
+    [
+      25,
+      343
+    ],
+    [
+      61,
+      158
+    ],
+    [
+      21,
+      38
+    ],
+    [
+      42,
+      20
+    ],
+    [
+      16,
+      7
+    ],
+    [
+      7,
+      3
+    ],
+    [
+      22,
+      1
+    ]
+  ],
+  "fingerprint": "68cfcb28bf04ab46935341d02f3df3d1dff90cabdcb73d8918e8f5983232947f",
+  "trial_wall_seconds": 4.057796160999715,
+  "process_user_cpu_seconds": 3.422926,
+  "process_system_cpu_seconds": 0.322194,
+  "process_peak_rss_bytes": 133431296,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "1c5bc14e1e369a0db823b449e86b8a1a140cb0199a29300000821db50c513e5e",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "index_columns": [
+    "advengineid",
+    "counterid",
+    "dontcounthits",
+    "eventdate",
+    "eventtime",
+    "isdownload",
+    "islink",
+    "isrefresh",
+    "refererhash",
+    "searchphrase",
+    "traficsourceid",
+    "urlhash",
+    "userid"
+  ],
+  "rows": 1000000,
+  "full_rows": 99997497,
+  "columns": 105,
+  "backend": "Software RAM",
+  "driver": "v0.0.29",
+  "source": "One million source rows sampled uniformly across up to 1000 row groups; all 105 columns retained; footprint extrapolation remains an estimate",
+  "hash_max_listpack_value": 4096,
+  "empty_used_memory_bytes": 4298704,
+  "decoded_arrow_bytes": 735620368,
+  "load_seconds": 160.37043184799995,
+  "loaded_used_memory_bytes": 3522598024,
+  "used_memory_peak_bytes": 3523235696,
+  "server_rss_bytes": 3522598024,
+  "projected_full_used_memory_bytes": 351825424400.802,
+  "projected_full_arrow_bytes": 73560195542.21889,
+  "indexes": [
+    {
+      "num_docs": 0,
+      "indexing": 0,
+      "hash_indexing_failures": 0,
+      "inverted_sz_mb": 0.0,
+      "doc_table_size_mb": 0.0076904296875,
+      "sortable_values_size_mb": 0.0,
+      "key_table_size_mb": 0.0,
+      "total_index_memory_sz_mb": 0.0076904296875
+    },
+    {
+      "num_docs": 1000000,
+      "indexing": 0,
+      "hash_indexing_failures": 0,
+      "inverted_sz_mb": 84.83551788330078,
+      "doc_table_size_mb": 173.46282958984375,
+      "sortable_values_size_mb": 541.4163208007812,
+      "key_table_size_mb": 0.0,
+      "total_index_memory_sz_mb": 809.9763793945312
+    }
+  ],
+  "validated": true
+}

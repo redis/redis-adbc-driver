@@ -1,0 +1,45 @@
+{
+  "seconds": 0.023512971001764527,
+  "stage_seconds": {
+    "connect": 0.019539892000466352,
+    "session_setup": 0.0032450270009576343,
+    "execute": 0.022053741002309835,
+    "arrow_fetch": 0.0011309139990771655,
+    "output_fingerprint": 0.003643451000243658
+  },
+  "query_workers": 32,
+  "worker_grant": 0,
+  "rows": 4,
+  "values": [
+    [
+      435090932899640449
+    ],
+    [
+      435090932899640449
+    ],
+    [
+      435090932899640449
+    ],
+    [
+      435090932899640449
+    ]
+  ],
+  "fingerprint": "2dbd298ad860ae192b2a315d60095da2a68e595153890d53fb77ef03ca629fad",
+  "trial_wall_seconds": 0.05719143700116547,
+  "process_user_cpu_seconds": 0.106528,
+  "process_system_cpu_seconds": 0.026501999999999998,
+  "process_peak_rss_bytes": 115179520,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "60f95d1ee036f5249e0cf389c63e0f7e6487d2a213fb5fcb860a4a758fe4fd09",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

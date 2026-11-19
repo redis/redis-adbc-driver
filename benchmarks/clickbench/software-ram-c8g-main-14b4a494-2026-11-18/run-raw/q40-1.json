@@ -1,0 +1,113 @@
+{
+  "seconds": 13.223052244000428,
+  "stage_seconds": {
+    "connect": 0.018772952993458603,
+    "session_setup": 0.006996014999458566,
+    "execute": 13.222381232997577,
+    "arrow_fetch": 0.00022750700009055436,
+    "output_fingerprint": 0.0001939939975272864
+  },
+  "query_workers": 32,
+  "worker_grant": 0,
+  "rows": 10,
+  "values": [
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login-116-17-16&input_city=3259541%2Fpagead",
+      "http://irr.ru/index.php?showalbum/login-siezona-moda-bluzki%2F537.36 (KHTML, like Gecko) Version",
+      15
+    ],
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login/?dok=001&rightbox/week&From=0&user",
+      "http://irr.ru/index.php?showalbum/login-kapusta-advert2604/frl-4/trailer/view/381/?from]=&input_city",
+      15
+    ],
+    [
+      0,
+      0,
+      0,
+      "",
+      "http://irr.ru/index.php?showalbum/login-kapusta-advertsienshchin-planet.ru/mymail/531/detail.ru",
+      15
+    ],
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login-2006/makumirostova.ru/kategory_id=1955451&lr=202629efc20e153f01318ebe1",
+      "http://irr.ru/index.php?showalbum/login-leniya7777294,938303130",
+      15
+    ],
+    [
+      0,
+      0,
+      0,
+      "",
+      "http://irr.ru/index.php?showalbum/list.html?typ=SMA&anbieter=aleks_evilkos.com",
+      15
+    ],
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login-2491724/?bundlers/search?text",
+      "http://irr.ru/index.php?showalbum/login-kapusta-advertising/idShare/hayya-523015][]=7011791_0,15",
+      15
+    ],
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login-2006/makumirostova.ru/a-album/login.2/secondary/search",
+      "http://irr.ru/index.php?showalbum/login-leniya7777294,938303130",
+      15
+    ],
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login-102-821922237&arrFilter2013/08-iH4AT5zIGQDA",
+      "http://irr.ru/index.php?showalbum/login-kupe-2/#page_type=&freetao.diary.ru/search/industromandirovka.ru/recipes/showtopic69790",
+      15
+    ],
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login_appliazh-pliance/mista-bez-uchaiev/000202&clid=1537][from]=&input_act[is_filters",
+      "http://irr.ru/index.php?showalbum/login-kapusta-advert2668]=0&order_by=0&price",
+      15
+    ],
+    [
+      -1,
+      0,
+      0,
+      "http://state=19945206/foto-4/login-2006/makumiroshoowbiz/down%2Fholodilnik.ru/7656&lr",
+      "http://irr.ru/index.php?showalbum/login=vladimir/page_type=0&expand_search?text=метр&f[140][from]=7112-6417817495,932446/next_all=от 33 AA Little&category_id=&auth=0&driver.ru/novostova.ru/photo/69363/27824721&referer_detej-otlicheskiipirog",
+      15
+    ]
+  ],
+  "fingerprint": "e7990c66b385c4534bc03eedfc69dd5cb7d72eb1285d89cac65327a4fcb6b361",
+  "trial_wall_seconds": 13.339018577993556,
+  "process_user_cpu_seconds": 23.217257,
+  "process_system_cpu_seconds": 1.214739,
+  "process_peak_rss_bytes": 2156646400,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "988c9b9ec27bf2c30e2596e181ad99df2702d2afb80ecc1073d4c5bc89caa200",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

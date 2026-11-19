@@ -1,0 +1,29 @@
+{
+  "rows": 100000,
+  "full_rows": 99997497,
+  "columns": 105,
+  "backend": "Software RAM",
+  "driver": "v0.0.29",
+  "source": "First 100K canonical typed source rows; footprint extrapolation is an estimate, not a full-load proof",
+  "empty_used_memory_bytes": 2341992,
+  "decoded_arrow_bytes": 79228019,
+  "load_seconds": 20.151132486000023,
+  "loaded_used_memory_bytes": 1038894424,
+  "used_memory_peak_bytes": 1038979696,
+  "server_rss_bytes": 1038894424,
+  "projected_full_used_memory_bytes": 1036528829084.6271,
+  "projected_full_arrow_bytes": 79226035922.68443,
+  "indexes": [
+    {
+      "num_docs": 100000,
+      "indexing": 0,
+      "hash_indexing_failures": 0,
+      "inverted_sz_mb": 39.168949127197266,
+      "doc_table_size_mb": 17.47943115234375,
+      "sortable_values_size_mb": 445.5833740234375,
+      "key_table_size_mb": 0.0,
+      "total_index_memory_sz_mb": 508.9612731933594
+    }
+  ],
+  "validated": true
+}

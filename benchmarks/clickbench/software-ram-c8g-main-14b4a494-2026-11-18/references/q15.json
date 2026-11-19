@@ -1,0 +1,67 @@
+{
+  "query": 15,
+  "sql": "SELECT SearchEngineID, SearchPhrase, COUNT(*) AS c FROM hits WHERE SearchPhrase <> '' GROUP BY SearchEngineID, SearchPhrase ORDER BY c DESC LIMIT 10;",
+  "metadata": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "rows": [
+    [
+      2,
+      "\u043a\u0430\u0440\u0435\u043b\u043a\u0438",
+      46258
+    ],
+    [
+      2,
+      "\u043c\u0430\u043d\u0433\u0443 \u0432 \u0437\u0430\u0440\u0430\u0431\u0435\u0439 \u0433\u0440\u0430\u043c\u0430",
+      18871
+    ],
+    [
+      2,
+      "\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c \u043e\u043d\u043b\u0430\u0439\u043d",
+      16905
+    ],
+    [
+      3,
+      "\u0430\u043b\u0431\u0430\u0442\u0440\u0443\u0442\u0434\u0438\u043d",
+      16748
+    ],
+    [
+      2,
+      "\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c \u043e\u043d\u043b\u0430\u0439\u043d \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e",
+      14909
+    ],
+    [
+      2,
+      "\u0430\u043b\u0431\u0430\u0442\u0440\u0443\u0442\u0434\u0438\u043d",
+      13716
+    ],
+    [
+      2,
+      "\u044d\u043a\u0437\u043e\u0438\u0434\u043d\u044b\u0435",
+      13414
+    ],
+    [
+      2,
+      "\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c",
+      13108
+    ],
+    [
+      3,
+      "\u043a\u0430\u0440\u0435\u043b\u043a\u0438",
+      12815
+    ],
+    [
+      2,
+      "\u0434\u0440\u0443\u0436\u043a\u0435 \u043f\u043e\u043c\u0435\u0449\u0435\u043d\u0438\u0435",
+      11946
+    ]
+  ]
+}

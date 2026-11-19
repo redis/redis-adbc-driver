@@ -1,0 +1,9 @@
+{
+  "status": "native_arm64_build_passed",
+  "source_commit": "14b4a4940e78bf5496a0532caf6b8e800d38dd2a",
+  "source_archive_sha256": "032445ec2aa5fcad87e69ed1f5aac0e5d0b104717e8fbc5391d944bd57d0a8e4",
+  "driver_version": "v0.0.29+main.14b4a494",
+  "driver_sha256": "1cc9a55002f2a1a77a40a7c6eaa4ad6b75d22f14028d0eadbf7b026f4e4426c4",
+  "same_loaded_fixture": true,
+  "dataset_reloaded": false
+}
