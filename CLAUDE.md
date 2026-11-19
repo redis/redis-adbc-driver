@@ -54,7 +54,10 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.4).
   or drop their indexes with DD. Preserve original binary row keys, full
   predicate rechecks, TTLs, unknown fields, insert collisions and vanished-row
   checks. Keep managed/live writes and shared read snapshots isolated.
-  Live Arrow append/create_append requires an existing registration, uses bounded
+  Live Arrow append uses an existing registration; create/create_append creation
+  requires explicit live_source with an empty application prefix. Dedicated
+  replace requires exact target/index, exclusive quiescence, TTL-loss and
+  index-reset consent, bounded guarded deletion and final key verification. Use bounded
   non-replaying source INSERT pipelines, and reports every positive submitted
   acknowledgment even on failure. Never send it through managed publication or
   automatically replay input after an uncertain reply. See live Arrow tests.

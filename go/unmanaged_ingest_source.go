@@ -10,6 +10,7 @@ import (
 	"github.com/apache/arrow-adbc/go/adbc"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 type unmanagedIngestSource struct {
@@ -71,11 +72,17 @@ func (cfg *unmanagedIngestSource) matches(meta *tableMeta) error {
 }
 
 func (s *statementImpl) newUnmanagedIngestMeta(schema string) (*tableMeta, error) {
+	return s.newSourceIngestMeta(schema, s.unmanagedSource, false)
+}
+
+func (s *statementImpl) newSourceIngestMeta(schema string, cfg *unmanagedIngestSource, live bool) (*tableMeta, error) {
+	if s.params.Schema() == nil {
+		return nil, errorf(adbc.StatusInvalidArgument, "Arrow input has no schema")
+	}
 	wanted, err := metaFromArrow(schema, s.ingest.TableName, s.params.Schema())
 	if err != nil {
 		return nil, err
 	}
-	cfg := s.unmanagedSource
 	meta := &tableMeta{Schema: schema, Name: s.ingest.TableName, KeyPrefix: cfg.Prefix, IndexName: cfg.Index, Adopted: true, KeyRows: true, AppIndex: true, Unmanaged: true, UnmanagedPrefixes: []string{cfg.Prefix}}
 	seen := map[string]bool{}
 	hasKey := false
@@ -96,7 +103,7 @@ func (s *statementImpl) newUnmanagedIngestMeta(schema string) (*tableMeta, error
 		}
 		meta.Columns = append(meta.Columns, c)
 	}
-	if !hasKey || len(meta.Columns) == 0 {
+	if (!hasKey && !live) || len(meta.Columns) == 0 {
 		return nil, errorf(adbc.StatusInvalidArgument, "unmanaged creation requires __key and at least one public data column")
 	}
 	for name, encoding := range cfg.Encodings {
@@ -110,6 +117,35 @@ func (s *statementImpl) newUnmanagedIngestMeta(schema string) (*tableMeta, error
 			}
 			meta.Columns[i].Encoding = "text"
 		}
+	}
+	if live {
+		meta.Live, meta.Unmanaged, meta.AppIndex = true, false, false
+		meta.LiveVersion = snapshotID()
+		meta.UnmanagedPrefixes = nil
+		if len(meta.Columns) > 1024 {
+			return nil, errorf(adbc.StatusInvalidArgument, "live tables support at most 1024 columns")
+		}
+		if err := meta.applyIndexPolicy(s.indexColumns, nil); err != nil {
+			return nil, err
+		}
+		for i := range meta.Columns {
+			c := &meta.Columns[i]
+			if !utf8.ValidString(c.Name) {
+				return nil, errorf(adbc.StatusInvalidArgument, "live column names must be UTF-8")
+			}
+			c.NaNs = c.Type.Kind.isFloat()
+			if c.Type.Kind == KindString {
+				c.TagsChecked, c.TagValues = true, tagsTruncated
+			}
+		}
+		raw, err := json.Marshal(liveRecord{State: "ready", Meta: meta})
+		if err != nil {
+			return nil, err
+		}
+		if len(raw) > 1<<20 {
+			return nil, errorf(adbc.StatusInvalidArgument, "live descriptor exceeds 1 MiB")
+		}
+		return meta, nil
 	}
 	if s.indexColumns != nil {
 		return nil, errorf(adbc.StatusInvalidArgument, "unmanaged creation builds a membership index; application column indexes must be configured separately")

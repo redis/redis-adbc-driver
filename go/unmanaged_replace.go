@@ -37,6 +37,7 @@ type unmanagedReplaceImage struct {
 type unmanagedReplaceKey struct{}
 type unmanagedReplaceProgress struct {
 	phase, outcome string
+	live           bool
 	deleted        int64
 	guard          func(context.Context, []string) error
 }
@@ -52,7 +53,11 @@ func (p *unmanagedReplaceProgress) failure(written int64, err error) error {
 	if !errors.As(err, &ae) {
 		ae = adbc.Error{Code: adbc.StatusIO, Msg: err.Error()}
 	}
-	ae.Msg = "unmanaged Arrow replacement stopped in " + p.phase +
+	mode := "unmanaged"
+	if p.live {
+		mode = "live"
+	}
+	ae.Msg = mode + " Arrow replacement stopped in " + p.phase +
 		"; inspect source HASHes, index and registration before recovery: " + ae.Msg
 	for _, d := range [][2]string{
 		{"acknowledged_deletes", strconv.FormatInt(p.deleted, 10)},
@@ -162,6 +167,16 @@ func (s *store) unmanagedReplaceInventory(ctx context.Context, meta *tableMeta) 
 }
 
 func (s *store) currentUnmanagedRegistration(ctx context.Context, expected *tableMeta) error {
+	if expected.Live {
+		_, r, err := s.readLiveRecord(ctx, expected.Name)
+		if err != nil {
+			return err
+		}
+		if r.State != "ready" || !sameUnmanagedRegistration(r.Meta, expected) {
+			return stateErrorf("40001", "live registration changed during replacement")
+		}
+		return nil
+	}
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	c, pin, err := s.acquireSnapshot(ctx, true)
 	if err != nil {
@@ -197,14 +212,33 @@ func (s *store) unmanagedReplaceIndexDefinition(ctx context.Context, index strin
 }
 
 func (s *store) checkUnmanagedReplaceScope(ctx context.Context, meta *tableMeta) error {
-	if !meta.Unmanaged || meta.UnmanagedForeign || meta.UnmanagedFilter != "" || len(meta.UnmanagedPrefixes) != 1 || meta.UnmanagedPrefixes[0] != meta.prefix() || len(meta.Columns) == 0 {
+	if (!meta.Live && !meta.Unmanaged) || meta.UnmanagedForeign || meta.UnmanagedFilter != "" || len(meta.Columns) == 0 {
 		return unmanagedUnsupported("replacement outside a dedicated unfiltered non-foreign source")
 	}
-	info, err := s.unmanagedIndexInfo(ctx, meta)
-	if err != nil {
-		return err
+	if !meta.Live && (len(meta.UnmanagedPrefixes) != 1 || meta.UnmanagedPrefixes[0] != meta.prefix()) {
+		return unmanagedUnsupported("replacement outside a dedicated unfiltered non-foreign source")
+	}
+	var info indexInfo
+	if meta.Live {
+		if err := s.validateLiveIndex(ctx, meta); err != nil {
+			return err
+		}
+		r, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
+		if err != nil {
+			return err
+		}
+		info = indexInfoOf(r)
+	} else {
+		var err error
+		info, err = s.unmanagedIndexInfo(ctx, meta)
+		if err != nil {
+			return err
+		}
 	}
 	for _, attr := range info.attrs {
+		if meta.Live && attr.identifier == rowIDField {
+			continue
+		}
 		if !slices.ContainsFunc(meta.Columns, func(c columnMeta) bool { return c.field() == attr.identifier && c.Name == attr.name }) {
 			return unmanagedUnsupported("replacement of unmodeled or aliased index attributes")
 		}
@@ -252,15 +286,19 @@ func (s *store) checkUnmanagedReplaceScope(ctx context.Context, meta *tableMeta)
 	return nil
 }
 
-func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written int64, resultErr error) {
-	p := &unmanagedReplaceProgress{phase: "preflight", outcome: "none"}
+func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (int64, error) {
+	return s.executeSourceReplace(ctx, s.unmanagedSource, false)
+}
+
+func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanagedIngestSource, live bool) (written int64, resultErr error) {
+	p := &unmanagedReplaceProgress{phase: "preflight", outcome: "none", live: live}
 	defer func() {
 		if resultErr != nil {
 			resultErr = p.failure(written, executionCloseError(ctx, resultErr))
 		}
 		s.clearParams()
 	}()
-	opts, cfg, st := s.ingest, s.unmanagedSource, s.conn.store
+	opts, st := s.ingest, s.conn.store
 	consent := cfg.Replace
 	schema := opts.SchemaName
 	if schema == "" {
@@ -275,8 +313,10 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 	if opts.CatalogName != "" && opts.CatalogName != catalogName {
 		return 0, errorf(adbc.StatusNotFound, "catalog does not exist")
 	}
-	if err := st.checkWritableSchema(schema); err != nil {
-		return 0, err
+	if !live {
+		if err := st.checkWritableSchema(schema); err != nil {
+			return 0, err
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 	defer cancel()
@@ -285,13 +325,31 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 		return 0, err
 	}
 	defer pin.release()
-	old, err := st.getTableMetadata(c, schema, opts.TableName)
+	var old *tableMeta
+	var liveBefore string
+	if live {
+		var record *liveRecord
+		liveBefore, record, err = st.readLiveRecord(ctx, opts.TableName)
+		if err == nil {
+			if record.State != "ready" {
+				return 0, errorf(adbc.StatusInvalidState, "live registration is not ready")
+			}
+			old = record.Meta
+		}
+	} else {
+		old, err = st.getTableMetadata(c, schema, opts.TableName)
+	}
 	if err != nil {
 		return 0, err
 	}
 	identity := *cfg
 	identity.Encodings = nil // replacement encodings describe the new schema
-	if err := identity.matches(old); err != nil {
+	if live {
+		err = identity.matchesLive(old)
+	} else {
+		err = identity.matches(old)
+	}
+	if err != nil {
 		return 0, err
 	}
 	if err := st.checkUnmanagedReplaceScope(c, old); err != nil {
@@ -300,7 +358,7 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 	if err := s.prepareExtensionInput(); err != nil {
 		return 0, err
 	}
-	meta, err := s.newUnmanagedIngestMeta(schema)
+	meta, err := s.newSourceIngestMeta(schema, cfg, live)
 	if err != nil {
 		return 0, err
 	}
@@ -322,6 +380,9 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 		return nil
 	}
 	createArgs := []any{"FT.CREATE", cfg.Index, "ON", "HASH", "PREFIX", 1, cfg.Prefix, "SKIPINITIALSCAN", "SCHEMA", meta.Columns[0].field(), "TAG", "NOINDEX"}
+	if live {
+		createArgs = liveIndexArgs(meta)
+	}
 	// acl_check_cmd authenticates the script's actual principal. These checks
 	// don't mutate keys or infer permissions from another connection/user.
 	probe := cfg.Prefix + "replacement_permission_probe"
@@ -370,6 +431,13 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 	if err := st.searchDo(ctx, cfg.Index, "FT.DROPINDEX", cfg.Index).Err(); err != nil {
 		return 0, wrapRedis(err, "replacement index drop was not replayed")
 	}
+	if live {
+		p.phase, p.outcome = "registration", "unknown"
+		liveBefore, err = st.stageLiveReplacement(ctx, liveBefore, meta)
+		if err != nil {
+			return 0, err
+		}
+	}
 	p.phase, p.outcome = "create_index", "unknown"
 	if err := st.searchDo(ctx, cfg.Index, createArgs...).Err(); err != nil {
 		return 0, wrapRedis(err, "replacement index creation was not replayed")
@@ -381,18 +449,24 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 	if err := st.awaitIndexReady(ctx, cfg.Index); err != nil {
 		return 0, err
 	}
-	newInfo, err := st.unmanagedIndexInfo(ctx, meta)
-	if err != nil {
-		return 0, err
-	}
-	if len(newInfo.attrs) != 1 || newInfo.attrs[0].identifier != meta.Columns[0].field() ||
-		newInfo.attrs[0].name != meta.Columns[0].field() || newInfo.attrs[0].typ != "TAG" ||
-		!slices.Contains(newInfo.attrs[0].options, "NOINDEX") {
-		return 0, stateErrorf("40001", "replacement membership index changed during creation")
-	}
-	for _, option := range newInfo.attrs[0].options {
-		if option != "NOINDEX" && option != "SEPARATOR ," {
-			return 0, stateErrorf("40001", "replacement membership index options changed")
+	if live {
+		if err := st.validateLiveIndex(ctx, meta); err != nil {
+			return 0, err
+		}
+	} else {
+		newInfo, err := st.unmanagedIndexInfo(ctx, meta)
+		if err != nil {
+			return 0, err
+		}
+		if len(newInfo.attrs) != 1 || newInfo.attrs[0].identifier != meta.Columns[0].field() ||
+			newInfo.attrs[0].name != meta.Columns[0].field() || newInfo.attrs[0].typ != "TAG" ||
+			!slices.Contains(newInfo.attrs[0].options, "NOINDEX") {
+			return 0, stateErrorf("40001", "replacement membership index changed during creation")
+		}
+		for _, option := range newInfo.attrs[0].options {
+			if option != "NOINDEX" && option != "SEPARATOR ," {
+				return 0, stateErrorf("40001", "replacement membership index options changed")
+			}
 		}
 	}
 	definition, err = st.unmanagedReplaceIndexDefinition(ctx, cfg.Index)
@@ -400,24 +474,33 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 		return 0, err
 	}
 	p.phase, p.outcome = "registration", "unknown"
-	if err := st.registerUnmanagedExpected(ctx, meta, false, old); err != nil {
-		return 0, err
+	if live {
+		if err := st.publishLive(ctx, opts.TableName, liveBefore, meta); err != nil {
+			return 0, err
+		}
+	} else {
+		if err := st.registerUnmanagedExpected(ctx, meta, false, old); err != nil {
+			return 0, err
+		}
+		p.outcome = "acknowledged"
+		pin.release()
+		var writePin *snapshotPin
+		c, writePin, err = st.acquireSnapshot(ctx, true)
+		if err != nil {
+			return 0, err
+		}
+		defer writePin.release()
+		actual, err := st.getTableMetadata(c, schema, opts.TableName)
+		if err != nil {
+			return 0, err
+		}
+		if !sameUnmanagedRegistration(meta, actual) {
+			return 0, stateErrorf("40001", "unmanaged registration changed after replacement publication")
+		}
+		meta = actual
 	}
 	p.outcome = "acknowledged"
-	pin.release()
-	c, writePin, err := st.acquireSnapshot(ctx, true)
-	if err != nil {
-		return 0, err
-	}
-	defer writePin.release()
-	actual, err := st.getTableMetadata(c, schema, opts.TableName)
-	if err != nil {
-		return 0, err
-	}
-	if !sameUnmanagedRegistration(meta, actual) {
-		return 0, stateErrorf("40001", "unmanaged registration changed after replacement publication")
-	}
-	meta = actual
+
 	old = meta
 	seen, keyBytes := map[string]bool{}, 0
 	p.guard = func(ctx context.Context, keys []string) error {
@@ -444,7 +527,12 @@ func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (written in
 	c = context.WithValue(c, unmanagedReplaceKey{}, p)
 	s.ingest.Mode = adbc.OptionValueIngestModeAppend
 	defer func() { s.ingest = opts }()
-	written, err = s.executeIngest(c)
+	if live {
+		writeCtx := context.WithValue(ctx, unmanagedReplaceKey{}, p)
+		written, err = s.appendLiveArrow(writeCtx, meta)
+	} else {
+		written, err = s.executeIngest(c)
+	}
 	written = max(written, 0)
 	if err != nil {
 		return written, err

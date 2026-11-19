@@ -1,18 +1,69 @@
 // Copyright (c) 2026 ADBC Drivers Contributors
 // Licensed under the Apache License, Version 2.0.
-
 package redis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 )
 
-// Recognize live targets before managed admission or input consumption. Live
-// registrations and source keys do not belong to the managed generation graph.
+// OptionStringIngestLiveSource selects an application prefix for Arrow creation
+// in redis_live. Replacement additionally requires the current index identity
+// and explicit dedicated-collection consent.
+const OptionStringIngestLiveSource = "adbc.redis.ingest.live_source"
+
+func parseLiveIngestSource(value string) (*unmanagedIngestSource, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	if len(value) > 64<<10 {
+		return nil, errorf(adbc.StatusInvalidArgument, "live_source exceeds 64 KiB")
+	}
+	var cfg unmanagedIngestSource
+	d := json.NewDecoder(strings.NewReader(value))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&cfg); err != nil {
+		return nil, errorf(adbc.StatusInvalidArgument, "invalid live_source: %v", err)
+	}
+	if err := d.Decode(new(any)); err != io.EOF {
+		return nil, errorf(adbc.StatusInvalidArgument, "live_source requires one JSON object")
+	}
+	if err := validLivePrefix(cfg.Prefix); err != nil {
+		return nil, err
+	}
+	if cfg.Replace != nil && cfg.Index == "" {
+		return nil, errorf(adbc.StatusInvalidArgument, "live replacement requires the current driver-owned index")
+	}
+	if cfg.Replace == nil && cfg.Index != "" {
+		return nil, errorf(adbc.StatusInvalidArgument, "live creation generates its driver-owned index")
+	}
+	for name, enc := range cfg.Encodings {
+		if name == "" || strings.HasPrefix(name, "__") || enc != "native" && enc != "text" {
+			return nil, errorf(adbc.StatusInvalidArgument, "invalid live_source encoding")
+		}
+	}
+	return &cfg, nil
+}
+
+func (cfg *unmanagedIngestSource) matchesLive(m *tableMeta) error {
+	if !m.Live || cfg.Prefix != m.prefix() || cfg.Index != "" && cfg.Index != m.index() {
+		return errorf(adbc.StatusInvalidArgument, "live_source does not match the registered source identity")
+	}
+	copy := *cfg
+	copy.Index = m.index()
+	// Encoding validation is shared with application-owned index registrations.
+	other := *m
+	other.Unmanaged = true
+	other.UnmanagedPrefixes = []string{m.prefix()}
+	return copy.matches(&other)
+}
+
 func (s *statementImpl) isLiveIngest() bool {
 	if !s.conn.store.liveTables {
 		return false
@@ -26,39 +77,161 @@ func (s *statementImpl) isLiveIngest() bool {
 func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, resultErr error) {
 	defer s.clearParams()
 	defer func() {
+		if resultErr == nil {
+			return
+		}
+		var ae adbc.Error
+		if errors.As(resultErr, &ae) {
+			for _, d := range ae.Details {
+				if d.Key() == "adbc.redis.ingest.acknowledged_rows" {
+					return
+				}
+			}
+		}
+		resultErr = sourceIngestError("live", count, resultErr)
+	}()
+	st, opts, cfg := s.conn.store, s.ingest, s.liveSource
+	if err := cancelled(ctx); err != nil {
+		return 0, err
+	}
+	schema := opts.SchemaName
+	if schema == "" {
+		schema = s.conn.sess.currentSchema()
+	}
+	if !st.liveTables || schema != liveSchema || opts.Temporary || s.unmanagedSource != nil {
+		return 0, errorf(adbc.StatusInvalidArgument, "live ingestion requires live_tables=true, redis_live and no unmanaged_source")
+	}
+	if snapshotOf(ctx) != nil || s.conn.store.hasSharedReadView() || snapshotOperationRequestOf(ctx) != nil {
+		return 0, errorf(adbc.StatusNotImplemented, "live ingestion cannot use staged, shared or retained operations")
+	}
+	if !utf8.ValidString(opts.TableName) || strings.ContainsRune(opts.TableName, 0) {
+		return 0, errorf(adbc.StatusInvalidArgument, "invalid live table name")
+	}
+	if opts.CatalogName != "" && opts.CatalogName != catalogName {
+		return 0, errorf(adbc.StatusNotFound, "catalog does not exist")
+	}
+	if cfg != nil && cfg.Replace != nil && opts.Mode != adbc.OptionValueIngestModeReplace {
+		return 0, errorf(adbc.StatusInvalidArgument, "live_source.replace requires replace mode")
+	}
+	if opts.Mode == adbc.OptionValueIngestModeReplace {
+		if cfg == nil || cfg.Replace == nil {
+			return 0, errorf(adbc.StatusInvalidArgument, "live replacement requires live_source and explicit consent")
+		}
+		return s.executeSourceReplace(ctx, cfg, true)
+	}
+	if opts.Mode != adbc.OptionValueIngestModeCreate && opts.Mode != adbc.OptionValueIngestModeCreateAppend && opts.Mode != adbc.OptionValueIngestModeAppend {
+		return 0, errorf(adbc.StatusInvalidArgument, "unknown live ingest mode")
+	}
+	if err := st.checkLiveNamespace(ctx); err != nil {
+		return 0, err
+	}
+	if err := s.prepareExtensionInput(); err != nil {
+		return 0, err
+	}
+	_, record, err := st.readLiveRecord(ctx, opts.TableName)
+	var ae adbc.Error
+	if err != nil && (!errors.As(err, &ae) || ae.Code != adbc.StatusNotFound) {
+		return 0, err
+	}
+	if record != nil {
+		if s.indexColumns != nil {
+			return 0, errorf(adbc.StatusInvalidArgument, "live Arrow append cannot change the registered index column policy")
+		}
+		if opts.Mode == adbc.OptionValueIngestModeCreate {
+			return 0, stateErrorf(stateDuplicateTable, "live table already exists")
+		}
+		if record.State != "ready" {
+			return 0, errorf(adbc.StatusInvalidState, "live registration is %s", record.State)
+		}
+		if cfg != nil {
+			if err := cfg.matchesLive(record.Meta); err != nil {
+				return 0, err
+			}
+		}
+	} else {
+		if opts.Mode == adbc.OptionValueIngestModeAppend {
+			return 0, tableNotFound(schema, opts.TableName)
+		}
+		if cfg == nil {
+			return 0, errorf(adbc.StatusInvalidArgument, "live creation requires live_source with an empty application prefix")
+		}
+		meta, err := s.newSourceIngestMeta(schema, cfg, true)
+		if err != nil {
+			return 0, err
+		}
+		meta.IndexName = liveIndexPrefix + snapshotID()
+		if err := st.requireEmptyUnmanagedPrefix(ctx, cfg.Prefix); err != nil {
+			return 0, err
+		}
+		before, err := st.reserveLive(ctx, meta)
+		if err != nil {
+			return 0, err
+		}
+		if err := st.searchDo(ctx, meta.index(), liveIndexArgs(meta)...).Err(); err != nil {
+			return 0, wrapRedis(err, "live index creation failed; registration retained; do not replay")
+		}
+		if err := st.requireEmptyUnmanagedPrefix(ctx, cfg.Prefix); err != nil {
+			return 0, err
+		}
+		if err := st.awaitIndexReady(ctx, meta.index()); err != nil {
+			return 0, err
+		}
+		if err := st.publishLive(ctx, meta.Name, before, meta); err != nil {
+			return 0, err
+		}
+		record = &liveRecord{State: "ready", Meta: meta}
+	}
+	return s.appendLiveArrow(ctx, record.Meta)
+}
+
+func (s *store) reserveLive(ctx context.Context, meta *tableMeta) (string, error) {
+	raw, err := json.Marshal(liveRecord{State: "building", Meta: meta})
+	if err != nil {
+		return "", err
+	}
+	if len(raw) > 1<<20 {
+		return "", errorf(adbc.StatusInvalidArgument, "live descriptor exceeds 1 MiB")
+	}
+	n, err := once(ctx, s.client, "EVAL", `
+if redis.call('HEXISTS',KEYS[1],ARGV[1]) == 1 then return 0 end
+if redis.call('HLEN',KEYS[1]) >= tonumber(ARGV[3]) then return -1 end
+redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); return 1`, 1, liveRegistry, meta.Name, string(raw), liveMaxTables).Int()
+	if err != nil {
+		return "", wrapRedis(err, "live registration outcome uncertain; inspect before retrying")
+	}
+	if n != 1 {
+		return "", errorf(adbc.StatusAlreadyExists, "live table already registered or capacity reached")
+	}
+	return string(raw), nil
+}
+
+// Retain the replacement schema before submitting its index creation. A lost
+// FT.CREATE reply can then be resolved with the ordinary live resume lifecycle.
+func (s *store) stageLiveReplacement(ctx context.Context, before string, meta *tableMeta) (string, error) {
+	raw, err := json.Marshal(liveRecord{State: "building", Meta: meta})
+	if err != nil {
+		return "", err
+	}
+	n, err := once(ctx, s.client, "EVAL", `if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`, 1, liveRegistry, meta.Name, before, string(raw)).Int()
+	if err != nil {
+		return "", wrapRedis(err, "live replacement staging outcome uncertain; registration retained")
+	}
+	if n != 1 {
+		return "", stateErrorf("40001", "live registration changed during replacement")
+	}
+	return string(raw), nil
+}
+
+func (s *statementImpl) appendLiveArrow(ctx context.Context, meta *tableMeta) (count int64, resultErr error) {
+	defer func() {
 		if resultErr != nil {
 			resultErr = sourceIngestError("live", count, resultErr)
 		}
 	}()
-	if snapshotOf(ctx) != nil || s.conn.store.hasSharedReadView() {
-		return 0, errorf(adbc.StatusNotImplemented, "live Arrow ingestion cannot use a shared snapshot or staged execution")
-	}
-	if snapshotOperationRequestOf(ctx) != nil {
-		return 0, errorf(adbc.StatusNotImplemented, "live Arrow ingestion cannot prepare retained operations")
-	}
-	if s.unmanagedSource != nil {
-		return 0, errorf(adbc.StatusInvalidArgument, "live Arrow ingestion cannot use unmanaged_source configuration")
-	}
-	if s.ingest.Temporary {
-		return 0, errorf(adbc.StatusNotImplemented, "live Arrow ingestion cannot target temporary tables")
-	}
-	if s.ingest.CatalogName != "" && s.ingest.CatalogName != catalogName {
-		return 0, errorf(adbc.StatusNotFound, "catalog %q does not exist", s.ingest.CatalogName)
-	}
-	if s.ingest.Mode != adbc.OptionValueIngestModeAppend && s.ingest.Mode != adbc.OptionValueIngestModeCreateAppend {
-		return 0, errorf(adbc.StatusNotImplemented, "live Arrow ingestion supports append and create_append on registered tables; creation and replacement are unsupported")
-	}
-	if s.indexColumns != nil {
-		return 0, errorf(adbc.StatusInvalidArgument, "live Arrow append cannot change the registered index column policy")
-	}
-	if err := cancelled(ctx); err != nil {
-		return 0, err
-	}
-	meta, err := s.conn.store.liveTable(ctx, s.ingest.TableName)
-	if err != nil {
-		return 0, err
-	}
 	if err := s.prepareExtensionInput(); err != nil {
+		return 0, err
+	}
+	if err := s.conn.store.validateLiveIndex(ctx, meta); err != nil {
 		return 0, err
 	}
 	schema := s.params.Schema()

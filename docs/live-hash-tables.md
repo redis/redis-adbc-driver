@@ -153,11 +153,11 @@ join live and managed tables; only the managed portion is frozen.
 
 ## Write Arrow data to live HASHes
 
-Enable `adbc.redis.live_tables=true`, register the collection, and target its
-table in `redis_live`. Arrow batches and streams support `append` and
-`create_append` against an **existing registration**. Neither mode creates a
-registration or changes its schema or index policy. `create` and `replace` are
-refused before reading input.
+Enable `adbc.redis.live_tables=true` and target `redis_live`. Arrow batches and
+streams support all four ingest modes. `append` requires an existing registration;
+`create` and creation through `create_append` require an explicit empty application
+prefix. `replace` requires an existing dedicated registration and explicit consent.
+Append preserves the registered schema and index policy.
 
 ```python
 import os
@@ -199,6 +199,95 @@ the count is a lower bound; do not blindly retry the input after a failure.
 Shared snapshots, retained execution, temporary targets and
 `adbc.redis.ingest.unmanaged_source` configuration cannot be used for live
 ingestion.
+
+### Create a live collection from Arrow
+
+Set `adbc.redis.ingest.live_source` on the statement before ingesting. The option
+is JSON and persists until cleared with an empty string. Creation requires an
+empty application prefix, including no nested or non-HASH keys. The Arrow schema
+must contain at least one public column; `__key` is optional and must be a string
+when supplied. The driver creates its own generated Search index and registration
+before consuming batches. `create_append` uses this configuration only to create
+an absent registration; on an existing registration its prefix/encodings must match.
+
+```python
+import json
+
+cur.adbc_statement.set_options(**{
+    "adbc.redis.ingest.live_source": json.dumps({"prefix": "app:new_users:"}),
+})
+cur.adbc_ingest(
+    "new_users", pa.table({"name": ["Ada"], "age": [37]}),
+    mode="create", db_schema_name="redis_live",
+)
+```
+
+Optional `encodings` maps column names to `native` or `text` (text is supported
+for boolean/date/time columns). `adbc.redis.ingest.index_columns` controls which
+public fields the new driver-owned index includes. Empty Arrow input creates an
+empty registered collection with the supplied schema. Existing application data
+must use ordinary live registration instead. No hidden fields are written.
+
+Creation is not atomic across registration, Search DDL and source rows. A failure
+can leave a `building` registration, generated index or partial input. Inspect
+these resources before retrying; use live resume/unregister for registration
+recovery. Neither recovery command replays Arrow input. Unregister preserves
+application HASHes. A competing registration is never refreshed by create.
+
+### Replace a dedicated live collection
+
+Stop all application and driver writers and DDL users first. Set the exact
+registered prefix and current driver-owned index, plus every consent below:
+
+```python
+cur.adbc_statement.set_options(**{
+    "adbc.redis.ingest.live_source": json.dumps({
+        "prefix": "app:new_users:",
+        "index": current_live_registration_index,
+        "replace": {
+            "schema": "redis_live",
+            "table": "new_users",
+            "exclusive_quiescent": True,
+            "discard_ttls": True,
+            "reset_index": True,
+        },
+    }),
+})
+cur.adbc_ingest(
+    "new_users", pa.table({"name": ["Grace"]}),
+    mode="replace", db_schema_name="redis_live",
+)
+```
+
+Obtain the index identity from the live registration result. Consent persists
+with the option and is refused in other modes. Replacement deletes every old
+HASH in the dedicated collection, including unknown fields and TTLs, then resets
+the named index **without DD**, stages the new registration/schema, creates its
+index and streams new rows.
+An omitted `__key` generates fresh UUID keys. Empty input removes all old rows and
+retains the supplied schema. The new index uses the supplied schema and optional
+`ingest.index_columns`; it remains driver-owned.
+
+Replacement uses the [dedicated source replacement](unmanaged-arrow-replace.md)
+inventory, image/expiry-checked deletes, overlap/consumer checks, permission
+preflight, 100,000-key / 64 MiB inventory and input-key limits, final source-key
+verification and no-replay rules. Live replacement also validates the driver-owned
+index definition. Renamed source-field aliases, nested keys, non-HASH keys,
+overlapping indexes or another registered consumer are refused. The operator must
+keep the collection exclusively quiescent throughout; arbitrary Redis writers
+cannot be fenced. Shared snapshots, retained/staged execution and temporary
+collections are unsupported.
+
+Readers can observe old, missing and new rows or temporary schema/index mismatch.
+There is no whole-call rollback or process resume. On failure, inspect source
+HASHes, TTLs, index and registration against trusted input/backup before recovery.
+Before index creation, the replacement schema is retained as a `building`
+registration. If index creation applied but its reply was lost, ordinary live
+resume can publish that schema; it does not restore deleted data or replay input.
+Error details include `adbc.redis.ingest.acknowledged_deletes`,
+`adbc.redis.ingest.acknowledged_rows`, `adbc.redis.ingest.phase` and
+`adbc.redis.ingest.current_outcome`. Counts are lower bounds after lost replies;
+uncertain deletes, index commands and input writes are never replayed.
 
 ## Remove or resume a registration
 
