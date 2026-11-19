@@ -151,6 +151,25 @@ def test_catalog_constraint_rename_and_name_reuse(conn, catalog_declarations):
 
 def test_catalog_arrow_replace_and_unknown_catalog_input(conn, catalog_declarations):
     catalog, schema = catalog_declarations
+    # Replace the original target with the same column name and Arrow type.
+    # A reused OID or field name must not make an old FK bind to new rows.
+    same_name = pa.table({"id": pa.array([404], pa.int32())})
+    with conn.cursor() as cur:
+        assert cur.adbc_ingest(
+            "parent", same_name, mode="replace",
+            catalog_name=catalog, db_schema_name=schema,
+        ) == 1
+        cur.execute(f"SELECT id FROM {catalog}.{schema}.parent")
+        assert cur.fetchall() == [(404,)]
+        cur.execute(f"SELECT * FROM redis.{schema}.parent")
+        assert cur.fetchall() == [(101, "default_only")]
+    assert _declaration(conn, catalog, schema, "child", "FOREIGN KEY")[
+        "constraint_column_usage"
+    ] is None
+    assert _declaration(conn, "redis", schema, "child", "FOREIGN KEY")[
+        "constraint_column_usage"
+    ] == _usage("redis", schema)
+
     replacement = pa.table({"replacement": pa.array([303], pa.int32())})
     with conn.cursor() as cur:
         assert cur.adbc_ingest(
