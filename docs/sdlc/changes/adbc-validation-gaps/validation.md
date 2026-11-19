@@ -106,6 +106,14 @@ resolve this regression. The actual restricted-reader key refusal was likewise
 reproduced, fixed by the exact registry metadata read pattern, and rerun
 successfully with unchanged management ACLs during discovery.
 
+A subsequent hosted TLS checker still expected PK/CHECK-only metadata. Its
+exact assertion now includes named composite UNIQUE/FK declarations and ordered
+logical reference usage through rename, drop and re-add. The exact corrected
+metadata acceptance function passed all six independent permission cases on
+verified 4x QPF Software with verified data TLS. Existing statistics and denial
+checks remain intact, and its temporary API principals/schema were removed.
+This checker-only follow-up does not change the validated native implementation.
+
 Hosted final-source, full-suite checks are tracked on
 [PR #543](https://github.com/redis/redis-adbc-driver/pull/543/checks). Raw logs and
 XML reports remain in ignored build outputs; no operational identifiers,

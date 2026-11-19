@@ -59,5 +59,8 @@ ordered composite UNIQUE/FK declarations and logical referenced-column usage.
 The same checker verifies quoted column rename, CHECK drop, UNIQUE/FK drop and
 re-add, and final restored metadata under independently provisioned readers.
 Existing statistics and denied-permission assertions are retained. Syntax and
-diff checks pass; root's existing verified Software/API-principal acceptance run
-will provide integration evidence for this checker correction.
+diff checks passed. The exact metadata acceptance function passed all six
+independently provisioned permission cases on setup-verified 4x QPF Redis
+Software with verified data TLS, using the existing management-API principal
+controller. Temporary users, roles, ACL bindings and schema were cleaned up;
+private fixture configuration and raw logs remain in ignored build outputs.
