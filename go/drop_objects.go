@@ -24,7 +24,7 @@ func (e *executor) runDropObjects(ctx context.Context, names []TableName, ifExis
 			continue
 		}
 		seen[resolved] = true
-		if isPgCatalog(schema) || isInfoSchema(schema) || schema == foreignSchema && view {
+		if schema == liveSchema && e.store.liveTables || isPgCatalog(schema) || isInfoSchema(schema) || schema == foreignSchema && view {
 			return virtualReadOnly(schema)
 		}
 		if view {

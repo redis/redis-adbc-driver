@@ -50,8 +50,9 @@ For native Redis commands and data structures, start with the
   tables and streams, with explicit type and NULL handling.
 - **Connect data tools.** Use Python, pandas, Polars, DuckDB and orchestration
   tools through their documented ADBC paths or repository adapters.
-- **Bring application data into SQL.** Import eligible existing HASH collections
-  into private managed tables, then refresh explicitly when the source changes.
+- **Bring application data into SQL.** Import existing HASH collections into managed
+  copies, or register [live HASH tables](docs/live-hash-tables.md) for SQL and
+  Redis-client reads/writes over the same application-owned data (source build).
 
 ## Quick start
 
@@ -176,6 +177,8 @@ Unmanaged Arrow writes require explicit new `__key` values. Use `append` or
 `create_append` for existing registrations, or explicit source configuration for
 `create`/`create_append` of a new application collection. Errors report acknowledged
 rows and may leave partial source writes.
+The separate [live HASH mode](docs/live-hash-tables.md) lets the driver own
+and manage indexes while SQL and Redis clients edit the same application HASHes.
 Compare [managed and application-owned data](docs/managed-vs-unmanaged-tables.md#choose-by-use-case)
 for ownership, freshness and storage tradeoffs.
 

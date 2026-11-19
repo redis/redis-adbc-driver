@@ -1181,7 +1181,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		if ok && strings.HasPrefix(key, snapshotPrefix+"rows:") {
 			return errorf(adbc.StatusInvalidState, "legacy snapshot row layout is unsupported")
 		}
-		if !ok || !strings.HasPrefix(key, metaPrefix) || key == snapshotCatalogKey || strings.HasPrefix(key, snapshotPrefix) || snapshotTempControlKey(key) {
+		if !ok || !strings.HasPrefix(key, metaPrefix) || key == snapshotCatalogKey || strings.HasPrefix(key, snapshotPrefix) || snapshotTempControlKey(key) || strings.HasPrefix(key, livePrefix) {
 			continue
 		}
 		if scope == nil {
@@ -1642,6 +1642,9 @@ func validateSnapshotDescriptor(ctx context.Context, meta *tableMeta) error {
 	scope := snapshotOf(ctx)
 	if scope == nil {
 		return nil
+	}
+	if meta.Live {
+		return errorf(adbc.StatusIO, "live data cannot be a managed snapshot descriptor")
 	}
 	if !snapshotMetadataID(meta.SnapshotAccessID) {
 		return errorf(adbc.StatusIO, "invalid snapshot table access identity")

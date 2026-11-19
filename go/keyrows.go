@@ -210,6 +210,9 @@ func (s *store) updateKeyRows(ctx context.Context, meta *tableMeta, changes []ro
 		if err != nil {
 			return wrapRedis(err, "failed to update rows")
 		}
+		if n == 0 && meta.Live {
+			return stateErrorf("40001", "live row disappeared during UPDATE; earlier row changes may have applied")
+		}
 		if n == -1 {
 			return errEmptiesRow(meta, changes[i].key)
 		}

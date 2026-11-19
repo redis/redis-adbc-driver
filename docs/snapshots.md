@@ -1,5 +1,8 @@
 # Statement snapshots for managed tables
 
+[Live HASH tables](live-hash-tables.md) are a separate opt-in ownership mode and
+do not participate in managed statement snapshots.
+
 Statement snapshots are **always enabled for managed tables**, including temporary
 managed tables and imported copies of application data. No option is required.
 The experimental [Software Flex stopgap](redis-flex-stopgap.md) requires

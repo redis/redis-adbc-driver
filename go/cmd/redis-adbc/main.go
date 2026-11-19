@@ -43,6 +43,7 @@ Commands:
            list what the ADBC driver needs to query it
   copy     copy an existing HASH collection into a driver table
   adopt    import or refresh a managed copy of an existing HASH collection
+  live     register, resume or unregister live HASH tables with driver-owned indexes
   sweep    reclaim retired snapshot rows; legacy catalogs use released
            key prefixes from dropped or truncated tables
 
@@ -84,6 +85,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return runCopy(ctx, args[1:], stdout, stderr)
 	case "adopt":
 		return runAdopt(ctx, args[1:], stdout, stderr)
+	case "live":
+		return runLive(ctx, args[1:], stdout, stderr)
 	case "sweep":
 		return runSweep(ctx, args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":

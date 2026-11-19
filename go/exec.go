@@ -245,6 +245,9 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 	}
 
 	if e.store != nil && e.store.snapshots && snapshotOf(ctx) == nil {
+		if handled, result, err := e.tryLiveWrite(ctx, ps, params, paramTypes); handled {
+			return result, err
+		}
 		return e.executeSnapshot(ctx, ps, params, paramTypes, so)
 	}
 	if e.retained != nil {
@@ -1995,6 +1998,9 @@ func (e *executor) deleteKeys(ctx context.Context, meta *tableMeta, keys []strin
 	}
 	if meta.Unmanaged {
 		return e.store.deleteUnmanagedRows(ctx, meta, keys)
+	}
+	if meta.Live {
+		return e.store.deleteLiveKeys(ctx, meta, keys)
 	}
 	if meta.SnapshotOverlay {
 		return e.writeSnapshotDeletes(ctx, meta, keys)

@@ -29,7 +29,7 @@ func (e *executor) scanPages(ctx context.Context, req scanRequest, params []Valu
 	if req.where.none {
 		return nil
 	}
-	if req.hashScan || len(req.meta.PendingCleanup) > 0 && req.where.keys == nil && !req.meta.isMem {
+	if req.hashScan || (req.meta.Live || len(req.meta.PendingCleanup) > 0) && req.where.keys == nil && !req.meta.isMem {
 		return e.scanBeyondCapPages(ctx, req, params, func(_ []string, rows []map[string]Value) error { return visit(rows) })
 	}
 	if req.meta.isMem {

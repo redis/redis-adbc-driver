@@ -13,6 +13,10 @@ HASHes without copying them or providing managed row snapshots. HASH adoption
 and foreign-index access default to **managed copies**; select unmanaged mode
 when source freshness and application ownership are the desired contract.
 
+The third [live HASH mode](live-hash-tables.md) keeps the data application-owned
+and makes the driver responsible for indexes. It supports SQL and direct Redis
+reads/writes over the same HASHes, without managed statement snapshots.
+
 ## Choose by use case
 
 | Approach | Good fit | Benefits | Tradeoffs |

@@ -89,6 +89,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return strconv.FormatBool(c.readerOnly), nil
 	case OptionStringPartitionResultLimits:
 		return retainedJSON(c.retainedLimits), nil
+	case OptionStringLiveTables:
+		return strconv.FormatBool(c.store.liveTables), nil
 	case OptionStringForeignIndexes:
 		return strconv.FormatBool(c.store.foreignIndexes), nil
 	case OptionStringForeignIndexesMode:
@@ -138,6 +140,23 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		return nil
 	case OptionStringReadSnapshotAction, OptionStringReadSnapshotStatus, OptionIntReadSnapshotRetention:
 		return c.setReadSnapshotOption(ctx, key, value)
+	case OptionStringLiveTables:
+		if c.store.hasSharedReadView() {
+			return sharedSnapshotUnsupported()
+		}
+		if value != "true" && value != "false" {
+			return errorf(adbc.StatusInvalidArgument, "live_tables must be true or false")
+		}
+		if value == "true" && c.store.flexEnabled() {
+			return flexUnsupported("live HASH tables")
+		}
+		if value == "true" {
+			if err := c.store.checkLiveNamespace(ctx); err != nil {
+				return err
+			}
+		}
+		c.store.liveTables = value == "true"
+		return nil
 	case OptionStringForeignIndexesRefresh:
 		if c.store.hasSharedReadView() {
 			return sharedSnapshotUnsupported()
@@ -398,7 +417,7 @@ func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, db
 	}
 	// Schema discovery uses immutable metadata, not row/index permissions.
 	meta, err := c.store.getTableMetadata(ctx, schema, tableName)
-	if err == nil {
+	if err == nil && !meta.Live {
 		err = validateSnapshotDescriptor(ctx, meta)
 	}
 	if err != nil {
@@ -535,7 +554,9 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 					cols = v.Columns
 				}
 			} else if meta, err = c.store.getTableMetadata(ctx, schema, ent.name); err == nil {
-				err = validateSnapshotDescriptor(ctx, meta)
+				if !meta.Live {
+					err = validateSnapshotDescriptor(ctx, meta)
+				}
 				if err == nil {
 					cols = meta.Columns
 				}
