@@ -284,7 +284,7 @@ func (e *executor) runCreateIndex(ctx context.Context, st *CreateIndexStmt) erro
 
 func (e *executor) runDropIndex(ctx context.Context, st *DropIndexStmt) error {
 	for _, name := range st.Names {
-		schema, _, err := e.resolveTable(name)
+		schema, _, err := e.resolveCatalogTable(ctx, name)
 		if err != nil {
 			return err
 		}

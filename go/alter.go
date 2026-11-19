@@ -77,7 +77,7 @@ import (
 func cleanupMember(schema, table string) string { return schema + "\x00" + table }
 
 func (e *executor) runAlter(ctx context.Context, st *AlterTableStmt) error {
-	schema, name, err := e.resolveTable(st.Table)
+	schema, name, err := e.resolveCatalogTable(ctx, st.Table)
 	if err != nil {
 		return err
 	}

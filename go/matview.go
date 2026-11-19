@@ -77,7 +77,7 @@ func matViewWriteError(m *tableMeta) error {
 	return stateErrorf("42809", "cannot change materialized view %q", m.Name)
 }
 func (e *executor) matView(ctx context.Context, t TableName) (*tableMeta, error) {
-	schema, name, err := e.resolveTable(t)
+	schema, name, err := e.resolveCatalogTable(ctx, t)
 	if err != nil {
 		return nil, err
 	}

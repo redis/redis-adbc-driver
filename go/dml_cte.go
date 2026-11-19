@@ -51,7 +51,7 @@ func (e *executor) prepareDMLCTEs(ctx context.Context, st Stmt) (bool, error) {
 			if t.Name == "" {
 				return nil
 			}
-			schema, name, err := e.resolveTable(t)
+			schema, name, err := e.resolveCatalogTable(ctx, t)
 			if err != nil {
 				return err
 			}
@@ -209,7 +209,7 @@ func (e *executor) runDMLCTE(ctx context.Context, def *CTE) (*tableMeta, error) 
 		case *MergeStmt:
 			target = st.Table
 		}
-		schema, name, err := e.resolveTable(target)
+		schema, name, err := e.resolveCatalogTable(ctx, target)
 		if err != nil {
 			return nil, err
 		}

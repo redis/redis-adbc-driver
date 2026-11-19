@@ -310,7 +310,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	if e.rbac == nil {
 		return errorf(adbc.StatusNotImplemented, "SQL GRANT/REVOKE requires administrator-configured adbc.redis.rbac")
 	}
-	schema, name, err := e.resolveTable(st.Table)
+	schema, name, err := e.resolveCatalogTable(ctx, st.Table)
 	if err != nil {
 		return err
 	}

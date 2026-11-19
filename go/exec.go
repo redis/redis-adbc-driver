@@ -197,7 +197,7 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 	if _, err := e.targetCatalog(ctx, t.Catalog); err != nil {
 		return nil, err
 	}
-	schema, name, err := e.resolveTable(t)
+	schema, name, err := e.resolveCatalogTable(ctx, t)
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +495,7 @@ func (e *executor) runTruncate(ctx context.Context, st *TruncateStmt) error {
 	var metas []*tableMeta
 	seen := map[string]bool{}
 	for _, t := range st.Tables {
-		schema, name, err := e.resolveTable(t)
+		schema, name, err := e.resolveCatalogTable(ctx, t)
 		if err != nil {
 			return err
 		}

@@ -207,3 +207,13 @@ type DropCatalogStmt struct {
 
 func (*CreateCatalogStmt) stmtNode() {}
 func (*DropCatalogStmt) stmtNode()   {}
+
+// resolveCatalogTable records the registry dependency before looking up an
+// explicitly qualified relation. Keep resolveTable itself pure for the live
+// pre-admission classifier, which runs before a managed snapshot is pinned.
+func (e *executor) resolveCatalogTable(ctx context.Context, t TableName) (string, string, error) {
+	if _, err := e.targetCatalog(ctx, t.Catalog); err != nil {
+		return "", "", err
+	}
+	return e.resolveTable(t)
+}

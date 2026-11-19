@@ -53,7 +53,7 @@ import (
 const remarksKey = "ARROW:FLIGHT:SQL:REMARKS"
 
 func (e *executor) runComment(ctx context.Context, st *CommentStmt) error {
-	schema, name, err := e.resolveTable(st.Table)
+	schema, name, err := e.resolveCatalogTable(ctx, st.Table)
 	if err != nil {
 		return relationNotFound(st.Table)
 	}

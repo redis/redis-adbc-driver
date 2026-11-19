@@ -144,7 +144,7 @@ func partitionTarget(meta *tableMeta) string {
 }
 
 func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt, lo, hi int64) (*selectPlan, error) {
-	schema, name, err := e.resolveTable(*sel.From)
+	schema, name, err := e.resolveCatalogTable(ctx, *sel.From)
 	if err != nil {
 		return nil, err
 	}
