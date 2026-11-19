@@ -1283,6 +1283,12 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 		rel.meta = m
 		return rel, nil
 	case table != nil:
+		if table.Catalog != "" && table.Catalog != e.currentCatalog() && (isInfoSchema(table.Schema) || isPgCatalog(table.Schema)) {
+			if _, err := e.targetCatalog(ctx, table.Catalog); err != nil {
+				return rel, err
+			}
+			return rel, errorf(adbc.StatusNotImplemented, "cross-catalog virtual schemas require you to select that catalog first")
+		}
 		if alias == "" {
 			rel.name = table.Name
 		}

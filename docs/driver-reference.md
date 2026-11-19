@@ -5116,3 +5116,8 @@ retain complete HASH scans and driver-side sorting to avoid truncation.
 See [Arrow interoperability](arrow-interoperability.md) for the `adbc.redis.result_layouts`
 statement option, full-range uint64 ingestion, recursive arrays, stored named
 structs, extension rejection, ownership, and partition restrictions.
+
+## Managed catalogs
+
+The default catalog is `redis`. Additional managed catalogs have independent
+schemas and tables; create and select them as described in [catalogs](catalogs.md).

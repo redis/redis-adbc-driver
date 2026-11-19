@@ -344,9 +344,9 @@ Redis Flex server gaps:
 | Partitioned result execution | `ExecutePartitions` and `ReadPartition` return `NotImplemented`. |
 | Substrait plans | Bounded binary Substrait 0.108.0 read/filter/project; [subset and limits](substrait.md). |
 | Statistics metadata | `GetStatistics` and `GetStatisticNames` are not implemented. |
-| Multiple catalogs | Only the `redis` catalog exists; cross-database references are not implemented. |
+| Multiple catalogs | Managed catalogs support `CREATE DATABASE`, catalog selection, metadata discovery, and explicit Arrow destinations. See [catalogs](catalogs.md) for scope. |
 | `UNIQUE` and `FOREIGN KEY` enforcement/metadata | Declarations are retained and returned by ADBC `GetObjects`, with ordered FK usage for resolvable targets; uniqueness and referential integrity/actions are not enforced. SQL information_schema/pg_constraint coverage is separate. `CHECK` and `PRIMARY KEY` are supported. |
 
 The standard ADBC validation suite therefore skips tests for transactions,
-statistics, a second catalog, and unsupported constraint kinds. These gaps
+statistics and unsupported constraint kinds. These gaps
 also exist on ordinary RAM-only Redis and are not caused by Flex.
