@@ -45,7 +45,7 @@ matters more than direct access to application keys.
 | SQL write behavior | Supported changes publish atomically | Writes affect source HASHes and can partially succeed | Writes affect source HASHes per row and can partially succeed |
 | Source changes | An imported copy needs an explicit refresh | No data refresh; indexed visibility follows the source index | No data refresh; indexed visibility follows the driver-owned index |
 | TTLs | Do not directly expire driver-owned rows | Application controls source TTLs | Application controls source TTLs; SQL UPDATE preserves them |
-| Arrow ingestion | Supported | Supported within the unmanaged write contract | Not supported initially |
+| Arrow ingestion | Supported | Supported within the unmanaged write contract | Append to registered tables |
 | Data copy | Managed import creates a copy; SQL-created tables need no external source | No private data copy | No private data copy |
 | Storage costs | Rows, indexes, catalog, staging, and retained versions | Source data/indexes plus SQL registration metadata | Source data, driver-owned indexes, and SQL registration metadata |
 | Removal | DROP removes the logical table; managed references govern physical reclamation | DROP removes the registration and leaves source data/indexes | Unregister removes the registration and its driver-owned index, leaving source data |
@@ -136,8 +136,8 @@ Direct Redis writes must respect registered field encodings; they do not receive
 SQL type/constraint validation. New source fields do not automatically become
 SQL columns.
 
-The initial mode supports SELECT, INSERT, UPDATE, DELETE, and RETURNING. It
-excludes Arrow ingestion, shared managed snapshots, retained execution, MERGE,
+The mode supports SELECT, INSERT, UPDATE, DELETE, RETURNING, and Arrow append to
+registered tables. It excludes shared managed snapshots, retained execution, MERGE,
 TRUNCATE, schema-changing DDL, and mixed managed/live write statements. Ordinary
 SELECTs may join live and managed tables; only the managed portion is frozen.
 Collection queries use bounded key scans and can materialize results.
@@ -158,7 +158,10 @@ Table mode describes ownership; Arrow ingestion mode describes a write operation
 Managed ingestion has atomic supported create/append/replace behavior. Unmanaged
 ingestion writes original source HASHes and has a separate partial-write contract;
 source replacement requires explicit dedicated-source configuration and consent.
-Live HASH tables do not initially support Arrow ingestion.
+Live HASH tables accept `append` and `create_append` on existing registrations,
+writing original HASHes with per-row acknowledgments. Omitting `__key` generates
+UUID keys. Arrow ingestion cannot create a live registration or replace its data;
+see [live Arrow ingestion](live-hash-tables.md#write-arrow-data-to-live-hashes).
 
 See the [unmanaged Arrow write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes)
 and [dedicated source replacement](unmanaged-arrow-replace.md) for the detailed

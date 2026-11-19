@@ -20,9 +20,32 @@ const unmanagedInsertRowBytes = 64 << 20
 // can succeed after another command fails. Count all positive acknowledgments,
 // return the first failure, and never submit another pipeline or replay this one.
 func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows [][]Value) (int64, error) {
+	return s.writeSourceKeyRows(ctx, meta, rows)
+}
+
+// Live Arrow append shares the bounded source writer with unmanaged INSERT.
+// Callers validate the complete conversion slice before submitting any rows.
+func (s *store) writeSourceKeyRows(ctx context.Context, meta *tableMeta, rows [][]Value) (int64, error) {
+	mode := "unmanaged"
+	if meta.Live {
+		mode = "live"
+		if meta.Unmanaged || snapshotOf(ctx) != nil || !s.liveExecution {
+			return 0, errorf(adbc.StatusInvalidState, "live source writes require an isolated live execution")
+		}
+	} else if !meta.Unmanaged {
+		return 0, errorf(adbc.StatusInvalidState, "source INSERT requires an application-owned table")
+	}
 	ki, _ := meta.resolve(keyField)
 	var written int64
 	for start := 0; start < len(rows); {
+		if meta.Live {
+			if err := cancelled(ctx); err != nil {
+				return written, err
+			}
+			if err := s.checkWritable(ctx, meta); err != nil {
+				return written, err
+			}
+		}
 		var args [][]any
 		var keys []string
 		bytes := 0
@@ -39,7 +62,7 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
 				size += len(fmt.Sprint(arg)) + 32
 			}
 			if size > unmanagedInsertRowBytes {
-				return written, errorf(adbc.StatusInvalidArgument, "unmanaged INSERT row exceeds 64 MiB")
+				return written, errorf(adbc.StatusInvalidArgument, "%s INSERT row exceeds 64 MiB", mode)
 			}
 			if len(args) > 0 && bytes+size > unmanagedInsertPipelineBytes {
 				break
@@ -77,18 +100,18 @@ func (s *store) writeUnmanagedKeyRows(ctx context.Context, meta *tableMeta, rows
 			}
 			switch {
 			case err != nil:
-				firstErr = wrapRedis(err, "unmanaged INSERT failed; source writes may be partially applied")
+				firstErr = wrapRedis(err, mode+" INSERT failed; source writes may be partially applied")
 			case n == 0:
 				firstErr = stateErrorf(stateUnique, "__key %q already exists", keys[i])
 			default:
-				firstErr = errorf(adbc.StatusIO, "unexpected unmanaged INSERT acknowledgment")
+				firstErr = errorf(adbc.StatusIO, "unexpected %s INSERT acknowledgment", mode)
 			}
 		}
 		if firstErr != nil {
 			return written, firstErr
 		}
 		if execErr != nil {
-			return written, wrapRedis(execErr, "unmanaged INSERT failed; source writes may be partially applied")
+			return written, wrapRedis(execErr, mode+" INSERT failed; source writes may be partially applied")
 		}
 		if replacement != nil {
 			replacement.outcome = "acknowledged"

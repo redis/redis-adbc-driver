@@ -147,9 +147,58 @@ indexes or control metadata directly.
 This initial mode supports SELECT, INSERT, UPDATE, DELETE and RETURNING. SQL
 writes may read other live tables, but cannot read managed tables in the same
 write statement. Managed writes cannot consume live tables. Shared managed read
-snapshots, retained execution, Arrow ingestion, MERGE, modifying CTEs, TRUNCATE
+snapshots, retained execution, MERGE, modifying CTEs, TRUNCATE
 and schema-changing DDL are not supported for live tables. Ordinary SELECTs may
 join live and managed tables; only the managed portion is frozen.
+
+## Write Arrow data to live HASHes
+
+Enable `adbc.redis.live_tables=true`, register the collection, and target its
+table in `redis_live`. Arrow batches and streams support `append` and
+`create_append` against an **existing registration**. Neither mode creates a
+registration or changes its schema or index policy. `create` and `replace` are
+refused before reading input.
+
+```python
+import os
+import pyarrow as pa
+from adbc_driver_redis import dbapi
+
+with dbapi.connect(
+    os.environ["REDIS_URI"],
+    db_kwargs={"adbc.redis.live_tables": "true"},
+) as conn, conn.cursor() as cur:
+    # Assumes app:users: is already registered as redis_live.users.
+    count = cur.adbc_ingest(
+        "users",
+        pa.table({"name": ["Dana", "Eli"], "age": [28, 35]}),
+        mode="append",
+        db_schema_name="redis_live",
+    )
+```
+
+Column names map to the registered SQL schema, including any source-field
+renames. Unknown or duplicate columns are rejected. Omitted public columns are
+NULL; registered types and encodings still apply. Include a string `__key`
+column for explicit keys, or omit it to evaluate the same prefixed
+`GEN_RANDOM_UUID()` default used by SQL INSERT for every row. NULL keys, keys
+outside the registered prefix, nested keys, existing keys and duplicate keys
+are errors. At least one public field must be non-NULL so a HASH can exist.
+The virtual key and internal row fields are never stored in the HASH.
+Ingestion returns an affected-row count; use SQL INSERT with `RETURNING __key`
+if you need generated keys returned directly.
+
+Writes use bounded conversion slices and non-replaying pipelines of single-key
+atomic inserts. They have the same per-row, partial-write semantics as live SQL
+writes. Existing HASHes, TTLs, fields outside the schema, registrations and indexes
+are preserved. An error can leave earlier rows applied, including later successful
+rows in the already submitted pipeline. The error detail
+`adbc.redis.ingest.acknowledged_rows` counts positive acknowledgments across that
+pipeline and earlier ones. A lost reply can leave additional rows applied, so
+the count is a lower bound; do not blindly retry the input after a failure.
+Shared snapshots, retained execution, temporary targets and
+`adbc.redis.ingest.unmanaged_source` configuration cannot be used for live
+ingestion.
 
 ## Remove or resume a registration
 

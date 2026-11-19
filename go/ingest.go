@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -47,6 +48,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 	}
 	if s.params == nil {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
+	}
+	if s.isLiveIngest() {
+		return s.executeLiveIngest(ctx)
 	}
 	if s.unmanagedSource != nil {
 		if scope := snapshotOf(ctx); scope == nil {
@@ -384,13 +388,17 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 // Acknowledged rows are a lower bound: an unknown reply can hide an applied
 // submitted batch. Preserve the original status/SQLSTATE; never replay writes.
 func unmanagedIngestError(acknowledged int64, err error) error {
+	return sourceIngestError("unmanaged", acknowledged, err)
+}
+
+func sourceIngestError(mode string, acknowledged int64, err error) error {
 	var ae adbc.Error
 	if !errors.As(err, &ae) {
 		ae = adbc.Error{Code: adbc.StatusIO, Msg: err.Error()}
 	}
-	ae.Msg = "unmanaged Arrow write stopped after " + strconv.FormatInt(acknowledged, 10) +
+	ae.Msg = mode + " Arrow write stopped after " + strconv.FormatInt(acknowledged, 10) +
 		" acknowledged rows; source writes may be partially applied; inspect source state before retrying: " + ae.Msg
-	ae.Details = append(ae.Details, &adbc.TextErrorDetail{Name: "adbc.redis.ingest.acknowledged_rows", Detail: strconv.FormatInt(acknowledged, 10)})
+	ae.Details = append(slices.Clone(ae.Details), &adbc.TextErrorDetail{Name: "adbc.redis.ingest.acknowledged_rows", Detail: strconv.FormatInt(acknowledged, 10)})
 	return ae
 }
 
