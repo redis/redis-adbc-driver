@@ -143,6 +143,7 @@ func TestUnmanagedForeignFilteredMembership(t *testing.T) {
 		t.Fatal("source UPDATE escaped filtered multi-prefix membership")
 	}
 	h.expectError("INSERT INTO redis_foreign.filtered (__key,n) VALUES ('app:3',1)", "filtered foreign index")
+	h.expectError("INSERT INTO redis_foreign.filtered (n) VALUES (1)", "filtered foreign index")
 	h.exec("DELETE FROM redis_foreign.filtered WHERE __key='app:2'")
 	if raw.Exists(h.ctx, "app:2").Val() != 1 {
 		t.Fatal("source DELETE escaped filtered membership")

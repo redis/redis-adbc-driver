@@ -62,14 +62,20 @@ unmanaged foreign registrations permit source DML.
 ```sql
 SELECT __key, name, age FROM users;
 INSERT INTO users (__key, name, age) VALUES ('app:user:42', 'Ada', 37);
+INSERT INTO users (name, age) VALUES ('Grace', 38) RETURNING __key;
 UPDATE users SET age = age + 1 WHERE __key = 'app:user:42';
 DELETE FROM users WHERE __key = 'app:user:42';
 DROP TABLE users;
 ```
 
 `__key` identifies the original Redis key and is excluded from `SELECT *`.
-INSERT requires a new explicit key in the registered source prefixes; an
-existing key is refused. UPDATE preserves unrelated HASH fields and supported
+SQL INSERT generates a fresh key using
+`<registered-prefix> || GEN_RANDOM_UUID()::TEXT` per row when `__key` is omitted
+or supplied as DEFAULT, including INSERT SELECT. Foreign indexes with multiple
+prefixes use the registration's primary prefix. Explicit keys must be new and
+within the registered source prefixes; explicit NULL and existing keys are
+refused. Use `RETURNING __key` to retrieve generated keys. Arrow ingestion still
+requires explicit keys. UPDATE preserves unrelated HASH fields and supported
 text encodings; it does not recreate an expired/deleted HASH. Setting a HASH's
 last field to NULL is refused because Redis would delete the row. DELETE
 removes the source HASH, including its unmodeled fields, and skips a key that
