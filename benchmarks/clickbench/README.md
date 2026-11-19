@@ -9,6 +9,9 @@ See [loading-improvements.md](loading-improvements.md) for the loading changes,
 local pilot measurements and validation. Operational deployment records and
 live benchmark artifacts are kept outside the reusable harness.
 
+The [November 18 live-mode preparation record](live-2026-11-18/README.md)
+was cancelled during registration; no ClickBench queries ran.
+
 ## Deployment and placement
 
 The default target for **100-million-row repeat query runs is Redis Software
