@@ -1881,7 +1881,7 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 			return execResult{}, errorf(adbc.StatusNotImplemented, "SQL GRANT/REVOKE requires administrator-configured adbc.redis.rbac")
 		}
 	case *SelectStmt, *ShowStmt, *SetStmt, *TransactionStmt:
-	case *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt, *AlterTableStmt, *SequenceStmt, *CreateIndexStmt, *DropIndexStmt, *RefreshMatViewStmt, *DropMatViewStmt, *RenameMatViewStmt:
+	case *CreateCatalogStmt, *DropCatalogStmt, *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt, *AlterTableStmt, *SequenceStmt, *CreateIndexStmt, *DropIndexStmt, *RefreshMatViewStmt, *DropMatViewStmt, *RenameMatViewStmt:
 		write = true
 	default:
 		return execResult{}, errorf(adbc.StatusNotImplemented, "statement is not supported in snapshot catalogs")

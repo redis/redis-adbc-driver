@@ -117,11 +117,18 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 	}
 	opts := s.ingest
 	defer s.clearParams()
-	if err := s.prepareExtensionInput(); err != nil {
+	catalog, catErr := s.conn.executor().targetCatalog(ctx, opts.CatalogName)
+	if catErr != nil {
+		return -1, catErr
+	}
+	if err := validateLogicalSchema(opts.SchemaName); err != nil {
 		return -1, err
 	}
-	if opts.CatalogName != "" && opts.CatalogName != catalogName {
-		return -1, errorf(adbc.StatusNotFound, "catalog %q does not exist", opts.CatalogName)
+	if catalog != catalogName && (opts.Temporary || isTempAlias(opts.SchemaName) || opts.SchemaName == liveSchema || opts.SchemaName == foreignSchema) {
+		return -1, errorf(adbc.StatusNotImplemented, "temporary, live and foreign ingestion require the redis catalog")
+	}
+	if err := s.prepareExtensionInput(); err != nil {
+		return -1, err
 	}
 	st := s.conn.store
 	// adbc.ingest.temporary (or schema pg_temp) targets the connection's
@@ -145,6 +152,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 		return -1, stateErrorf(stateUndefinedSchema, "schema %q does not exist", schemaName)
 	case schemaName == "":
 		schemaName = s.conn.sess.currentSchema()
+	}
+	if !isTempSchema(schemaName) {
+		schemaName = catalogSchema(catalog, schemaName)
 	}
 	var total int64
 	if exists, err := st.tableExists(ctx, schemaName, opts.TableName); err != nil {

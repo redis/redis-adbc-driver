@@ -107,7 +107,7 @@ func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, res
 	if !utf8.ValidString(opts.TableName) || strings.ContainsRune(opts.TableName, 0) {
 		return 0, errorf(adbc.StatusInvalidArgument, "invalid live table name")
 	}
-	if opts.CatalogName != "" && opts.CatalogName != catalogName {
+	if opts.CatalogName != "" && opts.CatalogName != catalogName || opts.CatalogName == "" && s.conn.sess.currentCatalog() != catalogName {
 		return 0, errorf(adbc.StatusNotFound, "catalog does not exist")
 	}
 	if cfg != nil && cfg.Replace != nil && opts.Mode != adbc.OptionValueIngestModeReplace {

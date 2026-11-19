@@ -218,7 +218,7 @@ func (s *statementImpl) executeUnmanagedSourceIngest(ctx context.Context) (int64
 	if opts.Mode != adbc.OptionValueIngestModeCreate && opts.Mode != adbc.OptionValueIngestModeCreateAppend && opts.Mode != adbc.OptionValueIngestModeAppend {
 		return fail(unmanagedUnsupported("Arrow replace"))
 	}
-	if opts.CatalogName != "" && opts.CatalogName != catalogName {
+	if opts.CatalogName != "" && opts.CatalogName != catalogName || opts.CatalogName == "" && s.conn.sess.currentCatalog() != catalogName {
 		return fail(errorf(adbc.StatusNotFound, "catalog %q does not exist", opts.CatalogName))
 	}
 	schema := opts.SchemaName

@@ -2166,6 +2166,12 @@ func (p *parser) parseCreate() (Stmt, error) {
 	if err := p.expectKeyword("CREATE"); err != nil {
 		return nil, err
 	}
+	if p.acceptKeyword("DATABASE") || p.acceptKeyword("CATALOG") {
+		st := &CreateCatalogStmt{IfNotExists: p.acceptKeyword("IF", "NOT", "EXISTS")}
+		name, err := p.parseIdent()
+		st.Name = name
+		return st, err
+	}
 	if p.acceptKeyword("SEQUENCE") {
 		return p.parseSequence("CREATE")
 	}
@@ -2848,6 +2854,13 @@ func (p *parser) skipBalanced(toEnd bool) error {
 func (p *parser) parseDrop() (Stmt, error) {
 	if err := p.expectKeyword("DROP"); err != nil {
 		return nil, err
+	}
+	if p.acceptKeyword("DATABASE") || p.acceptKeyword("CATALOG") {
+		st := &DropCatalogStmt{IfExists: p.acceptKeyword("IF", "EXISTS")}
+		name, err := p.parseIdent()
+		st.Name = name
+		st.Cascade = p.parseDropBehavior()
+		return st, err
 	}
 	if p.acceptKeyword("SEQUENCE") {
 		return p.parseSequence("DROP")

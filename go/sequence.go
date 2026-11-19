@@ -756,7 +756,7 @@ func (e *executor) sequenceRows(ctx context.Context, schema string) ([][]Value, 
 		if err != nil {
 			return nil, err
 		}
-		rows = append(rows, []Value{str(catalogName), str(displaySchema(schema)), str(name), str(strings.ToLower(ColType{Kind: m.Kind}.SQLName())), intValue(typeInt64, map[Kind]int64{KindInt16: 16, KindInt32: 32, KindInt64: 64}[m.Kind]), intValue(typeInt64, 2), intValue(typeInt64, 0), str(strconv.FormatInt(m.Start, 10)), str(strconv.FormatInt(m.Min, 10)), str(strconv.FormatInt(m.Max, 10)), str(strconv.FormatInt(m.Increment, 10)), yesNo(m.Cycle)})
+		rows = append(rows, []Value{str(schemaCatalog(schema)), str(displaySchema(schema)), str(name), str(strings.ToLower(ColType{Kind: m.Kind}.SQLName())), intValue(typeInt64, map[Kind]int64{KindInt16: 16, KindInt32: 32, KindInt64: 64}[m.Kind]), intValue(typeInt64, 2), intValue(typeInt64, 0), str(strconv.FormatInt(m.Start, 10)), str(strconv.FormatInt(m.Min, 10)), str(strconv.FormatInt(m.Max, 10)), str(strconv.FormatInt(m.Increment, 10)), yesNo(m.Cycle)})
 	}
 	return rows, nil
 }

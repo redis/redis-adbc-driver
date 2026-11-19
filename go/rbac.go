@@ -432,6 +432,9 @@ func (e *executor) rbacGrantTable(ctx context.Context, name string, cols []resul
 			return nil, err
 		}
 		for _, schema := range schemas {
+			if schemaCatalog(schema) != e.currentCatalog() {
+				continue
+			}
 			names, err := e.store.listTables(ctx, schema)
 			if err != nil {
 				return nil, err
@@ -442,7 +445,7 @@ func (e *executor) rbacGrantTable(ctx context.Context, name string, cols []resul
 			}
 			for _, m := range metas {
 				if m != nil && slices.Contains(prefixes, e.store.rbacTablePrefix(m)) {
-					rows = append(rows, []Value{str("redis_rbac"), str(role), str(catalogName), str(schema), str(m.Name), str("SELECT"), str("NO"), str("NO")})
+					rows = append(rows, []Value{str("redis_rbac"), str(role), str(schemaCatalog(schema)), str(displaySchema(schema)), str(m.Name), str("SELECT"), str("NO"), str("NO")})
 				}
 			}
 		}

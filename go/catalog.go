@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	redisclient "github.com/redis/go-redis/v9"
 )
 
 // Catalogs share one immutable managed root, with independent schema identities.
@@ -63,27 +64,66 @@ func (e *executor) currentCatalog() string {
 	if e == nil {
 		return catalogName
 	}
-	if e.sess != nil {
+	if e.schema == "" && e.sess != nil {
 		return e.sess.currentCatalog()
 	}
 	return schemaCatalog(e.schema)
 }
 
+func (s *store) catalogIdentity(ctx context.Context, name string) (string, error) {
+	if name == catalogName {
+		return catalogName, nil
+	}
+	if err := validateCatalogName(name); err != nil {
+		return "", err
+	}
+	id, err := s.redis(ctx).HGet(ctx, catalogsKey, name).Result()
+	if err == redisclient.Nil {
+		return "", errorf(adbc.StatusNotFound, "catalog %q does not exist", name)
+	}
+	if err != nil {
+		return "", wrapRedis(err, "failed to check catalog")
+	}
+	return id, nil
+}
 func (s *store) catalogExists(ctx context.Context, name string) (bool, error) {
 	if name == catalogName {
 		return true, nil
 	}
-	if err := validateCatalogName(name); err != nil {
-		return false, err
+	return s.redis(ctx).HExists(ctx, catalogsKey, name).Result()
+}
+func (e *executor) validateCurrentCatalog(ctx context.Context) error {
+	if e.currentCatalog() == catalogName {
+		return nil
 	}
-	ok, err := s.redis(ctx).SIsMember(ctx, catalogsKey, name).Result()
+	id, err := e.store.catalogIdentity(ctx, e.currentCatalog())
 	if err != nil {
-		return false, wrapRedis(err, "failed to check catalog")
+		return err
 	}
-	return ok, nil
+	if e.sess != nil && e.currentCatalog() == e.sess.currentCatalog() && e.sess.catalogID != id {
+		return errorf(adbc.StatusInvalidState, "selected catalog changed; select the catalog again")
+	}
+	return nil
+}
+func (e *executor) targetCatalog(ctx context.Context, explicit string) (string, error) {
+	name := explicit
+	if name == "" {
+		name = e.currentCatalog()
+		if err := e.validateCurrentCatalog(ctx); err != nil {
+			return "", err
+		}
+	}
+	_, err := e.store.catalogIdentity(ctx, name)
+	return name, err
+}
+func requireCatalogWrite(ctx context.Context) error {
+	if scope := snapshotOf(ctx); scope == nil || !scope.write {
+		return errorf(adbc.StatusInvalidState, "catalog DDL requires a managed write workspace")
+	}
+	return nil
 }
 func (s *store) listCatalogs(ctx context.Context) ([]string, error) {
-	names, err := s.redis(ctx).SMembers(ctx, catalogsKey).Result()
+	names, err := s.redis(ctx).HKeys(ctx, catalogsKey).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to list catalogs")
 	}
@@ -98,6 +138,9 @@ func (s *store) listCatalogs(ctx context.Context) ([]string, error) {
 // Each nondefault catalog starts with its own public schema. No existing default
 // schema or row prefix is renamed, copied or reused.
 func (s *store) createCatalog(ctx context.Context, name string, ifNotExists bool) error {
+	if err := requireCatalogWrite(ctx); err != nil {
+		return err
+	}
 	if err := validateCatalogName(name); err != nil {
 		return err
 	}
@@ -111,17 +154,20 @@ func (s *store) createCatalog(ctx context.Context, name string, ifNotExists bool
 		}
 		return errorf(adbc.StatusAlreadyExists, "catalog %q already exists", name)
 	}
-	if count, err := s.redis(ctx).SCard(ctx, catalogsKey).Result(); err != nil {
+	if count, err := s.redis(ctx).HLen(ctx, catalogsKey).Result(); err != nil {
 		return err
 	} else if count >= maxCatalogs-1 {
 		return errorf(adbc.StatusInvalidState, "catalog capacity reached")
 	}
-	if err := s.redis(ctx).SAdd(ctx, catalogsKey, name).Err(); err != nil {
+	if err := s.redis(ctx).HSet(ctx, catalogsKey, name, snapshotID()).Err(); err != nil {
 		return wrapRedis(err, "failed to create catalog")
 	}
 	return s.createSchema(ctx, catalogSchema(name, defaultSchema), false)
 }
 func (s *store) dropCatalog(ctx context.Context, name string, ifExists, cascade bool) error {
+	if err := requireCatalogWrite(ctx); err != nil {
+		return err
+	}
 	if name == catalogName {
 		return errorf(adbc.StatusInvalidArgument, "the default redis catalog cannot be dropped")
 	}
@@ -147,7 +193,7 @@ func (s *store) dropCatalog(ctx context.Context, name string, ifExists, cascade 
 			return err
 		}
 	}
-	return s.redis(ctx).SRem(ctx, catalogsKey, name).Err()
+	return s.redis(ctx).HDel(ctx, catalogsKey, name).Err()
 }
 
 type CreateCatalogStmt struct {

@@ -218,10 +218,10 @@ func (s *store) dropView(ctx context.Context, schema, name string, ifExists bool
 // do when a table is renamed. All keys are in the {meta} hash slot, so the
 // check and the rename are one transaction even on a cluster.
 func (s *store) renameView(ctx context.Context, schema, name string, to TableName) error {
-	if to.Catalog != "" && to.Catalog != catalogName {
+	if to.Catalog != "" && to.Catalog != schemaCatalog(schema) {
 		return errorf(adbc.StatusInvalidArgument, "catalog %q does not exist", to.Catalog)
 	}
-	if to.Schema != "" && to.Schema != schema && !(isTempAlias(to.Schema) && isTempSchema(schema)) {
+	if to.Schema != "" && to.Schema != displaySchema(schema) && !(isTempAlias(to.Schema) && isTempSchema(schema)) {
 		return errorf(adbc.StatusNotImplemented, "RENAME TO cannot move a view to another schema")
 	}
 	newName := to.Name

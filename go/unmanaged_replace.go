@@ -310,7 +310,7 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 	if !st.snapshots || snapshotOf(ctx) != nil || snapshotOperationRequestOf(ctx) != nil || opts.Temporary || isTempAlias(schema) || isTempSchema(schema) {
 		return 0, unmanagedUnsupported("temporary, retained or staged replacement")
 	}
-	if opts.CatalogName != "" && opts.CatalogName != catalogName {
+	if opts.CatalogName != "" && opts.CatalogName != catalogName || opts.CatalogName == "" && s.conn.sess.currentCatalog() != catalogName {
 		return 0, errorf(adbc.StatusNotFound, "catalog does not exist")
 	}
 	if !live {

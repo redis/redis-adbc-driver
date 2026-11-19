@@ -163,10 +163,10 @@ func checkColumnName(name string) error {
 var testHookRenaming func()
 
 func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableName) error {
-	if to.Catalog != "" && to.Catalog != catalogName {
+	if to.Catalog != "" && to.Catalog != schemaCatalog(meta.Schema) {
 		return errorf(adbc.StatusInvalidArgument, "catalog %q does not exist", to.Catalog)
 	}
-	sameSchema := to.Schema == "" || to.Schema == meta.Schema || (isTempAlias(to.Schema) && isTempSchema(meta.Schema))
+	sameSchema := to.Schema == "" || to.Schema == displaySchema(meta.Schema) || (isTempAlias(to.Schema) && isTempSchema(meta.Schema))
 	if !sameSchema {
 		return errorf(adbc.StatusNotImplemented, "RENAME TO cannot move a table to another schema")
 	}
