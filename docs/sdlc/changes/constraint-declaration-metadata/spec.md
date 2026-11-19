@@ -8,7 +8,10 @@
 * Resolve references at declaration time, preserving historical acceptance of
   missing referenced tables/columns/keys. An unresolved declaration remains
   unresolved until recreated. Never bind a reused name to a replacement object.
-* Managed target OIDs survive rename/rekey/type rewrite. Immutable column fields
+* Managed target OIDs and declaration epochs survive rename/rekey/type rewrite.
+  Fresh descriptor constructors assign a new epoch even when Arrow replacement
+  or import refresh preserves the public OID. Legacy epoch-less descriptors keep
+  their stable OID identity through cloning and rewrites. Immutable column fields
   survive column rename; target drop or referenced-column drop suppresses usage.
   Application descriptors additionally require their registration identity;
   discovered foreign indexes have no durable identity and yield no FK usage.

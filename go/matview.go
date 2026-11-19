@@ -121,7 +121,7 @@ func (e *executor) runCreateMatView(ctx context.Context, st *CreateViewStmt) (in
 	if err = checkStorableColumns(plan.columns()); err != nil {
 		return 0, err
 	}
-	m := &tableMeta{Schema: schema, Name: name, MaterializedSQL: text, Unpopulated: true}
+	m := &tableMeta{DeclarationEpoch: snapshotID(), Schema: schema, Name: name, MaterializedSQL: text, Unpopulated: true}
 	for i, c := range plan.columns() {
 		n := c.Name
 		if st.Columns != nil {

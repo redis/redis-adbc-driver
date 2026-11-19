@@ -24,3 +24,16 @@ Completed locally:
   formerly discarded declarations were updated to the new metadata contract.
 * Native feature flags are enabled for UNIQUE/FK using the existing fixtures;
   the consolidating change runs the exact upstream native ADBC tests.
+
+Follow-up review found and corrected two lifecycle gaps before consolidation:
+
+* Managed snapshot ALTER now prefetches FK targets before its pure planner, as
+  the ordinary ALTER path does. A Software regression checks both ADD CONSTRAINT
+  and ADD COLUMN REFERENCES against an existing parent.
+* Fresh descriptors have a declaration epoch, preventing a same-name Arrow
+  replacement column from receiving an old FK reference when the public OID is
+  preserved. Epoch assignment happens only in fresh constructors, not generic
+  create/clone/rewrite helpers; legacy descriptors keep their old identity.
+  Regression verifies Arrow append retains usage and same-name replace clears it.
+* The full selected Software declaration/CHECK/PRIMARY KEY suite was rerun and
+  passed after both fixes, with setup-verified active 4x QPF.

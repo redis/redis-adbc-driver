@@ -572,7 +572,7 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	if err != nil {
 		return err
 	}
-	meta := &tableMeta{Schema: schema, Name: name, Comment: st.Comment}
+	meta := &tableMeta{DeclarationEpoch: snapshotID(), Schema: schema, Name: name, Comment: st.Comment}
 	noIndex := map[string]bool{}
 	for _, c := range defs {
 		col := columnMeta{Identity: c.Identity, Sequence: c.Sequence, Name: c.Name, Type: c.Type, Nullable: !c.NotNull, Comment: c.Comment}
@@ -641,7 +641,7 @@ func (e *executor) runCreateTableAs(ctx context.Context, st *CreateTableStmt) (i
 	if err != nil {
 		return 0, err
 	}
-	meta := &tableMeta{Schema: schema, Name: name}
+	meta := &tableMeta{DeclarationEpoch: snapshotID(), Schema: schema, Name: name}
 	cols := plan.columns()
 	resolveNumericColumns(cols, rows)
 	for j, c := range cols {

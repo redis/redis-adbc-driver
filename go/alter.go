@@ -440,15 +440,8 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 	// Index attributes that no column uses (left by a commit that failed)
 	// can't be added again, so new columns don't take their names.
 	in := &alterInputs{}
-	var defs []DeclarationDef
-	for _, cmd := range cmds {
-		defs = append(defs, cmd.Def.Declarations...)
-		if cmd.Declaration != nil {
-			defs = append(defs, *cmd.Declaration)
-		}
-	}
 	var refErr error
-	in.references, refErr = e.declarationReferences(ctx, meta, defs)
+	in.references, refErr = e.alterDeclarationReferences(ctx, meta, cmds)
 	if refErr != nil {
 		return refErr
 	}

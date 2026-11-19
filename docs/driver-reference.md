@@ -2266,7 +2266,10 @@ allow otherwise streamable queries to stream.
     deferral clauses have no effect. The referenced table needn't exist.
     References bind the target identity and column fields when resolvable,
     follow table/column renames and managed rekeying, and never retarget a
-    replacement table or column that reuses a name. Missing targets, missing
+    replacement table or column that reuses a name, including same-name columns
+    supplied by Arrow replacement. Arrow append preserves declarations; Arrow
+    replacement defines a fresh schema and removes its own old declarations.
+    Missing targets, missing
     referenced columns, and declarations whose target was dropped have NULL
     referenced-column usage. Unresolved references stay unresolved until the
     constraint is recreated. Dropping a local column removes its declarations;

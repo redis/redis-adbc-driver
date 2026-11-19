@@ -45,7 +45,8 @@ func cloneDeclarations(in []declarationMeta) []declarationMeta {
 	return out
 }
 
-// Persisted managed OIDs survive logical rename, prefix rekey and rewrites.
+// Persisted managed OIDs and declaration epochs survive rename/rekey/rewrites.
+// Fresh replacement epochs prevent same-name Arrow columns taking old references.
 // Application descriptors also require their registration epoch because their
 // name-derived fallback OID can be reused after unregister/register.
 func declarationIdentity(m *tableMeta) string {
@@ -58,8 +59,24 @@ func declarationIdentity(m *tableMeta) string {
 	if m.Foreign {
 		return ""
 	} // discovered indexes have no durable registration
+	if m.DeclarationEpoch != "" {
+		return fmt.Sprintf("table:%d:%s", tableOID(m), m.DeclarationEpoch)
+	}
 	return fmt.Sprintf("table:%d", tableOID(m))
 }
+
+// alterDeclarationReferences prefetches targets before either ALTER planner runs.
+func (e *executor) alterDeclarationReferences(ctx context.Context, source *tableMeta, cmds []AlterCmd) (map[TableName]*tableMeta, error) {
+	var defs []DeclarationDef
+	for _, cmd := range cmds {
+		defs = append(defs, cmd.Def.Declarations...)
+		if cmd.Declaration != nil {
+			defs = append(defs, *cmd.Declaration)
+		}
+	}
+	return e.declarationReferences(ctx, source, defs)
+}
+
 func (e *executor) declarationReferences(ctx context.Context, source *tableMeta, defs []DeclarationDef) (map[TableName]*tableMeta, error) {
 	refs := map[TableName]*tableMeta{}
 	for _, d := range defs {

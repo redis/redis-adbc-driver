@@ -19,6 +19,10 @@ import (
 	"testing"
 
 	"github.com/adbc-drivers/driverbase-go/driverbase"
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
 // This checks persisted metadata through the same callback GetObjects uses,
@@ -103,5 +107,68 @@ func TestSQLDeclarationMetadataLifecycle(t *testing.T) {
 	h.exec(`ALTER TABLE it_decl_child DROP COLUMN x`)
 	if len(constraints()) != 0 {
 		t.Fatal("local column dependencies not dropped")
+	}
+}
+
+func TestSQLDeclarationAlterAndArrowReplacement(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_decl_epoch_parent", "it_decl_epoch_child")
+	h.exec(`CREATE TABLE it_decl_epoch_parent(id integer PRIMARY KEY)`)
+	h.exec(`CREATE TABLE it_decl_epoch_child(parent_id integer)`)
+	h.exec(`ALTER TABLE it_decl_epoch_child ADD CONSTRAINT parent_fk FOREIGN KEY(parent_id) REFERENCES it_decl_epoch_parent(id)`)
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	impl := st.(*statementImpl).conn
+	usage := func() []driverbase.ConstraintColumnUsage {
+		t.Helper()
+		table := "it_decl_epoch_child"
+		tables, err := impl.GetTablesForDBSchema(h.ctx, catalogName, defaultSchema, &table, nil, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(tables) != 1 || len(tables[0].TableConstraints) != 1 {
+			t.Fatalf("tables: %#v", tables)
+		}
+		return tables[0].TableConstraints[0].ConstraintColumnUsage
+	}
+	if len(usage()) != 1 {
+		t.Fatal("ALTER ADD failed to bind resolvable FK")
+	}
+	h.exec(`ALTER TABLE it_decl_epoch_child DROP CONSTRAINT parent_fk`)
+	h.exec(`ALTER TABLE it_decl_epoch_child ADD COLUMN other integer REFERENCES it_decl_epoch_parent(id)`)
+	if len(usage()) != 1 {
+		t.Fatal("ADD COLUMN failed to bind resolvable FK")
+	}
+	b := array.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int32, Nullable: true}}, nil))
+	defer b.Release()
+	b.Field(0).(*array.Int32Builder).Append(1)
+	rec := b.NewRecordBatch()
+	defer rec.Release()
+	for _, mode := range []string{adbc.OptionValueIngestModeAppend, adbc.OptionValueIngestModeReplace} {
+		ingest, err := h.conn.NewStatement(h.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for key, value := range map[string]string{adbc.OptionKeyIngestTargetTable: "it_decl_epoch_parent", adbc.OptionKeyIngestMode: mode} {
+			if err = ingest.SetOption(h.ctx, key, value); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err = ingest.Bind(h.ctx, rec); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = ingest.ExecuteUpdate(h.ctx); err != nil {
+			t.Fatal(err)
+		}
+		ingest.Close(h.ctx)
+		if mode == adbc.OptionValueIngestModeAppend && len(usage()) != 1 {
+			t.Fatal("append invalidated reference")
+		}
+		if mode == adbc.OptionValueIngestModeReplace && usage() != nil {
+			t.Fatal("same-name replacement rebound reference")
+		}
 	}
 }

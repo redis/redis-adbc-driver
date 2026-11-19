@@ -110,3 +110,19 @@ func TestDeclarationLogicalCatalogAndSelf(t *testing.T) {
 		t.Fatalf("leaked storage identity: %#v", usage)
 	}
 }
+
+func TestDeclarationReplacementEpoch(t *testing.T) {
+	old := &tableMeta{OID: 91, DeclarationEpoch: "old"}
+	replacement := &tableMeta{OID: 91, DeclarationEpoch: "new"}
+	if declarationIdentity(old) == declarationIdentity(replacement) {
+		t.Fatal("replacement reused identity")
+	}
+	clone := cloneMeta(old)
+	if declarationIdentity(old) != declarationIdentity(clone) {
+		t.Fatal("clone changed identity")
+	}
+	legacy := &tableMeta{OID: 92}
+	if declarationIdentity(legacy) != declarationIdentity(cloneMeta(legacy)) {
+		t.Fatal("legacy clone changed identity")
+	}
+}

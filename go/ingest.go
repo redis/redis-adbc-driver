@@ -29,7 +29,7 @@ import (
 
 // metaFromArrow derives table metadata from an Arrow schema.
 func metaFromArrow(schemaName, table string, schema *arrow.Schema) (*tableMeta, error) {
-	meta := &tableMeta{Schema: schemaName, Name: table}
+	meta := &tableMeta{DeclarationEpoch: snapshotID(), Schema: schemaName, Name: table}
 	for _, f := range schema.Fields() {
 		t, err := colTypeFromField(f)
 		if err != nil {

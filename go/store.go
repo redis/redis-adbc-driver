@@ -212,7 +212,11 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
-	Declarations []declarationMeta `json:"declarations,omitempty"`
+	// DeclarationEpoch distinguishes fresh SQL/Arrow column declarations even
+	// when replacement preserves the public table OID. Empty legacy epochs
+	// remain empty through clones/rewrites; only fresh constructors assign one.
+	DeclarationEpoch string            `json:"declaration_epoch,omitempty"`
+	Declarations     []declarationMeta `json:"declarations,omitempty"`
 	// Live descriptors own indexes and metadata, but never application HASHes.
 	Live bool `json:"live,omitempty"`
 	// LiveVersion changes with Arrow replacement, including identical schemas.
