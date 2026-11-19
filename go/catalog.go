@@ -113,6 +113,9 @@ func (e *executor) targetCatalog(ctx context.Context, explicit string) (string, 
 			return "", err
 		}
 	}
+	if name != catalogName && (e.retained != nil || sharedSnapshotScope(ctx) || e.store.hasSharedReadView()) {
+		return "", namedCatalogExecutionUnsupported()
+	}
 	_, err := e.store.catalogIdentity(ctx, name)
 	return name, err
 }
@@ -216,4 +219,8 @@ func (e *executor) resolveCatalogTable(ctx context.Context, t TableName) (string
 		return "", "", err
 	}
 	return e.resolveTable(t)
+}
+
+func namedCatalogExecutionUnsupported() error {
+	return errorf(adbc.StatusNotImplemented, "named catalogs do not yet support shared read snapshots, retained execution or deferred partitions")
 }

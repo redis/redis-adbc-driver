@@ -79,6 +79,9 @@ func (limits retainedExecutionLimits) valid() bool {
 		limits.SourceRows < 1 || limits.SourceRows > retainedIPCRows || limits.CandidateKeys < 1 || limits.CandidateKeys > 2_000_000)
 }
 func newRetainedExecutor(ctx context.Context, base *executor, cfg *clientConfig, t timeouts, limits retainedExecutionLimits) (context.Context, *executor, *retainedExecution, func(), error) {
+	if base.currentCatalog() != catalogName {
+		return nil, nil, nil, nil, namedCatalogExecutionUnsupported()
+	}
 	if !limits.valid() {
 		return nil, nil, nil, nil, errorf(adbc.StatusInvalidArgument, "invalid retained coordinator resource limits")
 	}
@@ -112,6 +115,9 @@ func newRetainedExecutor(ctx context.Context, base *executor, cfg *clientConfig,
 	return ctx, &e, r, close, nil
 }
 func (r *retainedExecution) table(ctx context.Context, schema, name string) (*tableMeta, error) {
+	if schemaCatalog(schema) != catalogName {
+		return nil, namedCatalogExecutionUnsupported()
+	}
 	if isTempAlias(schema) || isTempSchema(schema) && !r.capture.store.ownTempSchema(schema) {
 		return nil, errorf(adbc.StatusNotImplemented, "retained temporary sources must belong to the producing connection")
 	}
@@ -263,6 +269,9 @@ func (r *retainedExecution) vet(sel *SelectStmt, depth int) (err error) {
 	table := func(t *TableName) error {
 		if t == nil {
 			return nil
+		}
+		if t.Catalog != "" && t.Catalog != catalogName {
+			return namedCatalogExecutionUnsupported()
 		}
 		if isInfoSchema(t.Schema) || isPgCatalog(t.Schema) || t.Schema == "" && pgCatalogRelation(t.Name) {
 			return errorf(adbc.StatusNotImplemented, "catalog relations are not retained source tables")

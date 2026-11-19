@@ -3,8 +3,12 @@
 package redis
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 func TestCatalogSchemaIdentity(t *testing.T) {
@@ -36,5 +40,41 @@ func TestCatalogSchemaIdentity(t *testing.T) {
 	}
 	if schemaCatalog("public") != "redis" || logicalSchema("public") != "public" {
 		t.Fatal("legacy identity changed")
+	}
+}
+
+func TestNamedCatalogAdvancedExecutionRefusals(t *testing.T) {
+	ctx := context.Background()
+	requireUnsupported := func(label string, err error) {
+		t.Helper()
+		var ae adbc.Error
+		if !errors.As(err, &ae) || ae.Code != adbc.StatusNotImplemented {
+			t.Fatalf("%s: expected NotImplemented, got %v", label, err)
+		}
+	}
+	named := catalogSchema("analytics", "public")
+	_, _, _, _, err := newRetainedExecutor(ctx, &executor{schema: named}, nil, timeouts{}, defaultRetainedExecutionLimits())
+	requireUnsupported("retained selected catalog", err)
+	_, err = (&retainedExecution{}).table(ctx, named, "t")
+	requireUnsupported("retained physical target", err)
+	retained := &executor{schema: "public", store: &store{}, retained: &retainedExecution{}}
+	_, err = retained.targetCatalog(ctx, "analytics")
+	requireUnsupported("retained explicit target", err)
+	requireUnsupported("retained pre-publication admission", retainedTestAdmission().vet(&SelectStmt{From: &TableName{Catalog: "analytics", Schema: "public", Name: "t"}}, 0))
+	sharedStore := &store{sharedView: &sharedReadView{}}
+	shared := &executor{schema: "public", store: sharedStore}
+	_, err = shared.targetCatalog(ctx, "analytics")
+	requireUnsupported("shared explicit target", err)
+	conn := &connectionImpl{store: sharedStore, sess: newSession("public")}
+	requireUnsupported("shared catalog selection", conn.SetCurrentCatalog(ctx, "analytics"))
+	conn.sess.catalog = "analytics"
+	_, err = conn.prepareReadSnapshotBinding(OptionStringReadSnapshotAction, "acquire")
+	requireUnsupported("named shared acquisition", err)
+	for _, test := range []struct {
+		schema string
+		source TableName
+	}{{named, TableName{Name: "t"}}, {"public", TableName{Catalog: "analytics", Schema: "public", Name: "t"}}} {
+		_, err := (&executor{schema: test.schema}).partitionPlan(ctx, &SelectStmt{From: &test.source}, 1, 2)
+		requireUnsupported("deferred partition target", err)
 	}
 }

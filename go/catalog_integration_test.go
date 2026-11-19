@@ -30,6 +30,8 @@ func TestCatalogIsolationAndLifecycle(t *testing.T) {
 	h.expectRows("SELECT current_database(), current_schema()", "analytics|public")
 	h.expectRows("SELECT * FROM t", "2")
 	h.exec("CREATE SCHEMA extra")
+	h.expectErrorText("CREATE SCHEMA extra", `schema "extra" already exists`)
+	h.expectErrorText("DROP SCHEMA missing", `schema "missing" does not exist`)
 	h.exec("CREATE TABLE extra.z(id INTEGER)")
 	h.expectRows("SELECT table_catalog,table_schema,table_name FROM information_schema.tables ORDER BY table_name", "analytics|public|t", "analytics|extra|z")
 	h.expectRows("SELECT nspname FROM pg_catalog.pg_namespace WHERE nspname NOT IN ('pg_catalog','information_schema') ORDER BY nspname", "extra", "public")

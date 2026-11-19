@@ -46,3 +46,9 @@ indexes in `redis_foreign` remain available only in `redis`. Catalog-qualified
 renames must stay within the same catalog and schema. Catalogs share Redis ACL
 and resource configuration; existing managed table ownership, immutable snapshot
 publication and prefix-based RBAC checks still apply.
+
+Named catalogs currently reject deferred partition production/reading, retained
+query execution, and connection-bound shared read snapshots. Ordinary managed
+statement snapshots continue to protect named-catalog SQL and Arrow operations.
+These advanced features remain available in `redis`; selecting or explicitly
+referencing a named catalog cannot bypass their restriction.

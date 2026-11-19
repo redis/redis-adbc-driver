@@ -144,6 +144,9 @@ func partitionTarget(meta *tableMeta) string {
 }
 
 func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt, lo, hi int64) (*selectPlan, error) {
+	if e.currentCatalog() != catalogName || sel.From.Catalog != "" && sel.From.Catalog != catalogName {
+		return nil, namedCatalogExecutionUnsupported()
+	}
 	schema, name, err := e.resolveCatalogTable(ctx, *sel.From)
 	if err != nil {
 		return nil, err
@@ -405,9 +408,15 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	if c.readerOnly {
 		return nil, errorf(adbc.StatusInvalidArgument, "reader-only connections require a retained result descriptor")
 	}
+	if c.sess.currentCatalog() != catalogName {
+		return nil, namedCatalogExecutionUnsupported()
+	}
 	d, err := decodePartition(data)
 	if err != nil {
 		return nil, err
+	}
+	if schemaCatalog(d.Schema) != catalogName {
+		return nil, namedCatalogExecutionUnsupported()
 	}
 	defer func() {
 		if resultErr == nil && result != nil {

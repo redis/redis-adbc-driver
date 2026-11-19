@@ -122,6 +122,9 @@ func (c *connectionImpl) setReadSnapshotOption(ctx context.Context, key, value s
 // Reserve local acquisition without keeping the mutex through server admission.
 // Background compaction can need a fresh pin while foreground acquisition waits.
 func (c *connectionImpl) prepareReadSnapshotBinding(key, value string) (time.Duration, error) {
+	if c.sess.currentCatalog() != catalogName {
+		return 0, namedCatalogExecutionUnsupported()
+	}
 	s := c.store
 	s.sharedMu.Lock()
 	defer s.sharedMu.Unlock()

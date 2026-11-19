@@ -748,6 +748,9 @@ func (e *executor) inSchema(rel relation, schema string) bool {
 // alias. Without a schema, that is any table, view or CTE of that name
 // (Postgres: the table the search path finds, or the CTE).
 func (e *executor) readsTable(q qualName, rel relation) bool {
+	if q.catalog != "" && q.catalog != schemaCatalog(rel.schema) {
+		return false
+	}
 	if rel.meta == nil || !(rel.meta.Name == q.name) {
 		return false
 	}
@@ -828,6 +831,9 @@ func (e *executor) fromColumns(name string) int {
 // mentions reports whether q names rel, or the table rel reads (under an
 // alias): the items Postgres's errorMissingRTE looks for.
 func (e *executor) mentions(q qualName, rel relation) bool {
+	if q.catalog != "" && q.catalog != schemaCatalog(rel.schema) {
+		return false
+	}
 	return rel.name != "" && ((rel.name == q.name) || e.readsTable(q, rel))
 }
 
