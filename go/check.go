@@ -21,7 +21,7 @@ package redis
 // [CONSTRAINT name] CHECK (expr) on the table. As in Postgres, all of them
 // mean the same: a condition on the whole row. PRIMARY KEY is kept, but its
 // uniqueness isn't enforced (see pkey.go); UNIQUE and REFERENCES / FOREIGN
-// KEY are accepted and not enforced (nothing is kept).
+// KEY retain declaration metadata but are not enforced (see declaration.go).
 //
 //   - Definition: the expression is bound over the table alone, so it may
 //     read any of the table's columns but not __rowid or another table, and
@@ -189,6 +189,9 @@ func renameInCheck(text, from, to string) (string, error) {
 // added, and its constraints so far.
 func (e *executor) defineChecks(ctx context.Context, meta *tableMeta, defs []CheckDef) ([]checkMeta, error) {
 	used := map[string]bool{}
+	for _, d := range meta.Declarations {
+		used[d.Name] = true
+	}
 	for _, c := range meta.Checks {
 		used[c.Name] = true
 	}

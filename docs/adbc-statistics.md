@@ -51,9 +51,11 @@ follow the [ordinary transport contract](driver-reference.md#cancelling-a-statem
 
 Object discovery continues to report stored PRIMARY KEY and CHECK names and
 columns. PRIMARY KEY metadata describes declared key columns; it is not a claim
-of enforced uniqueness. UNIQUE and FOREIGN KEY declarations/enforcement are
-tracked by [#114](https://github.com/redis/redis-adbc-driver/issues/114), so
-no UNIQUE, FOREIGN KEY or referenced-column usage metadata is invented here.
+of enforced uniqueness. Stored UNIQUE and FOREIGN KEY declarations are also
+reported by GetObjects, including ordered FK usage for resolvable targets.
+They do not enforce uniqueness, parent existence or referential actions;
+SQL information_schema/pg_constraint coverage is separate. Enforcement remains
+tracked by [#114](https://github.com/redis/redis-adbc-driver/issues/114).
 Constraint enforcement remains outside this metadata change.
 
 The [2026-10-30 validation](sdlc/changes/210-212/validation.md) exercises native

@@ -2092,8 +2092,7 @@ allow otherwise streamable queries to stream.
     name] PRIMARY KEY (cols)` and `ADD COLUMN … PRIMARY KEY` make the key's
     columns `NOT NULL`, checking every row first as `SET NOT NULL` does
     (see "Primary keys" under Constraints below). `DROP CONSTRAINT` removes
-    a `CHECK` or the primary key; `UNIQUE` and `FOREIGN KEY` constraints
-    aren't kept, so it can't name them.
+    a `CHECK`, primary key, `UNIQUE` or `FOREIGN KEY` declaration.
 - `COMMENT ON {TABLE | VIEW | COLUMN} name IS 'text' | NULL`, as in
   Postgres (dbt's `persist_docs` runs it). A column is named `t.col`,
   `schema.t.col` or `redis.schema.t.col`, and names resolve as elsewhere
@@ -2261,10 +2260,23 @@ allow otherwise streamable queries to stream.
     (cols)`, `WITH (…)`, `USING INDEX TABLESPACE name`) and `DEFERRABLE` /
     `INITIALLY DEFERRED` are accepted and mean nothing.
   - **Not enforced:** `UNIQUE` and `FOREIGN KEY` / `REFERENCES` are
-    accepted and ignored. Nothing is kept, so duplicate values and rows
-    without a parent are inserted, the referenced table needn't exist, and
-    `GetObjects` doesn't list them. Nor is the uniqueness of a `PRIMARY KEY`
-    enforced (see "Primary keys" below).
+    retained as declaration metadata in ADBC `GetObjects`, with ordered local
+    columns and ordered referenced-column usage when resolvable. Duplicate
+    values and rows without a parent are inserted; referential actions and
+    deferral clauses have no effect. The referenced table needn't exist.
+    References bind the target identity and column fields when resolvable,
+    follow table/column renames and managed rekeying, and never retarget a
+    replacement table or column that reuses a name. Missing targets, missing
+    referenced columns, and declarations whose target was dropped have NULL
+    referenced-column usage. Unresolved references stay unresolved until the
+    constraint is recreated. Dropping a local column removes its declarations;
+    `DROP CONSTRAINT` removes them by name; `TRUNCATE` keeps them. Existing
+    metadata predating declaration retention cannot recover declarations
+    previously discarded: recreate those constraints. These declarations do
+    not create unique indexes and are not yet listed in SQL
+    `information_schema`/`pg_constraint`. Nor is the uniqueness of a
+    `PRIMARY KEY` enforced. Integrity enforcement remains tracked in
+    [#114](https://github.com/redis/redis-adbc-driver/issues/114).
   - **`CHECK`, when written:** the expression is checked as in Postgres. It
     may read the table's columns (`col`, `t.col` or `schema.t.col`, see
     "Names" below) but not `__rowid` or another table, may not use

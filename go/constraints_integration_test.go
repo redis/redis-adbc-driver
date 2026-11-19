@@ -547,7 +547,7 @@ func TestSQLCheckAlter(t *testing.T) {
 	h.expectRows(`SELECT id, v, w, x FROM it_chk_alt ORDER BY id`, "1|10|20|NULL", "2|NULL|20|NULL", "3|-4|20|NULL")
 	h.expectError(`UPDATE it_chk_alt SET v = 25 WHERE id = 1`, `violates check constraint "it_chk_alt_check"`)
 	h.expectError(`INSERT INTO it_chk_alt (id, v) VALUES (0, 1)`, `violates check constraint "id_pos"`)
-	// ADD of a PRIMARY KEY, UNIQUE or FOREIGN KEY is accepted and ignored.
+	// UNIQUE and FOREIGN KEY declarations are retained without enforcement.
 	h.exec(`ALTER TABLE it_chk_alt ADD PRIMARY KEY (id)`)
 	h.exec(`ALTER TABLE it_chk_alt ADD CONSTRAINT u UNIQUE (v, w)`)
 	h.exec(`ALTER TABLE it_chk_alt ADD CONSTRAINT fk FOREIGN KEY (v) REFERENCES it_chk_empty (id) ON DELETE CASCADE`)
@@ -559,7 +559,7 @@ func TestSQLCheckAlter(t *testing.T) {
 	h.exec(`ALTER TABLE it_chk_alt DROP CONSTRAINT IT_CHK_ALT_CHECK CASCADE`)
 	h.exec(`ALTER TABLE it_chk_alt DROP CONSTRAINT IF EXISTS id_pos`)
 	h.expectError(`ALTER TABLE it_chk_alt DROP CONSTRAINT id_pos`, `constraint "id_pos" of relation "it_chk_alt" does not exist`)
-	h.expectError(`ALTER TABLE it_chk_alt DROP CONSTRAINT u`, `constraint "u" of relation "it_chk_alt" does not exist`)
+	h.exec(`ALTER TABLE it_chk_alt DROP CONSTRAINT u`)
 	h.expectChecks(raw, "it_chk_alt", "it_chk_alt_v_check: v <> 0", "it_chk_alt_x_check: x > 0")
 	h.exec(`INSERT INTO it_chk_alt (id, v, w) VALUES (0, 30, 1)`)
 	h.expectError(`ALTER TABLE it_chk_alt DROP CONSTRAINT`, `expected identifier near ""`)
@@ -834,7 +834,7 @@ func TestSQLCheckDbt(t *testing.T) {
         union all select 2 as id, null as amount, 9 as zone_id
         union all select 2 as id, 0 as amount, 2 as zone_id`))
 	h.expectRows(`SELECT id, amount, zone_id FROM it_chk_s.t ORDER BY id, zone_id`, "1|10.500000000|1", "2|0.000000000|2", "2|NULL|9")
-	if got := strings.Join(h.tableConstraints("it_chk_s", "t"), "\n"); got != "table\nt_pkey PRIMARY KEY (id)\nt_amount_check CHECK (amount)\nt_id_check CHECK (id)" {
+	if got := strings.Join(h.tableConstraints("it_chk_s", "t"), "\n"); got != "table\nt_zone_id_fkey FOREIGN KEY (zone_id)\nfk_z FOREIGN KEY (zone_id)\nt_pkey PRIMARY KEY (id)\nt_amount_check CHECK (amount)\nt_id_check CHECK (id)" {
 		t.Errorf("GetObjects constraints %q", got)
 	}
 }

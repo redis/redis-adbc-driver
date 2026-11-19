@@ -375,6 +375,7 @@ func cloneMeta(m *tableMeta) *tableMeta {
 	c.RetiredFields = slices.Clone(m.RetiredFields)
 	c.PendingCleanup = slices.Clone(m.PendingCleanup)
 	c.Checks = slices.Clone(m.Checks)
+	c.Declarations = cloneDeclarations(m.Declarations)
 	if m.PrimaryKey != nil {
 		key := *m.PrimaryKey
 		key.Fields = slices.Clone(key.Fields)
@@ -387,10 +388,12 @@ func cloneMeta(m *tableMeta) *tableMeta {
 // runs. taken are index attributes that new columns must not use as their
 // field (see alterTable). views has, for each column (lower case) that ALTER
 // COLUMN … TYPE names and a view reads, Postgres's detail naming the view
-// (see viewDependencies). A nil *alterInputs has neither.
+// (see viewDependencies). references contains target metadata resolved before
+// planning; replay must not read a newer metadata root. A nil input is empty.
 type alterInputs struct {
-	taken map[string]bool
-	views map[string]string
+	references map[TableName]*tableMeta
+	taken      map[string]bool
+	views      map[string]string
 }
 
 // testHookAltered, when set by a test, runs once alterTable has changed the
@@ -437,6 +440,18 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 	// Index attributes that no column uses (left by a commit that failed)
 	// can't be added again, so new columns don't take their names.
 	in := &alterInputs{}
+	var defs []DeclarationDef
+	for _, cmd := range cmds {
+		defs = append(defs, cmd.Def.Declarations...)
+		if cmd.Declaration != nil {
+			defs = append(defs, *cmd.Declaration)
+		}
+	}
+	var refErr error
+	in.references, refErr = e.declarationReferences(ctx, meta, defs)
+	if refErr != nil {
+		return refErr
+	}
 	if slices.ContainsFunc(cmds, func(c AlterCmd) bool { return c.Action == AlterAddColumn }) {
 		var err error
 		if in.taken, err = e.store.indexAttributes(ctx, meta.index()); err != nil {
@@ -659,7 +674,7 @@ func alterOrder(cmds []AlterCmd) []alterStep {
 			}
 		case AlterAddColumn:
 			rank = rankAddColumn
-			if len(c.Def.Checks) > 0 {
+			if len(c.Def.Checks) > 0 || len(c.Def.Declarations) > 0 {
 				steps = append(steps, alterStep{cmd: c, checks: true, rank: rankColumnChecks})
 			}
 			if len(c.Def.PrimaryKeys) > 0 {
@@ -704,6 +719,9 @@ func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd
 		case step.checks:
 			if !skipped[cmd] {
 				err = e.alterColumnChecks(ctx, m, cmd.Def, res)
+				if err == nil {
+					err = addDeclarations(m, cmd.Def.Declarations, in.references, res)
+				}
 			}
 		case step.key:
 			if !skipped[cmd] {
@@ -725,6 +743,8 @@ func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd
 			err = alterNotNull(m, *cmd, res)
 		case cmd.Action == AlterAddConstraint && cmd.Key != nil:
 			err = alterAddKey(m, *cmd.Key, res)
+		case cmd.Action == AlterAddConstraint && cmd.Declaration != nil:
+			err = addDeclarations(m, []DeclarationDef{*cmd.Declaration}, in.references, res)
 		case cmd.Action == AlterAddConstraint:
 			err = e.alterAddConstraint(ctx, m, cmd.Check, res)
 		case cmd.Action == AlterDropConstraint:
@@ -872,6 +892,13 @@ func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 		res.dropped = true
 	}
 	var gone []string
+	m.Declarations = slices.DeleteFunc(m.Declarations, func(d declarationMeta) bool {
+		if slices.Contains(d.Fields, f) {
+			gone = append(gone, d.Name)
+			return true
+		}
+		return false
+	})
 	m.Checks = slices.DeleteFunc(m.Checks, func(k checkMeta) bool {
 		if !checkReads(k.Expr, c.Name) {
 			return false
@@ -952,9 +979,8 @@ func alterNotNull(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	return nil
 }
 
-// alterAddConstraint applies ADD CONSTRAINT … CHECK (PRIMARY KEY is
-// alterAddKey). chk is nil for the UNIQUE and FOREIGN KEY constraints, which
-// are accepted and ignored.
+// alterAddConstraint applies ADD CONSTRAINT … CHECK; primary keys and
+// declaration-only constraints have their own paths. A nil CHECK is EXCLUDE.
 func (e *executor) alterAddConstraint(ctx context.Context, m *tableMeta, chk *CheckDef, res *alterResult) error {
 	if chk == nil {
 		res.log("constraint ignored")
@@ -968,10 +994,14 @@ func (e *executor) alterAddConstraint(ctx context.Context, m *tableMeta, chk *Ch
 	return nil
 }
 
-// alterDropConstraint applies DROP CONSTRAINT, for CHECK constraints and the
-// primary key (the only ones kept). The key's columns stay NOT NULL, as in
-// Postgres.
+// alterDropConstraint drops CHECK, primary key and declaration-only constraints.
+// The primary key's columns stay NOT NULL, as in Postgres.
 func alterDropConstraint(m *tableMeta, cmd AlterCmd, res *alterResult) error {
+	if i := slices.IndexFunc(m.Declarations, func(d declarationMeta) bool { return d.Name == cmd.Constraint }); i >= 0 {
+		m.Declarations = slices.Delete(m.Declarations, i, i+1)
+		res.log("drop constraint %q", cmd.Constraint)
+		return nil
+	}
 	if k := m.PrimaryKey; k != nil && (k.Name == cmd.Constraint) {
 		m.PrimaryKey = nil
 		res.log("drop constraint %q", k.Name)

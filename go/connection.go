@@ -526,6 +526,13 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 	if err != nil {
 		return nil, err
 	}
+	var declarationTargets map[string]*tableMeta
+	if includeColumns {
+		declarationTargets, err = c.store.declarationTargets(ctx, metas)
+		if err != nil {
+			return nil, err
+		}
+	}
 	for i, n := range tables {
 		kind := "TABLE"
 		if metas[i] != nil && metas[i].MaterializedSQL != "" {
@@ -608,10 +615,13 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 				}
 				info.TableColumns = append(info.TableColumns, ci)
 			}
-			// The primary key (its columns in key order, see pkey.go) and
-			// the CHECK constraints are the only ones kept (see check.go).
+			// Report persisted constraint declarations. UNIQUE/FK metadata
+			// describes no enforcement or unique indexes (see declaration.go).
 			info.TableConstraints = []driverbase.ConstraintInfo{}
 			if meta != nil {
+				for _, d := range meta.Declarations {
+					info.TableConstraints = append(info.TableConstraints, declarationInfo(meta, d, declarationTargets))
+				}
 				if k := meta.PrimaryKey; k != nil {
 					name := k.Name
 					info.TableConstraints = append(info.TableConstraints, driverbase.ConstraintInfo{

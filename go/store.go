@@ -212,6 +212,7 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
+	Declarations []declarationMeta `json:"declarations,omitempty"`
 	// Live descriptors own indexes and metadata, but never application HASHes.
 	Live bool `json:"live,omitempty"`
 	// LiveVersion changes with Arrow replacement, including identical schemas.

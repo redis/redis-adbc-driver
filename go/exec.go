@@ -562,6 +562,13 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	if err != nil {
 		return err
 	}
+	refs, err := e.declarationReferences(ctx, meta, st.Declarations)
+	if err != nil {
+		return err
+	}
+	if err = addDeclarations(meta, st.Declarations, refs, nil); err != nil {
+		return err
+	}
 	keep, err = e.store.createTable(ctx, meta, st.IfNotExists)
 	if err == nil && keep {
 		for _, c := range meta.Columns {

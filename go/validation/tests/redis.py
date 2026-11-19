@@ -37,10 +37,11 @@ class RedisQuirks(model.DriverQuirks):
         connection_transactions=False,
         get_objects=True,
         get_objects_tabletypes_filter=True,
-        # GetObjects lists CHECK constraints and the primary key, the only
-        # constraints kept (UNIQUE and FOREIGN KEY are accepted and ignored).
+        # GetObjects reports declarations; UNIQUE/FK integrity is not enforced.
         get_objects_constraints_check=True,
         get_objects_constraints_primary=True,
+        get_objects_constraints_unique=True,
+        get_objects_constraints_foreign=True,
         statement_bind=True,
         statement_bulk_ingest=True,
         statement_bulk_ingest_catalog=False,
