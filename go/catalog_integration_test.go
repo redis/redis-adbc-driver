@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestCatalogIsolationAndLifecycle(t *testing.T) {
+func TestSnapshotCatalogIsolationAndLifecycle(t *testing.T) {
 	h, _, _ := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE TABLE t(id INTEGER)")
 	h.exec("INSERT INTO t VALUES(1)")
@@ -49,7 +49,7 @@ func TestCatalogIsolationAndLifecycle(t *testing.T) {
 	h.exec("DROP DATABASE analytics CASCADE")
 }
 
-func TestCatalogSelectionGenerationAndBoundaries(t *testing.T) {
+func TestSnapshotCatalogSelectionGenerationAndBoundaries(t *testing.T) {
 	h, _, db := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE DATABASE analytics")
 	h.exec("CREATE TABLE analytics.public.t(id INTEGER)")
@@ -95,7 +95,7 @@ func TestCatalogSelectionGenerationAndBoundaries(t *testing.T) {
 // Stage qualified metadata DDL once, then replace the catalog before its
 // publication. The original registry owner is a required publication dependency
 // even when the connection's selected catalog remains redis throughout.
-func TestCatalogQualifiedDDLConflictsWithRecreatedCatalog(t *testing.T) {
+func TestSnapshotCatalogQualifiedDDLConflictsWithRecreatedCatalog(t *testing.T) {
 	h, raw, _ := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE DATABASE analytics")
 	h.exec("CREATE TABLE analytics.public.t(id INTEGER)")
