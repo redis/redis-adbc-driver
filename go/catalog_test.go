@@ -2,9 +2,16 @@
 // Licensed under the Apache License, Version 2.0.
 package redis
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCatalogSchemaIdentity(t *testing.T) {
+	zero := string([]byte{0})
+	if validateCatalogName("bad"+zero) == nil || validateLogicalSchema("bad"+zero) == nil {
+		t.Fatal("public catalog/schema accepted a zero byte")
+	}
 	seen := map[string]bool{}
 	for _, cat := range []string{"redis", "analytics", "a:b", "quoted catalog", "é"} {
 		for _, schema := range []string{"public", "a:b", "analytics.public", "custom space"} {
@@ -18,6 +25,9 @@ func TestCatalogSchemaIdentity(t *testing.T) {
 			}
 			if cat == catalogName && stored != schema {
 				t.Fatal("default catalog layout changed")
+			}
+			if cat != catalogName && !strings.Contains(stored, zero) {
+				t.Fatal("reserved identity fixture has no zero byte")
 			}
 			if cat != catalogName && validateLogicalSchema(stored) == nil {
 				t.Fatal("internal identity accepted as a logical schema")

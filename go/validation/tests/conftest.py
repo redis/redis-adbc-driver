@@ -61,7 +61,7 @@ def driver_path(driver: adbc_drivers_validation.model.DriverQuirks) -> str:
 
 @pytest.fixture(scope="session", autouse=True)
 def secondary_schema(pytestconfig, db_kwargs) -> None:
-    """Create the secondary schema (key namespace) used by the suite."""
+    """Create real secondary schema and catalog namespaces for validation."""
     quirks = redis.get_quirks(pytestconfig.getoption("vendor_version"))
     with adbc_driver_manager.dbapi.connect(
         driver=_driver_path(), db_kwargs=db_kwargs, autocommit=True
@@ -71,6 +71,13 @@ def secondary_schema(pytestconfig, db_kwargs) -> None:
                 f"CREATE SCHEMA IF NOT EXISTS {quirks.features.secondary_schema}"
             )
             cursor.adbc_statement.execute_update()
+            cursor.execute(
+                f"CREATE DATABASE IF NOT EXISTS {quirks.features.secondary_catalog}"
+            )
+            conn.adbc_current_catalog = quirks.features.secondary_catalog
+            cursor.execute(
+                f"CREATE SCHEMA IF NOT EXISTS {quirks.features.secondary_catalog_schema}"
+            )
 
 
 def pytest_sessionstart(session):

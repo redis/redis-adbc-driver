@@ -194,9 +194,6 @@ func (e *executor) markTemp() {
 }
 
 func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, error) {
-	if _, err := e.targetCatalog(ctx, t.Catalog); err != nil {
-		return nil, err
-	}
 	schema, name, err := e.resolveCatalogTable(ctx, t)
 	if err != nil {
 		return nil, err
