@@ -1,6 +1,7 @@
 # Specification
 
 Date: 2026-11-18. Status: implemented; see [validation](validation.md).
+Review: [PR #522](https://github.com/redis/redis-adbc-driver/pull/522).
 See [intent](intent.md) and [plan](plan.md).
 
 - Enable `adbc.redis.live_tables=true` and target a registered table in

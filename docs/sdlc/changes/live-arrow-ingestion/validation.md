@@ -60,3 +60,4 @@ creation/replacement remain explicit exclusions. Documentation describes counts
 as lower bounds after uncertain replies, and does not promise generated-key
 results or statement rollback. No remaining actionable self-review finding.
 Remote checks and any PR feedback are tracked on the PR.
+Review: [PR #522](https://github.com/redis/redis-adbc-driver/pull/522).

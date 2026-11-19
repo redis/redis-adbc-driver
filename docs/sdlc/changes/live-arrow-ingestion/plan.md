@@ -1,6 +1,7 @@
 # Plan and verification
 
 Date: 2026-11-18. Status: implemented and locally verified; PR checks pending.
+Review: [PR #522](https://github.com/redis/redis-adbc-driver/pull/522).
 See [intent](intent.md) and [specification](spec.md).
 
 1. Inspect Arrow ingestion, live SQL defaults, source INSERT batching, execution
