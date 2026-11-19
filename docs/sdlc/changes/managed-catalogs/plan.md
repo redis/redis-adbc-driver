@@ -9,7 +9,7 @@ presentation; virtual catalog filtering; reserved input guards. Existing managed
 write publication supplies statement atomicity and conflict detection. Separate
 constraint work integrates logical catalog names into FK usage metadata.
 
-Verification so far:
+Verification:
 
 - Unit identity round trips and reserved internal input rejection: passed.
 - Focused Go catalog lifecycle on Redis Software 8.8.0, three shards, active
@@ -18,10 +18,12 @@ Verification so far:
   information_schema, pg_namespace, GetTableSchema, and DROP/recreate isolation.
 - Full unit-only Go suite: passed (all packages); integration skips in this pass
   are not compatibility evidence.
-- Combined native Arrow/constraint/catalog cases: pending consolidated branch
-  verification.
+- Combined native Arrow/constraint/catalog cases: passed in the consolidated
+  581-test run, with one transaction-toggle skip and three passing subtests.
+- Catalog boundary/concurrency tests, exact restricted-reader policy and shared
+  pinned catalog metadata: passed; see [combined evidence](../adbc-validation-gaps/validation.md).
 
 Follow-up verification adds stale session selection, reserved quoted identifiers,
 explicit virtual system-schema refusal, and catalog-qualified view behavior.
-PR review/release links will be supplied by the consolidated change; no release
-or human approval is inferred from this record.
+Review and hosted checks: [PR #543](https://github.com/redis/redis-adbc-driver/pull/543).
+No release or human approval is inferred from this record.

@@ -1,6 +1,6 @@
 # Intent
 
-Date: 2026-11-19. Status: implemented, integration verification in progress.
+Date: 2026-11-19. Status: implemented; combined local verification passed.
 Requestor: repository user. Source baseline: `3e45955b`.
 Issues: [#538](https://github.com/redis/redis-adbc-driver/issues/538),
 [#539](https://github.com/redis/redis-adbc-driver/issues/539),

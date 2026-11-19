@@ -46,5 +46,8 @@ at most 256 successful successor steps within the same 10-second context, checks
 the pinned live source after every step, fails any error, and requires the target
 three rows plus its index/directory/graph registration to be removed. An explicit
 10-second < 2-minute snapshot lease assertion preserves the no-lease-wait check.
-No production cleanup behavior changes. Root's original-pair reproduction and
-patched Software rerun are pending; the helper compiles in unit-only mode.
+No production cleanup behavior changes. The isolated original pair passed ten runs (the original failure needed broader
+queue state); the patched pair also passed ten runs. Final Go unit packages,
+25 focused Software tests and the native 581-test suite passed. See the
+[combined evidence](../adbc-validation-gaps/validation.md) and
+[PR #543](https://github.com/redis/redis-adbc-driver/pull/543).

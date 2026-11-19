@@ -1,6 +1,6 @@
 # Validation tracking
 
-Date: 2026-11-19. Author: Codex. Status: implementation and integration validation in progress.
+Date: 2026-11-19. Author: Codex. Status: implementation complete; local validation recorded below.
 See [intent](intent.md), [specification](spec.md), and [plan](plan.md).
 
 Baseline release evidence is historical: v0.0.30's primary ADBC runs reported
@@ -25,13 +25,14 @@ artifacts remain in ignored build outputs. No ClickBench run is requested.
   Redis Software 8.8.0, three shards and active 4x QPF before execution.
 - #535/#536: isolated implementation passed its full unit-only Go suite and
   `TestSQL(Declaration|Constraint|Check|PrimaryKey)` on wrapper-verified Software
-  8.8.0 with active 4x QPF. Combined catalog/native validation remains pending.
+  8.8.0 with active 4x QPF. Combined catalog/native validation subsequently passed below.
 
 The above isolated results do not substitute for final integrated validation.
 
 ## Combined native validation
 
-The Makefile-built source library, Python 3.14.10 and native driver manager passed
+The initial combined run with the Makefile-built source library, Python 3.14.10
+and native driver manager passed
 **580 tests, one skip and three subtests** on verified Redis Software 8.8.0 with
 three shards and active 4x QPF. The sole skip is transaction toggling (#542),
 which is outside this change. The XML report confirms all seven requested
@@ -50,13 +51,62 @@ upstream cases executed and passed:
 The run also includes same-name/different-data catalog isolation, ordered UNIQUE
 and FK metadata, table/column rename and name reuse, same-column-name Arrow
 replacement invalidating old reference usage, and unknown-catalog refusal before
-input consumption. Final qualified-DDL registry dependency refinements were
-subsequently added; native confirmation after that refinement remains pending.
+input consumption. Final qualified-DDL registry dependencies and advanced-execution scope guards
+are included in the final native confirmation recorded below.
 
-Separately, integrated disposable catalog SQL lifecycle and selected-generation /
-reserved-name boundary tests passed on the verified fixture. Full integrated
-unit-only Go packages passed. Broader Software Go integration is in progress;
-its first failure exposed an existing cleanup recovery test's assumption that
-its next global collector step must select a specific garbage generation.
-Investigation and a bounded-progress test correction are in progress; no skip or
-production cleanup relaxation is proposed.
+## Final integrated checks
+
+- All Go packages passed the final unit-only suite (`env -u REDIS_URI -u
+  REDIS_SNAPSHOT_URI go test -count=1 -p 1 ./...`).
+- `^TestSnapshotCatalog` passed with the disposable snapshot URI: seven top-level
+  tests, including the three new lifecycle, stale-selection/boundary, and
+  in-flight qualified-DDL DROP/recreate conflict tests. These names participate
+  in the existing dedicated snapshot CI shards.
+- Twenty-five focused ordinary Go tests passed: catalog identity/command-policy/
+  advanced-refusal tests, declaration lifecycle and snapshot ALTER/same-name Arrow
+  replacement tests, CHECK/PK regressions, schema-scope errors, COMMENT errors and
+  temporary-table compatibility.
+- Cleanup recovery passed ten repeated paired runs. The original full ordinary
+  run exposed a queue-order assumption; the isolated original pair passed ten
+  runs, confirming the failure depended on broader queue state rather than
+  reliably reproducing in isolation. The corrected helper permits bounded queue
+  progress under the original ten-second deadline (less than the two-minute
+  snapshot lease), checks pinned data on every step, requires exactly three
+  target deletions, and retains index/directory/graph removal assertions.
+  No production cleanup code or skip was changed.
+- Actual Software RBAC tests passed for both default metadata/table-type filters
+  and named-catalog GetObjects/GetTableSchema. Discovery made no management ACL
+  writes. Registry access uses existing HGET/HGETALL commands and a narrow
+  read-only `workspace:*:catalogs` metadata key grant. Policy regressions retain
+  exclusion of captured import values, journals, private workspace payloads and
+  managed row keys. Existing roles need the current generated reader policy.
+
+The first full ordinary Software Go run completed all packages and exposed five
+failures: the cleanup assumption, three old cross-catalog error expectations,
+and temporary-table error wording. All five were corrected and their focused
+reruns passed. Other tests in that full run passed or retained their existing
+optional/environment skips; protocol ACL-user tests remain unavailable through
+Software's Redis endpoint, while the real management-API RBAC tests above ran.
+
+## Final native confirmation
+
+The final source library passed **581 tests, one transaction-toggle skip and three
+subtests** on the same wrapper-verified Software configuration. All seven named
+upstream cases passed in the final XML report. The additional test verifies
+named-catalog GetObjects/GetTableSchema stay pinned through ALTER and table
+replacement, show fresh metadata after release/acquire, and continue refusing
+unsupported named-catalog row execution.
+
+An intermediate final run exposed two existing shared-snapshot regressions from
+an overbroad named-catalog metadata refusal. The fix retains whole-root pinned
+metadata discovery while continuing to refuse unverified named row execution.
+Both existing shared-snapshot tests and the new metadata test passed together,
+then the complete 581-test suite passed. No test was skipped or weakened to
+resolve this regression. The actual restricted-reader key refusal was likewise
+reproduced, fixed by the exact registry metadata read pattern, and rerun
+successfully with unchanged management ACLs during discovery.
+
+Hosted final-source, full-suite checks are tracked on
+[PR #543](https://github.com/redis/redis-adbc-driver/pull/543/checks). Raw logs and
+XML reports remain in ignored build outputs; no operational identifiers,
+credentials, endpoint configuration or license artifacts are included here.

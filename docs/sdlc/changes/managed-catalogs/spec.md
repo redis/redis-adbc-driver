@@ -1,6 +1,6 @@
 # Contract
 
-Date: 2026-11-19. Status: implemented; pending combined PR validation.
+Date: 2026-11-19. Status: implemented; combined local verification passed.
 Source baseline: `3e45955b`. See [intent](intent.md) and [plan](plan.md).
 
 Named catalogs are persisted in a snapshot-managed metadata hash whose values

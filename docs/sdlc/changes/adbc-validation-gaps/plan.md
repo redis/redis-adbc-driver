@@ -1,6 +1,6 @@
 # Plan
 
-Date: 2026-11-19. Author: Codex. Status: implementation in progress.
+Date: 2026-11-19. Author: Codex. Status: implemented; local verification complete; PR review tracked separately.
 See [intent](intent.md), [specification](spec.md), and [validation](validation.md).
 
 1. Constraint subagent owns parsing/persistence/GetObjects declaration metadata
