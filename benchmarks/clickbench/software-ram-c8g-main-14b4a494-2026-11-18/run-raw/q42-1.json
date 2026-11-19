@@ -1,0 +1,83 @@
+{
+  "seconds": 1.5953416090051178,
+  "stage_seconds": {
+    "connect": 0.0194676429964602,
+    "session_setup": 0.0029740180034423247,
+    "execute": 1.594769590999931,
+    "arrow_fetch": 0.00013163400581106544,
+    "output_fingerprint": 0.00010089499846799299
+  },
+  "query_workers": 32,
+  "worker_grant": 0,
+  "rows": 10,
+  "values": [
+    [
+      1907,
+      563,
+      1
+    ],
+    [
+      1278,
+      692,
+      1
+    ],
+    [
+      1643,
+      536,
+      1
+    ],
+    [
+      1347,
+      909,
+      1
+    ],
+    [
+      1115,
+      729,
+      1
+    ],
+    [
+      1095,
+      744,
+      1
+    ],
+    [
+      1765,
+      598,
+      1
+    ],
+    [
+      1492,
+      623,
+      1
+    ],
+    [
+      1858,
+      690,
+      1
+    ],
+    [
+      907,
+      1767,
+      1
+    ]
+  ],
+  "fingerprint": "a2e5dff68294b5620b015c698bf39fcad12195a9cffaddf26440f1edc5d7efe8",
+  "trial_wall_seconds": 1.6272286690000328,
+  "process_user_cpu_seconds": 1.826252,
+  "process_system_cpu_seconds": 0.096919,
+  "process_peak_rss_bytes": 152899584,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "ce5c3bfd3868872b0bfc81c2d87875b8a73a6a5cb15d719a1196c94d24cf029e",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "seconds": null,
+  "error_type": "QueryDeadline",
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 1,
+    "trial_memory_peak_bytes": 93188096,
+    "seconds": null,
+    "error_type": "QueryDeadline"
+  },
+  "redaction": {
+    "source_record_sha256": "8473d8d58e6fec61fe1c29b6b7337cbee45615a2321976f3233e026430ef86f3",
+    "omitted_fields": [],
+    "values_and_measured_timing_unchanged": true
+  },
+  "partial_progress": {
+    "status": "running",
+    "active_stage": "execute",
+    "stage_seconds": {
+      "connect": 0.01947354499861831,
+      "session_setup": 0.0035546819999581203
+    },
+    "active_stage_elapsed_seconds": 295.0165825969998,
+    "trial_wall_seconds": 295.03998595099984,
+    "process_user_cpu_seconds": 312.674831,
+    "process_system_cpu_seconds": 17.398204,
+    "process_peak_rss_bytes": 207540224,
+    "execution_summary": {
+      "status": "running",
+      "phase": "select_topk",
+      "execute_elapsed_seconds": 295.001130996,
+      "worker_grant": 0,
+      "processed_rows": 35524608,
+      "matched_rows": 3809944,
+      "connection_read_bytes": 3826171765,
+      "process_heap_bytes": 15584696
+    },
+    "source_record_sha256": "2d98850a7c15a4248b3d27ad651cb9e231979f42c50c4a648b0421a906c29057",
+    "is_last_checkpoint_not_a_successful_result": true
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "query": 42,
+  "sql": "SELECT WindowClientWidth, WindowClientHeight, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND DontCountHits = 0 AND URLHash = 2868770270353813622 GROUP BY WindowClientWidth, WindowClientHeight ORDER BY PageViews DESC LIMIT 10 OFFSET 10000;",
+  "metadata": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "rows": [
+    [
+      1910,
+      868,
+      1
+    ],
+    [
+      1333,
+      732,
+      1
+    ],
+    [
+      1490,
+      924,
+      1
+    ],
+    [
+      1996,
+      821,
+      1
+    ],
+    [
+      1408,
+      844,
+      1
+    ],
+    [
+      1654,
+      646,
+      1
+    ],
+    [
+      1324,
+      544,
+      1
+    ],
+    [
+      1667,
+      888,
+      1
+    ],
+    [
+      576,
+      691,
+      1
+    ],
+    [
+      1333,
+      981,
+      1
+    ]
+  ]
+}

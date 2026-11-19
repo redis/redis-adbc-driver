@@ -1,0 +1,67 @@
+{
+  "query": 22,
+  "sql": "SELECT SearchPhrase, MIN(URL), COUNT(*) AS c FROM hits WHERE URL LIKE '%google%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;",
+  "metadata": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "rows": [
+    [
+      "\u043f\u0440\u043e\u043a\u0443\u0440 \u0433\u043e\u0440\u0431\u0443\u0448\u0438",
+      "http://smeshariki.ru/googleTBR%26ad",
+      60
+    ],
+    [
+      "\u0440\u0438\u043c\u0441\u043a\u043e\u043c \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0435\u043d\u043d\u044b for cry",
+      "http:%2F%2Fwwww.googlead&aktional",
+      24
+    ],
+    [
+      "\u0441\u0442\u043e\u0438\u0442 \u043f\u043e\u0445\u0443\u0434\u0435\u043d",
+      "http://smeshariki.ru/index.ua/doc/22229/googlead%26aktion=2&input_bdsmpeople.ru/real-estate=0&state=2013070519381",
+      23
+    ],
+    [
+      "\u0438\u0441\u043f\u0430\u043d\u0447 \u0431\u043e\u0431 \u043d\u043e\u0432\u043e\u0441\u0442\u0438 \u0434\u0435\u0439\u0441\u043a\u0430\u044f",
+      "http://smeshariki.ru/recipes/show/6840872&trafkey=6d0fc12c54059/loukhaAUXI&where=all&filter/Mitsubishi/google",
+      21
+    ],
+    [
+      "\u043f\u0440\u043e\u043a\u0443\u0440 \u0433\u043e\u0442\u043e\u0432\u043a\u0438 \u0432\u0438\u0434\u0435\u043e\u044d\u043d\u0434\u043e\u043c\u0435\u043d\u044f",
+      "http://smeshariki.ru/googleTBR%26ad",
+      14
+    ],
+    [
+      "\u043f\u0440\u043e\u043a\u0443\u0440 \u0433\u0438\u043f\u043e\u0430\u043b\u043b\u0435\u0440\u044b",
+      "http://smeshariki.ru/googleTBR%26ad",
+      11
+    ],
+    [
+      "\u043a\u0430\u043c\u0435\u0434\u0438\u0446\u0438\u043d\u0441\u043a \u0430\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c\u043d\u0438\u0445 \u0443\u0441\u043b\u043e\u0432\u043e\u0434\u043a\u0438 \u043d\u0430 \u0432 \u043a\u0440\u0435\u043c",
+      "http://video.yandex.php?com=google.ru/arts/searchAutoSearch",
+      9
+    ],
+    [
+      "\u0443\u043d\u0438\u0432\u0435\u0440 11.6/1366x768/4096mb ddressary of thing",
+      "http://smeshariki.ru/index.ua/syllanet.ru/business/hotels.turizm.ru/igooglead%26ar_sliceid%3D1216629/0/&&puid2=15&lo=http",
+      8
+    ],
+    [
+      "\u0432\u0441\u043f\u043e\u043c\u043d\u044e \u043e \u043d\u0430\u0437\u0432\u0430\u043d\u044b \u043c\u043e\u043d\u0441\u0442\u044d\u0440",
+      "http://tienskaia-moda-zhienskaia-obl.irr.ru/ch/google-c-38208",
+      7
+    ],
+    [
+      "\u043a\u0443\u043f\u0438\u0442\u044c \u0442\u0440\u0443\u0434\u043e\u0432\u0430\u043d\u0456 \u0440\u0435\u0437\u044e\u043c\u0435 \u043c\u0435\u0440\u0442\u043d\u044b\u0439 \u0434\u0438\u043d\u0430 \u043a\u0430\u0431\u0438\u043d\u0441\u043a\u0438\u0439 \u043b\u0435\u0436\u0438\u0442 \u0437\u0430\u0434\u043d\u0435\u0435 \u0443\u0441\u0442\u0430\u043d",
+      "http://video.yandex.php?com=google.ru/arts/searchAutoSearch",
+      7
+    ]
+  ]
+}

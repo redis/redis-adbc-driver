@@ -1,0 +1,13 @@
+{
+  "seconds": null,
+  "status": "skipped",
+  "skip_reason": "FirstTrialQueryDeadline",
+  "trigger_trial": 1,
+  "timeout_seconds": 300,
+  "isolation": {},
+  "redaction": {
+    "source_record_sha256": "3a8842a206fd5f3442e06bbf60978b0b66618129e36754be1828300716d698fc",
+    "omitted_fields": [],
+    "values_and_measured_timing_unchanged": true
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "seconds": 9.647011614004441,
+  "stage_seconds": {
+    "connect": 0.019751037005335093,
+    "session_setup": 0.0033128180002677254,
+    "execute": 9.646240045003651,
+    "arrow_fetch": 0.00019990700093330815,
+    "output_fingerprint": 0.00015558899758616462
+  },
+  "query_workers": 32,
+  "worker_grant": 0,
+  "rows": 10,
+  "values": [
+    [
+      "http://irr.ru/index.php?showalbum/login-leniya7777294,938303130",
+      102341
+    ],
+    [
+      "http://komme%2F27.0.1453.116",
+      51218
+    ],
+    [
+      "http://irr.ru/index.php?showalbum/login-kapusta-advert2668]=0&order_by=0",
+      18315
+    ],
+    [
+      "http://irr.ru/index.php?showalbum/login-kapustic/product_name",
+      16461
+    ],
+    [
+      "http://irr.ru/index.php",
+      12577
+    ],
+    [
+      "http://irr.ru/index.php?showalbum/login",
+      10880
+    ],
+    [
+      "http://komme%2F27.0.1453.116 Safari%2F5.0 (compatible; MSIE 9.0;",
+      7627
+    ],
+    [
+      "http://irr.ru/index.php?showalbum/login-kupalnik",
+      4369
+    ],
+    [
+      "http://irr.ru/index.php?showalbum/login-kapusta-advert27256.html_params",
+      4058
+    ],
+    [
+      "http://komme%2F27.0.1453.116 Safari",
+      3021
+    ]
+  ],
+  "fingerprint": "179ddb58193d110f091d245dec7763d5affa1ab617a3af78e22e99ecf0158782",
+  "trial_wall_seconds": 9.741134038005839,
+  "process_user_cpu_seconds": 16.437376,
+  "process_system_cpu_seconds": 0.8837749999999999,
+  "process_peak_rss_bytes": 708116480,
+  "isolation": {
+    "trial_memory_limit_mib": 86918,
+    "trial_isolation": "systemd-cgroup-v2",
+    "exit_code": 0
+  },
+  "redaction": {
+    "source_record_sha256": "e1587e9241ac5e09b233651ca4e23499b9a39282c7dd8577fa15aa0e2b8b68c5",
+    "omitted_fields": [
+      "aggregate_metrics",
+      "execution_diagnostics"
+    ],
+    "values_and_measured_timing_unchanged": true
+  }
+}

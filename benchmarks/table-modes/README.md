@@ -1,5 +1,14 @@
 # Managed/unmanaged table comparison
 
+[Released v0.0.29 slide refresh](release-v0029-2026-11-18/report.md) records all
+324 validated bulk/read/creation and point/query trials using checksummed official
+Linux arm64 release binaries on Redis Software with verified effective 4× QPF.
+Slides 4, 19–22 and the workload conclusion (originally 25, now 24) use these
+values. The separate [full ClickBench refresh](../clickbench/software-ram-c8g-main-14b4a494-2026-11-18/README.md)
+uses main 14b4a494 on matching c8g hardware.
+This is a fresh release reference, not a matched before/after speedup experiment.
+Audit with `python3 benchmarks/table-modes/release-v0029-2026-11-18/audit.py`.
+
 [Current Linux slide refresh](slides-refresh-2026-11-14/report.md) reruns the full
 156-trial bulk/read/creation and 168-trial OLTP/OLAP matrices on clean main
 `34f4c829`, using the same native library with the optional writer queue off.

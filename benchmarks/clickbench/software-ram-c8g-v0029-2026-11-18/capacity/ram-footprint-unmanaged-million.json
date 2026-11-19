@@ -1,0 +1,31 @@
+{
+  "rows": 1000000,
+  "full_rows": 99997497,
+  "columns": 105,
+  "backend": "Redis Software RAM",
+  "table_mode": "unmanaged",
+  "driver": "v0.0.29",
+  "index_columns": [
+    "advengineid",
+    "counterid",
+    "dontcounthits",
+    "eventdate",
+    "eventtime",
+    "isdownload",
+    "islink",
+    "isrefresh",
+    "refererhash",
+    "searchphrase",
+    "traficsourceid",
+    "urlhash",
+    "userid"
+  ],
+  "hash_max_listpack_value": 4096,
+  "source": "One million rows sampled uniformly across up to 1000 canonical source row groups; footprint extrapolation is an estimate",
+  "empty_used_memory_bytes": 4380800,
+  "load_seconds": 113.8930423549998,
+  "loaded_used_memory_bytes": 2660384136,
+  "projected_full_used_memory_bytes": 265598066423.65,
+  "server_rss_bytes": 2660384136,
+  "validated": true
+}

@@ -1,0 +1,17 @@
+{
+  "instance_type": "c8g.metal-48xl",
+  "vcpus": 192,
+  "memory_mib": 393216,
+  "architecture": "arm64",
+  "local_instance_storage": false,
+  "ebs": {
+    "type": "gp2",
+    "encrypted": true,
+    "delete_on_termination": true,
+    "size_gib": 500
+  },
+  "client_and_server_same_instance": true,
+  "region": "us-east-1",
+  "on_demand_compute_usd_per_hour": 7.65696,
+  "verification": "AWS DescribeInstances, DescribeInstanceTypes, DescribeVolumes and Pricing API; identifiers omitted"
+}

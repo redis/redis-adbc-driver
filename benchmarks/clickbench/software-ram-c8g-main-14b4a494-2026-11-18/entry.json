@@ -1,0 +1,278 @@
+{
+  "system": "Redis Software + ADBC main 14b4a494 (unmanaged, tuned)",
+  "date": "2026-11-18",
+  "machine": "c8g.metal-48xl",
+  "cluster_size": 1,
+  "hardware": "cpu",
+  "tuned": "yes",
+  "tags": [
+    "in-memory",
+    "no-cold"
+  ],
+  "storage_class": "memory",
+  "load_time": null,
+  "data_size": 262259371888,
+  "result": [
+    [
+      87.5767102940008,
+      89.20825774900004,
+      90.05451526899924
+    ],
+    [
+      4.091833709997445,
+      3.8990103689975513,
+      3.8795039280012134
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      4.326456178998342,
+      4.037281687000359,
+      4.0279761659985525
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      0.023512971001764527,
+      0.010509345000173198,
+      0.010367242997745052
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null
+    ],
+    [
+      9.647011614004441,
+      9.682177050002792,
+      9.627285513997776
+    ],
+    [
+      8.873207133998221,
+      8.786944284001947,
+      8.850157363995095
+    ],
+    [
+      2.4466386450003483,
+      2.3979764859977877,
+      2.3951938840036746
+    ],
+    [
+      13.223052244000428,
+      14.09523326800263,
+      13.63578797000082
+    ],
+    [
+      1.47448214799806,
+      1.4719346759957261,
+      1.4785647280004923
+    ],
+    [
+      1.5953416090051178,
+      1.5889800959994318,
+      1.5900420120015042
+    ],
+    [
+      8.807886941001925,
+      8.888512888996047,
+      8.844688249002502
+    ]
+  ],
+  "proprietary": "yes",
+  "metadata": {
+    "driver_version": "v0.0.29+main.14b4a494",
+    "driver_sha256": "1cc9a55002f2a1a77a40a7c6eaa4ad6b75d22f14028d0eadbf7b026f4e4426c4",
+    "driver_source_commit": "14b4a4940e78bf5496a0532caf6b8e800d38dd2a",
+    "ingestion_driver_version": "v0.0.29",
+    "original_ingestion_seconds": 7035.958632605,
+    "new_ingestion_performed": false,
+    "table_mode": "unmanaged",
+    "storage": "ram",
+    "shards": 3,
+    "qpf": {
+      "factor": 4,
+      "search_workers": 6,
+      "routing": "mnp",
+      "connections": 32
+    },
+    "hash_max_listpack_value": 4096,
+    "index_columns": [
+      "advengineid",
+      "counterid",
+      "dontcounthits",
+      "eventdate",
+      "eventtime",
+      "isdownload",
+      "islink",
+      "isrefresh",
+      "refererhash",
+      "searchphrase",
+      "traficsourceid",
+      "urlhash",
+      "userid"
+    ],
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "correctness": {
+      "failed": 36,
+      "skipped": 60,
+      "valid": 33
+    },
+    "query_timeout_seconds": 300,
+    "trial_memory_limit_mib": 86918,
+    "trial_memory_policy": "Same fixed 86918MiB boundary as original release baseline; server shares this host",
+    "first_trial": "first execution on already resident RAM data; no restart or cold-load claim",
+    "hot_comparison": "minimum of trials 2 and 3"
+  }
+}

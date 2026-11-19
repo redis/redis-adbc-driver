@@ -1,0 +1,30 @@
+{
+  "presentation_url": "https://docs.google.com/presentation/d/1CdXUMzl7VJNHgVke0hR0rl8n3TmqzcV19gNrnT8l-d8",
+  "slide_count": 28,
+  "primary_updated_slide": 23,
+  "other_changed_slides": [
+    4,
+    19,
+    20,
+    21,
+    22,
+    24
+  ],
+  "removed_slide": "Former slide 24, historical aggregate comparison",
+  "checked_all_rendered_slides": true,
+  "render_count_before_repair": 28,
+  "consolidated_repair_passes": 1,
+  "repaired_slides": [
+    4,
+    23,
+    24
+  ],
+  "other_25_slide_renders_byte_identical_after_repair": true,
+  "slide23_validated_hot_coverage": "11/43",
+  "slide23_uncertified_or_skipped_trial_slots": "96/129",
+  "overall_redis_score_withheld": true,
+  "notes_include_measurement_contract_and_historical_archive": true,
+  "final_pptx_sha256": "1213c2c1bfdce8d569ecdfd3fed00ab5cbbeaab464eafddcb6698c4eaaafa551",
+  "final_pdf_sha256": "ede3057c8391ba7ed0e97f5b56be3d9c9b6bf25e16f2e84cebfb1e8cf284fe62",
+  "raw_native_read_unavailable": "Connector exposes batch edits and Drive exports but no native presentation read; full PPTX structural/text readback and full-deck PDF render used."
+}
