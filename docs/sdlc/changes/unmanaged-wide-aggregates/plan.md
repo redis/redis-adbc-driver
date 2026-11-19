@@ -13,7 +13,7 @@ See [intent](intent.md) and [specification](spec.md).
 4. Verify semantics, source ownership, cancellation, failure and temporary cleanup.
 5. Run unit tests and focused Software race tests; review correctness/lifecycle,
    ownership/security and intent/evidence against REVIEW.md.
-6. Coordinate a separately labeled full-scale retest without overlapping other
+6. Run a separately labeled full-scale retest without overlapping other
    timed queries. Preserve deadline, memory cap, complete fetch and independent
    reference validation. Close only issues actually demonstrated resolved.
 
@@ -50,9 +50,10 @@ See [intent](intent.md) and [specification](spec.md).
   the complete-image source took 3.409–3.460 s. These are instrumented local
   synthetic results, exclude planning/Python/C-boundary costs, have no cold-cache
   claim, and are not full-scale ClickBench acceptance evidence.
-- No 100M-row improvement or original-query resolution is claimed yet. The live
-  full-scale host is running another chat's main-code baseline retest. No new
-  full-scale benchmark or export has been started by this change.
+- No completed 100M-row improvement or original-query resolution is claimed.
+  The separately owned full-scale host restored the compatible backup and
+  passed typed readiness. The first full-scale Q3 trial timed out. No new
+  full-scale ingestion or source export was requested by this change.
 
 ## Validation steering
 
@@ -76,4 +77,85 @@ projected execution 0.274–0.353s versus 3.397–3.542s for complete images. Th
 motivated the bounded larger-page follow-up; it is not full-scale acceptance
 evidence. The implementation additionally scales pages by fetched-field width,
 respects shared worker admission, and retains grouped/streamed page sizing.
-Fresh unit/race/build validation is required for this refinement before timing.
+The final full unit suite, broad Software race selection and macOS/Linux arm64
+shared-library builds passed for this refinement at candidate `b1a535fb`.
+The compatible full-scale backup has now been restored and typed readiness
+passed. The first Q3 trial still exceeded 300 seconds; see the
+[full-scale evidence](../../../../benchmarks/unmanaged-wide-aggregates/2026-11-18/README.md).
+
+## Full-scale follow-up
+
+The first `b1a535fb` Q3 trial consumed 76,608,000 rows by its last 299-second
+sample, then hit the unchanged 300-second deadline. The supervisor stopped;
+Q4–Q6 remain untested in this attempt. All four issues remain open.
+
+Eligible scalar consumers now decode authoritative native vectors directly,
+avoiding one transient HASH map per successful projected row. Native all-NULL
+and ACL fallbacks still retain the complete later HASH image, while other
+projection users retain map results. Reader worker joins, outcome checks,
+page order, cancellation, cursor cleanup and shared admission remain in place.
+Validate exact vector/map equivalence, schema binding and existing fault paths,
+then rebuild the Linux arm64 candidate and repeat the original bounded trials.
+
+For the vector follow-up, full unit and broad dedicated Software race tests
+passed (Go 1.27.4, active verified 4x QPF), and the Linux arm64 library built.
+Full-scale Q3 and Q4 then failed the original deadline, as recorded below.
+
+Candidate `c4ed9f71` also missed Q3 at 300 seconds (78,080,000 rows at the
+last sample), and separately missed Q4 (80,608,000 rows). A bounded 90-second
+read-only Q3 diagnostic with a 50-second CPU profile found substantial generic
+RESP Search map allocation and GC work. It is not acceptance timing. Eligible
+key-only scalar discovery now uses an owned raw RESP frame from the existing
+client, retaining TLS/RESP3, coordinator routing, no retry, exact binary keys,
+warning rejection, cursor cleanup and all readiness checks. Other cursor shapes
+retain generic decoding. This requires parser fault/fuzz checks and fresh full
+Software and full-scale validation; no issue resolution is claimed.
+
+The raw-key decoder passes the full unit suite, broad dedicated Software race
+selection, focused parser/native-error/lost-reply/cleanup race checks, and a
+15-second parser fuzz run (212,325 executions). Exact keys include zero bytes,
+UTF-8 and CRLF; tests cover truncation at every byte, malformed attributes,
+partial warnings, nested NULL warnings and preserved cleanup cursor IDs.
+Shared-library build and fresh full-scale acceptance remain pending.
+
+Candidate `81cbc851` reduced Q3 allocation substantially but again missed
+300 seconds (74,944,000 rows at its last sample). A separate bounded diagnostic
+attributed 36.6 of 50 sampled wall seconds to cursor discovery, 10.0 to native
+fetches and 3.3 to reduction. The next refinement moves the established
+single-prefix row-key filter to the client for eligible scalar discovery.
+The registered source index still supplies membership and SQL candidates;
+nested collections are removed before native reads, while unexpected prefixes
+fail. Foreign/multiple-prefix shapes keep existing filtering. Complete-image
+regressions now include corrupt excluded nested HASHes and an included empty
+suffix row to verify matching membership and decode/error behavior.
+
+Membership regression testing caught existing Search expression edges: its
+negative-length substring omits the final byte and contains stops at NUL. The
+client predicate now preserves those exact historical semantics rather than
+substituting canonical `isRowKey`. Dedicated Software tests compare key sets
+against the server expression for empty/UTF-8/NUL prefixes and suffixes, nested
+colons and trailing colons. Existing incorrect membership is not silently
+changed by this optimization. See Redis Search's
+[string function implementation](https://github.com/RediSearch/RediSearch/blob/v2.10.24/src/aggregate/functions/string.c)
+and the current Software equivalence regression.
+
+The fast source retains server filtering for prefixes containing NUL: native
+Search prefix matching itself can include shorter keys in that case. Predicate
+equivalence is tested for those cases too, but they do not receive this source
+optimization. This preserves their existing behavior without a new prefix proof.
+
+The final client-filter refinement passed the full unit suite and broad
+dedicated Software race selection in 66 seconds, including direct server
+predicate equivalence and complete-image/Arrow comparisons with excluded corrupt
+rows and legacy included binary/trailing-colon/empty-suffix rows. Full-scale
+acceptance is still required.
+
+## Investigation outcome
+
+`7a0120ef` again hit Q3's original deadline (78,880,000 rows at 299 seconds).
+An instrumented 64K-page private overlay was also flat (22,848,000 rows at
+89 seconds); the implementation retains its 32K bound. Allocation savings and
+client predicate relocation have not met full-scale acceptance. All candidate
+trials are stopped, their evidence is retained, and PR #503 remains draft.
+The issues remain open; a different scan design or server improvement requires
+new evidence. Do not claim these experimental changes resolve the reports.

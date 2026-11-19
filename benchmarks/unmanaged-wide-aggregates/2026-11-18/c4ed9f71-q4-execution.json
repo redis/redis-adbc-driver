@@ -1,0 +1,26 @@
+{
+  "aggregate_metrics": {},
+  "connection_read_bytes": 7945948124,
+  "connection_written_bytes": 3618404210,
+  "execute_elapsed_seconds": 300.000925871,
+  "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+  "matched_rows": 80608000,
+  "phase": "serial_aggregate",
+  "plan": {
+    "bound_residual": false,
+    "input_slots": 1,
+    "kind": "typed_aggregate_inputs",
+    "live_unmanaged": true
+  },
+  "process_allocated_bytes_during_execute": 133187803736,
+  "process_heap_bytes": 33303288,
+  "processed_rows": 80608000,
+  "redis_commands": 80610599,
+  "redis_round_trip_worker_seconds": 1663.9054177,
+  "redis_server_profile": null,
+  "sampled_at": "2026-11-19T01:40:50.805335916Z",
+  "socket_read_worker_seconds": 1502.375757443,
+  "status": "running",
+  "version": 1,
+  "worker_grant": 32
+}

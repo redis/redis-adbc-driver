@@ -24,7 +24,24 @@ inputs keep 4,096-key pages. Workers fetch disjoint 1,000-key chunks; decoding
 and reduction follow page order. Large values and complete-image NULL/permission
 fallbacks can exceed nominal page targets; this is not a process memory limit. Unknown outcomes cancel
 and join sibling workers before return, without replay. Cursor cleanup precedes
-release of the scan grant. The subsequent DISTINCT merge uses no fetch workers.
+release of the scan grant. The subsequent DISTINCT merge uses no fetch workers. Eligible scalar consumers
+can decode exact native vectors in metadata order without building a HASH map;
+complete-image fallback rows remain intact and are never combined with a
+previous vector. Residual predicates keep their established map consumer.
+
+Key-only scalar cursor discovery may decode an owned raw RESP3 frame through
+its existing client and coordinator. Exact binary source keys are copied;
+partial-result warnings and malformed replies fail without replay. Recoverable
+cursor IDs are retained for bounded cleanup, including parser failures. Ordinary
+and grouped cursor shapes retain their established decoder.
+
+For a single verified registered prefix without zero bytes, eligible scalar key
+discovery can apply the existing Search rowKeyFilter in the client before
+native reads. Preserve its negative-length substring and zero-terminated
+contains edges; do not substitute the stronger canonical isRowKey rule. A key
+outside the registered prefix fails. Foreign, multiple-prefix and zero-byte
+prefix shapes keep their existing filtering. Source-index definition checks
+are never cached or skipped.
 
 ## DISTINCT contract
 

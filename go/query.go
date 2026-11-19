@@ -614,6 +614,7 @@ type scanIter struct {
 	hashFetch          bool
 	unmanagedHashFetch bool // Search owns membership; live HASHes own values/existence
 	unmanagedRead      *unmanagedProjectionRead
+	unmanagedRowPrefix string // client equivalent of the single-prefix rowKeyFilter
 	// ties is set for a scan with a tieSort, which also records the page
 	// keep last saw (raw) and which of its rows it kept.
 	ties       *tieScan
@@ -811,7 +812,14 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		ar.load, ar.loadAll, ar.hashFetch = []string{"__key"}, false, true
 		if req.aggregateInputs && it.unmanagedRead != nil && len(it.unmanagedRead.fields) > 0 {
 			ar.aggregateInputs = true
+			ar.unmanagedKeys = true
 			ar.width = len(it.unmanagedRead.fields) + 1
+			// Only an exact single-prefix source can move this key predicate.
+			// NUL prefixes retain Search matching and its legacy prefix behavior.
+			if len(meta.UnmanagedPrefixes) == 1 && meta.UnmanagedPrefixes[0] == meta.prefix() && !strings.ContainsRune(meta.prefix(), 0) && ar.rowFilter == rowKeyFilter(meta.prefix()) {
+				it.unmanagedRowPrefix = meta.prefix()
+				ar.rowFilter = ""
+			}
 		}
 	}
 	if req.authoritative {
@@ -985,7 +993,14 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 	if err := it.checkReadiness(ctx); err != nil {
 		return nil, nil, err
 	}
-	page, err := it.cur.next(ctx)
+	var page []aggRow
+	var keys []string
+	var err error
+	if it.cur.keyOnly {
+		keys, err = it.cur.nextKeys(ctx)
+	} else {
+		page, err = it.cur.next(ctx)
+	}
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, nil, err
 	}
@@ -995,7 +1010,9 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 	if err != nil {
 		return nil, nil, err
 	}
-	keys := make([]string, len(page))
+	if !it.cur.keyOnly {
+		keys = make([]string, len(page))
+	}
 	for i, r := range page {
 		if !it.unmanagedHashFetch && !it.exists(r) {
 			page[i] = nil // deleted after the index matched it
@@ -1007,6 +1024,49 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		}
 	}
 	if it.unmanagedHashFetch {
+		if it.unmanagedRowPrefix != "" {
+			kept := keys[:0]
+			for _, key := range keys {
+				if !strings.HasPrefix(key, it.unmanagedRowPrefix) {
+					return nil, nil, errorf(adbc.StatusInvalidState, "unmanaged source index returned a key outside its registered prefix")
+				}
+				if unmanagedSearchRowKey(it.unmanagedRowPrefix, key) {
+					kept = append(kept, key)
+				}
+			}
+			keys = kept
+		}
+		if it.unmanagedRead != nil && it.projection != nil && it.projection.consumeUnmanaged != nil {
+			inputs, err := it.unmanagedRead.readInputs(ctx, keys)
+			if err != nil {
+				return nil, nil, err
+			}
+			if it.diagnostics != nil {
+				it.diagnostics.processed.Add(int64(len(inputs)))
+			}
+			var matched int64
+			for i, input := range inputs {
+				if input.values == nil && input.row == nil {
+					continue
+				}
+				if err := cancelled(ctx); err != nil {
+					return nil, nil, err
+				}
+				if input.values != nil {
+					err = it.projection.consumeUnmanaged(keys[i], input.values)
+				} else {
+					err = it.projection.consume(input.row)
+				}
+				if err != nil {
+					return nil, nil, err
+				}
+				matched++
+			}
+			if it.diagnostics != nil {
+				it.diagnostics.matched.Add(matched)
+			}
+			return nil, nil, nil
+		}
 		var fetched []aggRow
 		var err error
 		if it.unmanagedRead != nil {

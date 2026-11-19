@@ -23,6 +23,32 @@ func TestUnmanagedWideFullAggregateProjection(t *testing.T) {
 		}
 	}
 	h, _, table := unmanagedWideProjectionFixture(t, rows)
+	// The same source index also sees nested collection HASHes. Their corrupt
+	// unindexed values must be filtered before native decoding. Preserve the
+	// existing Search expression edges for NULs, trailing colons and empty suffixes.
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := st.(*statementImpl).conn.store.client
+	if err := st.Close(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	const prefix = "unmanaged_projection_source:"
+	for key, fields := range map[string]map[string]any{
+		prefix + "nested:excluded":             {"id": 1, "c1": "invalid integer", "c2": "invalid integer", "c104": "excluded collection"},
+		prefix + string([]byte{0}) + ":nested": {"id": 2, "c1": 5, "c2": 7, "c104": "included legacy binary key"},
+		prefix + "tail:":                       {"id": 3, "c1": 6, "c2": 8, "c104": "included legacy trailing colon"},
+		prefix + "a:" + string([]byte{0}):      {"id": 4, "c1": "invalid integer", "c2": "invalid integer", "c104": "excluded colon before zero"},
+		prefix:                                 {"id": 77, "c104": "included empty suffix"},
+	} {
+		if err := raw.HSet(h.ctx, key, fields).Err(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := (&store{client: raw}).awaitIndexReady(h.ctx, "unmanaged_projection_source_idx"); err != nil {
+		t.Fatal(err)
+	}
 	for _, query := range []string{
 		"SELECT SUM(id), COUNT(*), AVG(c1) FROM " + table,
 		"SELECT AVG(c2) FROM " + table,
