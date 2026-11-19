@@ -80,6 +80,12 @@ func (e *executor) scanBeyondCapPages(ctx context.Context, req scanRequest, para
 			seen[key] = true
 			unique = append(unique, key)
 		}
+		if req.meta.Live {
+			unique, err = e.store.liveCandidates(ctx, req.meta, req.where.query, unique)
+			if err != nil {
+				return err
+			}
+		}
 		fetched, err := fetch(ctx, unique, fields)
 		if err != nil {
 			return err

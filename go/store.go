@@ -212,6 +212,8 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
+	// Live descriptors own indexes and metadata, but never application HASHes.
+	Live bool `json:"live,omitempty"`
 	// Unmanaged descriptors own only catalog metadata, never source rows or
 	// indexes. Their schema is pinned but source values remain live.
 	Unmanaged         bool     `json:"unmanaged,omitempty"`
@@ -265,7 +267,7 @@ type tableMeta struct {
 	// PrimaryKey is the table's PRIMARY KEY, nil without one (see pkey.go).
 	PrimaryKey *keyMeta `json:"primary_key,omitempty"`
 	// Adopted is set for a table whose rows are HASHes that something else
-	// (an application) wrote, adopted in place with AdoptHashes (adopt.go).
+	// (an application) wrote, registered without copying (unmanaged.go or live.go).
 	// The driver doesn't own their keys: inserts require __key, wholesale
 	// deletion requires explicit opt-in, and re-keying is refused.
 	Adopted bool `json:"adopted,omitempty"`
@@ -978,6 +980,8 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	liveTables         bool
+	liveExecution      bool     // isolated executor for live DML
 	writerDomain       [32]byte // scheduling hint only, never a Redis proof
 	sharedMu           sync.Mutex
 	sharedAcquiring    bool
@@ -1088,6 +1092,9 @@ func (s *store) searchDo(ctx context.Context, index string, args ...any) *goredi
 }
 
 func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta, error) {
+	if schema == liveSchema && s.liveTables {
+		return s.liveTable(ctx, table)
+	}
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignTable(ctx, table)
 	}
@@ -1103,6 +1110,12 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 
 // Metadata/reference publication does not need to open unrelated row indexes.
 func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*tableMeta, error) {
+	if schema == liveSchema && s.liveTables {
+		return s.liveTable(ctx, table)
+	}
+	if s.liveExecution {
+		return nil, errorf(adbc.StatusNotImplemented, "live writes may read only live tables")
+	}
 	if sharedSnapshotScope(ctx) && (isTempSchema(schema) || isTempAlias(schema)) {
 		return nil, sharedSnapshotUnsupported()
 	}
@@ -1726,6 +1739,9 @@ func (s *store) listSchemas(ctx context.Context) ([]string, error) {
 	if !slices.Contains(members, defaultSchema) {
 		members = append(members, defaultSchema)
 	}
+	if s.liveTables && !slices.Contains(members, liveSchema) {
+		members = append(members, liveSchema)
+	}
 	if s.foreignIndexes && !slices.Contains(members, foreignSchema) {
 		members = append(members, foreignSchema)
 	}
@@ -1734,6 +1750,9 @@ func (s *store) listSchemas(ctx context.Context) ([]string, error) {
 }
 
 func (s *store) schemaExists(ctx context.Context, schema string) (bool, error) {
+	if schema == liveSchema && s.liveTables {
+		return true, nil
+	}
 	if schema == foreignSchema {
 		return s.foreignIndexes, nil
 	}
@@ -1751,7 +1770,7 @@ func (s *store) schemaExists(ctx context.Context, schema string) (bool, error) {
 }
 
 func (s *store) createSchema(ctx context.Context, schema string, ifNotExists bool) error {
-	if schema == foreignSchema || schema == pgCatalog {
+	if schema == foreignSchema || schema == pgCatalog || schema == liveSchema {
 		return virtualReadOnly(schema)
 	}
 	if schema == "" {
@@ -1780,7 +1799,7 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 // first. Views are dropped before tables; views in other schemas that read
 // these tables are not dropped (dependencies aren't tracked).
 func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade bool) error {
-	if schema == foreignSchema || schema == pgCatalog {
+	if schema == foreignSchema || schema == pgCatalog || schema == liveSchema && s.liveTables {
 		return virtualReadOnly(schema)
 	}
 	exists, err := s.schemaExists(ctx, schema)
@@ -1843,6 +1862,9 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 }
 
 func (s *store) listTables(ctx context.Context, schema string) ([]string, error) {
+	if schema == liveSchema && s.liveTables {
+		return s.liveNames(ctx)
+	}
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignNames(ctx)
 	}

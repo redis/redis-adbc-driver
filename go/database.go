@@ -41,6 +41,7 @@ type databaseImpl struct {
 	readerOnly                  bool
 	foreignIndexes              bool
 	foreignIndexesMode          string
+	liveTables                  bool
 	driverbase.DatabaseImplBase
 
 	tlsCAFile    string
@@ -288,6 +289,12 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 
 // Shared connection initialization for ADBC and native managed-table readers.
 func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, error) {
+	if d.liveTables && d.readerOnly {
+		return nil, errorf(adbc.StatusInvalidArgument, "live tables cannot be enabled on a retained-result-only connection")
+	}
+	if d.flex && d.liveTables {
+		return nil, flexUnsupported("live tables")
+	}
 	if d.flex && d.foreignIndexes && d.foreignIndexesMode != "unmanaged" {
 		return nil, flexUnsupported("foreign_indexes")
 	}
@@ -316,7 +323,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 	if err != nil {
 		return nil, err
 	}
-	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username), writerDomain: cfg.writerDomain}
+	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username), writerDomain: cfg.writerDomain, liveTables: d.liveTables}
 	if !d.readerOnly {
 		if err := st.searchDo(ctx, "", "FT._LIST").Err(); err != nil {
 			_ = client.Close()
@@ -326,7 +333,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 			_ = client.Close()
 			return nil, err
 		}
-		if err := st.openSnapshotCatalog(ctx, d.snapshots, d.foreignIndexes); err != nil {
+		if err := st.openSnapshotCatalog(ctx, d.snapshots, d.foreignIndexes || d.liveTables); err != nil {
 			_ = client.Close()
 			return nil, err
 		}
@@ -348,6 +355,12 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 			}
 			// Drop temporary objects of connections that exited without closing.
 			st.sweepTemp(ctx)
+		}
+	}
+	if d.liveTables {
+		if err := st.checkLiveNamespace(ctx); err != nil {
+			_ = client.Close()
+			return nil, err
 		}
 	}
 	if st.snapshots && d.rbac != nil && !st.restrictedReader {
@@ -504,6 +517,9 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 	case OptionStringPartitionResultLimits:
 		return retainedJSON(d.resultLimits()), nil
 	}
+	if key == OptionStringLiveTables {
+		return strconv.FormatBool(d.liveTables), nil
+	}
 	if key == OptionStringForeignIndexes {
 		return strconv.FormatBool(d.foreignIndexes), nil
 	}
@@ -614,6 +630,11 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "flex must be true or false")
 		}
 		d.flex = value == "true"
+	case OptionStringLiveTables:
+		if value != "true" && value != "false" {
+			return errorf(adbc.StatusInvalidArgument, "live_tables must be true or false")
+		}
+		d.liveTables = value == "true"
 	case OptionStringForeignIndexes:
 		v, err := parseForeignIndexes(value)
 		if err != nil {

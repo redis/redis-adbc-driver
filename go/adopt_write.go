@@ -17,6 +17,7 @@ package redis
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -32,7 +33,14 @@ func insertMeta(meta *tableMeta) *tableMeta {
 		return meta
 	}
 	m := *meta
-	m.Columns = append(slices.Clone(meta.Columns), columnMeta{Name: keyField, Type: typeString})
+	key := columnMeta{Name: keyField, Type: typeString}
+	if meta.Live {
+		// Use the normal SQL default evaluator: GEN_RANDOM_UUID is volatile,
+		// so VALUES and INSERT SELECT each receive a fresh key for every row.
+		// Explicit keys (including NULL) bypass the default as usual.
+		key.Default = "'" + strings.ReplaceAll(meta.prefix(), "'", "''") + "' || GEN_RANDOM_UUID()::TEXT"
+	}
+	m.Columns = append(slices.Clone(meta.Columns), key)
 	return &m
 }
 

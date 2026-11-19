@@ -84,6 +84,9 @@ func (c *retainedCapture) index(ctx context.Context, meta *tableMeta) (indexInfo
 }
 
 func (c *retainedCapture) table(ctx context.Context, meta *tableMeta) (*tableMeta, error) {
+	if meta.Live {
+		return nil, errorf(adbc.StatusNotImplemented, "live tables are not supported by retained execution")
+	}
 	if c.budget == nil || c.maxRows < 1 || c.maxKeys < 1 || len(meta.Columns) > 1024 {
 		return nil, errorf(adbc.StatusInvalidArgument, "invalid retained source capture limits")
 	}

@@ -46,6 +46,14 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.4).
   stopgap with exact-directory managed reads or SCAN/INKEYS unmanaged reads;
   see [Flex scope](docs/redis-flex-stopgap.md). Do not imply full
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
+- Opt-in live HASH tables (`adbc.redis.live_tables`, `redis_live`) are a separate
+  application-owned mode; see [live tables](docs/live-hash-tables.md). Their
+  driver-owned indexes/definitions use a separate control namespace. SQL DML
+  updates original HASHes per row, without managed publication. Never register
+  their prefixes with managed row GC or compaction, add internal row fields,
+  or drop their indexes with DD. Preserve original binary row keys, full
+  predicate rechecks, TTLs, unknown fields, insert collisions and vanished-row
+  checks. Keep managed/live writes and shared read snapshots isolated.
 - Managed-table statement snapshots are always enabled, using immutable
   generations in one hash slot; see [snapshots](docs/snapshots.md). Storage
   protocol version 17 rejects earlier draft formats; there is no disable switch

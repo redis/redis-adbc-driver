@@ -201,7 +201,7 @@ func (s *store) ownTempSchema(schema string) bool {
 // checkWritableSchema rejects creating objects in a reserved schema other
 // than this connection's own temporary schema.
 func (s *store) checkWritableSchema(schema string) error {
-	if schema == foreignSchema || schema == pgCatalog {
+	if schema == foreignSchema || schema == pgCatalog || schema == liveSchema {
 		return virtualReadOnly(schema)
 	}
 	if isInfoSchema(schema) {

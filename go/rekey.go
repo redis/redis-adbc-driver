@@ -1130,6 +1130,12 @@ func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
 		}
 		return s.checkKeys(ctx, meta, true)
 	}
+	if meta.Live {
+		if !s.liveExecution {
+			return errorf(adbc.StatusNotImplemented, "live writes require the live SQL executor")
+		}
+		return s.checkLiveIdentity(ctx, meta)
+	}
 	if meta.MaterializedSQL != "" {
 		return matViewWriteError(meta)
 	}
@@ -1296,6 +1302,9 @@ func (s *store) checkReads(ctx context.Context, metas []*tableMeta) error {
 // to readers once it has switched). Otherwise the metadata counts as read
 // again now.
 func (s *store) checkKeys(ctx context.Context, meta *tableMeta, writing bool) error {
+	if meta.Live {
+		return s.checkLiveIdentity(ctx, meta)
+	}
 	if s.snapshots {
 		scope := snapshotOf(ctx)
 		if scope == nil || scope.pin == nil {

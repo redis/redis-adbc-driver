@@ -483,6 +483,17 @@ func constraintRows(key, schema string, m *tableMeta) [][]Value {
 // information_schema.columns, a table whose metadata can't be read (it was
 // dropped meanwhile) is nil.
 func (s *store) getTables(ctx context.Context, schema string, tables []string) ([]*tableMeta, error) {
+	if schema == liveSchema && s.liveTables {
+		out := make([]*tableMeta, len(tables))
+		for i, t := range tables {
+			m, err := s.liveTable(ctx, t)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = m
+		}
+		return out, nil
+	}
 	if schema == foreignSchema && !s.snapshots {
 		out := make([]*tableMeta, len(tables))
 		for i, t := range tables {

@@ -18,23 +18,25 @@
 
 # Arrow Database Connectivity (ADBC) driver for Redis
 
-Query Redis with SQL, stream typed Apache Arrow results, and bulk-load Arrow data
-through a native [ADBC](https://arrow.apache.org/adbc/current/format/specification.html)
-driver. Redis HASHes store the rows; Redis Search (Query Engine) accelerates
-supported filters, sorting and aggregations.
+Use SQL to read and write Redis HASHes, fetch typed Apache Arrow results, and
+connect Redis to data tools through [ADBC](https://arrow.apache.org/adbc/current/format/specification.html).
+Redis Search (Query Engine) provides indexing; the driver supplies SQL execution,
+Arrow conversion, and table management. Use the
+[official Redis clients](https://redis.io/docs/latest/develop/clients/) for native
+Redis commands; add ADBC when your workflow needs SQL or Arrow.
 
-Use Redis ADBC when SQL and Arrow fit your application, analytics or data pipeline.
-For native Redis commands and data structures, start with the
-[official Redis clients](https://redis.io/docs/latest/develop/clients/).
+Choose whether the driver owns your data, your indexes, or both. You can keep
+ordinary application HASHes directly accessible to Redis clients while querying
+and updating those same HASHes through SQL.
 
-[Documentation website](https://redis.github.io/redis-adbc-driver/) ·
-[Choose your tool](docs/setup.md) · [Driver reference](docs/driver-reference.md)
+[Documentation](https://redis.github.io/redis-adbc-driver/) ·
+[Setup and installation](docs/setup.md) · [SQL reference](docs/driver-reference.md) ·
+[Build from source](docs/building.md)
 
 ## Contents
 
-- [Why a Redis ADBC driver?](#why-a-redis-adbc-driver)
-- [Quick start](#quick-start)
 - [How tables and snapshots work](#how-tables-and-snapshots-work)
+- [Quick start](#quick-start)
 - [Data tools and integration status](#data-tools-and-integration-status)
 - [Compatibility and validation](#compatibility-and-validation)
 - [Apache Arrow feature matrix](#apache-arrow-feature-matrix)
@@ -42,47 +44,81 @@ For native Redis commands and data structures, start with the
 - [Usage analytics](#usage-analytics)
 - [Development](#development)
 
-## Why a Redis ADBC driver?
+## How tables and snapshots work
 
-- **Use SQL for reads and writes.** Query individual records, join tables,
-  aggregate data, and use supported inserts, updates, deletes and DDL.
-- **Move typed data with Arrow.** Fetch record batches or bulk-ingest Arrow
-  tables and streams, with explicit type and NULL handling.
-- **Connect data tools.** Use Python, pandas, Polars, DuckDB and orchestration
-  tools through their documented ADBC paths or repository adapters.
-- **Bring application data into SQL.** Import eligible existing HASH collections
-  into private managed tables, then refresh explicitly when the source changes.
+The driver has **three table modes**. The main difference is who owns the HASHes
+and who maintains the Search indexes.
+
+| | Managed | Unmanaged | Live HASH tables |
+|---|---|---|---|
+| HASH owner | Driver | Application | Application |
+| Index manager | Driver | Application | Driver |
+| SQL reads and writes | Yes | Yes, through a registered application index | Yes, on the original HASHes |
+| Direct Redis reads and writes | Physical storage is internal; direct writes unsupported | Yes | Yes |
+| Read consistency | Statement snapshots | Live source values | Live source values |
+| SQL write publication | Supported writes publish atomically | Source writes can partially succeed | Per-row writes; a statement can partially succeed |
+| Copy of application data | Import creates a private copy | No copy | No copy |
+| Arrow ingestion | Supported | Supported within the unmanaged write contract | Not supported initially |
+
+**Choose managed tables** when the driver should own both data and indexes.
+They are the default for SQL/Arrow pipelines and consistent analytical reads.
+Supported writes go through the driver; importing application HASHes creates a
+private copy that needs explicit refresh. See the
+[managed-table walkthrough](docs/sql-redis-example.md) and
+[snapshot contract](docs/snapshots.md).
+
+**Choose unmanaged tables** when the application should own both data and indexes.
+Register an existing compatible Search index for SQL access to the original
+HASHes. SQL and Redis clients operate on the same data; the application controls
+index configuration and lifecycle. See the
+[unmanaged guide](docs/unmanaged-tables.md) for registration, examples, and limits.
+
+**Choose live HASH tables** when the application should own the data and the
+driver should own the indexes. SQL and Redis clients operate on the original
+HASHes; the driver creates and manages its Search index. This mode currently
+requires a source build. See the [live HASH guide](docs/live-hash-tables.md) for
+registration, SQL/Redis examples, automatic keys, and limits.
+
+All modes use autocommit; multi-statement transactions and rollback are unsupported.
+Unmanaged and live tables have no managed row snapshot: concurrent SQL and Redis
+changes can interleave, and read-modify-write updates can lose intervening changes.
+Direct Redis writes bypass SQL validation.
+
+See [managed snapshots](docs/snapshots.md) for storage compatibility and fixed limits,
+or the [ownership comparison](docs/managed-vs-unmanaged-tables.md) for more detail.
 
 ## Quick start
 
-This walkthrough installs a published Python wheel, starts a disposable Redis
-Software database, and runs queries over sample data. You need Git, Docker with
-Compose, Make, `curl`, `jq`, and Python (3.14 recommended; package minimum 3.14).
+This walkthrough builds the current source, starts a disposable Redis Software
+fixture, and queries sample managed tables.
 
-For an existing deployment or a different tool, use [Choose your tool and connect](docs/setup.md).
-Use a fresh, dedicated database for this walkthrough: the sample loader replaces
-any existing `customers` and `sales` tables. Legacy driver catalogs have no
-in-place upgrade path; see [storage compatibility](docs/snapshots.md).
+You need Git, Make, the Go toolchain declared in [go/go.mod](go/go.mod), a C compiler,
+Python 3.14+, Docker with Compose, OpenSSL, `curl`, and `jq`. For a packaged release instead,
+use [installation without building](docs/setup.md#install-without-building).
+Published packages can lag the capabilities described by this source checkout.
 
-### 1. Install the driver
-
-Clone the repository for the startup script and sample programs:
+### 1. Build and install
 
 ```bash
 git clone --depth 1 https://github.com/redis/redis-adbc-driver.git
 cd redis-adbc-driver
+make -C go build adbc-cli
+
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install 'adbc-driver-redis[dbapi]==0.0.18'
+python -m pip install -e './python[dbapi]'
+
+case "$(uname -s)" in
+  Darwin) export REDIS_ADBC_LIBRARY="$PWD/go/build/libadbc_driver_redis.dylib" ;;
+  Linux)  export REDIS_ADBC_LIBRARY="$PWD/go/build/libadbc_driver_redis.so" ;;
+esac
 ```
 
-The wheel bundles the native driver for macOS Apple Silicon (macOS 15+) and Linux
-x86-64/ARM64 (glibc 2.28+). See [installation options](docs/setup.md#install-without-building)
-for other tools, the [managed native installer](docs/native-installation.md) for
-native applications, or [Building from source](docs/building.md).
-
-This example uses published version 0.0.18. Feature documentation describes the
-current source tree and may require a newer build than this wheel.
+`REDIS_ADBC_LIBRARY` makes the Python wrapper use the library you just built.
+`go/build/redis-adbc` is the command-line tool for inspecting, importing, and
+registering HASH collections. See [building from source](docs/building.md) for
+platform details and [native installation](docs/native-installation.md) for other
+applications.
 
 ### 2. Start Redis Software
 
@@ -91,10 +127,13 @@ make -C go redis-up
 source go/build/test.env
 ```
 
-The setup creates a disposable, authenticated TLS Redis Software fixture with
-Search and verifies active **4× QPF**. Source the generated environment file in
-each terminal that runs the Python examples; it supplies the endpoint,
-credentials and certificate trust. Keep that file private.
+Setup starts an authenticated TLS Redis Software database with Search and verifies
+active **4× Query Performance Factor (QPF)**. Source the generated environment file
+in each terminal used for the examples; it supplies the endpoint, credentials, and
+certificate trust. Keep it private.
+
+Use a fresh, dedicated database. The sample loader replaces `customers` and `sales`;
+legacy driver catalogs have no in-place upgrade path.
 
 ### 3. Load the sample dataset
 
@@ -102,31 +141,19 @@ credentials and certificate trust. Keep that file private.
 python go/examples/load_sample.py
 ```
 
-The loader creates `customers` (50 rows through SQL) and `sales` (10,000 rows
-through Arrow ingestion) in the `public` schema. Use `--rows N` to change the
-sales row count. The `email` and `notes` columns are stored without indexing.
+This creates `public.customers` with 50 rows through SQL and `public.sales` with
+10,000 rows through Arrow ingestion. Pass `--rows N` to change the sales row count.
 
-### 4. Run SQL
-
-Run one statement:
+### 4. Run SQL and fetch Arrow results
 
 ```bash
 python go/examples/sql.py "SELECT COUNT(*) FROM sales"
-```
-
-Or open the interactive prompt and end each statement with `;`:
-
-```bash
 python go/examples/sql.py
 ```
 
-```sql
-SELECT order_id, country, product, quantity, unit_price
-FROM sales
-WHERE country = 'JPN' AND quantity >= 18
-ORDER BY unit_price DESC
-LIMIT 5;
+The second command opens an interactive prompt. End each statement with `;`:
 
+```sql
 SELECT country, COUNT(*) AS orders, SUM(quantity) AS units
 FROM sales
 GROUP BY country
@@ -140,141 +167,109 @@ ORDER BY orders DESC, c.name
 LIMIT 5;
 ```
 
-Continue with [sample SQL queries](docs/sample-queries.md) for subqueries, CTEs,
-window functions, date/time expressions, views and writes. To query from your own
-code, follow the [Python DB-API and DataFrame examples](docs/setup.md#python-dataframes-and-db-api).
+From your own Python code:
+
+```python
+import os
+from adbc_driver_redis import dbapi
+
+with dbapi.connect(os.environ["REDIS_URI"]) as conn:
+    with conn.cursor() as cur:
+        cur.execute("SELECT country, quantity FROM sales WHERE quantity >= 18")
+        table = cur.fetch_arrow_table()
+        print(table)
+```
+
+Continue with [sample queries](docs/sample-queries.md) for subqueries, CTEs, window
+functions, date/time expressions, views, and writes.
 
 ### 5. Clean up
+
+When finished with the examples:
 
 ```bash
 make -C go redis-down
 ```
 
-## How tables and snapshots work
-
-The driver has two table modes: **managed** and **unmanaged**. A connection can
-use tables of both modes; each table's mode defines ownership and write guarantees.
-
-**Managed tables are the default for SQL and Arrow workflows.** Write through
-the driver using SQL or supported Arrow ingestion. Each statement reads one
-committed generation, including streamed results, and supported writes publish
-atomically. Connections use autocommit; multi-statement transactions and rollback
-are unsupported.
-
-Read managed tables through SQL/ADBC. Ordinary Redis reads of physical HASHes or
-indexes do not resolve snapshot generations, row versions or tombstones, and
-direct writes bypass the storage protocol. The experimental
-[native client wrapper](docs/native-client.md) provides supported HASH-style reads
-through the snapshot reader; it requires a source build and internal `__rowid`
-values. Application-key lookup and `FT.SEARCH` are not implemented by the wrapper.
-
-Existing application HASHes remain application-owned. Adoption and foreign-index
-imports default to private managed copies; refresh explicitly to capture later
-source changes. Opt into [unmanaged tables](docs/unmanaged-tables.md) to read and
-write source HASHes directly without row snapshots or atomic multi-row writes.
-Unmanaged Arrow writes require explicit new `__key` values. Use `append` or
-`create_append` for existing registrations, or explicit source configuration for
-`create`/`create_append` of a new application collection. Errors report acknowledged
-rows and may leave partial source writes.
-Compare [managed and application-owned data](docs/managed-vs-unmanaged-tables.md#choose-by-use-case)
-for ownership, freshness and storage tradeoffs.
-
-See the [snapshot contract](docs/snapshots.md) for storage compatibility and fixed
-limits, the [architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
-for layout, and the [SQL INSERT and SELECT walkthrough](docs/sql-redis-example.md)
-for snapshot-aware storage examples.
-
 ## Data tools and integration status
-
-Choose a path, then follow its guide for installation, examples and validation limits:
 
 | Workflow | Guides |
 |---|---|
 | Python and DataFrames | [PyArrow](docs/integrations/pyarrow.md), [pandas](docs/integrations/pandas.md), [Polars](docs/integrations/polars.md) |
-| SQL exploration and BI | [DuckDB](docs/duckdb.md), [SQLAlchemy](docs/integrations/sqlalchemy.md), [Superset 6.1: unsupported](docs/integrations/superset.md), [R / DBI](docs/integrations/r-dbi.md) |
+| SQL exploration and BI | [DuckDB](docs/duckdb.md), [SQLAlchemy](docs/integrations/sqlalchemy.md), [R / DBI](docs/integrations/r-dbi.md) |
 | Orchestration | [Airflow](docs/integrations/airflow.md), [Dagster](docs/integrations/dagster.md), [Prefect](docs/integrations/prefect.md) |
 | Pipelines and migration | [dlt](docs/integrations/dlt.md), [Sling](docs/integrations/sling.md), [dbt](docs/integrations/dbt.md) |
 | Partitioned processing | [Dask](docs/integrations/dask.md), [Ray Data](docs/integrations/ray.md) |
 
-The [full integration index](docs/integrations/README.md) also covers notebooks,
-machine learning, visualization and custom workflows. The
-[ecosystem comparison](docs/data-engineering-adbc-support.md) distinguishes
-native connectors, custom adapters, local validation and unverified deployment paths.
-A guide's availability does not imply upstream endorsement or hosted-service support.
+Framework adapters for Airflow, Dagster, Dask, Ray, Prefect, dlt, and Superset live
+in the separate [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations)
+project. Follow each guide for installation and compatibility limits; the core
+driver package does not install those adapters. Superset 6.1 has a documented
+[compatibility blocker](docs/integrations/superset.md).
 
-For Flight SQL or JDBC clients, deploy the separate
-[Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight),
-which uses this driver as its SQL/Arrow backend. Check that project's client
-examples and compatibility matrix for supported connections.
+The [integration index](docs/integrations/README.md) and
+[ecosystem comparison](docs/data-engineering-adbc-support.md) distinguish native
+connectors, custom adapters, local validation, and unverified deployment paths.
+For Flight SQL or JDBC, see the separate
+[Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight).
 
 ## Compatibility and validation
 
-The driver requires **Redis Search (Query Engine)** and **RESP3**. Development and
-tests use Redis Software with active, verified **4× QPF**. QPF is a server setting,
-separate from driver worker settings; it does not promise a 4× speedup.
+**Redis Search (Query Engine) and RESP3 are required.** Development and tests use
+Redis Software with active, verified **4× QPF**. QPF is a server setting, separate
+from driver worker settings, and does not promise a 4× speedup.
 
-Recorded validation covers Redis Software, Redis Open Source (standalone and
-cluster), and Redis Cloud, including Cloud Pro. See the
-[compatibility report](docs/compatibility.md) for exact versions, dates, settings
-and limitations, and [server requirements](docs/driver-reference.md#server-requirements)
-for deployment and ACL requirements. Historical runs are evidence for their
-recorded configurations.
+The driver implements a PostgreSQL-oriented SQL dialect; it is not fully PostgreSQL
+compatible. See the [SQL reference](docs/driver-reference.md) and
+[compatibility report](docs/compatibility.md) for supported operations, measured
+coverage, exact server versions, and historical validation limits. That report
+includes Redis Software, Redis Open Source, and Redis Cloud configurations;
+historical results apply to their recorded server and settings.
 
-Administrator-configured [SQL SELECT grants](docs/sql-rbac.md) support a restricted
-Redis Software role/ACL mapping. Other privilege forms are rejected.
+[SQL SELECT grants](docs/sql-rbac.md) provide a restricted, administrator-configured
+Redis Software role/ACL mapping. They do not implement general SQL privileges.
 
-### Experimental Redis Flex stopgap
-
-The opt-in `adbc.redis.flex=true` path supports plain indexes and bounded reads
-on tested Software Flex builds. SQL restrictions remain and Cloud SQL is
-unvalidated. See [scope, usage and evidence](docs/redis-flex-stopgap.md) before
-using it; historical Cloud provisioning results are recorded separately in the
-[Flex compatibility report](docs/redis-flex-compatibility.md).
+The experimental `adbc.redis.flex=true` stopgap has a separate
+[scope and evidence](docs/redis-flex-stopgap.md). The new driver-index-owned live
+mode is not supported on Flex.
 
 ## Apache Arrow feature matrix
 
-The [detailed Arrow and ADBC matrix](docs/feature-matrices.md#apache-arrow-feature-matrix)
-covers types, ingestion, IPC, streaming, partitions, cancellation and limits.
-Supported interchange includes normalization; it does not guarantee preservation
-of every physical input encoding or extension identity.
-
-See [Arrow interoperability](docs/arrow-interoperability.md) for precise contracts,
-[Substrait](docs/substrait.md) for the bounded binary plan subset, and
-[experimental CUDA execution and Arrow C Device staging](docs/gpu-execution.md)
-for opt-in GPU paths. CPU execution is the default.
+See the [Arrow and ADBC matrix](docs/feature-matrices.md#apache-arrow-feature-matrix)
+for types, ingestion, IPC, streaming, partitions, cancellation, and limits.
+[Arrow interoperability](docs/arrow-interoperability.md),
+[Substrait](docs/substrait.md), and [experimental CUDA execution](docs/gpu-execution.md)
+describe their individual contracts. CPU execution is the default.
 
 ## Redis Software feature matrix
 
-The [detailed Redis Software matrix](docs/feature-matrices.md#redis-software-feature-matrix)
-separates driver capabilities from server administration and companion services.
-It includes authentication, TLS, cluster connectivity, recovery and deployment limits.
+The [Redis Software matrix](docs/feature-matrices.md#redis-software-feature-matrix)
+separates driver capabilities from server administration and companion services,
+including authentication, TLS, cluster connectivity, recovery, and deployment limits.
 
 ## Usage analytics
 
 [Product usage analytics](analytics/README.md) reports high-level statement types,
-execution counts, timings and row counts, plus documented source and deployment
-metadata. **SQL statements, query parameters, query results and database contents
-are not collected.** Reporting is on by default and uses
-`https://adbc-telemetry.sa.redislabs.com/v1/usage`.
+counts, timings, row counts, and documented source/deployment metadata. SQL text,
+query parameters, results, and database contents are not collected. Reporting is
+on by default, using `https://adbc-telemetry.sa.redislabs.com/v1/usage`.
 
 Opt out with the database option `adbc.redis.telemetry.enabled=false`.
 
 ## Development
 
-The Go implementation builds on [driverbase-go](https://github.com/adbc-drivers/driverbase-go)
-and uses the [ADBC validation suite](https://github.com/adbc-drivers/validation).
-Start with [Building from source](docs/building.md), [CLAUDE.md](CLAUDE.md),
-and the [development workflow](docs/sdlc/README.md).
-
-For the complete default Redis Software test suite:
-
 ```bash
+make -C go build adbc-cli
 make -C go test-software
 ```
 
-This target verifies effective 4× QPF and `noeviction` through the management API
-before running tests. Tests modify data; use a dedicated fixture. Concurrent
+The test target verifies effective 4× QPF and `noeviction` through the management
+API before running. Tests modify data; use a dedicated fixture. Concurrent
 sessions need separate Compose project names and API/database ports.
 
-For native distribution and registry packaging, see the
+Read [CLAUDE.md](CLAUDE.md), [building and testing](docs/building.md), and the
+[development workflow](docs/sdlc/README.md). The Go implementation builds on
+[driverbase-go](https://github.com/adbc-drivers/driverbase-go) and uses the
+[ADBC validation suite](https://github.com/adbc-drivers/validation).
+For native distribution and registration, see the
 [managed installer](docs/native-installation.md) and [dbc guide](docs/dbc.md).

@@ -8,6 +8,7 @@ package redis
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -42,7 +43,7 @@ func (s *store) foreignNames(ctx context.Context) ([]string, error) {
 	}
 	var names []string
 	for _, ix := range indexes {
-		if ix.keyType != "HASH" || snapshotDataID(ix.name) != "" {
+		if ix.keyType != "HASH" || snapshotDataID(ix.name) != "" || strings.HasPrefix(ix.name, liveIndexPrefix) {
 			continue
 		}
 		owned, err := s.redis(ctx).SIsMember(ctx, indexesKey, ix.name).Result()

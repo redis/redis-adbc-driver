@@ -156,11 +156,18 @@ func comparison(c Expr) (*ColumnRef, string, Expr, bool) {
 // missing value (widenMissing). A row ordering comparison pushes down the
 // bound it implies on its first item (keysetBound) and stays in the
 // residual.
-func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, params []Value) (wherePlan, error) {
+func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, params []Value) (wp wherePlan, err error) {
+	// Mutable source values can change after index matching. Live indexes
+	// supply candidates; evaluate the full predicate on the fetched image.
+	defer func() {
+		if meta.Live && !wp.none {
+			wp.residual = where
+		}
+	}()
 	if e.gpu != nil {
 		return wherePlan{query: "*", residual: where}, nil
 	}
-	wp := wherePlan{query: "*"}
+	wp = wherePlan{query: "*"}
 	if meta.SnapshotOverlay || e.store.flexSnapshotTable(meta) || e.store.flexEnabled() && meta.Unmanaged {
 		wp.original = where
 	}
@@ -541,7 +548,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 	if req.meta.isMem {
 		return e.scanMem(ctx, req, params)
 	}
-	if req.hashScan || len(req.meta.PendingCleanup) > 0 && req.where.keys == nil {
+	if req.hashScan || (req.meta.Live || len(req.meta.PendingCleanup) > 0) && req.where.keys == nil {
 		return e.scanBeyondCap(ctx, req, params)
 	}
 	if req.where.keys != nil && !req.meta.SnapshotOverlay && !(e.store.flexEnabled() && req.meta.Unmanaged) {
@@ -1200,7 +1207,7 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 	}
 	for i, raw := range fetched {
 		if raw == nil {
-			if !it.meta.Unmanaged && snapshotOf(it.env.ctx) != nil && it.cur != nil {
+			if !it.meta.Unmanaged && !it.meta.Live && snapshotOf(it.env.ctx) != nil && it.cur != nil {
 				return nil, nil, errorf(adbc.StatusIO, "a row from the published snapshot cursor disappeared")
 			}
 			continue
@@ -1485,7 +1492,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	if plan.qualify != nil {
 		columnRefs(plan.qualify, req.need)
 	}
-	if len(meta.PendingCleanup) > 0 && wp.keys == nil && !meta.isMem {
+	if (meta.Live || len(meta.PendingCleanup) > 0) && wp.keys == nil && !meta.isMem {
 		for _, o := range plan.order {
 			columnRefs(o.expr, req.need)
 		}
@@ -1505,6 +1512,9 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	// ORDER BY on indexed columns sorts inside the index; anything else is
 	// sorted by the driver after fetching.
 	indexSort := wp.keys == nil && !meta.isMem && !e.store.flexEnabled()
+	if meta.Live && len(plan.order) > 0 {
+		indexSort = false
+	}
 	var orderVisibility []snapshotIndexQuery
 	var nullOrderCols []columnMeta
 	var sortCols []columnMeta
@@ -2139,6 +2149,9 @@ func runtimeExactBigIntAggregate(meta *tableMeta, col columnMeta, mode string) b
 // SORTABLE index fields. ok is false when the query cannot be answered
 // exactly by the index; the caller then aggregates in the driver.
 func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func) ([]aggGroup, bool, error) {
+	if plan.meta.Live {
+		return nil, false, nil
+	}
 	if plan.meta.SnapshotOverlay {
 		return e.snapshotIndexAggregate(ctx, plan, wp, aggs)
 	}
