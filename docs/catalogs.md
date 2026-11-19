@@ -3,7 +3,8 @@
 The default catalog is `redis`; its default schema is `public`. Additional
 managed catalogs have independent schemas and tables within the same Redis
 endpoint and immutable managed metadata root. They are not Redis numbered
-databases or Redis security boundaries.
+databases or Redis security boundaries. Use a catalog-aware driver build for
+every client sharing a database with named catalogs.
 
 ```sql
 CREATE DATABASE analytics;
