@@ -167,13 +167,13 @@ func (e *executor) resolveCreate(ctx context.Context, t TableName, temporary boo
 			return "", "", errorf(adbc.StatusNotImplemented, "temporary objects require the redis catalog")
 		}
 		if t.Schema != "" && !isTempAlias(t.Schema) {
-			return "", "", errorf(adbc.StatusInvalidArgument, "temporary objects require pg_temp")
+			return "", "", errorf(adbc.StatusInvalidArgument, "cannot create a temporary table or view in schema %q (temporary objects are in pg_temp)", t.Schema)
 		}
 		schema, err := e.store.ensureTempSchema(ctx)
 		return schema, t.Name, err
 	}
 	if isTempSchema(t.Schema) {
-		return "", "", errorf(adbc.StatusInvalidArgument, "reserved temporary schema")
+		return "", "", errorf(adbc.StatusInvalidArgument, "schema name %q is reserved for temporary tables and views", t.Schema)
 	}
 	schema := t.Schema
 	if schema == "" {
