@@ -244,7 +244,10 @@ error, inspect source state before retrying a write.
 
 Unmanaged tables reject ALTER, TRUNCATE (including `truncate_adopted=true`),
 managed index changes, replacement without dedicated-source consent, retained write
-preparation, shared read snapshots, native row-ID reads and live partition reads.
+preparation, shared read snapshots and native row-ID reads. Default managed row-range
+partitions remain unsupported; explicit
+[unmanaged deferred partitions](unmanaged-partitions.md) use disjoint raw-key
+hash buckets and preserve live-source semantics.
 Data-changing WITH statements cannot stage unmanaged writes inside managed publication. The
 always-on managed snapshot option applies to managed tables only.
 

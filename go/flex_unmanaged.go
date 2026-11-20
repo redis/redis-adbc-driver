@@ -17,6 +17,7 @@ import (
 // sortable attributes or a server result cap. Deduplication retains one entry
 // per observed key; source values remain live and do not acquire snapshots.
 type flexUnmanagedScan struct {
+	partition      *unmanagedPartitionBucket
 	store          *store
 	meta           *tableMeta
 	scan           *keyScan
@@ -48,7 +49,7 @@ func (d *flexUnmanagedScan) next(ctx context.Context) (keys []string, rows []agg
 	if err := d.store.checkKeys(ctx, d.meta, false); err != nil {
 		return nil, nil, err
 	}
-	if err := d.store.checkUnmanagedIndex(ctx, d.meta); err != nil {
+	if err := d.checkIndex(ctx); err != nil {
 		return nil, nil, err
 	}
 	for len(d.pending) == 0 {
@@ -60,7 +61,11 @@ func (d *flexUnmanagedScan) next(ctx context.Context) (keys []string, rows []agg
 				return nil, nil, io.EOF
 			}
 			prefix := d.meta.UnmanagedPrefixes[d.prefix]
-			d.scan, err = (&hashConn{client: d.store.client}).scanKeys(ctx, prefix, "hash")
+			client := d.store.client
+			if d.partition != nil {
+				client = d.store.redis(ctx)
+			}
+			d.scan, err = (&hashConn{client: client}).scanKeys(ctx, prefix, "hash")
 			if err != nil {
 				return nil, nil, err
 			}
@@ -70,13 +75,31 @@ func (d *flexUnmanagedScan) next(ctx context.Context) (keys []string, rows []agg
 		if err != nil {
 			return nil, nil, err
 		}
+		if d.partition != nil {
+			if err := d.partition.scanPage(len(page)); err != nil {
+				return nil, nil, err
+			}
+		}
 		prefix := d.meta.UnmanagedPrefixes[d.prefix]
 		for _, key := range page {
 			if !strings.HasPrefix(key, prefix) || !unmanagedSourceKey(key) {
 				return nil, nil, errorf(adbc.StatusInvalidData, "unmanaged source SCAN returned an out-of-scope key")
 			}
+			if d.partition != nil {
+				if len(key) > unmanagedPartitionMaxKeyBytes {
+					return nil, nil, stateErrorf("53200", "unmanaged partition source key exceeds 1 MiB")
+				}
+				if !d.partition.owns(key) {
+					continue
+				}
+			}
 			if d.seen[key] {
 				continue
+			}
+			if d.partition != nil {
+				if err := d.partition.retainKey(key, len(d.seen)); err != nil {
+					return nil, nil, err
+				}
 			}
 			d.seen[key] = true
 			if !d.meta.UnmanagedForeign && !isRowKey(d.meta.prefix(), key) {
@@ -108,18 +131,36 @@ func (d *flexUnmanagedScan) next(ctx context.Context) (keys []string, rows []agg
 		return nil, nil, err
 	}
 	d.pending = d.pending[end:]
-	rows, err = d.store.fetchKeyRows(ctx, keys, nil)
+	if d.partition != nil {
+		rows, err = d.store.fetchUnmanagedPartitionRows(ctx, keys)
+	} else {
+		rows, err = d.store.fetchKeyRows(ctx, keys, nil)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 	// No page may escape after the source definition or catalog lease failed.
-	if err := d.store.checkUnmanagedIndex(ctx, d.meta); err != nil {
+	if err := d.checkIndex(ctx); err != nil {
 		return nil, nil, err
 	}
 	if err := d.store.checkKeys(ctx, d.meta, false); err != nil {
 		return nil, nil, err
 	}
 	return keys, rows, nil
+}
+
+func (d *flexUnmanagedScan) checkIndex(ctx context.Context) error {
+	if d.partition == nil {
+		return d.store.checkUnmanagedIndex(ctx, d.meta)
+	}
+	info, err := d.store.unmanagedIndexInfo(ctx, d.meta)
+	if err != nil {
+		return err
+	}
+	if retainedSourceIdentity(d.meta, info) != d.partition.target {
+		return errorf(adbc.StatusInvalidState, "unmanaged partition source definition changed; regenerate partitions")
+	}
+	return nil
 }
 
 func (s *store) flexUnmanagedMembers(ctx context.Context, meta *tableMeta, keys []string) ([]string, error) {

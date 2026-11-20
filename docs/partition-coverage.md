@@ -17,7 +17,7 @@ Ordinary SQL has its own supported subset and remains autocommit-only.
 | DISTINCT, grouping, aggregates, windows | Rejected | Once at coordinator, within budgets | Supported subset |
 | Joins, sets, nonrecursive CTEs, permanent views/subqueries | Rejected | Bounded supported subset | Supported subset |
 | Managed copies of adopted HASHes and foreign/application indexes | Native managed partition path | Captured managed copy | Managed copy with explicit refresh |
-| Explicit unmanaged registrations (application owns HASHes and indexes) | Rejected | External-key capture path; qualification below | Supported with live-source semantics |
+| Explicit unmanaged registrations (application owns HASHes and indexes) | Opt-in raw-key hash buckets; live source | External-key capture path; qualification below | Supported with live-source semantics |
 | Live HASH registrations (application owns HASHes; driver owns indexes) | Rejected | Rejected | Supported with live-source semantics |
 | Legacy storage without a current registration | Rejected | Rejected by current catalog bootstrap | Rejected; no migration |
 | Temporary source | Rejected | Producer-owned temporary tables/views | Connection-owned lifetime |
@@ -46,7 +46,7 @@ source partition workers and retained-output readers are different operations.
 |---|---|---|---|---|
 | Driver owns data and indexes; standard Software | Supported; each statement pins its own generation | Supported for the restricted managed query subset | Bounded managed capture; immutable output replay | Eligible queries/layouts only; overlays can fall back |
 | Driver owns data and indexes; compatible Software Flex with explicit stopgap | Supported; exact snapshot directories | Supported; exact directories, same descriptor/query limits | Flex-aware managed capture; independently stored replay | Serial fallback in the current range-worker implementation |
-| Application owns data and indexes; unmanaged registrations on supported Software/Flex | Supported; source remains live | Unsupported; [#549](https://github.com/redis/redis-adbc-driver/issues/549) | Existing external-key capture path; no managed source snapshot; see qualification below | Numeric managed range workers do not apply; bounded typed aggregate page fetches can run concurrently |
+| Application owns data and indexes; unmanaged registrations on supported Software/Flex | Supported; source remains live | Opt-in [raw-key hash buckets](unmanaged-partitions.md); fixed-source exact coverage, live values | Existing external-key capture path; no managed source snapshot; see qualification below | Numeric managed range workers do not apply; bounded typed aggregate page fetches can run concurrently |
 | Application owns data; driver owns indexes; live HASH registrations | Supported; source remains live | Unsupported; [#550](https://github.com/redis/redis-adbc-driver/issues/550) | Explicitly rejected | Managed row-ID range workers do not apply |
 
 Live HASH registrations themselves are unsupported in experimental Flex mode;

@@ -35,6 +35,17 @@ import (
 // row-ID ranges returned by ExecutePartitions. It does not start workers.
 const OptionIntPartitionCount = "adbc.redis.partition_count"
 
+// OptionStringPartitionSourceMode selects the ownership model for deferred reads.
+// It never changes source ownership or grants a source-row snapshot.
+const OptionStringPartitionSourceMode = "adbc.redis.partition_source_mode"
+
+func (s *statementImpl) sourcePartitionMode() string {
+	if s.partitionSourceMode == "" {
+		return "managed"
+	}
+	return s.partitionSourceMode
+}
+
 // OptionIntPartitionScanCap declares a guaranteed lower bound on the server
 // aggregate cap for the lifetime of partition reads (0: discover via CONFIG).
 const OptionIntPartitionScanCap = "adbc.redis.partition_scan_cap"
@@ -410,6 +421,10 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	}
 	if c.sess.currentCatalog() != catalogName {
 		return nil, namedCatalogExecutionUnsupported()
+	}
+	var sourceVersion struct{ Version int }
+	if len(data) <= maxPartitionBytes && json.Unmarshal(data, &sourceVersion) == nil && sourceVersion.Version == 5 {
+		return c.readUnmanagedPartition(ctx, data)
 	}
 	d, err := decodePartition(data)
 	if err != nil {

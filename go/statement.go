@@ -72,6 +72,7 @@ type statementImpl struct {
 	closed                  bool
 	partitionSnapshotID     string
 	partitionCount          int
+	partitionSourceMode     string
 	partitionStrategyName   string
 	incremental             bool
 	partitionScanCap        int64
@@ -140,6 +141,8 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return s.partitionSnapshotID, nil
 	case OptionStringPartitionResultMode:
 		return s.resultMode(), nil
+	case OptionStringPartitionSourceMode:
+		return s.sourcePartitionMode(), nil
 	case OptionIntPartitionResultTTL:
 		return strconv.FormatInt(int64(s.resultTTL()/time.Second), 10), nil
 	case OptionStringPartitionExecutionLimits:
@@ -371,6 +374,13 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 			return errorf(adbc.StatusInvalidArgument, "partition_result_mode must be live or retained")
 		}
 		s.retainedMode = val
+		s.partitionExecution = nil
+		return nil
+	case OptionStringPartitionSourceMode:
+		if val != "managed" && val != "unmanaged" {
+			return errorf(adbc.StatusInvalidArgument, "%s must be managed or unmanaged", key)
+		}
+		s.partitionSourceMode = val
 		s.partitionExecution = nil
 		return nil
 	case OptionIntPartitionResultTTL:
