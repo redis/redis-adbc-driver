@@ -47,6 +47,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 )
@@ -369,9 +370,10 @@ func (p *parser) parseShow() (Stmt, error) {
 // paramValue is a parameter's value: its text, as SHOW shows it, for
 // search_path the schema it selects, and for TimeZone the zone.
 type paramValue struct {
-	text   string
-	schema string
-	zone   tzZone
+	timeout time.Duration
+	text    string
+	schema  string
+	zone    tzZone
 }
 
 // utcParam is TimeZone's value UTC.
@@ -385,13 +387,14 @@ func timeZoneParam(text string) (paramValue, error) {
 
 // session is a connection's settings.
 type session struct {
-	catalogID        string
-	catalog          string // logical current catalog; empty preserves the default redis catalog
-	random           sqlRandom
-	sequenceBlocks   map[string]sequenceBlock
-	lastSequenceName TableName
-	sequenceValues   map[string]int64
-	lastSequence     string
+	defaultStatementTimeout *time.Duration
+	catalogID               string
+	catalog                 string // logical current catalog; empty preserves the default redis catalog
+	random                  sqlRandom
+	sequenceBlocks          map[string]sequenceBlock
+	lastSequenceName        TableName
+	sequenceValues          map[string]int64
+	lastSequence            string
 	// defaultSchema is adbc.redis.default_schema, which RESET search_path
 	// goes back to; defaultZone adbc.redis.time_zone (UTC unless set), which
 	// RESET timezone goes back to.
@@ -695,7 +698,7 @@ var settings = map[string]*setting{
 			return paramValue{text: "on"}, nil
 		},
 	},
-	"statement_timeout":                   timeoutSetting("statement_timeout", "Maximum allowed duration of any statement. Accepted and shown, not enforced."),
+	"statement_timeout":                   timeoutSetting("statement_timeout", "Maximum allowed duration of a SQL statement or Arrow ingestion."),
 	"lock_timeout":                        timeoutSetting("lock_timeout", "Maximum allowed duration of any wait for a lock. Accepted and shown; the driver takes no locks."),
 	"idle_in_transaction_session_timeout": timeoutSetting("idle_in_transaction_session_timeout", "Maximum allowed idle time in a transaction. Accepted and shown; there are no transactions."),
 	"extra_float_digits": {
@@ -785,9 +788,19 @@ func parseBoolSetting(s string) (bool, bool) {
 // timeoutSetting is a parameter in milliseconds, as Postgres's timeouts.
 func timeoutSetting(name, desc string) *setting {
 	return &setting{
-		name:    name,
-		desc:    desc,
-		initial: fixed("0"),
+		name: name,
+		desc: desc,
+		initial: func(s *session) paramValue {
+			if name == "statement_timeout" {
+				d := statementTimeoutDefault(s.defaultStatementTimeout)
+				text := formatMillis(d.Milliseconds())
+				if d%time.Millisecond != 0 {
+					text = strconv.FormatFloat(float64(d)/float64(time.Millisecond), 'f', -1, 64) + "ms"
+				}
+				return paramValue{text: text, timeout: d}
+			}
+			return paramValue{text: "0"}
+		},
 		parse: func(vals []SetValue, _ paramValue) (paramValue, error) {
 			v, err := oneValue(name, vals)
 			if err != nil {
@@ -802,7 +815,7 @@ func timeoutSetting(name, desc string) *setting {
 				return paramValue{}, errorf(adbc.StatusInvalidArgument,
 					"%.0f ms is outside the valid range for parameter %q (0 .. %d)", ms, name, math.MaxInt32)
 			}
-			return paramValue{text: formatMillis(int64(ms))}, nil
+			return paramValue{text: formatMillis(int64(ms)), timeout: time.Duration(ms) * time.Millisecond}, nil
 		},
 	}
 }

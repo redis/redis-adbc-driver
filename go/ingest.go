@@ -46,6 +46,8 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 	if transport != nil {
 		defer transport.finish()
 	}
+	ctx, cancel := statementOperationContext(s.statementTimeoutContext(ctx), s.conn.sess)
+	defer cancel()
 	if s.params == nil {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
 	}
@@ -60,8 +62,6 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 		}
 	}
 	if s.conn.store.snapshots && snapshotOf(ctx) == nil {
-		ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
-		defer cancel()
 		var target *tableMeta
 		sctx, pin, err := s.conn.store.acquireIngestSnapshot(ctx, func(c context.Context) (*tableMeta, error) {
 			var err error

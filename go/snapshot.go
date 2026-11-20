@@ -33,7 +33,8 @@ const (
 	snapshotPrefix                 = metaPrefix + "snapshot:17:"
 	snapshotCatalogKey             = metaPrefix + "snapshot:catalog"
 	snapshotLease                  = 2 * time.Minute
-	snapshotTimeout                = 15 * time.Minute
+	defaultStatementTimeout        = 15 * time.Minute
+	snapshotTimeout                = 15 * time.Minute // Independent utility/retention default.
 	snapshotMaxBytes               = 64 << 20
 	snapshotMaxWrites              = 100_000
 )
@@ -1904,7 +1905,7 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	case *MergeStmt:
 		target = &stmt.Table
 	}
-	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
+	ctx, cancel := statementOperationContext(ctx, e.sess)
 	var sctx context.Context
 	var pin *snapshotPin
 	var targetMeta *tableMeta

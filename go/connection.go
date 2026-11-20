@@ -105,6 +105,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return strconv.Itoa(effectiveQueryWorkers(c.queryWorkers)), nil
 	case OptionStringRenameRekey:
 		return strconv.FormatBool(c.rekey), nil
+	case OptionStringStatementTimeout:
+		return formatTimeout(c.sess.statementTimeout()), nil
 	case OptionStringReadTimeout:
 		return formatTimeout(c.timeouts.read), nil
 	case OptionStringWriteTimeout:
@@ -204,6 +206,15 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 			return err
 		}
 		c.rekey = rekey
+		return nil
+	case OptionStringStatementTimeout:
+		d, err := parseTimeout(key, value)
+		if err != nil {
+			return err
+		}
+		c.sess.defaultStatementTimeout = &d
+		delete(c.sess.vals, "statement_timeout")
+		delete(c.sess.local, "statement_timeout")
 		return nil
 	case OptionStringReadTimeout, OptionStringWriteTimeout:
 		d, err := parseTimeout(key, value)

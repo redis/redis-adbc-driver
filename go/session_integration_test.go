@@ -295,7 +295,7 @@ func TestSQLSetParameters(t *testing.T) {
 		`server_version|18.0|PostgreSQL compatibility version reported by the Redis ADBC driver.`,
 		`server_version_num|180000|PostgreSQL compatibility version as an integer.`,
 		`standard_conforming_strings|on|'...' strings treat backslashes literally. Only on is supported.`,
-		`statement_timeout|0|Maximum allowed duration of any statement. Accepted and shown, not enforced.`,
+		`statement_timeout|15min|Maximum allowed duration of a SQL statement or Arrow ingestion.`,
 		`TimeZone|UTC|Time zone for displaying and interpreting time stamps (adbc.redis.time_zone, UTC by default).`,
 		`transaction_isolation|read committed|Current transaction isolation level (autocommit compatibility value).`)
 	h.expectRows(`SHOW server_version`, "18.0")
@@ -347,5 +347,5 @@ func TestSQLSetParameters(t *testing.T) {
 	h.expectSchemaErrorText(`SHOW nosuch`, `unrecognized configuration parameter "nosuch"`)
 	// A failed SET changes nothing.
 	h.expectRows(`SHOW timezone`, "UTC")
-	h.expectRows(`SHOW statement_timeout`, "0")
+	h.expectRows(`SHOW statement_timeout`, "15min")
 }

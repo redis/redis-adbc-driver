@@ -62,7 +62,7 @@ func (s *store) initializeSnapshotImport(ctx context.Context) error {
 // copy has exactly the same immutable storage and atomic reads as any SQL table.
 func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, schema, name string, replace bool, only map[string]bool, next func(context.Context) ([]map[string]Value, bool, error)) error {
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
-	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
+	ctx, cancel := statementOperationContext(ctx, nil)
 	defer cancel()
 	sctx, pin, err := s.acquireSnapshot(ctx, true)
 	if err != nil {

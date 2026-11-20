@@ -141,6 +141,43 @@ setting:
 [redis] FT.AGGREGATE failed: read tcp 127.0.0.1:57705->127.0.0.1:7103: i/o timeout (Redis did not reply within the read timeout, 5m0s: raise adbc.redis.read_timeout, or set it to 0 for no timeout)
 ```
 
+`adbc.redis.statement_timeout` is a separate total SQL (`ExecuteQuery`/
+`ExecuteUpdate`) and Arrow operation deadline,
+including admission, input consumption, execution and streamed result consumption.
+It applies in all three ownership modes: driver-owned data/indexes,
+application-owned data/indexes, and application-owned data with driver-owned
+indexes. The default is **15 minutes**. Set a database, connection or statement
+string option to a duration (`30s`, `2h`, `1h30m`) or a number of seconds;
+`0` means no driver-imposed operation deadline. Negative/invalid values are
+rejected. For example, set `adbc.redis.statement_timeout=2h` on the database
+before opening a connection for a long atomic managed Arrow append.
+
+Precedence, highest first:
+
+1. A statement's `adbc.redis.statement_timeout` override (including explicit `0`).
+2. SQL session `SET statement_timeout`, including `SET LOCAL` while active.
+3. The connection's default, inherited from the database when opened.
+4. The built-in 15-minute default.
+
+The connection option sets a new session default and clears previous SQL
+session/local overrides. `RESET statement_timeout` and `RESET ALL` restore that
+connection default. `SHOW statement_timeout`/`pg_settings` report the session
+value; statement `GetOption` reports the effective value including its override.
+SQL values use milliseconds when unitless (`SET statement_timeout = 5000`),
+or PostgreSQL units such as `'30min'`; native option unitless values use seconds.
+SQL changes in a script apply to subsequent statements. Each SQL statement gets
+its own deadline; one Arrow call has one deadline over its entire stream.
+
+Earlier caller deadlines and cancellation always win, even with `0`. A blocked
+application-provided Arrow `Next()` must return before the driver can observe
+cancellation. This setting does not change socket read/write timeouts, renewable
+snapshot leases, fencing, bounded writes, or cleanup budgets. Timed-out managed
+writes publish no partial generation. Application-owned writes can retain
+acknowledged rows and report their existing partial-write counts; input and
+uncertain mutations are never automatically replayed. Shared-snapshot retention,
+partition APIs, native-reader calls and standalone maintenance/operation-control APIs keep their
+separate lifetime limits.
+
 | Setting | Default | What it limits |
 |-|-|-|
 | `adbc.redis.read_timeout` (database or connection option), or the URI's `read_timeout` | `5m` | waiting for each reply |
@@ -4202,12 +4239,14 @@ allow otherwise streamable queries to stream.
     | `client_encoding` | Only `UTF8` (`UTF-8`, `UNICODE`) | `UTF8` |
     | `application_name` | Any; not used | `''` |
     | `standard_conforming_strings` | Only `on`: `'…'` strings don't treat backslashes as escapes | `on` |
-    | `statement_timeout`, `lock_timeout`, `idle_in_transaction_session_timeout` | Milliseconds, or a number with a unit (`us`, `ms`, `s`, `min`, `h`, `d`), shown as Postgres shows them (`5s`, `1500ms`). Not enforced: there is no statement timeout (and there are no locks or transactions) | `0` |
+    | `statement_timeout` | Total SQL/Arrow deadline. Milliseconds when unitless, or units `us`, `ms`, `s`, `min`, `h`, `d`; `0` is unlimited. See [Timeouts](#timeouts) for option precedence | Connection default, initially `15min` |
+    | `lock_timeout`, `idle_in_transaction_session_timeout` | Same SQL duration syntax. Accepted and shown; there are no locks or transactions | `0` |
     | `extra_float_digits` | -15 to 3; no effect, as results are Arrow values, not text | `1` |
     | `DateStyle` | Only the `ISO` style, with an order `MDY`, `DMY` or `YMD`, which has no effect (only ISO dates are read) | `ISO, MDY` |
     | `IntervalStyle` | Only `postgres`, the format of intervals cast to text | `postgres` |
 
     The same settings through ADBC options are not supported, other than
+    `statement_timeout` (see [Timeouts](#timeouts)),
     the current schema and the time zone (`adbc.redis.time_zone`).
 - One-dimensional `ARRAY[...]` expressions, `ARRAY_AGG` (including ORDER BY),
   `ANY` / `SOME` / `ALL` comparisons against arrays, `ARRAY_LENGTH` and
@@ -4449,6 +4488,7 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | `adbc.redis.query_workers_last_grant` | connection, read-only | Worker grant for this connection's most recently admitted eligible aggregate, or 0 before its first admission. `query_workers` reads the per-query ceiling, which can be larger than the grant. |
 | `adbc.redis.query_worker_tuning` | database or connection, read-only | JSON snapshot: effective shared budget, target and retained workers, latest candidate, comparison phase, cached models, exploration ceiling, completed observations, last measured signals, and reason for the most recent allocation decision. See [worker autotuning](../docs/worker-autotuning.md). |
 | `adbc.redis.rename_rekey` | database, connection | `false` (default): `RENAME TO` only changes metadata. `true`: it also moves the rows and index to the new name's keys, in time proportional to the number of rows, and the table refuses changes meanwhile (see `ALTER TABLE`). The connection option overrides the database's |
+| `adbc.redis.statement_timeout` | database, connection, statement | Total SQL/Arrow deadline in every ownership mode. Durations or seconds; `0` unlimited; default `15m`. Statement override > SQL session > connection/database default. See [Timeouts](#timeouts) |
 | `adbc.redis.read_timeout` | database, connection | How long the client waits for each reply: `30s`, `10m`, … or a number of seconds; `0` for no timeout. Default `5m`, or the URI's `read_timeout` (see [Timeouts](#timeouts)). The connection option overrides the database's |
 | `adbc.redis.write_timeout` | database, connection | How long the client waits to send each command, in the same format. Default: the read timeout, or the URI's `write_timeout` |
 | `adbc.redis.ingest.index_columns` | statement | Comma-separated columns to index on bulk ingest (`*` = all indexable) |
