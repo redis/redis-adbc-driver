@@ -1,7 +1,7 @@
 # Unmanaged partition contract
 
 Date: 2026-11-20. Base: `1d0d0b3b`. Requestor: Albert Wong. Author: Codex.
-Status: implementation and verification in progress; no human review or release recorded.
+Status: implemented and locally verified; awaiting human review; no release recorded.
 
 See [intent](intent.md), [plan](plan.md), and [verification](verification.md).
 

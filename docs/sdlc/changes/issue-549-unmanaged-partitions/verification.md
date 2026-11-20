@@ -1,11 +1,14 @@
 # Verification and review
 
 Date: 2026-11-20. Base: `1d0d0b3b`. Requestor: Albert Wong. Author: Codex.
-Status: implementation and verification in progress; no human review or release recorded.
+Status: implemented and locally verified; awaiting human review; no release recorded.
 
 [Intent](intent.md) · [Specification](spec.md) · [Plan](plan.md)
 
-Verification is in progress. Dedicated Software RAM and Flex fixtures use active
+Local verification completed at combined integration source `4a6a40f7`.
+The PR depends on [#561](https://github.com/redis/redis-adbc-driver/pull/561)
+and targets its `codex/live-partitions-550` branch until that dependency merges.
+Dedicated Software RAM and Flex fixtures used active
 4x QPF, six effective Search workers, mnp routing and 32 connections, verified by
 the repository setup paths. RAM uses one primary shard under local resource
 constraints. Infrastructure names, endpoints, credentials, trust files and raw
@@ -74,8 +77,13 @@ none of the final integration/cached-layout/descriptor-credit changes are
 retroactively claimed as performance or coverage of that earlier source.
 
 Skips are the standalone subprocess helper and opt-in profile without its flag;
-there is no generic functional skip for NUL membership. Final unit/build checks,
-review, PR publication and fixture cleanup are being completed.
+there is no generic functional skip for NUL membership. Final all-package unit
+checks (`go test -count=1 -p 1 ./...`, with Redis endpoint variables unset)
+passed; the root package took 28.604 s. `make build` passed using its normal
+version flag. `git diff --check`, local Markdown link targets and the frozen
+measurement source fingerprints passed. Both dedicated fixture containers and
+their network were retired after testing; generated endpoint environments were
+removed. Private raw logs remain outside the committed tree.
 
 The native filtered-index NUL membership investigation is tracked separately in
 [#559](https://github.com/redis/redis-adbc-driver/issues/559); source values are

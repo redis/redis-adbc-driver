@@ -1,7 +1,7 @@
 # Deferred reads of unmanaged application data
 
 Date: 2026-11-20. Base: `1d0d0b3b`. Requestor: Albert Wong. Author: Codex.
-Status: implementation and verification in progress; no human review or release recorded.
+Status: implemented and locally verified; awaiting human review; no release recorded.
 
 [Issue #549](https://github.com/redis/redis-adbc-driver/issues/549) requests
 independently schedulable ADBC partition reads for existing unmanaged registrations.
