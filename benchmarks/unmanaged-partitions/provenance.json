@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-20",
+  "measured_source_commit": "222ab181",
+  "measured_source_full": "222ab18143e7e7915e4b30dd34fa219d9b47525d",
+  "go": "go version go1.27.4 darwin/arm64",
+  "source_sha256": {
+    "go/unmanaged_partitions.go": "b9a68aeca437682b0bc4fe248406118413239f2cf03aeaa14c8dbaac05e5256d",
+    "go/unmanaged_partition_read.go": "3dd0ddd7413ad964f47d906e8cb872f489dd9fab0e85d415357f674fa7e6cc77",
+    "go/partitions.go": "f208e855182237477e25b78ae17f633b8ee52a2d1f8b605a6fcbeb21728b40c5",
+    "go/partition_incremental.go": "3f10e09169ace86097f452a43048b9883572f98ba0eb99f901c09db3bf5a174a",
+    "go/flex_unmanaged.go": "99f8c4dd4cbce1fde5b29be394c2caebd3bd0b9a477780d7a8d0052167b0dbe1",
+    "go/query.go": "00ac35f854744db68c0fc960c3460cd2d71cbf845c3d0115c3641d6160bc77ac",
+    "go/statement.go": "351de52ea163ea0b30013aab168d3b98838dc43bb0c0d977cdb29f339c39f709",
+    "go/unmanaged_partitions_profile_test.go": "78c6c2a7625be726593ad3d3a92f596d6a357bbbf273f8c261f858848acf0f18",
+    "go/flex_benchmark_profile_test.go": "7066c922b31935aee8528ba06842eb51222df64cb77f57d74d0236a79556f7b8"
+  },
+  "implementation_base": "1d0d0b3b",
+  "test_followup_not_benchmark_coverage": "Cached explicit-layout child-pin-expiry regression added after these measurements; it does not relabel their coverage.",
+  "fixture": "Dedicated Redis Software RAM and Software Flex; one shard each; verified active4xQPF,6 Search workers,mnp,32 proxy connections; TLS/RESP3/noeviction; Flex1GiB total/256MiB RAM in a container directory",
+  "client": "macOS arm64 through a Docker published TLS port; shared developer host; fixture/connection setup excluded",
+  "software_version": "8.2.6-58",
+  "redis_version": "8.8.0"
+}

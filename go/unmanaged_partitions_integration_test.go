@@ -522,3 +522,58 @@ func TestUnmanagedPartitionsOptInAndBoundParameters(t *testing.T) {
 	}
 	assertUnmanagedPartitionRows(t, rows, expected)
 }
+
+func TestUnmanagedPartitionCachedLayoutRejectsLostChildPin(t *testing.T) {
+	h, raw, _, _ := unmanagedPartitionFixture(t)
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	for key, value := range map[string]string{OptionStringPartitionSourceMode: "unmanaged", OptionIntPartitionCount: "1", OptionStringResultLayouts: `{"b":"fixed_size_binary:1048576"}`} {
+		if err := st.SetOption(h.ctx, key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SetSqlQuery(h.ctx, "SELECT CAST(NULL AS BYTEA) AS b FROM redis_foreign.source_idx"); err != nil {
+		t.Fatal(err)
+	}
+	_, parts, _, err := st.ExecutePartitions(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptor, err := decodeUnmanagedPartition(parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := h.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Release()
+	if !reader.Next() || reader.RecordBatch().NumRows() != 16 {
+		t.Fatal("fixture must cache a second layout slice", reader.Err())
+	}
+	found := 0
+	for field, rawPin := range raw.HGetAll(h.ctx, snapshotCatalogKey).Val() {
+		if !strings.HasPrefix(field, "p:") || field == "p:"+descriptor.Snapshot.Token {
+			continue
+		}
+		var pin map[string]any
+		if json.Unmarshal([]byte(rawPin), &pin) != nil || pin["root"] != descriptor.Snapshot.Root {
+			continue
+		}
+		pin["expires"] = 0
+		encoded, _ := json.Marshal(pin)
+		if err := raw.HSet(h.ctx, snapshotCatalogKey, field, encoded).Err(); err != nil {
+			t.Fatal(err)
+		}
+		found++
+	}
+	if found != 1 {
+		t.Fatal("expected exactly one admitted child pin", found)
+	}
+	if reader.Next() || reader.Err() == nil {
+		t.Fatal("cached layout slice escaped after child-pin loss")
+	}
+}

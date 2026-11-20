@@ -24,4 +24,34 @@ The initial Flex preservation test assigned source TTL after calculating its
 membership oracle, changing that source's native membership. TTL setup now
 precedes the membership oracle, preserving a fixed source during partition reads.
 
-Pending: final checks, measurement, review and cleanup.
+Completed at the measured source before the later cached-layout regression:
+
+- Focused race selection passed on Software RAM and actual Flex. Cases include
+  1/4/11-worker exact fixed-source coverage, overlapping prefixes, non-UTF8 keys,
+  native NUL membership, exact BIGINT/NULL values, source DUMP/PEXPIRETIME
+  preservation, independent processes, source mutation/deletion/expiry, pinned
+  registration drop, changed index, server admission expiry and forged descriptor
+  expiry, typed parameters and native permission/transport/warning/malformed replies.
+- Scoped HASH-reader unit cases accept only direct native WRONGTYPE with an
+  accounted pipeline refusal. Wrapped/joined command/outer errors and unaccounted
+  native refusals fail without replay.
+- Existing managed partition and unmanaged projection/fault regressions passed
+  in the selected RAM race run. Unit-only all-package checks and `make build`
+  passed; Redis integration cases skip in the unit-only pass.
+- [Synthetic comparison](../../../../benchmarks/unmanaged-partitions/report.md)
+  completed 18 validated trials across both products at source `222ab181`.
+  Four buckets beat one bucket here; ordinary RAM SELECT was substantially faster.
+  The measurements do not establish a general speedup or full-scale behavior.
+
+A later new test reproduces cached explicit-layout slices escaping after actual
+child-pin loss. #550 owns the minimal shared lifetime validation fix; #549 will
+rebase and run combined feature tests before publication. This later regression
+is not relabeled as coverage of the measured source.
+
+Skips are the standalone subprocess helper and opt-in profile without its flag;
+there is no generic functional skip for NUL membership. Pending: shared fix,
+combined final checks, review, PR and fixture cleanup.
+
+The native filtered-index NUL membership investigation is tracked separately in
+[#559](https://github.com/redis/redis-adbc-driver/issues/559); source values are
+not inferred to be index members from prefix/FILTER-looking fields.
