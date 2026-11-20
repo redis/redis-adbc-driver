@@ -44,8 +44,8 @@ source partition workers and retained-output readers are different operations.
 
 | Ownership and deployment | Independent ordinary SELECTs | Deferred source partitions | Retained coordinator and replay | Automatic aggregate range workers |
 |---|---|---|---|---|
-| Driver owns data and indexes; standard Software | Supported; each statement pins its own generation | Supported for the restricted managed query subset | Bounded managed capture; immutable output replay | Eligible queries/layouts only; overlays can fall back |
-| Driver owns data and indexes; compatible Software Flex with explicit stopgap | Supported; exact snapshot directories | Supported; exact directories, same descriptor/query limits | Flex-aware managed capture; independently stored replay | Serial fallback in the current range-worker implementation |
+| Driver owns data and indexes; standard Software | Supported; each statement pins its own generation | Supported for the restricted managed query subset | Bounded managed capture; immutable output replay | Eligible queries; exact directory ranges cover unsafe Search layouts |
+| Driver owns data and indexes; compatible Software Flex with explicit stopgap | Supported; exact snapshot directories | Supported; exact directories, same descriptor/query limits | Flex-aware managed capture; independently stored replay | Eligible ungrouped aggregates use bounded exact directory ranges |
 | Application owns data and indexes; unmanaged registrations on supported Software/Flex | Supported; source remains live | Unsupported; [#549](https://github.com/redis/redis-adbc-driver/issues/549) | Existing external-key capture path; no managed source snapshot; see qualification below | Numeric managed range workers do not apply; bounded typed aggregate page fetches can run concurrently |
 | Application owns data; driver owns indexes; live HASH registrations | Supported; source remains live | Opt-in bounded key buckets; source remains live; [#550 evidence](sdlc/changes/issue-550-live-partitions/verification.md) | Explicitly rejected | Managed row-ID range workers do not apply |
 
@@ -70,11 +70,13 @@ Implementation and focused evidence:
   row-ID table; [managed workers](../go/snapshot_partitions.go) seek exact pinned
   directories. [Flex snapshot validation](sdlc/changes/flex-snapshots/validation.md)
   covers managed partition generations on an actual Software Flex fixture.
-- [Aggregate range eligibility](../go/parallel_aggregate.go) and
-  [partitioned aggregate eligibility](../go/partitioned_aggregate.go) retain
-  serial fallbacks for Flex and unsupported layouts/query shapes.
-  [#551](https://github.com/redis/redis-adbc-driver/issues/551) tracks exact-directory
-  aggregate workers. [Unmanaged page-fetch evidence](sdlc/changes/unmanaged-concurrency-20261114/validation.md)
+- [Aggregate range eligibility](../go/parallel_aggregate.go) includes bounded exact
+  directory workers for native managed Flex and unsafe Search layouts, including
+  high native row IDs. Unsupported query shapes keep their established paths;
+  the separate [partitioned tuple/spill engine](../go/partitioned_aggregate.go)
+  still excludes Flex. [#551](https://github.com/redis/redis-adbc-driver/issues/551)
+  and its [focused validation](sdlc/changes/issue-551-directory-aggregates/validation.md)
+  describe these internal workers. [Unmanaged page-fetch evidence](sdlc/changes/unmanaged-concurrency-20261114/validation.md)
   covers a separate bounded concurrency path; it does not add ADBC source partitions.
 - [Live HASH ownership and exclusions](live-hash-tables.md) and
   [unmanaged ownership and exclusions](unmanaged-tables.md) remain in force.
@@ -92,9 +94,10 @@ partition sets retain one producer generation; a connection-scoped
 [shared read snapshot](shared-read-snapshots.md) has no exported cross-process
 attachment API. Concurrent readers do not create a common point-in-time view of
 application-owned data. [#552](https://github.com/redis/redis-adbc-driver/issues/552)
-tracks the documentation reconciliation. #549 and #551 track remaining read paths;
-#550 adds the explicit live-source bucket path without retained capture or a
-managed source snapshot.
+tracks the documentation reconciliation. #549 remains a separate source-partition
+feature request. #550 adds the explicit live-source bucket path without retained
+capture or a managed source snapshot; #551 implements bounded directory aggregate
+workers with the limits described above.
 
 ## Source-consistent capture
 

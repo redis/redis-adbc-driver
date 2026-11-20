@@ -73,6 +73,35 @@ cap partitions at one per 1,024 sequence IDs, so a growing learned budget
 cannot make a previously admitted small scan bypass coordination. Other
 aggregate eligibility checks and exact reducers are unchanged.
 
+## Exact managed directory ranges
+
+Eligible ungrouped COUNT/SUM/AVG/MIN/MAX scans also use bounded parallel workers
+for native managed Flex tables and managed layouts whose Search row-ID ranges
+are unsafe, including nonindexable overlays and native IDs at or above 2^53.
+Each worker seeks an exact signed-int64 interval in every immutable segment
+and resolves newest versions and tombstones before applying the full predicate.
+Flex needs neither aggregate cursors nor SORTABLE. Existing safe Search-backed
+paths remain available on standard Software.
+
+One-worker grants use the same normalized directory source. Partial reducers keep
+exact integer/decimal accumulation and NULL/NaN semantics. All ranges retain the
+producer statement's pin; completed directory aggregates validate that lease
+before returning. Scan failures cancel and join peers before returning the shared
+grant, and preserve the originating error instead of a sibling cancellation.
+
+The existing per-query ceiling, per-database-handle budget, admission queue and
+learning rules apply. Diagnostic plans mark `exact_directory_ranges=true` for
+parallel directory execution, and tuning models distinguish directory sources
+from Search-backed ones. Grouped, DISTINCT, FILTER and unsupported expression
+shapes keep their existing paths; this does not enable the separate partitioned
+tuple/spill engine on Flex. Sparse IDs can produce uneven or empty ranges and
+are not a promise of balanced work or a throughput improvement.
+
+See [issue #551](https://github.com/redis/redis-adbc-driver/issues/551) and its
+[validation and measurements](sdlc/changes/issue-551-directory-aggregates/validation.md).
+These internal aggregate workers do not schedule ADBC `ReadPartition` consumers
+or coordinate other processes.
+
 ## Operator overrides and observability
 
 `adbc.redis.query_workers` sets a per-query ceiling (1–32).
