@@ -1,7 +1,7 @@
 # Contract
 
-Date: 2026-11-20. Source baseline: `845c95b4`. Requestor: Albert Wong. Author: Codex.
-Status: implementation and validation in progress; no human approval recorded.
+Date: 2026-11-20. Initial source baseline: `845c95b4`; rebased onto `1d0d0b3b`. Requestor: Albert Wong. Author: Codex.
+Status: implemented and locally validated; awaiting human review. No release recorded.
 
 Eligible ungrouped COUNT/SUM/AVG/MIN/MAX scans may divide exact signed-int64 row-ID intervals across bounded workers. Each worker seeks every immutable segment directory to its interval, resolves newest versions/tombstones before evaluating the complete predicate, and reads only winning HASH values. Flex needs no aggregate cursor, SORTABLE, or rounded numeric Search boundary.
 
