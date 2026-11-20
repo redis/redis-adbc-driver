@@ -3,6 +3,9 @@
 Live HASH tables and their Arrow ingestion modes are included in
 [v0.0.30](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.30) and later.
 
+Live MERGE, incremental collection streaming and registration evolution require
+a source build containing #553–#555. Check release notes for packaged availability.
+
 Live tables are a third ownership mode: **your application owns the HASHes; the
 driver owns the SQL definition and its Search index**. SQL and Redis clients
 read and write the same keys. There is no managed data copy and no refresh step.
@@ -147,12 +150,106 @@ cause queries to fail rather than silently accept that index as complete. Field
 names beginning with `__` are reserved. Do not change or delete driver-owned
 indexes or control metadata directly.
 
-This initial mode supports SELECT, INSERT, UPDATE, DELETE and RETURNING. SQL
+This mode supports SELECT, INSERT, UPDATE, DELETE, MERGE and RETURNING. SQL
 writes may read other live tables, but cannot read managed tables in the same
 write statement. Managed writes cannot consume live tables. Shared managed read
-snapshots, retained execution, MERGE, modifying CTEs, TRUNCATE
-and schema-changing DDL are not supported for live tables. Ordinary SELECTs may
+snapshots, retained execution, modifying CTEs, TRUNCATE
+and SQL schema-changing DDL are not supported for live tables. Compatible
+registration/schema and index changes use the explicit [evolution workflow](#evolve-a-live-registration). Ordinary SELECTs may
 join live and managed tables; only the managed portion is frozen.
+
+MERGE uses the same live-source write paths. It evaluates the join, WHEN clauses,
+type checks, duplicate-target checks and RETURNING expressions before mutations,
+then applies updates, deletes and inserts in that order. Successful affected-row
+counts include all three actions; DO NOTHING contributes zero. RETURNING supports
+`merge_action()` and the source/target columns. A failed statement does not return
+a complete RETURNING result or a reliable count of earlier source changes;
+inspect application data before deciding how to recover. Each source UPDATE or
+DELETE checks registration identity before its row mutation. An uncertain reply
+stops the statement without replay. Concurrent application edits can still
+interleave between those checks and mutations. Managed sources and modifying
+CTEs remain excluded from live writes.
+
+## Evolve a live registration
+
+`redis-adbc live evolve` (Go API: `EvolveLiveHashes`) changes the registered SQL
+view and its driver-owned index while preserving every source HASH field, key
+and TTL. This source-tree feature is not a claim about an existing wheel release.
+SQL `ALTER TABLE`, `CREATE INDEX` and `DROP INDEX` remain unsupported for live tables.
+
+Evolution requires source `SCAN` and `HGETALL`, index `FT.CREATE`, `FT.INFO` and
+`FT.DROPINDEX`, and live control-metadata permissions. Its full validation scan
+reads atomic native HASH images before admitting the definition transition.
+
+Stop **all application and SQL writers, in-flight SQL writes, and other
+registration administrators** before starting, and keep them stopped through
+success, resume or cancellation. `-exclusive-quiescent` declares this condition;
+the driver cannot fence independent application clients. Read the current index
+identity from registration output or `information_schema.tables`.
+
+```sh
+# Preview the complete desired public column list and new index policy.
+redis-adbc live evolve -table users -prefix app:users: \
+  -expected-index '<current-driver-index>' -exclusive-quiescent \
+  -columns name,age,email -index-columns age,email
+
+# Apply the same operation after checking the preview.
+redis-adbc live evolve -table users -prefix app:users: \
+  -expected-index '<current-driver-index>' -exclusive-quiescent \
+  -columns name,age,email -index-columns age,email -apply
+```
+
+`-columns` is the complete ordered set of public columns after any `-rename`
+choices; `__key` stays implicit. Existing compatible source fields can be exposed,
+SQL columns can be removed or renamed, and `-index-columns` changes which eligible
+fields are indexed. A removed SQL column leaves its application HASH field intact.
+Retained source fields keep their declared SQL type, native/text encoding and
+text format. New fields use the registration inference rules and may use `-type`,
+`-encoding` and `-rename`. Every selected field must exist in at least one source
+HASH. Empty collections, empty public schemas, type/encoding conversions, source
+field renames, data rewrites and destructive DDL are outside this subset.
+Unrelated unselected fields do not participate in schema inference.
+
+All supported changes build a fresh shadow index, including SQL-only renames;
+there is no metadata-only fast path. The combined transition definition is bounded
+to 1 MiB. A complete source scan validates selected
+values before any transition. The source scan uses bounded native HASH fetch
+pages and retains a key deduplication set proportional to collection size. The
+fresh index must finish backfill with its exact expected definition and no
+indexing failures before the definition switches. Nested keys remain excluded
+from SQL rows, although the prefix index also indexes them under the ordinary
+live registration rules.
+
+A durable `evolving` state retains the old definition and candidate index identity;
+`retiring` retains the new definition and old index identity until cleanup finishes.
+New SQL operations fail explicitly during either state. Existing readers may finish
+with the old definition or fail an identity check; this operation does not add a
+source snapshot. Existing writers must already have stopped. The old index is
+dropped **without DD**, and only then does the registration become ready.
+
+After interruption, keep writers stopped and run:
+
+```sh
+redis-adbc live resume -table users -apply
+```
+
+Resume observes the recorded candidate and never resends `FT.CREATE`. Before the
+definition switches, an observed failed candidate can instead be canceled:
+
+```sh
+redis-adbc live cancel-evolution -table users \
+  -expected-index '<original-driver-index>' -apply
+```
+
+Cancellation restores the old definition and drops only the candidate index.
+A direct recorded CREATE permission refusal also permits cancellation when no
+candidate exists. If CREATE's outcome is uncertain and its index cannot be
+observed, the transition and its identity remain reserved; absence does not
+permit replay or forgetting a potentially delayed creation. Once retirement
+starts, resume must finish the new definition rather than restore the old one.
+Unregister refuses an unfinished evolution; finish resume/cancellation first.
+Candidate/retired index cleanup is recoverable after a lost reply. Removing a
+live registration still leaves source HASHes intact.
 
 ## Write Arrow data to live HASHes
 
@@ -320,8 +417,23 @@ manual index updates.
 The current live query path scans keys in bounded batches, uses index candidate
 checks to avoid unnecessary HASH fetches, and evaluates predicates, ordering and
 aggregates against fetched values. It does not promise faster queries than
-managed tables. Unordered live collection queries currently use the ordinary
-materializing fallback; `stream_required=true` is unsupported for these scans.
+managed tables. Eligible unordered single-table SELECTs deliver Arrow batches incrementally,
+including row-local projections, residual filters, LIMIT and OFFSET.
+`stream_required=true` admits this subset and rejects blocking plans before
+source scanning. ORDER BY, joins, aggregates, DISTINCT, subqueries and set
+operations keep their existing materializing paths or explicit streaming
+refusals. A sparse predicate can require scanning the full source before the
+first matching batch; there is no ordering or statement-snapshot guarantee.
+
+Discovery retains one SCAN response (COUNT is a hint), plus a deduplication set
+that grows with observed source keys. HASH fetches use at most 128 keys and a
+1 MiB request target, with a 64 MiB single-key request ceiling. Application HASH
+reply sizes remain unbounded by those request limits. Arrow row/byte batch
+options control output, with up to one fetched-page overshoot and an oversized
+single row allowed. Release or cancel abandoned readers to free their buffers.
+Each fetched page and emitted batch checks registration/index identity and
+readiness. Concurrent source edits, expiry and Search lag retain the live
+semantics above; values already buffered can precede later application edits.
 The Search index covers all HASHes under the prefix, including nested keys which
 SQL excludes. Indexed fields on those nested HASHes must also have compatible
 encodings, or Search can report an indexing failure for the collection.

@@ -792,15 +792,15 @@ func (e *executor) lateralColumn(name string) string {
 	return detail
 }
 
-// Managed source keys are logical provenance, so joined relations may read
-// them without exposing physical row IDs or adding them to public star columns.
+// Managed provenance and live application keys are logical values, so joined
+// relations may read them without exposing internal row IDs or star columns.
 func (rel relation) hidesSystemColumn(name string) bool {
 	// A derived relation can explicitly project a system column; it is then
 	// part of that relation's public output, rather than a storage intrinsic.
 	if rel.meta.isMem && !rel.meta.retainedSource {
 		return false
 	}
-	return rel.prefix != "" && isSystemColumn(name) && !(rel.meta.SnapshotSourceKey && name == keyField)
+	return rel.prefix != "" && isSystemColumn(name) && !((rel.meta.SnapshotSourceKey || rel.meta.Live && rel.meta.KeyRows) && name == keyField)
 }
 
 // hasColumn reports whether an unqualified reference to the column name

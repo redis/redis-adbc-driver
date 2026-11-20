@@ -1978,6 +1978,9 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 	if meta.Unmanaged {
 		return e.store.updateUnmanagedRows(ctx, meta, changes)
 	}
+	if meta.Live {
+		return e.store.updateLiveRows(ctx, meta, changes)
+	}
 	if meta.SnapshotOverlay {
 		return e.writeSnapshotUpdates(ctx, meta, changes)
 	}

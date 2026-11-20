@@ -1447,6 +1447,16 @@ results are built whole before `ExecuteQuery` returns.
   `LIMIT` and `OFFSET` that can't run in the index (because the driver
   re-checks part of the WHERE clause) are applied as the rows stream, and
   the cursor is deleted once the limit is reached.
+- **Live HASH collections.** Eligible unordered single-table SELECTs stream
+  SCAN-discovered keys and authoritative HASH images, with row-local projection,
+  residual predicates and LIMIT/OFFSET. `stream_required=true` admits this subset.
+  These reads remain live: edits/expiry can interleave and buffered values can
+  precede later edits. Memory includes one SCAN response (COUNT is advisory),
+  O(observed keys) deduplication, application-sized HASH replies and one fetched
+  page's output overshoot. Fetch requests cap at 128 keys/1 MiB target, with a
+  64 MiB single-key ceiling. Definition/index identity and readiness are checked
+  before emitted batches; abandoned readers must be released or canceled.
+  These scans have no Search cursor. See [live HASH limits](live-hash-tables.md).
 - **UNION ALL.** Trees without `ORDER BY` stream when every nonempty leaf is
   an eligible row-local scan of a permanent managed table through its index,
   in insertion order. The driver opens one child scan at a time, preserves
@@ -1460,7 +1470,8 @@ results are built whole before `ExecuteQuery` returns.
   can overshoot those output limits. See the [measurements and limits](../benchmarks/union-stream/2026-10-22/README.md).
 - **Row count.** `ExecuteQuery` reads the first batch before it returns, so
   a result confirmed complete during that fill is returned whole, with its row
-  count. Other results are streams, whose row count is -1.
+  count. Live collection streams retain their definition checks and report -1
+  even when the first fill exhausts the source. Other streams also report -1.
 - **Errors.** One in the first batch comes from `ExecuteQuery`. A later one
   (division by zero on row 100,000, say) ends the stream: `Next` returns
   false, and `Err` reports it.
@@ -4465,14 +4476,14 @@ before opting in; unsupported CUDA operations return errors without fallback.
 
 | Option | Level | Meaning |
 |-|-|-|
-| `adbc.redis.live_tables` | database, connection | `false` by default. Enables registered live HASH tables in `redis_live`, including SQL SELECT/INSERT/UPDATE/DELETE and Arrow append/create-or-append over original keys. Creation and dedicated replacement require explicit `ingest.live_source` configuration and replacement consent. See [live HASH tables](live-hash-tables.md). |
+| `adbc.redis.live_tables` | database, connection | `false` by default. Enables registered live HASH tables in `redis_live`, including SQL SELECT/INSERT/UPDATE/DELETE/MERGE and Arrow append/create-or-append over original keys. Creation and dedicated replacement require explicit `ingest.live_source` configuration and replacement consent. See [live HASH tables](live-hash-tables.md). |
 | `adbc.redis.ingest.live_source` | statement | JSON application prefix and optional field encodings for live Arrow creation. Dedicated replacement also requires exact current index identity and schema/table, exclusive quiescence, TTL-loss and index-reset consent. Persists until cleared. See [live ingestion](live-hash-tables.md#write-arrow-data-to-live-hashes). |
 | `adbc.redis.statement_snapshots` | database, connection | Always `true` for managed tables. Explicit `true` is accepted; `false` is rejected. See [snapshots](snapshots.md). |
 | `adbc.redis.read_snapshot_action` | connection, write-only | `acquire` binds one read-only managed catalog view across metadata and sequential SELECTs; `release` unbinds while existing readers retain their view. Native connection only. See [shared read snapshots](shared-read-snapshots.md). |
 | `adbc.redis.read_snapshot_status` | connection, read-only | JSON `state`, `generation` and `deadline` while valid, or `state=unbound`. Unavailable bound views return an error. No attachment capability is exported. |
 | `adbc.redis.read_snapshot_retention_ms` | connection | String or int64 milliseconds, 120000–3600000; default 900000. Set while unbound; fixed lifetime includes discovery and active reads. |
 | `adbc.redis.foreign_indexes_refresh` | connection, write-only | Set `true` to refresh managed copies or unmanaged schema registrations, per selected mode and index. Does not modify source HASHes/indexes. |
-| `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
+| `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an eligible unordered incremental managed/live-table SELECT, bounded managed DISTINCT, or managed UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
 | `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |
 | `adbc.redis.result_layouts` | statement | JSON map of exact result names to explicit physical Arrow layouts; SQL/table schemas remain canonical. See [layout contract](arrow-interoperability.md#explicit-result-layouts). |
 | `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see [URI parameters](#uri-parameters)) |

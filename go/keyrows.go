@@ -171,7 +171,7 @@ func (s *store) checkKeyRowsKept(ctx context.Context, meta *tableMeta, changes [
 			lens[i] = pipe.HLen(ctx, ch.key)
 			vals[i] = pipe.HMGet(ctx, ch.key, ch.del...)
 		}
-		if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+		if _, err := pipe.Exec(ctx); err != nil && (meta.Live || !errors.Is(err, goredis.Nil)) {
 			return wrapRedis(err, "failed to read rows")
 		}
 		for i, ch := range chunk {

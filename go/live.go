@@ -31,6 +31,9 @@ const (
 type liveRecord struct {
 	State string     `json:"state"`
 	Meta  *tableMeta `json:"meta"`
+	// Pending owns the shadow (evolving/aborting) or retired (retiring) index.
+	Pending       *tableMeta `json:"pending,omitempty"`
+	CreateRefused bool       `json:"create_refused,omitempty"`
 }
 
 // LiveHashRegistration describes a live table. Index is driver-owned; Prefix
@@ -213,6 +216,9 @@ func ResumeLiveHashes(ctx context.Context, options map[string]string, table stri
 	if r.State == "ready" {
 		return c.st.validateLiveIndex(ctx, r.Meta)
 	}
+	if r.Pending != nil {
+		return c.st.resumeLiveEvolution(ctx, raw, r)
+	}
 	if r.State != "building" {
 		return errorf(adbc.StatusInvalidState, "live table is being removed")
 	}
@@ -234,6 +240,11 @@ func (s *store) readLiveRecord(ctx context.Context, name string) (string, *liveR
 	var r liveRecord
 	if err := json.Unmarshal([]byte(raw), &r); err != nil || r.Meta == nil {
 		return "", nil, errorf(adbc.StatusIO, "invalid live registration")
+	}
+	if r.Pending != nil {
+		if r.State != "evolving" && r.State != "retiring" && r.State != "aborting" || !validLiveEvolutionPair(r.Meta, r.Pending) {
+			return "", nil, errorf(adbc.StatusIO, "invalid live evolution descriptor")
+		}
 	}
 	m := r.Meta
 	if !m.Live || !m.Adopted || !m.KeyRows || m.AppIndex || m.Foreign || m.Schema != liveSchema || m.Name != name || !strings.HasPrefix(m.IndexName, liveIndexPrefix) || len(strings.TrimPrefix(m.IndexName, liveIndexPrefix)) != 32 || validLivePrefix(m.KeyPrefix) != nil || m.SnapshotRows != nil || m.SnapshotOverlay || len(m.SnapshotSegments) != 0 {
@@ -423,8 +434,44 @@ func (s *store) liveCandidates(ctx context.Context, m *tableMeta, query string, 
 	return out, nil
 }
 
+// Live mutations check registration identity between rows and never replay an
+// uncertain reply. The shared script preserves TTLs/unknown fields and refuses
+// to recreate a vanished row or remove its last field.
+func (s *store) updateLiveRows(ctx context.Context, m *tableMeta, changes []rowChange) error {
+	if err := s.checkKeyRowsKept(ctx, m, changes); err != nil {
+		return err
+	}
+	for _, ch := range changes {
+		if err := cancelled(ctx); err != nil {
+			return err
+		}
+		if !isRowKey(m.prefix(), ch.key) {
+			return errorf(adbc.StatusIO, "live UPDATE key is outside its registered collection")
+		}
+		if err := s.checkLiveIdentity(ctx, m); err != nil {
+			return err
+		}
+		args := []any{"EVAL", keyRowUpdateLua, 1, ch.key}
+		args = append(args, keyRowArgs(ch)...)
+		n, err := once(ctx, s.redis(ctx), args...).Int()
+		if err != nil {
+			return wrapRedis(err, "live UPDATE outcome is uncertain; earlier row changes may have applied")
+		}
+		if n == 0 {
+			return stateErrorf("40001", "live row disappeared during UPDATE; earlier row changes may have applied")
+		}
+		if n == -1 {
+			return errEmptiesRow(m, ch.key)
+		}
+	}
+	return nil
+}
+
 func (s *store) deleteLiveKeys(ctx context.Context, m *tableMeta, keys []string) error {
 	for _, key := range keys {
+		if err := cancelled(ctx); err != nil {
+			return err
+		}
 		if !isRowKey(m.prefix(), key) {
 			return errorf(adbc.StatusIO, "live DELETE key is outside its registered collection")
 		}
@@ -456,6 +503,8 @@ func (e *executor) tryLiveWrite(ctx context.Context, ps ParsedStmt, params []Val
 	case *UpdateStmt:
 		target = &st.Table
 	case *DeleteStmt:
+		target = &st.Table
+	case *MergeStmt:
 		target = &st.Table
 	}
 	if target == nil {
