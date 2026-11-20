@@ -18,6 +18,9 @@ func TestLiveEvolutionSourcePreservation(t *testing.T) {
 	f := newHashFixture(t, "it:live:evolve:")
 	h := f.h
 	key := f.prefix + string([]byte{'b', 0, 'k'})
+	if !strings.ContainsRune(key, 0) {
+		t.Fatal("binary fixture lacks zero byte")
+	}
 	f.hset(key, "n", "9007199254740993", "old", "keep")
 	reg, err := RegisterLiveHashes(h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_live_evolve", Types: map[string]string{"n": "BIGINT"}, Apply: true})
 	if err != nil {

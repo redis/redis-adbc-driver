@@ -87,6 +87,9 @@ func (h *liveStreamHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) g
 func liveStreamFixture(t *testing.T) (*hashFixture, [][]string) {
 	f := newHashFixture(t, "it:live:stream:")
 	binary := f.prefix + string([]byte{'b', 0, 'c'})
+	if !strings.ContainsRune(binary, 0) {
+		t.Fatal("binary fixture lacks zero byte")
+	}
 	keys := []string{f.prefix + "a", f.prefix + "b", binary, f.prefix + "d", f.prefix + "null"}
 	for i, key := range keys[:4] {
 		f.hset(key, "n", fmt.Sprint((i+1)*10), "text", strings.Repeat("x", 100))

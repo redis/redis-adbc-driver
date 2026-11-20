@@ -3,6 +3,9 @@
 Live HASH tables and their Arrow ingestion modes are included in
 [v0.0.30](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.30) and later.
 
+Live MERGE, incremental collection streaming and registration evolution require
+a source build containing #553–#555. Check release notes for packaged availability.
+
 Live tables are a third ownership mode: **your application owns the HASHes; the
 driver owns the SQL definition and its Search index**. SQL and Redis clients
 read and write the same keys. There is no managed data copy and no refresh step.
@@ -173,6 +176,10 @@ CTEs remain excluded from live writes.
 view and its driver-owned index while preserving every source HASH field, key
 and TTL. This source-tree feature is not a claim about an existing wheel release.
 SQL `ALTER TABLE`, `CREATE INDEX` and `DROP INDEX` remain unsupported for live tables.
+
+Evolution requires source `SCAN` and `HGETALL`, index `FT.CREATE`, `FT.INFO` and
+`FT.DROPINDEX`, and live control-metadata permissions. Its full validation scan
+reads atomic native HASH images before admitting the definition transition.
 
 Stop **all application and SQL writers, in-flight SQL writes, and other
 registration administrators** before starting, and keep them stopped through
