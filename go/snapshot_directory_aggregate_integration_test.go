@@ -205,7 +205,12 @@ func TestSnapshotDirectoryAggregateFailureJoinsWorkers(t *testing.T) {
 			}
 			s.client.AddHook(hook)
 			budget := &workerBudget{configured: 4}
-			e, plan, wp := directoryAggregatePlan(t, h, s, work, "SELECT SUM(v),COUNT(*) FROM t WHERE id>0", 4, budget)
+			workers := 4
+			if mode == "expired_pin" {
+				budget = &workerBudget{}
+				workers = 0
+			}
+			e, plan, wp := directoryAggregatePlan(t, h, s, work, "SELECT SUM(v),COUNT(*) FROM t WHERE id>0", workers, budget)
 			run, cancel := context.WithTimeout(context.WithValue(work, directoryAggregateObservation{}, true), 10*time.Second)
 			defer cancel()
 			done := make(chan error, 1)
@@ -258,6 +263,9 @@ func TestSnapshotDirectoryAggregateFailureJoinsWorkers(t *testing.T) {
 			}
 			if budget.active != 0 || len(budget.queue) != 0 {
 				t.Fatal("failed query retained grant")
+			}
+			if mode == "expired_pin" && (budget.tuner.observations != 0 || budget.cohort.pending != 0) {
+				t.Fatal("expired aggregate trained the automatic tuner")
 			}
 			if (mode == "permission" || mode == "transport") && hook.cancelled.Load() != 3 {
 				t.Fatal("not all sibling workers observed cancellation", hook.cancelled.Load())

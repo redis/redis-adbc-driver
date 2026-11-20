@@ -190,16 +190,6 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	}
 	tuningQuery := wp.query
 	if directory {
-		pin, readCtx := snapshotOf(ctx).pin, ctx
-		defer func() {
-			// Every range shares this lease. Refuse an expired generation before
-			// returning any completed aggregate, including a one-worker grant.
-			if handled && resultErr == nil {
-				if err := pin.valid(readCtx); err != nil {
-					groups, resultErr = nil, err
-				}
-			}
-		}()
 		// Normalize once so a one-worker budget grant uses the same exact
 		// source and full predicate as a multi-worker directory execution.
 		copy := *meta
@@ -238,6 +228,18 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 			e.workerGrant.Store(int64(grant))
 		}
 		defer e.workerBudget.release(grant)
+	}
+	if directory {
+		pin, readCtx := snapshotOf(ctx).pin, ctx
+		defer func() {
+			// Validate before returning the grant or training the tuner. Every
+			// range shares this lease, including a one-worker grant.
+			if handled && resultErr == nil {
+				if err := pin.valid(readCtx); err != nil {
+					groups, resultErr = nil, err
+				}
+			}
+		}()
 	}
 	if workers == 1 {
 		groups, err := e.serialDriverAggregate(ctx, plan, wp, aggs, params)
