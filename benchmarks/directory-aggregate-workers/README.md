@@ -1,7 +1,8 @@
 # Exact-directory aggregate worker measurements
 
 Date: 2026-11-20. Issue [#551](https://github.com/redis/redis-adbc-driver/issues/551).
-Source `04091bca456318b463d5a3e8731f2c31ad672320` on base `1d0d0b3b`; [file hashes/environment](provenance.json)
+Measured source `04091bca456318b463d5a3e8731f2c31ad672320` on base `1d0d0b3b`;
+its identical published tree is commit `46d1cbf4d813af69ca161f5d32c0a25dc53c2d5d` after author/committer privacy rewriting. [file hashes/environment](provenance.json)
 and [all sanitized samples](results.jsonl). These are local source measurements,
 not release, full-scale ClickBench or cold-storage evidence.
 

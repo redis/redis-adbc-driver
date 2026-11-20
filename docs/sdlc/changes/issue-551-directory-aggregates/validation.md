@@ -2,7 +2,7 @@
 
 Date: 2026-11-20. Requestor: Albert Wong. Author: Codex.
 Initial baseline `845c95b4`, rebased onto `1d0d0b3b`. Final production/test source
-`04091bca456318b463d5a3e8731f2c31ad672320`; later edits only record evidence.
+`04091bca456318b463d5a3e8731f2c31ad672320`; the identical published tree is `46d1cbf4d813af69ca161f5d32c0a25dc53c2d5d` after author/committer privacy rewriting. Later edits only record evidence.
 Status: implemented and locally validated; awaiting human review. No release recorded.
 
 [Intent](intent.md) · [Spec](spec.md) · [Plan](plan.md)

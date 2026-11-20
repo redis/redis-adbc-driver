@@ -27,5 +27,8 @@
     "go/query.go": "99011d7c0c7550bd6bcb035159fe00e0f076ba377d75af02992c4d01583b7f1b",
     "go/snapshot_directory_aggregate_integration_test.go": "1472660e80f2805dd4befc031f439d60a924b3d662f03bbe3787e8cb91414758",
     "go/snapshot_directory_aggregate_profile_test.go": "9bdd9a39ac0a430bf9d5e16699dfb514a895a0ff487cd6e4603894ec9d96b869"
-  }
+  },
+  "published_source_commit": "46d1cbf4d813af69ca161f5d32c0a25dc53c2d5d",
+  "measured_source_tree": "f4aff9d62d636ab4739b2ada3cb99fe68a25cff5",
+  "author_privacy_rewrite": "Published source commit has the identical tree to the measured source; only author/committer metadata changed."
 }
