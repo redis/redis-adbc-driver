@@ -50,7 +50,8 @@ reader, while using more client CPU/allocation and repeating discovery. Ordinary
 RAM SELECT was substantially faster than either partition path. This supports
 an independently schedulable source path, not replacing ordinary SELECT for
 speed. Each worker still scans the whole source: discovery work is O(P*N), and
-source key-state credits, server capacity, wider values, skew or different
+SCAN MATCH may traverse unrelated database keys and repeats for every prefix.
+Source key-state credits, server capacity, wider values, skew or different
 transport routes can reverse the result. No universal speedup follows.
 
 ## Reproduce

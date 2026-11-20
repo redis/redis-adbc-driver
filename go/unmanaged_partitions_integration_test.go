@@ -6,6 +6,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -635,5 +636,35 @@ func TestUnmanagedPartitionsAdoptedPrefixAndEmptyBuckets(t *testing.T) {
 	}
 	if raw.Exists(h.ctx, "app:one", "app:nested:one").Val() != 2 || raw.HGet(h.ctx, "app:one", "unknown").Val() != "keep" {
 		t.Fatal("adopted source changed")
+	}
+}
+
+func TestUnmanagedPartitionDescriptorSetBudgetBeforeDuplication(t *testing.T) {
+	h, raw, _, _ := unmanagedPartitionFixture(t)
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	for key, value := range map[string]string{OptionStringPartitionSourceMode: "unmanaged", OptionIntPartitionCount: "512"} {
+		if err := st.SetOption(h.ctx, key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SetSqlQuery(h.ctx, "SELECT '"+strings.Repeat("z", 300000)+"' AS b FROM redis_foreign.source_idx"); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _, err = st.ExecutePartitions(h.ctx)
+	var ae adbc.Error
+	if err == nil || !errors.As(err, &ae) || string(ae.SqlState[:]) != "53200" {
+		t.Fatal("descriptor credit refusal lost SQLSTATE53200", err)
+	}
+	for field := range raw.HGetAll(h.ctx, snapshotCatalogKey).Val() {
+		if strings.HasPrefix(field, "p:") {
+			t.Fatal("failed descriptor admission leaked a registration pin")
+		}
+	}
+	if raw.Exists(h.ctx, "app:2").Val() != 1 || raw.Do(h.ctx, "FT.INFO", "source_idx").Err() != nil {
+		t.Fatal("failed descriptor admission changed application resources")
 	}
 }

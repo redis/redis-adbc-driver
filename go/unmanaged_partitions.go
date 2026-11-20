@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"io"
 	"maps"
+	"strconv"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
@@ -19,12 +20,13 @@ import (
 )
 
 const (
-	unmanagedPartitionVersion           = 5
-	unmanagedPartitionMaxKeys           = 100_000
-	unmanagedPartitionMaxBytes    int64 = 64 << 20
-	unmanagedPartitionMaxKeyBytes       = 1 << 20
-	unmanagedPartitionMaxScans          = 1_000_000
-	unmanagedPartitionMaxObserved int64 = 1 << 31
+	unmanagedPartitionVersion                  = 5
+	unmanagedPartitionMaxKeys                  = 100_000
+	unmanagedPartitionMaxBytes           int64 = 64 << 20
+	unmanagedPartitionMaxKeyBytes              = 1 << 20
+	unmanagedPartitionMaxScans                 = 1_000_000
+	unmanagedPartitionMaxObserved        int64 = 1 << 31
+	unmanagedPartitionMaxDescriptorBytes       = 64 << 20
 )
 
 // Version 5 describes a disjoint raw-key hash bucket. The shared server pin
@@ -164,6 +166,16 @@ func (s *statementImpl) executeUnmanagedPartitions(ctx context.Context) (*arrow.
 	n := s.partitions()
 	parts := adbc.Partitions{NumPartitions: uint64(n), PartitionIDs: make([][]byte, n)}
 	d := unmanagedPartitionID{Version: unmanagedPartitionVersion, Snapshot: group, Query: s.query, Schema: plan.meta.Schema, Table: plan.meta.Name, Target: target, Zone: s.conn.sess.value("timezone").text, Params: encoded, Count: n, Layouts: maps.Clone(s.resultLayouts)}
+	// Size one descriptor before duplicating query/parameter bytes across the
+	// set. Only ordinal decimal width can grow in later descriptors.
+	probe, err := json.Marshal(d)
+	if err != nil {
+		return fail(errorf(adbc.StatusInvalidArgument, "unmanaged partition descriptor cannot be encoded"))
+	}
+	maxBytes := len(probe) + len(strconv.Itoa(n-1)) - 1
+	if maxBytes > maxPartitionBytes || int64(maxBytes)*int64(n) > unmanagedPartitionMaxDescriptorBytes {
+		return fail(stateErrorf("53200", "unmanaged partition descriptor set exceeds 64 MiB or per-descriptor limit; reduce query/parameters or partition_count"))
+	}
 	for i := range parts.PartitionIDs {
 		d.Ordinal = i
 		parts.PartitionIDs[i], err = json.Marshal(d)

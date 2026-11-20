@@ -17,7 +17,8 @@ See [intent](intent.md), [plan](plan.md), and [verification](verification.md).
   numeric source key assumption, source field insertion or source mutation occurs.
 - Every worker SCANs all registered prefixes, retaining only its assigned keys;
   prefix overlap and duplicate SCAN replies are deduplicated locally. Discovery
-  costs O(P*N) and can outweigh parallel HASH/evaluator work. No persisted cursor
+  can cost O(P*prefixes*database keys) because MATCH may scan unrelated keys,
+  and can outweigh parallel HASH/evaluator work. No persisted cursor
   or per-source key inventory is created.
 - Native singleton FT.SEARCH INKEYS membership determines inclusion, including
   FILTER and multiple prefixes. Then bounded HGETALL pipelines retrieve exact
@@ -31,7 +32,9 @@ See [intent](intent.md), [plan](plan.md), and [verification](verification.md).
   indistinguishable and follows ordinary live-source readiness semantics.
 - Each worker admits at most 100,000 unique assigned keys, 64 MiB of logical
   key/map credits, one-MiB keys, 256 prefixes, one million SCAN calls and 2^31
-  observed key replies. Admission precedes map growth. Excess fails explicitly
+  observed key replies. Admission precedes map growth. Descriptor production sizes
+  one encoding before duplication and admits at most 64 MiB of total descriptor
+  bytes, plus the existing one-MiB per-descriptor ceiling. Excess fails explicitly
   with SQLSTATE 53200, never a truncated successful result. SCAN COUNT is a hint;
   these are retained-state/work credits, not a hard bound on native reply
   allocation, Arrow/native values, Redis memory or process RSS.

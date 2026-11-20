@@ -6,6 +6,9 @@ The default remains `managed`; this opt-in does not copy or mutate source data.
 The application owns both the HASHes and their Search index. The result mode
 stays `live` (the default deferred ADBC mode), and `partition_count` controls the
 number of disjoint key buckets, not the number of automatically started workers.
+The descriptor set has a 64 MiB cumulative encoded-byte ceiling in addition to
+the one-MiB per-descriptor limit; oversized query/parameter duplication is refused
+before constructing the set.
 The application schedules readers; the internal query-worker budget does not cap
 these external tasks. Existing catalog limits (including 128 live group/reader
 pins) still apply across the database.
@@ -39,8 +42,9 @@ chooses the bucket. Every worker scans all registered source prefixes, then read
 only its bucket's index members. SCAN duplicates and overlapping prefixes are
 deduplicated inside each worker. Empty/skewed buckets remain valid.
 
-Discovery is O(partitions × source keys), so more workers can make the workload
-slower. This feature supplies schedulable tasks; it does not assume improved
+Each worker repeats SCAN for every registered prefix. MATCH can traverse unrelated
+database keys too, so discovery can cost O(partitions × prefixes × database keys),
+not just the number of returned source rows. More workers can make it slower. This feature supplies schedulable tasks; it does not assume improved
 throughput. The [change evidence](sdlc/changes/issue-549-unmanaged-partitions/verification.md)
 records actual checks and measurement limits.
 
