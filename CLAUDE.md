@@ -270,6 +270,12 @@ Use a dedicated non-production database, record deployment cost and ownership,
 and clean up temporary resources after validation. Keep the existing OSS and
 Redis Software compatibility checks.
 
+Before provisioning AWS EC2 instances or related resources, consult and follow
+the current company naming and ownership-tagging policy. Apply required tags
+in the creation request. If the policy cannot be verified, stop before
+provisioning. Keep the internal policy reference, owner values and approval
+records private.
+
 Require RESP3 for single-endpoint and Cluster API clients. Do not support RESP2
 or offer `protocol=2` as a compatibility option. Reject failed RESP3 negotiation.
 

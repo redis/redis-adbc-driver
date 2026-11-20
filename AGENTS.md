@@ -7,4 +7,5 @@ Read [CLAUDE.md](CLAUDE.md) for repository commands and invariants.
 - Run ClickBench only on Redis Software with verified 4x QPF, never Redis Community. For repeat query runs, restore a verified compatible full-scale backup; do not reload unless loading performance is explicitly requested.
 - Default 100-million-row ClickBench reruns to Redis Software Flex stopgap (`adbc.redis.flex=true`) with verified 4x QPF. Verify driver support and backup compatibility first; an unsupported Flex build is a blocked rerun, not permission to substitute RAM or Redis Community.
 - Do not support or test Valkey, AWS ElastiCache, or GCP Memorystore.
+- Before provisioning AWS EC2 instances or related resources, consult and follow the current company naming and ownership-tagging policy. Apply required tags in the creation request; if the policy cannot be verified, stop before provisioning. Keep the internal policy reference, owner values and approval records private.
 - Keep historical results labeled by their actual server and settings. Keep operational artifacts, infrastructure identifiers, credentials, and license files private.
