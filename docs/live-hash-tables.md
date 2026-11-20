@@ -276,7 +276,9 @@ explicitly rather than authorizing an incomplete read.
 `partition_count` (1–1024, default 8) controls bucket count, not worker scheduling.
 Each worker repeats discovery over the source, so total SCAN work grows with
 partition count. Fixed-source rows have exactly one bucket, but skew and empty
-buckets are possible and no speedup is promised. Numeric `balanced` strategy is
+buckets are possible and no speedup is promised. The existing 128-live-pin budget also bounds admitted group/reader leases;
+returning many descriptors does not admit that many concurrent workers.
+Numeric `balanced` strategy is
 unsupported; `partition_scan_cap` does not govern these cursor-free source scans.
 
 A worker permits at most 100,000 assigned distinct keys, a 64 MiB logical key
@@ -284,7 +286,9 @@ budget (key bytes plus 64 bytes per key), 1 MiB per key, 1,000,000 scanned entri
 and 4,096 SCAN pages. HASH requests target at most 128 keys/1 MiB key bytes.
 These work and logical-memory limits are not process RSS or RESP decoder ceilings.
 Budget exhaustion fails explicitly with SQLSTATE 53200; it never returns a
-successful truncated result. Source inventory and SCAN cursors are not persisted.
+successful truncated result. Source inventory and SCAN cursors are not persisted. Version-6 descriptors
+require a driver with this source path; older workers reject them explicitly.
+The managed storage format is unchanged.
 
 Descriptor groups use `partition_result_ttl` and the existing
 `partition_snapshot_id` / `DROP PARTITION SNAPSHOT` release API for bounded

@@ -1,7 +1,7 @@
 # Implementation plan
 
 Date: 2026-11-20. Requestor: Albert Wong. Author: Codex.
-Source baseline: `845c95b4`. Status: implementation/verification in progress; no human approval.
+Source baseline: `1d0d0b3b`. Status: implemented and locally verified; human review and hosted CI pending.
 
 [Intent](intent.md) · [Spec](spec.md) · [Verification](verification.md)
 

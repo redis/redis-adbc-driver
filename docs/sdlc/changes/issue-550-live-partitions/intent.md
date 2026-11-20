@@ -1,7 +1,7 @@
 # Deferred reads over live HASH tables
 
 Date: 2026-11-20. Requestor: Albert Wong. Author: Codex.
-Source baseline: `845c95b4`. Status: implementation/verification in progress; no human approval.
+Source baseline: `1d0d0b3b`. Status: implemented and locally verified; human review and hosted CI pending.
 
 [Issue #550](https://github.com/redis/redis-adbc-driver/issues/550) requests independently schedulable ADBC reads over application-owned HASHes with driver-owned indexes. Existing deferred partition planning admits only managed numeric row IDs.
 
