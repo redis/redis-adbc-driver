@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -207,6 +208,8 @@ func TestSnapshotDirectoryAggregateFailureJoinsWorkers(t *testing.T) {
 			budget := &workerBudget{configured: 4}
 			workers := 4
 			if mode == "expired_pin" {
+				previousCPU := runtime.GOMAXPROCS(4)
+				defer runtime.GOMAXPROCS(previousCPU)
 				budget = &workerBudget{}
 				workers = 0
 			}
