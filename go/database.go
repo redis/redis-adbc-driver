@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -60,7 +61,8 @@ type databaseImpl struct {
 	stream streamSettings
 	// timeouts are adbc.redis.read_timeout and write_timeout (see
 	// timeout.go).
-	timeouts timeoutSettings
+	timeouts         timeoutSettings
+	statementTimeout *time.Duration
 	// timeZone is adbc.redis.time_zone (text "" if not set).
 	timeZone paramValue
 }
@@ -551,6 +553,8 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 		return strconv.FormatBool(d.rekey), nil
 	case OptionStringStreamResults, OptionIntStreamBatchRows, OptionIntStreamBatchBytes:
 		return d.stream.get(key), nil
+	case OptionStringStatementTimeout:
+		return formatTimeout(statementTimeoutDefault(d.statementTimeout)), nil
 	case OptionStringReadTimeout, OptionStringWriteTimeout:
 		// The timeout a connection opened now gets.
 		opts := &goredis.Options{}
@@ -706,6 +710,12 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		d.rekey = rekey
 	case OptionStringStreamResults, OptionIntStreamBatchRows, OptionIntStreamBatchBytes:
 		return d.stream.set(key, value)
+	case OptionStringStatementTimeout:
+		t, err := parseTimeout(key, value)
+		if err != nil {
+			return err
+		}
+		d.statementTimeout = &t
 	case OptionStringReadTimeout, OptionStringWriteTimeout:
 		t, err := parseTimeout(key, value)
 		if err != nil {
@@ -731,6 +741,7 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 // newSession is a new connection's settings.
 func (d *databaseImpl) newSession() *session {
 	s := newSession(d.schema)
+	s.defaultStatementTimeout = d.statementTimeout
 	if d.timeZone.text != "" {
 		s.defaultZone = d.timeZone
 	}

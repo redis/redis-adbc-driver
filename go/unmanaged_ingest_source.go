@@ -231,7 +231,7 @@ func (s *statementImpl) executeUnmanagedSourceIngest(ctx context.Context) (int64
 	if err := st.checkWritableSchema(schema); err != nil {
 		return fail(err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
+	ctx, cancel := statementOperationContext(ctx, s.conn.sess)
 	defer cancel()
 	var existing *tableMeta
 	readCtx, pin, err := st.acquireIngestSnapshot(ctx, func(c context.Context) (*tableMeta, error) {

@@ -123,7 +123,7 @@ func (s *store) registerUnmanagedMode(ctx context.Context, meta *tableMeta, crea
 // Replacement may update only the exact registration admitted before source DDL.
 func (s *store) registerUnmanagedExpected(ctx context.Context, meta *tableMeta, createOnly bool, expected *tableMeta) error {
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
-	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
+	ctx, cancel := statementOperationContext(ctx, nil)
 	defer cancel()
 	if err := s.initializeSnapshotImport(ctx); err != nil {
 		return err

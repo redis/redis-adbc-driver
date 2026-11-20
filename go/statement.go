@@ -33,6 +33,7 @@ import (
 func asAdbc(err error, target *adbc.Error) bool { return errors.As(err, target) }
 
 type statementImpl struct {
+	statementTimeout                 *time.Duration
 	operationAction, operationHandle string
 	operationRetention               time.Duration
 	executionBackend                 string
@@ -94,6 +95,11 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return s.operationOption(ctx, key)
 	}
 	switch key {
+	case OptionStringStatementTimeout:
+		if s.statementTimeout != nil {
+			return formatTimeout(*s.statementTimeout), nil
+		}
+		return formatTimeout(s.conn.sess.statementTimeout()), nil
 	case OptionStringIngestLiveSource:
 		if s.liveSource == nil {
 			return "", nil
@@ -281,6 +287,13 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		return err
 	}
 	switch key {
+	case OptionStringStatementTimeout:
+		d, err := parseTimeout(key, val)
+		if err != nil {
+			return err
+		}
+		s.statementTimeout = &d
+		return nil
 	case OptionStringIngestLiveSource:
 		cfg, err := parseLiveIngestSource(val)
 		if err != nil {
@@ -664,6 +677,7 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 	// Preserve a Close cause on context-canceled command failures without
 	// replacing unknown-outcome errors or downgrading a successful publication.
 	defer func() { resultErr = executionCloseError(ctx, resultErr) }()
+	ctx = s.statementTimeoutContext(ctx)
 	parsed, err := s.parse()
 	if err != nil {
 		return execResult{}, err

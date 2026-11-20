@@ -473,6 +473,8 @@ func (e *executor) tryLiveWrite(ctx context.Context, ps ParsedStmt, params []Val
 			return true, execResult{}, errorf(adbc.StatusNotImplemented, "live writes do not support modifying CTEs")
 		}
 	}
+	ctx, cancel := statementOperationContext(ctx, e.sess)
+	defer cancel()
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	local := *e
 	local.store = &store{client: e.store.redis(ctx), liveTables: true, liveExecution: true}

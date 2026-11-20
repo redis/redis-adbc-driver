@@ -104,6 +104,11 @@ const (
 	// collection's row HASHes in place. Defaults to false.
 	OptionStringTruncateAdopted = "adbc.redis.truncate_adopted"
 
+	// OptionStringStatementTimeout configures the total managed SQL/Arrow deadline.
+	// Database/connection defaults are overridden by SQL SET, then statement options.
+	// Durations or seconds; 0 means unlimited. Default: 15 minutes.
+	OptionStringStatementTimeout = "adbc.redis.statement_timeout"
+
 	// OptionStringReadTimeout (database or connection) is how long the
 	// client waits for each reply: a duration such as "30s" or "10m", or a
 	// number of seconds; "0" means no timeout. It defaults to the URI's

@@ -485,7 +485,7 @@ segments and copies an immutable contiguous range in resumable batches of at mos
 exceed that target within the 64 MiB single-row packet ceiling. Source fetches
 remain bounded by row count, rather than the soft write-byte target. The complete
 job uses per-copy-batch limits rather than a whole-job row/byte quota or the
-15-minute statement limit.
+configured statement deadline (15 minutes by default).
 When a much larger older prefix can be preserved, selection consolidates at
 least two smaller newer segments. Partial merges retain tombstones to keep
 older base versions hidden. Balanced/ambiguous size estimates use a full merge.
@@ -595,7 +595,7 @@ read instead of exposing an older replacement or a partial successful result.
 | 4,096 converted Arrow rows per slice | Bounds the driver's additional row conversion; the caller's original Arrow record remains retained while consumed |
 | 64 MiB cumulative metadata/control-command data per writer | Includes private metadata and row-ID allocation commands. Native row images and capture/copy batches have independent packet limits; not a Redis memory estimate or an unlimited-size operation guarantee |
 | 128 captured rows / 1 MiB target per import apply group | Payload lengths are inspected before fetching; a single payload may exceed the target within the 64 MiB ceiling. Source capture/decode is page-bounded, not a whole-process memory guarantee |
-| 15 minutes per statement/ingest | Includes complete streamed consumption |
+| Configurable statement/ingest deadline; default 15 minutes | `adbc.redis.statement_timeout` at database/connection/statement scope or SQL session `statement_timeout`; `0` unlimited. Includes admission and complete streamed consumption. Earlier caller cancellation/deadlines win; leases and cleanup remain independently bounded. See [precedence](driver-reference.md#timeouts) |
 | Two-minute lease, renewed every 30 seconds | Ownership loss fails the operation; expired pins cannot be resurrected |
 
 A late or lost heartbeat reply is an uncertain renewal outcome, not proof that

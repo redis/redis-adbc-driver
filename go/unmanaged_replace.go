@@ -318,7 +318,7 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 			return 0, err
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
+	ctx, cancel := statementOperationContext(ctx, s.conn.sess)
 	defer cancel()
 	c, pin, err := st.acquireSnapshot(ctx, true)
 	if err != nil {
