@@ -251,6 +251,66 @@ Unregister refuses an unfinished evolution; finish resume/cancellation first.
 Candidate/retired index cleanup is recoverable after a lost reply. Removing a
 live registration still leaves source HASHes intact.
 
+## Partitioned reads of live HASHes
+
+Current source builds add an explicit deferred partition path for this ownership
+mode. On the planning statement, set
+`adbc.redis.partition_source_mode=live_hash` and keep the default
+`adbc.redis.partition_result_mode=live`. Enable `adbc.redis.live_tables=true`
+on the producer and independently authenticated worker databases. Then use
+`ExecutePartitions` and `ReadPartition` with the existing restricted row-local
+projection/filter SQL subset. Default `partition_source_mode=managed` keeps the
+managed-table path unchanged. This new option is source-build functionality;
+the v0.0.30 release statement above does not establish packaged support for it.
+
+Each descriptor assigns one deterministic hash bucket of the original Redis key
+bytes. Workers SCAN the registered prefix, exclude nested collection keys,
+deduplicate their assigned keys, retrieve current complete HASH values and
+recheck the full predicate. No numeric row-ID fields or managed data copy is
+created. Binary keys are preserved; select `CAST(__key AS BYTEA)` for non-UTF-8
+keys. An unindexed or unknown-only HASH remains a collection row with NULLs for
+missing projected fields. The driver index must retain its complete registered
+definition, no FILTER and a ready, failure-free state; unexpected changes fail
+explicitly rather than authorizing an incomplete read.
+
+`partition_count` (1–1024, default 8) controls bucket count, not worker scheduling.
+Each worker repeats discovery over the source, so total SCAN work grows with
+partition count. Fixed-source rows have exactly one bucket, but skew and empty
+buckets are possible and no speedup is promised. The existing 128-live-pin budget also bounds admitted group/reader leases;
+returning many descriptors does not admit that many concurrent workers.
+Numeric `balanced` strategy is
+unsupported; `partition_scan_cap` does not govern these cursor-free source scans.
+
+A worker permits at most 100,000 assigned distinct keys, a 64 MiB logical key
+budget (key bytes plus 64 bytes per key), 1 MiB per key, 1,000,000 scanned entries
+and 4,096 SCAN pages. HASH requests target at most 128 keys/1 MiB key bytes.
+These work and logical-memory limits are not process RSS or RESP decoder ceilings.
+Budget exhaustion fails explicitly with SQLSTATE 53200; it never returns a
+successful truncated result. Source inventory and SCAN cursors are not persisted. Version-6 descriptors
+require a driver with this source path; older workers reject them explicitly.
+The managed storage format is unchanged.
+
+Descriptor groups use `partition_result_ttl` and the existing
+`partition_snapshot_id` / `DROP PARTITION SNAPSHOT` release API for bounded
+admission and cleanup. The legacy snapshot name protects admission metadata,
+**not live HASH values**. Producer Close does not revoke descriptor copies.
+Expiry/release rejects new readers, while admitted readers retain their own
+bounded lease and operation lifetime. Registration/index identity is checked
+before and after source pages and before every returned Arrow batch, including
+buffered batches. Current permissions remain required.
+
+Application writes, TTL expiry, vanished/retyped rows and Search readiness can
+interleave with workers; separate partitions do not share a point-in-time source
+view. A whole-partition retry can produce different values or membership.
+Reading, cancelling or releasing descriptors never changes source HASHes, TTLs,
+unknown fields or ownership. Driver index edits/recreation remain unsupported;
+recreation with the exact same name/definition cannot be distinguished as a new
+physical index incarnation.
+
+Retained-result capture is still rejected for live registrations and is a
+separate unfinished capability. Flex still excludes the live HASH ownership mode.
+See the [#550 specification and evidence](sdlc/changes/issue-550-live-partitions/spec.md).
+
 ## Write Arrow data to live HASHes
 
 Enable `adbc.redis.live_tables=true` and target `redis_live`. Arrow batches and

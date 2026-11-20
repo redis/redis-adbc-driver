@@ -84,6 +84,9 @@ func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, a
 	var n int64
 	var err error
 	if s.resultMode() == "retained" {
+		if s.sourcePartitionMode() != "managed" {
+			return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "live HASH retained capture remains unsupported; use deferred live_hash partitions")
+		}
 		schema, parts, n, err = s.executeRetainedPartitions(ctx)
 	} else {
 		schema, parts, n, err = s.executePartitions(ctx)

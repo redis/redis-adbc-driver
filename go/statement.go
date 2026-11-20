@@ -72,6 +72,7 @@ type statementImpl struct {
 	closed                  bool
 	partitionSnapshotID     string
 	partitionCount          int
+	partitionSourceMode     string
 	partitionStrategyName   string
 	incremental             bool
 	partitionScanCap        int64
@@ -152,6 +153,8 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return strconv.FormatBool(s.incremental), nil
 	case OptionIntPartitionCount:
 		return strconv.Itoa(s.partitions()), nil
+	case OptionStringPartitionSourceMode:
+		return s.sourcePartitionMode(), nil
 	case OptionStringTruncateAdopted:
 		return strconv.FormatBool(s.truncateAdopted), nil
 	case OptionStringIngestIndexColumns:
@@ -421,6 +424,13 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		}
 		s.partitionExecution = nil
 		s.partitionCount = n
+		return nil
+	case OptionStringPartitionSourceMode:
+		if val != "managed" && val != "live_hash" {
+			return errorf(adbc.StatusInvalidArgument, "partition_source_mode must be managed or live_hash")
+		}
+		s.partitionSourceMode = val
+		s.partitionExecution = nil
 		return nil
 	case adbc.OptionKeyIngestTargetTable:
 		s.substrait = nil

@@ -303,11 +303,12 @@ type streamReader struct {
 	env      *evalEnv
 	zone     tzZone
 
-	cols       []resultColumn
-	schema     *arrow.Schema
-	mem        memory.Allocator
-	batchRows  int
-	batchBytes int64
+	cols        []resultColumn
+	schema      *arrow.Schema
+	mem         memory.Allocator
+	batchRows   int
+	batchBytes  int64
+	sourceCheck func(context.Context) error // optional live source identity fence, including buffered batches
 	// skip is the OFFSET still to skip and left the LIMIT still to return
 	// (-1: none), when they don't run in the index.
 	skip, left int64
@@ -439,10 +440,7 @@ func (r *streamReader) Next() (ok bool) {
 	defer r.mu.Unlock()
 	defer func() {
 		if ok {
-			err := r.snapshot.valid(r.ctx)
-			if err == nil && r.it != nil && r.it.liveScan != nil {
-				err = r.it.liveScan.validate(r.ctx)
-			}
+			err := r.validateSourceLocked()
 			if err != nil {
 				if r.cur != nil {
 					r.cur.Release()
@@ -542,6 +540,44 @@ func (r *streamReader) Err() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.err
+}
+
+// Called only for an additional layout slice of a previously returned source
+// batch. Fresh source.Next already performs this proof once, so ordinary first
+// slices keep their existing command budget.
+func (r *streamReader) validateBufferedResult() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.err != nil {
+		return r.err
+	}
+	if r.closed {
+		return errorf(adbc.StatusInvalidState, "buffered result source is closed")
+	}
+	if err := cancelled(r.ctx); err != nil {
+		r.fail(err)
+		return r.err
+	}
+	if err := r.validateSourceLocked(); err != nil {
+		r.fail(err)
+		return r.err
+	}
+	return nil
+}
+
+func (r *streamReader) validateSourceLocked() error {
+	if err := r.snapshot.valid(r.ctx); err != nil {
+		return err
+	}
+	if r.it != nil && r.it.liveScan != nil {
+		if err := r.it.liveScan.validate(r.ctx); err != nil {
+			return err
+		}
+	}
+	if r.sourceCheck != nil {
+		return r.sourceCheck(r.ctx)
+	}
+	return nil
 }
 
 // fail ends the stream with err, or why its context ended.
