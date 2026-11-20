@@ -161,11 +161,14 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	if e.workerBudget != nil {
 		workers = min(workers, e.workerBudget.capacity())
 	}
-	if e.store.flexEnabled() || meta.SnapshotOverlay && !e.snapshotIndexable(ctx, meta) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
+	native := snapshotOf(ctx) != nil && snapshotOf(ctx).pin != nil && e.store.snapshots && managedRowIDTable(meta) && snapshotDataID(meta.prefix()) != ""
+	directory := native && (e.store.flexEnabled() || meta.SnapshotOverlay && !e.snapshotIndexable(ctx, meta))
+	if e.store.flexEnabled() && !native || meta.SnapshotOverlay && !native && !e.snapshotIndexable(ctx, meta) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
 		return nil, false, nil
 	}
 	// The sequence is an upper bound, not a count: deleted rows and gaps do not
-	// matter. The last range extends to +inf so concurrent inserts aren't lost.
+	// matter. Directory bounds are exact int64; the pinned sequence bounds this
+	// generation. Legacy Search ranges still require exact double boundaries.
 	last, err := e.store.rowSequence(ctx, meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil, false, nil
@@ -173,12 +176,44 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	if err != nil {
 		return nil, true, wrapRedis(err, "reading row sequence failed")
 	}
-	if last < 2048 || last >= exactDoubleLimit {
+	if native && last >= exactDoubleLimit {
+		directory = true
+	}
+	if last < 2048 || last >= exactDoubleLimit && !directory {
 		return nil, false, nil
+	}
+	predicate := wp.original
+	if predicate == nil {
+		predicate = wp.residual
+	}
+	if directory && !parallelPredicate(predicate) {
+		return nil, false, nil
+	}
+	tuningQuery := wp.query
+	if directory {
+		pin, readCtx := snapshotOf(ctx).pin, ctx
+		defer func() {
+			// Every range shares this lease. Refuse an expired generation before
+			// returning any completed aggregate, including a one-worker grant.
+			if handled && resultErr == nil {
+				if err := pin.valid(readCtx); err != nil {
+					groups, resultErr = nil, err
+				}
+			}
+		}()
+		// Normalize once so a one-worker budget grant uses the same exact
+		// source and full predicate as a multi-worker directory execution.
+		copy := *meta
+		copy.SnapshotOverlay = true
+		meta = &copy
+		p := *plan
+		p.meta = meta
+		plan = &p
+		wp.query, wp.original, wp.residual = "*", predicate, predicate
 	}
 	// Measure actual fetched rows, never sequence IDs (which can have gaps).
 	if e.workerBudget != nil && (e.queryWorkers == 0 || e.workerBudget.automatic()) {
-		key := meta.Schema + "." + meta.Name + ":" + wp.query + fmt.Sprint(last/4096)
+		key := meta.Schema + "." + meta.Name + ":" + tuningQuery + fmt.Sprint(last/4096) + fmt.Sprint(":directory=", directory)
 		for _, f := range aggs {
 			key += ":" + f.Name
 			for _, a := range f.Args {
@@ -213,7 +248,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 		e.workerGrant.Store(int64(workers))
 	}
 	e.diagnostics.setPhase("parallel_aggregate")
-	e.diagnostics.setPlan(map[string]any{"kind": "parallel_exact", "workers": workers, "checked_integer_inputs": true, "residual": wp.residual})
+	e.diagnostics.setPlan(map[string]any{"kind": "parallel_exact", "workers": workers, "exact_directory_ranges": directory, "checked_integer_inputs": true, "residual": wp.residual})
 	types := meta.types()
 	aggTypes := make([]ColType, len(aggs))
 	need := map[string]bool{}
@@ -230,6 +265,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	partial := make([][]*accumulator, workers)
 	errs := make([]error, workers)
 	inputErrors := make([]bool, workers)
+	scanFailures := make([]bool, workers)
 	var wg sync.WaitGroup
 	for worker := 0; worker < workers; worker++ {
 		wg.Add(1)
@@ -257,7 +293,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 			}
 
 			req := scanRequest{meta: meta, where: part, need: need}
-			if meta.SnapshotOverlay {
+			if meta.SnapshotOverlay || directory {
 				lower := int64(1)
 				upper := last
 				if w > 0 {
@@ -267,6 +303,9 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 					upper = int64(w+1) * step
 				}
 				req.ranges = &rowIDRangeScan{lo: lower, hi: upper}
+			}
+			if directory {
+				req.where.query, req.where.original, req.where.residual = "*", predicate, predicate
 			}
 			handled, scanErr := local.scanScalarAggregateValues(ctx, req, params, aggs, func(values []Value) error {
 				if err := cancelled(ctx); err != nil {
@@ -305,10 +344,19 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 					return nil
 				})
 			}
+			if errs[w] != nil && !inputErrors[w] {
+				scanFailures[w] = ctx.Err() == nil
+				cancel() // Join every peer before releasing the shared worker grant.
+			}
 			partial[w] = reducers
 		}(worker)
 	}
 	wg.Wait()
+	for w, failed := range scanFailures {
+		if failed {
+			return nil, true, errs[w] // Preserve the cause rather than a peer cancellation.
+		}
+	}
 	for _, failed := range inputErrors {
 		if failed {
 			// Parallel completion order must not choose the reported SQL
