@@ -62,8 +62,9 @@ DELETE FROM redis_live.users WHERE __key = 'app:users:carol';
 the SQL default `<registered-prefix> || GEN_RANDOM_UUID()::TEXT`, evaluated
 separately for every inserted row. Use `RETURNING __key` to retrieve generated
 keys. An explicit key is preserved, explicit NULL is rejected, and an existing
-key is refused, including one created concurrently. This default applies only
-to live HASH tables; unmanaged registrations still require explicit keys. A key
+key is refused, including one created concurrently. [Unmanaged SQL INSERTs](unmanaged-tables.md#read-and-write-the-original-keys)
+also generate prefixed UUID keys when `__key` is omitted or supplied as `DEFAULT`; unmanaged Arrow
+ingestion requires explicit keys. A key
 under the prefix with another colon after that prefix belongs to a nested
 collection and is excluded. No
 internal row ID or version fields are added to the HASHes.
