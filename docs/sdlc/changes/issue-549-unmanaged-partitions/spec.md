@@ -28,7 +28,8 @@ See [intent](intent.md), [plan](plan.md), and [verification](verification.md).
   Server-enforced TTL and explicit DROP PARTITION SNAPSHOT stop new readers;
   admitted child readers retain their own leases. Refresh/drop can change later
   planning while this group's old registration remains pinned. Index definition
-  changes refuse before/after native pages. Same-definition index recreation is
+  changes refuse before/after native pages and before exposed batches/cached
+  physical-layout slices. Ordinary unmanaged scans are unchanged. Same-definition index recreation is
   indistinguishable and follows ordinary live-source readiness semantics.
 - Each worker admits at most 100,000 unique assigned keys, 64 MiB of logical
   key/map credits, one-MiB keys, 256 prefixes, one million SCAN calls and 2^31

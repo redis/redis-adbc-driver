@@ -520,6 +520,7 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
+	livePartition      *livePartitionScan
 	unmanagedPartition *unmanagedPartitionBucket
 	aggregateInputs    bool                 // direct scalar inputs: bounded larger unmanaged key pages
 	dependencies       map[string]bool      // transitive outer-column inputs for correlated predicates
@@ -594,6 +595,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	livePartition *livePartitionScan
 	liveScan      *liveCollectionScan
 	flexUnmanaged *flexUnmanagedScan
 	ordered       *snapshotOrderedScan
@@ -669,6 +671,12 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 // openScan starts a scan through the index (req.where.keys nil) and reads
 // its first page.
 func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value) (*scanIter, error) {
+	if req.livePartition != nil {
+		req.where.residual = req.where.original
+		it, _, _ := e.newScanIter(ctx, req, params)
+		it.livePartition = req.livePartition
+		return it, nil
+	}
 	if req.meta.Live && req.where.keys == nil {
 		it, _, _ := e.newScanIter(ctx, req, params)
 		scan, err := (&hashConn{client: e.store.redis(ctx)}).scanKeys(ctx, req.meta.prefix(), "hash")
@@ -930,6 +938,13 @@ func (it *scanIter) checkReadiness(ctx context.Context) error {
 
 // nextPage is next in the index's order.
 func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
+	if it.livePartition != nil {
+		keys, rows, err := it.livePartition.next(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, rows)
+	}
 	if it.liveScan != nil {
 		keys, rows, err := it.liveScan.next(ctx)
 		if err != nil {
@@ -1188,6 +1203,9 @@ func (it *scanIter) exists(r aggRow) bool {
 
 // close deletes the scan's cursor, if it is still open.
 func (it *scanIter) close(ctx context.Context) {
+	if it.livePartition != nil {
+		it.livePartition.close()
+	}
 	if it.liveScan != nil {
 		it.liveScan.close()
 	}

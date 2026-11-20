@@ -78,9 +78,10 @@ or replay. Native SCAN, FT.INFO, FT.SEARCH and HASH read permissions are require
 
 The existing partition group pins only catalog/registration metadata. A later
 registration refresh/drop does not rewrite that pinned definition. Changed source
-index definitions fail at worker startup or native page boundaries; an identical
-index recreated under the same identity is indistinguishable once ready. Already
-fetched rows can remain buffered under ordinary streaming semantics.
+index definitions are checked at worker startup, native page boundaries, and
+before each exposed batch or cached physical-layout slice. An identical index
+recreated under the same identity is indistinguishable once ready. Previously
+fetched source values can remain buffered; this does not freeze current values.
 
 `partition_result_ttl` and `partition_snapshot_id` use the existing server admission
 and [DROP PARTITION SNAPSHOT lifecycle](partitioned-reads.md#current-managed-snapshot-contract).

@@ -1,0 +1,34 @@
+{
+  "active_qpf": 4,
+  "client_arch": "arm64",
+  "client_os": "macOS 26.7.3",
+  "date": "2026-11-20",
+  "distribution": "Redis Software",
+  "go": "go1.27.4",
+  "primary_shards": 1,
+  "proxy_connections": 32,
+  "redis_version": "8.8.0",
+  "route": "host Docker published TLS port",
+  "routing": "mnp",
+  "search_workers": 6,
+  "source_base": "1d0d0b3b",
+  "source_columns": [
+    "n BIGINT",
+    "v VARCHAR"
+  ],
+  "source_commit": "f28dbc042bbcd4e28b243c6e8e3d33fe893d0782",
+  "source_files_sha256": {
+    "go/partition_incremental.go": "b349ab645f148b6a25670ebb37f7cd6c1f41b9bc6c57396f90cf10cef85f97c4",
+    "go/partition_live_hash.go": "0286c2c506f7565ff0e679b055b2ac926950c12f758013edbced138befcdfbfb",
+    "go/partition_live_hash_integration_test.go": "a2a94c7f0695c205f342d9456e61fc31134cb91e96ca0c3ad5e1e1f34cc2b764",
+    "go/partition_live_hash_profile_test.go": "e129c537aabff89825d6b14a42dec0a4b3e9faf70e671d4d1678a1eedb46b229",
+    "go/partitions.go": "a586a2c4be15375c91690a4512b8313230dae95fb731ca43d006dcb7d4458ff3",
+    "go/query.go": "b78136d3298419020ea0a60be8e9f08c033fd42aec1dae15d10b0e4cd0b5e75f",
+    "go/result_layout.go": "9dca0949ee3748244f1e8e08e040e7224bfd70e01708bbbe551522a50e59624c",
+    "go/statement.go": "69d3432aff334ff90582fbe89a22c66a4b057b531b56cfb035efdcf7c6e42b0d",
+    "go/stream.go": "f7c1b53d18b3fb95a5619852d5af948ed23a153ba7341e0c4e74e9bb65c11be5"
+  },
+  "source_rows": 8192,
+  "storage": "RAM",
+  "trials_per_condition": 3
+}

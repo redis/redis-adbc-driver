@@ -43,14 +43,39 @@ Completed at the measured source before the later cached-layout regression:
   Four buckets beat one bucket here; ordinary RAM SELECT was substantially faster.
   The measurements do not establish a general speedup or full-scale behavior.
 
-A later new test reproduces cached explicit-layout slices escaping after actual
-child-pin loss. #550 owns the minimal shared lifetime validation fix; #549 will
-rebase and run combined feature tests before publication. This later regression
-is not relabeled as coverage of the measured source.
+A later new test reproduced cached explicit-layout slices escaping after actual
+child-pin loss. The shared fix from #550 (617061b7) validates additional cached
+slices without adding another first-slice proof. The combined feature tree now
+passes the retained #549 regression. This later coverage is not relabeled as
+coverage of the earlier measured source.
+
+Combined integration merges the published #550 branch into this branch, preserving
+measured 222ab181 ancestry. There is one shared partition source option/getter,
+union managed/unmanaged/live_hash values, generic deferred-only retained refusal,
+and disjoint version-5/version-6 read dispatch. Partition-only unmanaged callbacks
+now check complete native index identity before every exposed canonical batch and
+cached layout slice. Canonical and cached-slice index-change regressions pass.
+Ordinary unmanaged scan behavior is unchanged.
+
+Final local combined checks on the source tree described above:
+
+- Software RAM: `REDIS_SNAPSHOT_URI=... REDIS_URI=... go test -race -count=1 -p 1
+  -v -timeout=8m -run '^(TestLiveHashPartition|TestUnmanagedPartition|TestLayout.*Buffered|TestSnapshotPartition)' .`
+  passed in 17.420 s, including both external ownership modes, independent processes,
+  shared cached layout lifetime checks and existing managed partition cases.
+- Actual Software Flex: `REDIS_SNAPSHOT_URI=... REDIS_SNAPSHOT_FLEX=true go test
+  -race -count=1 -p 1 -v -timeout=8m -run '^TestUnmanagedPartition' .` passed in 8.472 s.
+  Live HASH registrations remain unsupported on Flex; this does not imply otherwise.
+- Source descriptor credit refusal is checked before duplicating large query text,
+  retains SQLSTATE 53200, releases its group/catalog pins and preserves sources.
+
+The separate benchmark reports actual old source 222ab181 and file fingerprints;
+none of the final integration/cached-layout/descriptor-credit changes are
+retroactively claimed as performance or coverage of that earlier source.
 
 Skips are the standalone subprocess helper and opt-in profile without its flag;
-there is no generic functional skip for NUL membership. Pending: shared fix,
-combined final checks, review, PR and fixture cleanup.
+there is no generic functional skip for NUL membership. Final unit/build checks,
+review, PR publication and fixture cleanup are being completed.
 
 The native filtered-index NUL membership investigation is tracked separately in
 [#559](https://github.com/redis/redis-adbc-driver/issues/559); source values are
@@ -60,3 +85,20 @@ Additional post-measurement regression: explicit unmanaged adoption reads its
 single collection prefix, excludes subsequently created nested collections,
 preserves source fields, and returns valid empty buckets. The dedicated RAM
 `-race` case passed. This does not relabel the measured fixture.
+
+## Review boundary
+
+Self-review covered all three REVIEW.md passes: full predicate retention and exact
+HASH values; byte-key hashing/deduplication and owned state/work admission; direct
+native refusal/pipeline proofs; registration-only catalog pins; index identity
+checks including cached output; independent process permissions and cleanup; and
+source HASH/index/TTL ownership. No source mutation or row-ID field insertion is
+introduced. No remaining actionable finding is identified in the reviewed scope;
+this is not human review or merge approval.
+
+Validation covers one-shard Software RAM and compatible actual Software Flex.
+Cluster API, resharding/failover, Cloud, every release wheel and sustained/full-scale
+workloads are not established by these local runs. SCAN/native HASH replies and
+Arrow values retain their ordinary allocation behavior; state/work credits are
+not a hard RSS ceiling. Repeated scans and source/index live changes remain
+explicit design costs, not managed snapshot guarantees.

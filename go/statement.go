@@ -377,8 +377,8 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		s.partitionExecution = nil
 		return nil
 	case OptionStringPartitionSourceMode:
-		if val != "managed" && val != "unmanaged" {
-			return errorf(adbc.StatusInvalidArgument, "%s must be managed or unmanaged", key)
+		if val != "managed" && val != "unmanaged" && val != "live_hash" {
+			return errorf(adbc.StatusInvalidArgument, "%s must be managed, unmanaged or live_hash", key)
 		}
 		s.partitionSourceMode = val
 		s.partitionExecution = nil

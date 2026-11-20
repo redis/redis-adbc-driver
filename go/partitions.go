@@ -35,16 +35,8 @@ import (
 // row-ID ranges returned by ExecutePartitions. It does not start workers.
 const OptionIntPartitionCount = "adbc.redis.partition_count"
 
-// OptionStringPartitionSourceMode selects the ownership model for deferred reads.
-// It never changes source ownership or grants a source-row snapshot.
+// OptionStringPartitionSourceMode explicitly selects the source ownership contract.
 const OptionStringPartitionSourceMode = "adbc.redis.partition_source_mode"
-
-func (s *statementImpl) sourcePartitionMode() string {
-	if s.partitionSourceMode == "" {
-		return "managed"
-	}
-	return s.partitionSourceMode
-}
 
 // OptionIntPartitionScanCap declares a guaranteed lower bound on the server
 // aggregate cap for the lifetime of partition reads (0: discover via CONFIG).
@@ -73,6 +65,13 @@ type partitionID struct {
 	Lo       int64              `json:"lo"`
 	Hi       int64              `json:"hi"`
 	Layouts  resultLayouts      `json:"result_layouts,omitempty"`
+}
+
+func (s *statementImpl) sourcePartitionMode() string {
+	if s.partitionSourceMode == "" {
+		return "managed"
+	}
+	return s.partitionSourceMode
 }
 
 func (s *statementImpl) partitions() int {
@@ -246,6 +245,9 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 	}
 	if err := checkPartitionParams(s.query, len(params)); err != nil {
 		return fail(err)
+	}
+	if s.sourcePartitionMode() == "live_hash" {
+		return s.executeLiveHashPartitions(ctx, sel, encoded, params, types)
 	}
 	e := s.executor()
 	e.params, e.paramTypes = params, types
@@ -422,9 +424,11 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	if c.sess.currentCatalog() != catalogName {
 		return nil, namedCatalogExecutionUnsupported()
 	}
-	var sourceVersion struct{ Version int }
-	if len(data) <= maxPartitionBytes && json.Unmarshal(data, &sourceVersion) == nil && sourceVersion.Version == 5 {
+	switch transportVersion.Version {
+	case 5:
 		return c.readUnmanagedPartition(ctx, data)
+	case 6:
+		return c.readLiveHashPartition(ctx, data)
 	}
 	d, err := decodePartition(data)
 	if err != nil {

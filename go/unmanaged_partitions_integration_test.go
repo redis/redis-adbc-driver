@@ -668,3 +668,75 @@ func TestUnmanagedPartitionDescriptorSetBudgetBeforeDuplication(t *testing.T) {
 		t.Fatal("failed descriptor admission changed application resources")
 	}
 }
+
+func TestUnmanagedPartitionBufferedIndexIdentity(t *testing.T) {
+	for _, layout := range []bool{false, true} {
+		t.Run(fmt.Sprint("layout=", layout), func(t *testing.T) {
+			h, raw, db, _ := unmanagedPartitionFixture(t)
+			st, err := h.conn.NewStatement(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer st.Close(h.ctx)
+			for key, value := range map[string]string{OptionStringPartitionSourceMode: "unmanaged", OptionIntPartitionCount: "1"} {
+				if err := st.SetOption(h.ctx, key, value); err != nil {
+					t.Fatal(err)
+				}
+			}
+			query := "SELECT CAST(__key AS BYTEA) AS b FROM redis_foreign.source_idx"
+			if layout {
+				query = "SELECT CAST(NULL AS BYTEA) AS b FROM redis_foreign.source_idx"
+				if err := st.SetOption(h.ctx, OptionStringResultLayouts, `{"b":"fixed_size_binary:1048576"}`); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := db.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionIntStreamBatchRows, "1"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := st.SetSqlQuery(h.ctx, query); err != nil {
+				t.Fatal(err)
+			}
+			_, parts, _, err := st.ExecutePartitions(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			worker, err := db.Open(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer worker.Close(h.ctx)
+			reader, err := worker.ReadPartition(h.ctx, parts.PartitionIDs[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reader.Release()
+			if !reader.Next() {
+				t.Fatal(reader.Err())
+			}
+			wantRows := int64(1)
+			if layout {
+				wantRows = 16
+			}
+			if reader.RecordBatch().NumRows() != wantRows {
+				t.Fatal("fixture must retain another buffered batch/slice", reader.RecordBatch().NumRows())
+			}
+			if os.Getenv("REDIS_SNAPSHOT_FLEX") == "true" {
+				if err := raw.Do(h.ctx, "FT.DROPINDEX", "source_idx").Err(); err != nil {
+					t.Fatal(err)
+				}
+				if err := raw.Do(h.ctx, "FT.CREATE", "source_idx", "ON", "HASH", "PREFIX", 2, "app:", "app:sub:", "FILTER", "@active==1", "SCHEMA", "n", "NUMERIC", "v", "NUMERIC", "s", "TAG", "active", "NUMERIC", "new_field", "TAG").Err(); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := raw.Do(h.ctx, "FT.ALTER", "source_idx", "SCHEMA", "ADD", "new_field", "TAG").Err(); err != nil {
+				t.Fatal(err)
+			}
+			if err := (&store{client: raw}).awaitIndexReady(h.ctx, "source_idx"); err != nil {
+				t.Fatal(err)
+			}
+			if reader.Next() || reader.Err() == nil {
+				t.Fatal("buffered result escaped after native index-definition change")
+			}
+		})
+	}
+}

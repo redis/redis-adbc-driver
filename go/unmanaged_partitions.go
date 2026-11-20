@@ -313,6 +313,7 @@ func (c *connectionImpl) readUnmanagedPartition(ctx context.Context, data []byte
 	if err != nil {
 		return nil, err
 	}
+	r.sourceCheck = r.it.flexUnmanaged.checkIndex
 	r.attachOwners([]*streams{&c.streams})
 	return r, nil
 }
