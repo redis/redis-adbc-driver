@@ -147,12 +147,24 @@ cause queries to fail rather than silently accept that index as complete. Field
 names beginning with `__` are reserved. Do not change or delete driver-owned
 indexes or control metadata directly.
 
-This initial mode supports SELECT, INSERT, UPDATE, DELETE and RETURNING. SQL
+This mode supports SELECT, INSERT, UPDATE, DELETE, MERGE and RETURNING. SQL
 writes may read other live tables, but cannot read managed tables in the same
 write statement. Managed writes cannot consume live tables. Shared managed read
-snapshots, retained execution, MERGE, modifying CTEs, TRUNCATE
+snapshots, retained execution, modifying CTEs, TRUNCATE
 and schema-changing DDL are not supported for live tables. Ordinary SELECTs may
 join live and managed tables; only the managed portion is frozen.
+
+MERGE uses the same live-source write paths. It evaluates the join, WHEN clauses,
+type checks, duplicate-target checks and RETURNING expressions before mutations,
+then applies updates, deletes and inserts in that order. Successful affected-row
+counts include all three actions; DO NOTHING contributes zero. RETURNING supports
+`merge_action()` and the source/target columns. A failed statement does not return
+a complete RETURNING result or a reliable count of earlier source changes;
+inspect application data before deciding how to recover. Each source UPDATE or
+DELETE checks registration identity before its row mutation. An uncertain reply
+stops the statement without replay. Concurrent application edits can still
+interleave between those checks and mutations. Managed sources and modifying
+CTEs remain excluded from live writes.
 
 ## Write Arrow data to live HASHes
 

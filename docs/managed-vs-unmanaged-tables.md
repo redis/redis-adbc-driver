@@ -137,7 +137,7 @@ Direct Redis writes must respect registered field encodings; they do not receive
 SQL type/constraint validation. New source fields do not automatically become
 SQL columns.
 
-The mode supports SELECT, INSERT, UPDATE, DELETE, RETURNING, and Arrow ingestion with explicit creation/replacement configuration. It excludes shared managed snapshots, retained execution, MERGE,
+The mode supports SELECT, INSERT, UPDATE, DELETE, MERGE, RETURNING, and Arrow ingestion with explicit creation/replacement configuration. It excludes shared managed snapshots, retained execution,
 TRUNCATE, schema-changing DDL, and mixed managed/live write statements. Ordinary
 SELECTs may join live and managed tables; only the managed portion is frozen.
 Collection queries use bounded key scans and can materialize results.

@@ -4465,7 +4465,7 @@ before opting in; unsupported CUDA operations return errors without fallback.
 
 | Option | Level | Meaning |
 |-|-|-|
-| `adbc.redis.live_tables` | database, connection | `false` by default. Enables registered live HASH tables in `redis_live`, including SQL SELECT/INSERT/UPDATE/DELETE and Arrow append/create-or-append over original keys. Creation and dedicated replacement require explicit `ingest.live_source` configuration and replacement consent. See [live HASH tables](live-hash-tables.md). |
+| `adbc.redis.live_tables` | database, connection | `false` by default. Enables registered live HASH tables in `redis_live`, including SQL SELECT/INSERT/UPDATE/DELETE/MERGE and Arrow append/create-or-append over original keys. Creation and dedicated replacement require explicit `ingest.live_source` configuration and replacement consent. See [live HASH tables](live-hash-tables.md). |
 | `adbc.redis.ingest.live_source` | statement | JSON application prefix and optional field encodings for live Arrow creation. Dedicated replacement also requires exact current index identity and schema/table, exclusive quiescence, TTL-loss and index-reset consent. Persists until cleared. See [live ingestion](live-hash-tables.md#write-arrow-data-to-live-hashes). |
 | `adbc.redis.statement_snapshots` | database, connection | Always `true` for managed tables. Explicit `true` is accepted; `false` is rejected. See [snapshots](snapshots.md). |
 | `adbc.redis.read_snapshot_action` | connection, write-only | `acquire` binds one read-only managed catalog view across metadata and sequential SELECTs; `release` unbinds while existing readers retain their view. Native connection only. See [shared read snapshots](shared-read-snapshots.md). |

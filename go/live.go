@@ -423,8 +423,44 @@ func (s *store) liveCandidates(ctx context.Context, m *tableMeta, query string, 
 	return out, nil
 }
 
+// Live mutations check registration identity between rows and never replay an
+// uncertain reply. The shared script preserves TTLs/unknown fields and refuses
+// to recreate a vanished row or remove its last field.
+func (s *store) updateLiveRows(ctx context.Context, m *tableMeta, changes []rowChange) error {
+	if err := s.checkKeyRowsKept(ctx, m, changes); err != nil {
+		return err
+	}
+	for _, ch := range changes {
+		if err := cancelled(ctx); err != nil {
+			return err
+		}
+		if !isRowKey(m.prefix(), ch.key) {
+			return errorf(adbc.StatusIO, "live UPDATE key is outside its registered collection")
+		}
+		if err := s.checkLiveIdentity(ctx, m); err != nil {
+			return err
+		}
+		args := []any{"EVAL", keyRowUpdateLua, 1, ch.key}
+		args = append(args, keyRowArgs(ch)...)
+		n, err := once(ctx, s.redis(ctx), args...).Int()
+		if err != nil {
+			return wrapRedis(err, "live UPDATE outcome is uncertain; earlier row changes may have applied")
+		}
+		if n == 0 {
+			return stateErrorf("40001", "live row disappeared during UPDATE; earlier row changes may have applied")
+		}
+		if n == -1 {
+			return errEmptiesRow(m, ch.key)
+		}
+	}
+	return nil
+}
+
 func (s *store) deleteLiveKeys(ctx context.Context, m *tableMeta, keys []string) error {
 	for _, key := range keys {
+		if err := cancelled(ctx); err != nil {
+			return err
+		}
 		if !isRowKey(m.prefix(), key) {
 			return errorf(adbc.StatusIO, "live DELETE key is outside its registered collection")
 		}
@@ -456,6 +492,8 @@ func (e *executor) tryLiveWrite(ctx context.Context, ps ParsedStmt, params []Val
 	case *UpdateStmt:
 		target = &st.Table
 	case *DeleteStmt:
+		target = &st.Table
+	case *MergeStmt:
 		target = &st.Table
 	}
 	if target == nil {
