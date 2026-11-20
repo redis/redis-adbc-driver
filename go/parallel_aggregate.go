@@ -17,7 +17,6 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"runtime"
@@ -170,7 +169,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	// matter. Directory bounds are exact int64; the pinned sequence bounds this
 	// generation. Legacy Search ranges still require exact double boundaries.
 	last, err := e.store.rowSequence(ctx, meta)
-	if errors.Is(err, goredis.Nil) {
+	if err == goredis.Nil {
 		return nil, false, nil
 	}
 	if err != nil {
