@@ -172,7 +172,31 @@ func TestSnapshotParallelAppendProfile(t *testing.T) {
 						publicationPhaseNS += lastPublish - firstPublish
 					}
 				}
-				payload := map[string]any{"trial": trial, "concurrency": concurrency, "rows": total, "seconds": elapsed.Seconds(), "client_cpu_seconds": cpuAfter - cpu, "client_allocated_bytes": after.TotalAlloc - before.TotalAlloc, "client_heap_after_bytes": after.HeapAlloc, "client_lifetime_peak_rss_bytes": rss, "server_cpu_seconds": serverAfter.CPUSeconds - serverBefore.CPUSeconds, "server_rss_before_bytes": serverBefore.RSSBytes, "server_rss_after_bytes": serverAfter.RSSBytes, "summed_admission_seconds": float64(admissionNS) / 1e9, "summed_publish_command_seconds": float64(publishNS) / 1e9, "summed_publication_cas_rebase_seconds": float64(publicationPhaseNS) / 1e9, "compaction_seconds": compaction.Seconds(), "compaction_client_cpu_seconds": maintenanceCPUAfter - maintenanceCPU, "compaction_server_cpu_seconds": maintenanceServerAfter.CPUSeconds - maintenanceServerBefore.CPUSeconds, "compaction_server_rss_after_bytes": maintenanceServerAfter.RSSBytes, "background_workers": false, "flex": os.Getenv("REDIS_SNAPSHOT_FLEX") == "true", "client_os": runtime.GOOS, "client_arch": runtime.GOARCH, "route": "host Docker published TLS port"}
+				payload := map[string]any{
+					"trial":                                 trial,
+					"concurrency":                           concurrency,
+					"rows":                                  total,
+					"seconds":                               elapsed.Seconds(),
+					"client_cpu_seconds":                    cpuAfter - cpu,
+					"client_allocated_bytes":                after.TotalAlloc - before.TotalAlloc,
+					"client_heap_after_bytes":               after.HeapAlloc,
+					"client_lifetime_peak_rss_bytes":        rss,
+					"server_cpu_seconds":                    serverAfter.CPUSeconds - serverBefore.CPUSeconds,
+					"server_rss_before_bytes":               serverBefore.RSSBytes,
+					"server_rss_after_bytes":                serverAfter.RSSBytes,
+					"summed_admission_seconds":              float64(admissionNS) / 1e9,
+					"summed_publish_command_seconds":        float64(publishNS) / 1e9,
+					"summed_publication_cas_rebase_seconds": float64(publicationPhaseNS) / 1e9,
+					"compaction_seconds":                    compaction.Seconds(),
+					"compaction_client_cpu_seconds":         maintenanceCPUAfter - maintenanceCPU,
+					"compaction_server_cpu_seconds":         maintenanceServerAfter.CPUSeconds - maintenanceServerBefore.CPUSeconds,
+					"compaction_server_rss_after_bytes":     maintenanceServerAfter.RSSBytes,
+					"background_workers":                    false,
+					"flex":                                  os.Getenv("REDIS_SNAPSHOT_FLEX") == "true",
+					"client_os":                             runtime.GOOS,
+					"client_arch":                           runtime.GOARCH,
+					"route":                                 "host Docker published TLS port",
+				}
 				data, err := json.Marshal(payload)
 				if err != nil {
 					t.Fatal(err)
