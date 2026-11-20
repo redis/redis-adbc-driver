@@ -1,0 +1,57 @@
+{
+  "client": {
+    "arch": "arm64",
+    "go": "1.27.4",
+    "os": "macOS 26.7.3",
+    "route": "host Docker published TLS port"
+  },
+  "date": "2026-11-20",
+  "software": {
+    "active_qpf": 4,
+    "connections": 32,
+    "effective_search_workers": 6,
+    "eviction": "noeviction",
+    "product": "Redis Software",
+    "redis_version": "8.8.0",
+    "routing": "mnp"
+  },
+  "source_sha256": {
+    "Flex": {
+      "go/ingest.go": "2b3eb05cf12f2412a454283f7d1944b0171ef14769ea9072ba2a871e39ac80a3",
+      "go/snapshot.go": "fe7be893db63756b8e5e6501c803e68d50ea15b8c9ba05d29e7cf486de6463fe",
+      "go/snapshot_admission.go": "6da3a2f57bb3f3da2c78a5ae3f9b0b645d221c17207c4dd0eb109cc2c07fe7f4",
+      "go/snapshot_append.go": "8961748bcdfc49a1e2761a86804ed98c340f6224c2d57d00280fdf49c04c84b5",
+      "go/snapshot_compaction.go": "01033ddd6a75a384b3cd15487cd8752d3e9f216a23361da48150feee2fc4d9b1",
+      "go/snapshot_managed_tail_profile_test.go": "285a86b1187694937e841c02bbf374dc6286ed530f43ec01a7a33704d3c54b4b",
+      "go/snapshot_parallel_append_profile_test.go": "4c40a84777d188e9520863e194d79a06099e0f7be6bd360f6fa0da0ae099fe24",
+      "go/snapshot_publication.go": "fd846b4a01292681d8e4b9d26c1fa91d13bdf99b5054fbba18f777b0aed9504d",
+      "go/store.go": "b96f4c420c9c434c8d314cb9324fdef09620f2498f117010920e13ac3aca02b4"
+    },
+    "RAM": {
+      "go/ingest.go": "2b3eb05cf12f2412a454283f7d1944b0171ef14769ea9072ba2a871e39ac80a3",
+      "go/snapshot.go": "fe7be893db63756b8e5e6501c803e68d50ea15b8c9ba05d29e7cf486de6463fe",
+      "go/snapshot_admission.go": "6da3a2f57bb3f3da2c78a5ae3f9b0b645d221c17207c4dd0eb109cc2c07fe7f4",
+      "go/snapshot_append.go": "1e7c2f87d45cc88dfe394f6ec6ffbab3b4adc54f479c6311ed7588ff06422773",
+      "go/snapshot_compaction.go": "01033ddd6a75a384b3cd15487cd8752d3e9f216a23361da48150feee2fc4d9b1",
+      "go/snapshot_managed_tail_profile_test.go": "285a86b1187694937e841c02bbf374dc6286ed530f43ec01a7a33704d3c54b4b",
+      "go/snapshot_parallel_append_profile_test.go": "1c86937eedf3c46441a645806f88b90acde091e065df70cfdf2c2612d3916d04",
+      "go/snapshot_publication.go": "fd846b4a01292681d8e4b9d26c1fa91d13bdf99b5054fbba18f777b0aed9504d",
+      "go/store.go": "b96f4c420c9c434c8d314cb9324fdef09620f2498f117010920e13ac3aca02b4"
+    }
+  },
+  "topologies": {
+    "Flex": {
+      "bigstore": true,
+      "bigstore_version": 2,
+      "database_bytes": 1073741824,
+      "flash": "container directory; not a cold SSD test",
+      "primary_shards": 1,
+      "ram_bytes": 268435456
+    },
+    "RAM": {
+      "bigstore": false,
+      "database_bytes": 1073741824,
+      "primary_shards": 3
+    }
+  }
+}

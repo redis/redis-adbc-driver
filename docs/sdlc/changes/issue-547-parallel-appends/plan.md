@@ -1,7 +1,9 @@
 # Implementation plan
 
-Date: 2026-11-20. Source: `52b03c6f`. Requestor: alberttwong. Author: Codex.
-Status: implementation and verification in progress; no human approval recorded.
+Date: 2026-11-20. Initial investigation: `52b03c6f`; implementation rebased onto
+`845c95b4`. Requestor: alberttwong. Author: Codex.
+Status: implemented and locally verified; human review and hosted CI pending.
+No human approval or release is recorded.
 
 See [intent](intent.md), [specification](spec.md), and
 [verification](verification.md).
@@ -22,4 +24,6 @@ Implementation lives in go/snapshot_append.go, snapshot_admission.go,
 snapshot_publication.go, snapshot.go, ingest.go, store.go and snapshot_compaction.go.
 New integration and opt-in measurement fixtures accompany these changes.
 
-Remaining work and actual evidence are tracked in [verification](verification.md).
+Implementation and local checks are complete. Actual commands, retained failures,
+measurement limits and self-review are in [verification](verification.md). Human
+review, hosted CI and release are not inferred from local verification.

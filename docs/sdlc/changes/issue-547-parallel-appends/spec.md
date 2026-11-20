@@ -1,7 +1,9 @@
 # Contract and boundaries
 
-Date: 2026-11-20. Source: `52b03c6f`. Requestor: alberttwong. Author: Codex.
-Status: implementation and verification in progress; no human approval recorded.
+Date: 2026-11-20. Initial investigation: `52b03c6f`; implementation rebased onto
+`845c95b4`. Requestor: alberttwong. Author: Codex.
+Status: implemented and locally verified; human review and hosted CI pending.
+No human approval or release is recorded.
 
 See [intent](intent.md), [implementation plan](plan.md), and
 [verification](verification.md).
