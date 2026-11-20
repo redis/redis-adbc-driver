@@ -151,7 +151,8 @@ This mode supports SELECT, INSERT, UPDATE, DELETE, MERGE and RETURNING. SQL
 writes may read other live tables, but cannot read managed tables in the same
 write statement. Managed writes cannot consume live tables. Shared managed read
 snapshots, retained execution, modifying CTEs, TRUNCATE
-and schema-changing DDL are not supported for live tables. Ordinary SELECTs may
+and SQL schema-changing DDL are not supported for live tables. Compatible
+registration/schema and index changes use the explicit [evolution workflow](#evolve-a-live-registration). Ordinary SELECTs may
 join live and managed tables; only the managed portion is frozen.
 
 MERGE uses the same live-source write paths. It evaluates the join, WHEN clauses,
@@ -165,6 +166,83 @@ DELETE checks registration identity before its row mutation. An uncertain reply
 stops the statement without replay. Concurrent application edits can still
 interleave between those checks and mutations. Managed sources and modifying
 CTEs remain excluded from live writes.
+
+## Evolve a live registration
+
+`redis-adbc live evolve` (Go API: `EvolveLiveHashes`) changes the registered SQL
+view and its driver-owned index while preserving every source HASH field, key
+and TTL. This source-tree feature is not a claim about an existing wheel release.
+SQL `ALTER TABLE`, `CREATE INDEX` and `DROP INDEX` remain unsupported for live tables.
+
+Stop **all application and SQL writers, in-flight SQL writes, and other
+registration administrators** before starting, and keep them stopped through
+success, resume or cancellation. `-exclusive-quiescent` declares this condition;
+the driver cannot fence independent application clients. Read the current index
+identity from registration output or `information_schema.tables`.
+
+```sh
+# Preview the complete desired public column list and new index policy.
+redis-adbc live evolve -table users -prefix app:users: \
+  -expected-index '<current-driver-index>' -exclusive-quiescent \
+  -columns name,age,email -index-columns age,email
+
+# Apply the same operation after checking the preview.
+redis-adbc live evolve -table users -prefix app:users: \
+  -expected-index '<current-driver-index>' -exclusive-quiescent \
+  -columns name,age,email -index-columns age,email -apply
+```
+
+`-columns` is the complete ordered set of public columns after any `-rename`
+choices; `__key` stays implicit. Existing compatible source fields can be exposed,
+SQL columns can be removed or renamed, and `-index-columns` changes which eligible
+fields are indexed. A removed SQL column leaves its application HASH field intact.
+Retained source fields keep their declared SQL type, native/text encoding and
+text format. New fields use the registration inference rules and may use `-type`,
+`-encoding` and `-rename`. Every selected field must exist in at least one source
+HASH. Empty collections, empty public schemas, type/encoding conversions, source
+field renames, data rewrites and destructive DDL are outside this subset.
+Unrelated unselected fields do not participate in schema inference.
+
+All supported changes build a fresh shadow index, including SQL-only renames;
+there is no metadata-only fast path. The combined transition definition is bounded
+to 1 MiB. A complete source scan validates selected
+values before any transition. The source scan uses bounded native HASH fetch
+pages and retains a key deduplication set proportional to collection size. The
+fresh index must finish backfill with its exact expected definition and no
+indexing failures before the definition switches. Nested keys remain excluded
+from SQL rows, although the prefix index also indexes them under the ordinary
+live registration rules.
+
+A durable `evolving` state retains the old definition and candidate index identity;
+`retiring` retains the new definition and old index identity until cleanup finishes.
+New SQL operations fail explicitly during either state. Existing readers may finish
+with the old definition or fail an identity check; this operation does not add a
+source snapshot. Existing writers must already have stopped. The old index is
+dropped **without DD**, and only then does the registration become ready.
+
+After interruption, keep writers stopped and run:
+
+```sh
+redis-adbc live resume -table users -apply
+```
+
+Resume observes the recorded candidate and never resends `FT.CREATE`. Before the
+definition switches, an observed failed candidate can instead be canceled:
+
+```sh
+redis-adbc live cancel-evolution -table users \
+  -expected-index '<original-driver-index>' -apply
+```
+
+Cancellation restores the old definition and drops only the candidate index.
+A direct recorded CREATE permission refusal also permits cancellation when no
+candidate exists. If CREATE's outcome is uncertain and its index cannot be
+observed, the transition and its identity remain reserved; absence does not
+permit replay or forgetting a potentially delayed creation. Once retirement
+starts, resume must finish the new definition rather than restore the old one.
+Unregister refuses an unfinished evolution; finish resume/cancellation first.
+Candidate/retired index cleanup is recoverable after a lost reply. Removing a
+live registration still leaves source HASHes intact.
 
 ## Write Arrow data to live HASHes
 

@@ -138,7 +138,9 @@ SQL type/constraint validation. New source fields do not automatically become
 SQL columns.
 
 The mode supports SELECT, INSERT, UPDATE, DELETE, MERGE, RETURNING, and Arrow ingestion with explicit creation/replacement configuration. It excludes shared managed snapshots, retained execution,
-TRUNCATE, schema-changing DDL, and mixed managed/live write statements. Ordinary
+TRUNCATE, SQL schema-changing DDL, and mixed managed/live write statements.
+Compatible field exposure/removal, SQL column renames and index-policy changes
+use the explicit, quiescent [live evolution workflow](live-hash-tables.md#evolve-a-live-registration). Ordinary
 SELECTs may join live and managed tables; only the managed portion is frozen.
 Collection queries use bounded key scans and can materialize results.
 
