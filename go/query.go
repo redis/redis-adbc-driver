@@ -168,7 +168,10 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		return wherePlan{query: "*", residual: where}, nil
 	}
 	wp = wherePlan{query: "*"}
-	if meta.SnapshotOverlay || e.store.flexSnapshotTable(meta) || e.store.flexEnabled() && meta.Unmanaged {
+	if meta.SnapshotOverlay || e.store.flexSnapshotTable(meta) || e.store.flexEnabled() && meta.Unmanaged ||
+		snapshotOf(ctx) != nil && managedRowIDTable(meta) && snapshotDataID(meta.prefix()) != "" {
+		// Native baselines can also switch to authoritative directories when
+		// exact int64 IDs make numeric Search ranges unsafe.
 		wp.original = where
 	}
 	if where == nil {
