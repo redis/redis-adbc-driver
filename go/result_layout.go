@@ -195,6 +195,13 @@ type layoutReader struct {
 	err     error
 }
 
+// A layout can return several slices from one source batch. The source owns
+// any lease/identity proof required before a cached slice may be exposed.
+// Plain detached record readers need no additional validation.
+type bufferedResultValidator interface {
+	validateBufferedResult() error
+}
+
 func (l resultLayouts) wrap(ctx context.Context, mem memory.Allocator, src array.RecordReader) (array.RecordReader, error) {
 	if len(l) == 0 {
 		return src, nil
@@ -264,6 +271,7 @@ func (r *layoutReader) Next() bool {
 		r.pending.Release()
 		r.pending = nil
 	}
+	cached := r.pending != nil
 	if r.pending == nil {
 		if !r.source.Next() {
 			return false
@@ -332,6 +340,16 @@ func (r *layoutReader) Next() bool {
 	}
 	r.current = array.NewRecordBatch(r.schema, columns, end-r.offset)
 	r.offset = end
+	if cached {
+		if source, ok := r.source.(bufferedResultValidator); ok {
+			if err := source.validateBufferedResult(); err != nil {
+				r.current.Release()
+				r.current = nil
+				r.err = err
+				return false
+			}
+		}
+	}
 	return true
 }
 
