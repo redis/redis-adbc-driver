@@ -1,5 +1,6 @@
 // Copyright (c) 2026 ADBC Drivers Contributors
 // Licensed under the Apache License, Version 2.0.
+
 package redis
 
 import (
@@ -9,12 +10,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/apache/arrow-adbc/go/adbc"
-	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/apache/arrow-go/v18/arrow/array"
 	"io"
 	"maps"
 	"strings"
+
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
 type liveHashPartitionID struct {

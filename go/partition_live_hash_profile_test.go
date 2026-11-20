@@ -1,13 +1,12 @@
 // Copyright (c) 2026 ADBC Drivers Contributors
 // Licensed under the Apache License, Version 2.0.
+
 package redis
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/apache/arrow-adbc/go/adbc"
-	"github.com/apache/arrow-go/v18/arrow/memory"
 	"os"
 	"runtime"
 	"sort"
@@ -15,6 +14,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
 // Synthetic fixed-source comparison. This is not ClickBench or a claim that

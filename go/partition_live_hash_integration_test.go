@@ -1,5 +1,6 @@
 // Copyright (c) 2026 ADBC Drivers Contributors
 // Licensed under the Apache License, Version 2.0.
+
 package redis
 
 import (
@@ -153,6 +154,9 @@ func TestLiveHashPartitionCoverageAndOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	parts := planLiveHashPartitions(t, f, "SELECT CAST(__key AS BYTEA),n,v FROM redis_live."+name+" WHERE n%3=0 OR n IS NULL OR n>9007199254740992", 7, "")
+	if err := f.h.conn.Close(f.h.ctx); err != nil {
+		t.Fatal("producer close", err)
+	}
 	type outcome struct {
 		rows []string
 		err  error
