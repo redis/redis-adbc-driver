@@ -6,6 +6,9 @@ The default remains `managed`; this opt-in does not copy or mutate source data.
 The application owns both the HASHes and their Search index. The result mode
 stays `live` (the default deferred ADBC mode), and `partition_count` controls the
 number of disjoint key buckets, not the number of automatically started workers.
+The application schedules readers; the internal query-worker budget does not cap
+these external tasks. Existing catalog limits (including 128 live group/reader
+pins) still apply across the database.
 
 ```python
 with conn.cursor() as cursor:

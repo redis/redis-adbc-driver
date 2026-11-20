@@ -55,3 +55,8 @@ combined final checks, review, PR and fixture cleanup.
 The native filtered-index NUL membership investigation is tracked separately in
 [#559](https://github.com/redis/redis-adbc-driver/issues/559); source values are
 not inferred to be index members from prefix/FILTER-looking fields.
+
+Additional post-measurement regression: explicit unmanaged adoption reads its
+single collection prefix, excludes subsequently created nested collections,
+preserves source fields, and returns valid empty buckets. The dedicated RAM
+`-race` case passed. This does not relabel the measured fixture.

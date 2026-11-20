@@ -577,3 +577,63 @@ func TestUnmanagedPartitionCachedLayoutRejectsLostChildPin(t *testing.T) {
 		t.Fatal("cached layout slice escaped after child-pin loss")
 	}
 }
+
+func TestUnmanagedPartitionsAdoptedPrefixAndEmptyBuckets(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	if err := raw.HSet(h.ctx, "app:one", "n", 10, "v", "9007199254740993", "s", "one", "unknown", "keep").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.Do(h.ctx, "FT.CREATE", "adopt_source", "ON", "HASH", "PREFIX", 1, "app:", "SCHEMA", "n", "NUMERIC", "v", "NUMERIC", "s", "TAG").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&store{client: raw}).awaitIndexReady(h.ctx, "adopt_source"); err != nil {
+		t.Fatal(err)
+	}
+	options := map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI")}
+	if value := os.Getenv("REDIS_SNAPSHOT_FLEX"); value != "" {
+		options[OptionStringFlex] = value
+	}
+	result, err := AdoptHashes(h.ctx, options, HashAdoptOptions{Mode: "unmanaged", Prefix: "app:", Table: "local_rows", Index: "adopt_source", Apply: true})
+	if err != nil || !result.Applied {
+		t.Fatal(result, err)
+	}
+	if err := raw.HSet(h.ctx, "app:nested:one", "n", 99, "v", "9007199254740994", "s", "nested").Err(); err != nil {
+		t.Fatal(err)
+	}
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	for key, value := range map[string]string{OptionStringPartitionSourceMode: "unmanaged", OptionIntPartitionCount: "4"} {
+		if err := st.SetOption(h.ctx, key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SetSqlQuery(h.ctx, "SELECT CAST(__key AS BYTEA),n,v,s FROM local_rows"); err != nil {
+		t.Fatal(err)
+	}
+	_, parts, _, err := st.ExecutePartitions(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []unmanagedPartitionTestRow
+	empty := 0
+	for _, part := range parts.PartitionIDs {
+		got, err := unmanagedPartitionRows(h.conn, h.ctx, part)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows = append(rows, got...)
+		if len(got) == 0 {
+			empty++
+		}
+	}
+	assertUnmanagedPartitionRows(t, rows, map[string]unmanagedPartitionTestRow{"app:one": {[]byte("app:one"), "10", "9007199254740993", "one"}})
+	if empty != 3 {
+		t.Fatal("empty hash buckets lost", empty)
+	}
+	if raw.Exists(h.ctx, "app:one", "app:nested:one").Val() != 2 || raw.HGet(h.ctx, "app:one", "unknown").Val() != "keep" {
+		t.Fatal("adopted source changed")
+	}
+}
