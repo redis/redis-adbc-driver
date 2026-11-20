@@ -122,11 +122,15 @@ func TestSnapshotDirectoryAggregateProfile(t *testing.T) {
 				if err != nil || active != "0" {
 					t.Fatal("workers retained after fetch", active, err)
 				}
+				queued, err := opts.GetOption(h.ctx, OptionIntQueryWorkersQueued)
+				if err != nil {
+					t.Fatal(err)
+				}
 				tuning, err := opts.GetOption(h.ctx, OptionStringQueryWorkerTuning)
 				if err != nil {
 					t.Fatal(err)
 				}
-				payload := map[string]any{"workers": mode, "grant": grant, "trial": trial, "logical_source_rows": rows, "seconds": elapsed.Seconds(), "client_cpu_seconds": cpuAfter - cpu, "client_allocated_bytes": after.TotalAlloc - before.TotalAlloc, "client_heap_after_bytes": after.HeapAlloc, "client_lifetime_peak_rss_bytes": rss, "server_cpu_seconds": serverAfter.CPUSeconds - serverBefore.CPUSeconds, "server_rss_before_bytes": serverBefore.RSSBytes, "server_rss_after_bytes": serverAfter.RSSBytes, "flex": flex, "client_os": runtime.GOOS, "client_arch": runtime.GOARCH, "route": "host Docker published TLS port", "background_workers": false, "tuning": json.RawMessage(tuning)}
+				payload := map[string]any{"workers": mode, "queued_after_fetch": queued, "active_after_fetch": active, "grant": grant, "trial": trial, "logical_source_rows": rows, "seconds": elapsed.Seconds(), "client_cpu_seconds": cpuAfter - cpu, "client_allocated_bytes": after.TotalAlloc - before.TotalAlloc, "client_heap_after_bytes": after.HeapAlloc, "client_lifetime_peak_rss_bytes": rss, "server_cpu_seconds": serverAfter.CPUSeconds - serverBefore.CPUSeconds, "server_rss_before_bytes": serverBefore.RSSBytes, "server_rss_after_bytes": serverAfter.RSSBytes, "flex": flex, "client_os": runtime.GOOS, "client_arch": runtime.GOARCH, "route": "host Docker published TLS port", "background_workers": false, "tuning": json.RawMessage(tuning)}
 				encoded, err := json.Marshal(payload)
 				if err != nil {
 					t.Fatal(err)

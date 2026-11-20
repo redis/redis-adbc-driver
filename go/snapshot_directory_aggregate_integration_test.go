@@ -395,3 +395,62 @@ func TestSnapshotDirectoryAggregateBudgetAndAutotuning(t *testing.T) {
 		t.Fatal("queued cancellation leaked worker resources")
 	}
 }
+
+func TestSnapshotDirectoryAggregateConcurrentPublication(t *testing.T) {
+	// The supported plain-index option also runs on RAM, exercising the same
+	// authoritative directory path there and on an actual Flex test backend.
+	h, raw, _ := newSnapshotHarnessOptions(t, false, false, map[string]string{OptionStringFlex: "true"})
+	h.exec("CREATE TABLE t(id BIGINT,v BIGINT)")
+	h.exec("INSERT INTO t SELECT i,i FROM generate_series(1,4096) AS g(i)")
+	s := snapshotTestStore(t, raw)
+	s.flex = true
+	hook := &directoryAggregateBarrier{ready: make(chan struct{}), release: make(chan struct{})}
+	s.client.AddHook(hook)
+	ctx, pin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	budget := &workerBudget{configured: 4}
+	e, plan, wp := directoryAggregatePlan(t, h, s, ctx, "SELECT COUNT(*),SUM(v) FROM t", 4, budget)
+	run, cancel := context.WithTimeout(context.WithValue(ctx, directoryAggregateObservation{}, true), 15*time.Second)
+	defer cancel()
+	type outcome struct {
+		groups  []aggGroup
+		handled bool
+		err     error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		g, ok, err := e.parallelAggregate(run, plan, wp, plan.aggregateCalls(), nil)
+		done <- outcome{g, ok, err}
+	}()
+	select {
+	case <-hook.ready:
+	case v := <-done:
+		t.Fatal("workers did not overlap", v.err)
+	case <-run.Done():
+		t.Fatal(run.Err())
+	}
+	for _, sql := range []string{"UPDATE t SET v=9 WHERE id<=1024", "DELETE FROM t WHERE id IN (1025,2049)", "UPDATE t SET v=11 WHERE id>3072"} {
+		h.exec(sql)
+	}
+	snapshotDrainCompactionTest(t, s)
+	close(hook.release)
+	select {
+	case v := <-done:
+		if v.err != nil || !v.handled {
+			t.Fatal("pinned workers lost source", v.handled, v.err)
+		}
+		aggs := plan.aggregateCalls()
+		if v.groups[0].results[aggs[0]].Text() != "4096" || v.groups[0].results[aggs[1]].Text() != "8390656" {
+			t.Fatal("active workers observed later publication", v.groups)
+		}
+	case <-run.Done():
+		t.Fatal(run.Err())
+	}
+	if budget.active != 0 || len(budget.queue) != 0 {
+		t.Fatal("publication overlap leaked worker grant")
+	}
+	h.expectRows("SELECT COUNT(*) FROM t", "4094")
+}
