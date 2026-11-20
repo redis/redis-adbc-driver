@@ -81,3 +81,18 @@ logical work/key caps are not RSS/RESP decoder limits and HASH payload sizes rem
 application controlled. Exact same-name/same-definition out-of-band index
 recreation is outside the driver-owned-index contract. Performance trials do not
 show a general speedup. Temporary test resources are removed after verification.
+
+## Integration refresh after #560
+
+Merged main `40ff7977` into the published task branch, preserving the measured
+source and shared-fix ancestry. The only content conflict was the read-coverage
+matrix footer; resolution retains implemented directory aggregates, explicit
+live-source buckets and the separate unmanaged follow-up. The automatically
+merged `query.go` change records full predicates for managed directory baselines
+and is disjoint from the live partition route.
+
+The combined tree passed endpoint-free all-package unit checks (root package
+28.804 s), `make -C go build`, `git diff --check` and 18 local read-matrix link
+targets. No endpoint or instance was recreated for this documentation conflict;
+prior runtime/profile evidence remains labeled with its actual source above.
+Hosted checks on the new merge head are pending.

@@ -14,6 +14,14 @@ as well as overlays; the sorted Search candidate path is disabled. Filtering,
 sorting and aggregation execute in the driver. Broad reads can therefore cost
 more than the earlier Search-filtered stopgap; no performance parity is claimed.
 
+Eligible ungrouped COUNT/SUM/AVG/MIN/MAX scans can divide exact directory ranges
+across the existing bounded [aggregate workers](worker-autotuning.md#exact-managed-directory-ranges).
+The statement's pinned generation and full predicate are retained, including
+newest-version/tombstone resolution before reduction. This uses no aggregate
+cursor or SORTABLE field. Unsupported aggregate shapes retain their established
+fallback, and no general throughput parity is implied. See the
+[focused evidence](sdlc/changes/issue-551-directory-aggregates/validation.md).
+
 Final plain indexes retain `SKIPINITIALSCAN`. After private row images are
 complete, bounded guarded row-ID HSET notifications populate the fresh index.
 Publication requires readiness, no indexing failures, exact prefix/cardinality

@@ -110,3 +110,20 @@ workloads are not established by these local runs. SCAN/native HASH replies and
 Arrow values retain their ordinary allocation behavior; state/work credits are
 not a hard RSS ceiling. Repeated scans and source/index live changes remain
 explicit design costs, not managed snapshot guarantees.
+
+## Final parent integration
+
+The published #561 parent was subsequently merged with main `40ff7977` (#560),
+then parent `65643df9` was merged into this branch without rewriting the measured
+ancestry. The only conflict was the ownership matrix: its managed directory
+aggregate support and this change's unmanaged bucket support are both retained.
+The new parent contributes the previously verified managed aggregate path and
+its managed-only predicate retention condition; unmanaged/live HASH source-mode
+options, descriptor dispatch, scanners and buffered-output validation are
+unchanged from the combined native-tested source `4a6a40f7`.
+
+After integration, all-package unit checks with Redis endpoints unset and the
+normal `make build` passed again. Matrix links and `git diff --check` passed.
+No native integration or synthetic profile was rerun for this matrix/parent
+integration; the native and measurement evidence above retains its actual source.
+No fixtures were recreated; task-owned fixtures remain retired.
