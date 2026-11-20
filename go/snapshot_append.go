@@ -39,7 +39,7 @@ func (s *store) allocateSnapshotAppendRows(ctx context.Context, m *tableMeta, co
 	scope := snapshotOf(ctx)
 	seed, err := s.redis(ctx).Get(ctx, seqKey(m.Schema, m.Name)).Int64()
 	if err != nil && err != goredis.Nil {
-		return 0, err
+		return 0, wrapRedis(transportContextError(ctx, err), "failed to read private append row counter")
 	}
 	for {
 		if err := ctx.Err(); err != nil {

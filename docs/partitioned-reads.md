@@ -20,8 +20,9 @@ source to use changes made after that release, including bounded cursor cleanup.
 
 ## Current managed snapshot contract
 
-Rebuild from PR #284 to use the current storage format. Managed live descriptors
-are version 3: the entire set retains the producer's committed generation.
+Use a build containing the current managed snapshot implementation (catalog
+format 17); the historical wheel evidence above does not establish support for
+newer source changes. Managed live descriptors are version 3: the entire set retains the producer's committed generation.
 Workers see the original schema and values despite later DML, ALTER, TRUNCATE,
 DROP/recreation, compaction or producer close. Expired or explicitly released
 sets fail on new reads rather than silently acquiring the latest generation.
