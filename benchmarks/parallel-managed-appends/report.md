@@ -35,8 +35,11 @@ revisions, the append counter read gained typed timeout/cancellation error mappi
 and profile formatting changed; successful append behavior is unchanged. Exact
 source hashes and topology/settings are in [provenance.json](provenance.json).
 [results.jsonl](results.jsonl) retains all twelve completed, sanitized samples.
-Operational identifiers, endpoints, credentials, license files and raw private
-logs are excluded.
+The measured commit IDs precede an author-email privacy rewrite. Identical source
+trees are available in public revisions RAM `08c64004` and Flex `2e350b2a`;
+provenance records the full mapping, verified by tree identity. Source hashes and
+measured samples were not relabeled. Operational identifiers, endpoints,
+credentials, license files and raw private logs are excluded.
 
 ## Ingestion results
 

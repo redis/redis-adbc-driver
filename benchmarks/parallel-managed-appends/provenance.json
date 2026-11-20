@@ -6,6 +6,10 @@
     "route": "host Docker published TLS port"
   },
   "date": "2026-11-20",
+  "public_equivalent_commits_after_author_privacy_rewrite": {
+    "9f1749b528deb31f2b798b535c49f96b1bde0b35": "2e350b2ab7225deccaf79dd79c583b7ca0927117",
+    "fb01d9555e08535cb2d6ce6b8bf5e29708f1984f": "08c640047fdf202d0dc6f1d9e68bb81aeef60cd4"
+  },
   "software": {
     "active_qpf": 4,
     "connections": 32,
