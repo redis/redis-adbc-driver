@@ -332,8 +332,23 @@ manual index updates.
 The current live query path scans keys in bounded batches, uses index candidate
 checks to avoid unnecessary HASH fetches, and evaluates predicates, ordering and
 aggregates against fetched values. It does not promise faster queries than
-managed tables. Unordered live collection queries currently use the ordinary
-materializing fallback; `stream_required=true` is unsupported for these scans.
+managed tables. Eligible unordered single-table SELECTs deliver Arrow batches incrementally,
+including row-local projections, residual filters, LIMIT and OFFSET.
+`stream_required=true` admits this subset and rejects blocking plans before
+source scanning. ORDER BY, joins, aggregates, DISTINCT, subqueries and set
+operations keep their existing materializing paths or explicit streaming
+refusals. A sparse predicate can require scanning the full source before the
+first matching batch; there is no ordering or statement-snapshot guarantee.
+
+Discovery retains one SCAN response (COUNT is a hint), plus a deduplication set
+that grows with observed source keys. HASH fetches use at most 128 keys and a
+1 MiB request target, with a 64 MiB single-key request ceiling. Application HASH
+reply sizes remain unbounded by those request limits. Arrow row/byte batch
+options control output, with up to one fetched-page overshoot and an oversized
+single row allowed. Release or cancel abandoned readers to free their buffers.
+Each fetched page and emitted batch checks registration/index identity and
+readiness. Concurrent source edits, expiry and Search lag retain the live
+semantics above; values already buffered can precede later application edits.
 The Search index covers all HASHes under the prefix, including nested keys which
 SQL excludes. Indexed fields on those nested HASHes must also have compatible
 encodings, or Search can report an indexing failure for the collection.

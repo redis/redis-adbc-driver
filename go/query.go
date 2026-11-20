@@ -593,6 +593,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	liveScan      *liveCollectionScan
 	flexUnmanaged *flexUnmanagedScan
 	ordered       *snapshotOrderedScan
 	candidates    *snapshotCandidateScan
@@ -667,6 +668,15 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 // openScan starts a scan through the index (req.where.keys nil) and reads
 // its first page.
 func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value) (*scanIter, error) {
+	if req.meta.Live && req.where.keys == nil {
+		it, _, _ := e.newScanIter(ctx, req, params)
+		scan, err := (&hashConn{client: e.store.redis(ctx)}).scanKeys(ctx, req.meta.prefix(), "hash")
+		if err != nil {
+			return nil, err
+		}
+		it.liveScan = &liveCollectionScan{store: e.store, meta: req.meta, scan: scan, query: req.where.query, seen: map[string]bool{}}
+		return it, nil
+	}
 	if e.store.flexEnabled() && req.meta.Unmanaged {
 		req.where.residual = req.where.original
 		it, _, _ := e.newScanIter(ctx, req, params)
@@ -918,6 +928,13 @@ func (it *scanIter) checkReadiness(ctx context.Context) error {
 
 // nextPage is next in the index's order.
 func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
+	if it.liveScan != nil {
+		keys, rows, err := it.liveScan.next(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, rows)
+	}
 	if it.flexUnmanaged != nil {
 		keys, rows, err := it.flexUnmanaged.next(ctx)
 		if err != nil {
@@ -1169,6 +1186,9 @@ func (it *scanIter) exists(r aggRow) bool {
 
 // close deletes the scan's cursor, if it is still open.
 func (it *scanIter) close(ctx context.Context) {
+	if it.liveScan != nil {
+		it.liveScan.close()
+	}
 	if it.flexUnmanaged != nil {
 		it.flexUnmanaged.close()
 	}

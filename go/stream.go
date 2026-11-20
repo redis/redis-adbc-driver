@@ -50,6 +50,11 @@ import (
 // leaves qualify for insertion-order index scans (see union_stream.go).
 // They preserve pairwise coercions and open one child cursor at a time.
 //
+// Eligible unordered live HASH collection SELECTs instead discover keys with
+// SCAN and fetch authoritative HASH images incrementally. They retain one SCAN
+// reply plus O(observed keys) deduplication, not a source snapshot. Definition
+// and index readiness are checked before every emitted batch (live_scan.go).
+//
 // Other queries are read whole, as before. LIMIT and OFFSET apply as the
 // rows stream when they can't run in the index.
 //
@@ -170,9 +175,11 @@ func (p *selectPlan) hasCorrelated() bool {
 
 // incrementalScan permits a prepared key list without a global sort. The
 // existing scan iterator fetches those HASHes in bounded pipeline chunks.
-// General HASH discovery still needs a global insertion-order sort.
+// Managed HASH fallback discovery still needs a global insertion-order sort.
+// Live collections have no insertion-order contract and can emit SCAN pages.
 func incrementalScan(plan *selectPlan, sc selectScan) bool {
-	return !sc.req.hashScan && (sc.indexSort || sc.req.where.keys != nil && len(plan.order) == 0)
+	return sc.req.meta.Live && sc.req.hashScan && len(plan.order) == 0 ||
+		!sc.req.hashScan && (sc.indexSort || sc.req.where.keys != nil && len(plan.order) == 0)
 }
 
 // streamSelect runs a query whose plan is streamable. It reads the first
@@ -239,7 +246,7 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 		r.closeLocked()
 		return execResult{}, err
 	}
-	if r.exhausted && (r.arrow != nil || r.batchBytes == 0 || r.pendingBytes <= r.batchBytes || len(r.pending) <= 1) {
+	if r.it.liveScan == nil && r.exhausted && (r.arrow != nil || r.batchBytes == 0 || r.pendingBytes <= r.batchBytes || len(r.pending) <= 1) {
 		if r.arrow != nil {
 			// As for the materialized small-result path, finish metadata checks
 			// before returning a detached reader and its known row count.
@@ -432,7 +439,11 @@ func (r *streamReader) Next() (ok bool) {
 	defer r.mu.Unlock()
 	defer func() {
 		if ok {
-			if err := r.snapshot.valid(r.ctx); err != nil {
+			err := r.snapshot.valid(r.ctx)
+			if err == nil && r.it != nil && r.it.liveScan != nil {
+				err = r.it.liveScan.validate(r.ctx)
+			}
+			if err != nil {
 				if r.cur != nil {
 					r.cur.Release()
 					r.cur = nil

@@ -165,7 +165,8 @@ HASH field, not individual struct children.
 | Unordered prepared key lookup | Pipelined HASH chunks | Yes, in batches | Prepared key list remains O(number of keys) |
 | Eligible UNION ALL | One current leaf | Yes, with pairwise coercions and per-node LIMIT/OFFSET | Tree state plus one leaf batch |
 | Search IDs followed by authoritative HASH fetch | Paged IDs, bounded HASH pipelines | Yes for eligible row-local projections | Page/pipeline state and output batches |
-| General HASH discovery fallback | SCAN pages | Blocks before ordinary insertion-order output | Key deduplication and row/global-sort state; stream_required rejects |
+| Unordered live HASH collection SELECT | SCAN pages and bounded HASH requests | Yes for eligible row-local projections, filters and LIMIT/OFFSET | One SCAN response plus O(observed keys) deduplication; application-sized HASH replies; no source snapshot |
+| General managed HASH discovery fallback | SCAN pages | Blocks before ordinary insertion-order output | Key deduplication and row/global-sort state; stream_required rejects |
 | Scalar aggregates | Eligible scan input can be paged | Usually only after final input | Function-dependent accumulator or retained ordered-set input; stream_required rejects |
 | Group aggregates | Eligible scan input can be paged | Blocks before final groups | Group-cardinality state; supported exact paths can spill; stream_required rejects |
 | Unordered managed-table DISTINCT with stream_required=true | Bounded row-ID pages/key pipelines | Yes, first-encounter batches | Bounded distinct-key set; explicit rejection on work/state exhaustion |
@@ -176,7 +177,7 @@ HASH field, not individual struct children.
 | Correlation/subqueries | Plan-dependent | Not admitted as incremental here | Subquery results and caches can grow with distinct outer keys; stream_required rejects |
 
 Unordered key-source leaves and bounded DISTINCT extend finite streaming. Explicit
-ordering that needs a global sort and general HASH discovery retain ordinary
+ordering that needs a global sort and general managed HASH discovery retain ordinary
 execution. Rows/duplicates, residual predicates, pairwise UNION coercion and
 per-node limits follow the ordinary path. First-fill errors fail execution;
 late errors terminate the reader. Existing context/statement/connection
@@ -187,7 +188,10 @@ row, server sort state, allocator slack or total process memory.
 
 Set statement option `adbc.redis.stream_required=true` to reject materializing
 fallback before executing it. This conservative mode accepts unordered
-driver-managed table scans/key lookups and eligible unordered UNION ALL trees.
+driver-managed table scans/key lookups, eligible unordered live HASH collection
+SELECTs and eligible unordered managed UNION ALL trees. Live collections have
+no source snapshot and retain O(observed keys) deduplication; see the
+[live scan bounds](live-hash-tables.md).
 It also admits unordered, row-local managed-table DISTINCT with resolved result
 types, without DISTINCT ON. Map/Union-containing results remain outside this
 new incremental DISTINCT path. Ordinary execution keeps its existing optimizer and
@@ -199,9 +203,9 @@ after results have been exposed. Budget exhaustion can therefore be a late reade
 error. DISTINCT consumes input incrementally and emits each first encounter;
 OFFSET/LIMIT apply after deduplication. Without ORDER BY neither ordinary nor
 streaming execution promises a particular ordering; a grouped ordinary plan can
-select different valid LIMIT rows. General HASH discovery still rejects.
+select different valid LIMIT rows. General managed HASH discovery still rejects.
 It rejects grouping/aggregates, ORDER BY, windows, joins, views,
-CTEs/derived tables, subqueries, set operations other than UNION ALL and HASH
+CTEs/derived tables, subqueries, set operations other than managed UNION ALL and managed HASH
 discovery/global-sort fallback. It requires `stream_results=true`, ExecuteQuery,
 one SELECT and at most one bound parameter row. A result small enough for the
 first batch can still return whole. Partition publication rejects this option;
