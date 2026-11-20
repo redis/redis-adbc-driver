@@ -162,3 +162,14 @@ observer CPU still consumes the client's quota. Keep unrelated activity idle.
 The [initial evaluation](../benchmarks/worker-autotune/README.md) preserves the
 older three-sample policy's uncontrolled, cold-inclusive results. A passing local
 gate would not establish bounds across all deployments or production workloads.
+
+## Ownership and Flex coverage
+
+The range-worker aggregate path is not enabled uniformly across ownership modes.
+Flex retains serial aggregate range execution, and some managed overlays fall
+back when their exact Search path is unavailable. Unmanaged typed aggregate
+page-fetch concurrency is a separate bounded path. Ordinary concurrent queries,
+ADBC partition readers and retained-output readers have their own scheduling and
+consistency rules. Consult the current
+[read-concurrency matrix](partition-coverage.md#parallel-reads-by-data-and-index-ownership)
+before applying the query-worker settings to a different mode.

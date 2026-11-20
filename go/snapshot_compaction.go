@@ -53,7 +53,7 @@ func (s *store) startSnapshotCompactor(cfg *clientConfig, t timeouts, hooks ...g
 	// Maintenance has its own pool and bounded contexts; statement cancellation
 	// or timeout replacement must never close or race this client's sockets.
 	_, cluster := s.client.(*goredis.ClusterClient)
-	worker := &store{client: newClient(cfg, cluster, t), snapshots: true}
+	worker := &store{client: newClient(cfg, cluster, t), snapshots: true, flex: s.flex}
 	addSnapshotHooks(worker.client)
 	for _, hook := range hooks {
 		worker.client.AddHook(hook)

@@ -1930,7 +1930,20 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	// meta was read: these rows get their missing values (see defaults.go).
 	var last int64
 	var currentMetadata string
-	if s.flex && !s.snapshots {
+	if scope := snapshotOf(ctx); scope != nil && scope.write && scope.pin != nil && scope.pin.appendTarget != nil {
+		var err error
+		last, err = s.allocateSnapshotAppendRows(ctx, meta, len(rows))
+		if err != nil {
+			return rowAlloc{}, err
+		}
+		tx := s.redis(ctx).TxPipeline()
+		tx.Set(ctx, seqKey(meta.Schema, meta.Name), last, 0)
+		cur := tx.Get(ctx, metaKey(meta.Schema, meta.Name))
+		if _, err := tx.Exec(ctx); err != nil {
+			return rowAlloc{}, wrapRedis(err, "failed to record private append row ids")
+		}
+		currentMetadata = cur.Val()
+	} else if s.flex && !s.snapshots {
 		var err error
 		last, currentMetadata, err = s.allocateFlexRowIDs(ctx, meta, len(rows))
 		if err != nil {

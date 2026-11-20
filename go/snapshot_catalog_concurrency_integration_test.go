@@ -97,7 +97,7 @@ func TestSnapshotCatalogAdmissionWaitsBeforeArrowInput(t *testing.T) {
 				snapshotExecuteTest(t, s, wctx, "CREATE TABLE owner(id BIGINT)")
 				observer := &ingestAdmissionObserver{busy: make(chan struct{}), operation: "admit_catalog"}
 				if mode == adbc.OptionValueIngestModeAppend {
-					observer.operation = "admit_ingest"
+					observer.operation = "admit_append"
 				}
 				conn := admissionConnection(t, db)
 				stmt, input := admissionStatement(t, conn, "created", mode, 42, observer)

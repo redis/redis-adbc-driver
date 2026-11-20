@@ -63,11 +63,12 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 	}
 	if s.conn.store.snapshots && snapshotOf(ctx) == nil {
 		var target *tableMeta
-		sctx, pin, err := s.conn.store.acquireIngestSnapshot(ctx, func(c context.Context) (*tableMeta, error) {
+		parallel := (s.ingest.Mode == adbc.OptionValueIngestModeAppend || s.ingest.Mode == adbc.OptionValueIngestModeCreateAppend) && snapshotOperationRequestOf(ctx) == nil
+		sctx, pin, err := s.conn.store.acquireTableWriteSnapshotMode(ctx, func(c context.Context) (*tableMeta, error) {
 			var err error
 			target, err = s.snapshotIngestTarget(c)
 			return target, err
-		})
+		}, parallel)
 		if err != nil {
 			return -1, err
 		}

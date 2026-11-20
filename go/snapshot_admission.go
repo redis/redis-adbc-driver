@@ -35,6 +35,10 @@ func snapshotIngestAdmissionTarget(meta *tableMeta) string {
 }
 
 func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
+	return s.acquireTableWriteSnapshotMode(ctx, target, false)
+}
+
+func (s *store) acquireTableWriteSnapshotMode(ctx context.Context, target func(context.Context) (*tableMeta, error), appendOnly bool) (context.Context, *snapshotPin, error) {
 	delay := 5 * time.Millisecond
 	var turn *snapshotWriterTurn
 	var turnTarget string
@@ -55,7 +59,8 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 		if meta != nil && meta.Unmanaged {
 			return sctx, pin, nil // Catalog pin only; application writers coordinate themselves.
 		}
-		if meta != nil && s.writerDomain != ([32]byte{}) {
+		parallel := appendOnly && snapshotParallelAppendEligible(meta)
+		if meta != nil && !parallel && s.writerDomain != ([32]byte{}) {
 			target := snapshotIngestAdmissionTarget(meta)
 			if turn != nil && turnTarget != target {
 				turn.release()
@@ -94,6 +99,14 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 			if meta != nil && meta.KeyPrefix != "" {
 				op, admissionTarget = "admit_ingest", snapshotIngestAdmissionTarget(meta)
 			}
+			if parallel {
+				op = "admit_append"
+				admissionTarget, err = s.snapshotAppendAdmission(sctx, meta)
+				if err != nil {
+					pin.release()
+					return ctx, nil, err
+				}
+			}
 			// Keep the existing control operation/pin field so current Arrow
 			// clients and SQL DML coordinate without a storage-format change.
 			n, err := s.snapshotControl(sctx, op, pin.token, "", pin.root, admissionTarget).Int()
@@ -102,6 +115,9 @@ func (s *store) acquireTableWriteSnapshot(ctx context.Context, target func(conte
 				return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to admit snapshot write before execution or input consumption")
 			}
 			if n == 1 {
+				if parallel {
+					pin.appendTarget = meta
+				}
 				pin.writerTurn, turn = turn, nil
 				return sctx, pin, nil
 			}

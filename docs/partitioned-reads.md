@@ -1,6 +1,8 @@
 # ADBC partitioned reads
 
-This page describes the default `partition_result_mode=live` path. Opt-in
+This page describes the default `partition_result_mode=live` path. Here, “live”
+means deferred managed-table partitions; it is not the application-owned
+[live HASH table mode](live-hash-tables.md). Opt-in
 [retained results](retained-partition-results.md) add bounded global SQL,
 additional source layouts and immutable replay through the same public APIs.
 The [coverage comparison](partition-coverage.md) records remaining gaps and
@@ -79,11 +81,21 @@ user-dependent and other session-dependent functions remain rejected. Captured
 time zone is the only supported session setting used by expressions. Temporary
 tables, live external HASH/index layouts and legacy tables without persistent
 managed row IDs are unsupported. Managed application/foreign copies use the native
-partition path described above. Flex remains unsupported. See the
+partition path described above. Compatible Redis Software Flex deployments also
+support this managed snapshot path with `adbc.redis.flex=true`; workers use exact
+row-ID directories and HASH reads, without Search aggregate cursors or SORTABLE.
+The same query-shape and below-2^53 descriptor admission limits still apply. See
+[current Flex validation](sdlc/changes/flex-snapshots/validation.md) and the
 [retained runtime contract](retained-partition-results.md) for global SQL,
 additional layouts and stable replay in the opt-in mode.
 
-Broad reads use Search cursors over disjoint numeric subranges. Each subrange spans
+Current managed version-3 workers, including Flex workers, use the exact
+snapshot directory path in [snapshot_partitions.go](../go/snapshot_partitions.go).
+The Search cursor/cap discussion below describes the Search-backed and historical
+range route; it does not impose aggregate-cursor requirements on managed Flex
+snapshot workers.
+
+Search-backed broad reads use cursors over disjoint numeric subranges. Each subrange spans
 at most the guaranteed aggregate cap's number of allocated IDs, so it cannot
 match more rows than that cap. Empty/sparse ranges and residual filters are
 handled without truncation, page replay, or whole-partition HASH scans. At most

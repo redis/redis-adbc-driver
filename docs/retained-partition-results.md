@@ -70,6 +70,8 @@ cutsets must be bounded literals; ROUND/TRUNC precision must be a literal in
 | Adopted HASHes and application indexes | Private managed copy with original source-key provenance; explicit refresh recaptures application changes |
 | Foreign HASH Search index | Private managed copy of captured membership/schema; explicit refresh; ordinary foreign discovery options still apply |
 | Producer-owned temporary tables/views | Capture under the coordinator snapshot; readers replay committed output after producer closure |
+| Explicit unmanaged/keyed application layouts | Existing external-key capture branch, with live-source consistency; current deployment coverage requires qualification in the [read matrix](partition-coverage.md#parallel-reads-by-data-and-index-ownership) |
+| Live HASH registrations | Explicitly rejected before source capture |
 | Legacy storage and unowned temporary relations | Unsupported; no migration |
 
 Capture reads relevant source rows/columns before evaluating predicates. It does
@@ -78,13 +80,22 @@ duplicates. For non-UTF-8 application keys project `CAST(__key AS BYTEA)`;
 invalid UTF-8 typed TEXT output is rejected. Native input preserves exact physical
 ID order; application keys do not imply SQL order.
 
-The coordinator pins a committed catalog generation. Concurrent SQL DML, schema
+For managed sources, the coordinator pins a committed catalog generation. Concurrent SQL DML, schema
 changes, view replacement, rekey and source replacement do not change its captured
 rows or definitions. An application-owned HASH/index is represented by its managed
 copy; external edits appear only after explicit refresh. Import and retained
 capture do not transfer ownership of application HASHes or index definitions.
 Publisher Open requires the current snapshot storage format, with no migration;
 reader-only retained replay bypasses ordinary catalog access.
+
+An explicit unmanaged registration is different from a managed import: its
+registration metadata is pinned, but external-key capture observes live source
+HASHes. Source writes or TTL expiry can interleave with that capture. Completed
+retained output is immutable after publication, without changing source ownership
+or making the earlier application reads atomic. Live HASH registrations are
+rejected by the retained capture implementation. See the current
+[ownership/deployment matrix](partition-coverage.md#parallel-reads-by-data-and-index-ownership)
+for implementation and validation boundaries.
 
 The frozen object is the **completed query output** evaluated from that coordinator
 snapshot. Replay reads immutable Arrow chunks and never reruns SQL or consults

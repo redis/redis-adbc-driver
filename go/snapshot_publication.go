@@ -94,9 +94,10 @@ func (s *store) mergeSnapshotEntry(ctx context.Context, original *snapshotScope,
 }
 
 type snapshotMergeBase struct {
-	ID    string `json:"id"`
-	Token string `json:"token"`
-	Base  string `json:"base"`
+	ID     string `json:"id"`
+	Token  string `json:"token"`
+	Base   string `json:"base"`
+	Append bool   `json:"append,omitempty"`
 }
 
 func (s *store) rebaseSnapshotPublication(ctx context.Context, pin *snapshotPin, id, operation string) (int, error) {
@@ -113,6 +114,12 @@ func (s *store) rebaseSnapshotPublication(ctx context.Context, pin *snapshotPin,
 	original.metadataMu.Unlock()
 	keys := make([]string, 0, len(reads))
 	for key := range reads {
+		if pin.appendTarget != nil {
+			table, sequence := snapshotAppendKeys(pin)
+			if key == table || key == sequence {
+				continue
+			}
+		}
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -151,11 +158,26 @@ func (s *store) rebaseSnapshotPublication(ctx context.Context, pin *snapshotPin,
 			}
 			defer s.abortSnapshot(mergePin, mergeID)
 			for _, key := range dirty {
+				if pin.appendTarget != nil {
+					table, sequence := snapshotAppendKeys(pin)
+					if key == table || key == sequence {
+						continue
+					}
+				}
 				if err := s.mergeSnapshotEntry(mergeCtx, original, key, changed[key]); err != nil {
 					return -1, err
 				}
 			}
-			base, err := json.Marshal(snapshotMergeBase{ID: mergeID, Token: mergePin.token, Base: mergePin.root})
+			if pin.appendTarget != nil {
+				next, err := s.mergeSnapshotAppend(mergeCtx, ctx)
+				if err != nil {
+					return -1, err
+				}
+				if err := prepareSnapshotCompactionQueue(ctx, []*tableMeta{next}); err != nil {
+					return -1, err
+				}
+			}
+			base, err := json.Marshal(snapshotMergeBase{ID: mergeID, Token: mergePin.token, Base: mergePin.root, Append: pin.appendTarget != nil})
 			if err != nil {
 				return -1, err
 			}
