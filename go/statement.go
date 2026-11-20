@@ -141,6 +141,8 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return s.partitionSnapshotID, nil
 	case OptionStringPartitionResultMode:
 		return s.resultMode(), nil
+	case OptionStringPartitionSourceMode:
+		return s.sourcePartitionMode(), nil
 	case OptionIntPartitionResultTTL:
 		return strconv.FormatInt(int64(s.resultTTL()/time.Second), 10), nil
 	case OptionStringPartitionExecutionLimits:
@@ -153,8 +155,6 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return strconv.FormatBool(s.incremental), nil
 	case OptionIntPartitionCount:
 		return strconv.Itoa(s.partitions()), nil
-	case OptionStringPartitionSourceMode:
-		return s.sourcePartitionMode(), nil
 	case OptionStringTruncateAdopted:
 		return strconv.FormatBool(s.truncateAdopted), nil
 	case OptionStringIngestIndexColumns:
@@ -376,6 +376,13 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		s.retainedMode = val
 		s.partitionExecution = nil
 		return nil
+	case OptionStringPartitionSourceMode:
+		if val != "managed" && val != "unmanaged" && val != "live_hash" {
+			return errorf(adbc.StatusInvalidArgument, "%s must be managed, unmanaged or live_hash", key)
+		}
+		s.partitionSourceMode = val
+		s.partitionExecution = nil
+		return nil
 	case OptionIntPartitionResultTTL:
 		seconds, err := strconv.ParseInt(val, 10, 64)
 		if err != nil || seconds < 1 || seconds > 86400 {
@@ -424,13 +431,6 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		}
 		s.partitionExecution = nil
 		s.partitionCount = n
-		return nil
-	case OptionStringPartitionSourceMode:
-		if val != "managed" && val != "live_hash" {
-			return errorf(adbc.StatusInvalidArgument, "partition_source_mode must be managed or live_hash")
-		}
-		s.partitionSourceMode = val
-		s.partitionExecution = nil
 		return nil
 	case adbc.OptionKeyIngestTargetTable:
 		s.substrait = nil

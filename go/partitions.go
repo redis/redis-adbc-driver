@@ -424,7 +424,10 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	if c.sess.currentCatalog() != catalogName {
 		return nil, namedCatalogExecutionUnsupported()
 	}
-	if transportVersion.Version == 6 {
+	switch transportVersion.Version {
+	case 5:
+		return c.readUnmanagedPartition(ctx, data)
+	case 6:
 		return c.readLiveHashPartition(ctx, data)
 	}
 	d, err := decodePartition(data)

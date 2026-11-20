@@ -523,18 +523,19 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
-	livePartition   *livePartitionScan
-	aggregateInputs bool                 // direct scalar inputs: bounded larger unmanaged key pages
-	dependencies    map[string]bool      // transitive outer-column inputs for correlated predicates
-	visibility      []snapshotIndexQuery // immutable per-segment visibility for ordered merge
-	authoritative   bool                 // private exact integer tuple source: fetch every needed HASH field
-	ranges          *rowIDRangeScan      // optional bounded numeric range source
-	hashScan        bool                 // lowered aggregate cap requires HASH pagination
-	meta            *tableMeta
-	where           wherePlan
-	sortBy          []sortKey
-	limit           *[2]int64
-	need            map[string]bool // columns to read from the row HASHes
+	livePartition      *livePartitionScan
+	unmanagedPartition *unmanagedPartitionBucket
+	aggregateInputs    bool                 // direct scalar inputs: bounded larger unmanaged key pages
+	dependencies       map[string]bool      // transitive outer-column inputs for correlated predicates
+	visibility         []snapshotIndexQuery // immutable per-segment visibility for ordered merge
+	authoritative      bool                 // private exact integer tuple source: fetch every needed HASH field
+	ranges             *rowIDRangeScan      // optional bounded numeric range source
+	hashScan           bool                 // lowered aggregate cap requires HASH pagination
+	meta               *tableMeta
+	where              wherePlan
+	sortBy             []sortKey
+	limit              *[2]int64
+	need               map[string]bool // columns to read from the row HASHes
 	// ties re-sorts the rows that tie in the index's sort, when sortBy has
 	// keys whose values the index may round (see ties.go).
 	ties *tieSort
@@ -688,10 +689,11 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		it.liveScan = &liveCollectionScan{store: e.store, meta: req.meta, scan: scan, query: req.where.query, seen: map[string]bool{}}
 		return it, nil
 	}
-	if e.store.flexEnabled() && req.meta.Unmanaged {
+	if (e.store.flexEnabled() && req.meta.Unmanaged) || req.unmanagedPartition != nil {
 		req.where.residual = req.where.original
 		it, _, _ := e.newScanIter(ctx, req, params)
 		it.flexUnmanaged = &flexUnmanagedScan{store: e.store, meta: req.meta, direct: req.where.keys != nil, pending: req.where.keys, seen: map[string]bool{}}
+		it.flexUnmanaged.partition = req.unmanagedPartition
 		return it, nil
 	}
 	// Flex's plain-index contract excludes sorted candidates and aggregate

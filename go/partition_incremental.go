@@ -83,10 +83,11 @@ func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, a
 	var parts adbc.Partitions
 	var n int64
 	var err error
-	if s.resultMode() == "retained" {
-		if s.sourcePartitionMode() != "managed" {
-			return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "live HASH retained capture remains unsupported; use deferred live_hash partitions")
-		}
+	if s.sourcePartitionMode() != "managed" && s.resultMode() != "live" {
+		err = errorf(adbc.StatusInvalidArgument, "partition_source_mode applies only to live deferred partitions")
+	} else if s.sourcePartitionMode() == "unmanaged" {
+		schema, parts, n, err = s.executeUnmanagedPartitions(ctx)
+	} else if s.resultMode() == "retained" {
 		schema, parts, n, err = s.executeRetainedPartitions(ctx)
 	} else {
 		schema, parts, n, err = s.executePartitions(ctx)

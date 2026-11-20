@@ -5,6 +5,9 @@ means deferred managed-table partitions; it is not the application-owned
 [live HASH table mode](live-hash-tables.md). Opt-in
 [retained results](retained-partition-results.md) add bounded global SQL,
 additional source layouts and immutable replay through the same public APIs.
+An explicit [unmanaged source path](unmanaged-partitions.md) adds bounded raw-key
+hash buckets for application-owned HASHes and indexes; it does not add source
+snapshot isolation or widen the managed query subset.
 The [coverage comparison](partition-coverage.md) records remaining gaps and
 the source-consistency design boundaries.
 
