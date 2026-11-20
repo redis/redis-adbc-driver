@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -180,6 +181,9 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	}
 	if last < 2048 || last >= exactDoubleLimit && !directory {
 		return nil, false, nil
+	}
+	if directory && wp.original == nil && wp.query != "" && wp.query != "*" {
+		return nil, true, errorf(adbc.StatusInvalidState, "exact directory aggregate requires the complete SQL predicate")
 	}
 	predicate := wp.original
 	if predicate == nil {

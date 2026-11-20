@@ -123,6 +123,28 @@ func TestSnapshotDirectoryAggregateHighRowIDs(t *testing.T) {
 	if result[aggs[0]].I != 2 || result[aggs[1]].Text() != "40" || result[aggs[2]].I != seed+1 || result[aggs[3]].I != seed+2 {
 		t.Fatal("high row IDs rounded or lost", result)
 	}
+	for _, sql := range []string{
+		"SELECT COUNT(*),SUM(v) FROM t WHERE id=2",
+		fmt.Sprintf("SELECT COUNT(*),SUM(v) FROM t WHERE id=2 AND __rowid>%d", seed),
+	} {
+		e, p, w := directoryAggregatePlan(t, h, s, ctx, sql, 4, &workerBudget{configured: 4})
+		if p.meta.SnapshotOverlay || w.query == "*" || w.original == nil {
+			t.Fatal("fixture must cover pushed baseline predicate", p.meta.SnapshotOverlay, w.query, w.original)
+		}
+		got, handled, err := e.parallelAggregate(ctx, p, w, p.aggregateCalls(), nil)
+		if err != nil || !handled {
+			t.Fatal(sql, handled, err)
+		}
+		aggs := p.aggregateCalls()
+		if got[0].results[aggs[0]].Text() != "1" || got[0].results[aggs[1]].Text() != "23" {
+			t.Fatal("pushed predicate was broadened", sql, got)
+		}
+		w.original = nil
+		if _, handled, err := e.parallelAggregate(ctx, p, w, p.aggregateCalls(), nil); !handled || !isStatus(err, adbc.StatusInvalidState) {
+			t.Fatal("missing full predicate did not fail closed", handled, err)
+		}
+	}
+
 }
 
 func TestSnapshotDirectoryAggregateUnsupportedShapes(t *testing.T) {
