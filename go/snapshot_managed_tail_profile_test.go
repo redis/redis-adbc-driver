@@ -61,7 +61,7 @@ func (h *managedTailHook) observe(ctx context.Context, started time.Time, cmds [
 	granted := false
 	for i, cmd := range cmds {
 		categories[i] = compactionProfileCategory(cmd)
-		if categories[i] == "control_admit_ingest" && cmd.Err() == nil {
+		if (categories[i] == "control_admit_ingest" || categories[i] == "control_admit_append") && cmd.Err() == nil {
 			if c, ok := cmd.(interface{ Int() (int, error) }); ok {
 				n, e := c.Int()
 				granted = e == nil && n == 1

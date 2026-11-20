@@ -125,6 +125,8 @@ elseif op == 'release' then
   redis.call('HDEL', k, 'p:'..token)
   return 1
 elseif op == 'outcome' then
+  local pr=redis.call('HGET',k,'p:'..token)
+  if pr and cjson.decode(pr).append_committed==id then return 'committed' end
   local terminal=redis.call('HGET',k,'o:'..id)
   if terminal then
     local outcome=cjson.decode(terminal)
@@ -343,6 +345,50 @@ elseif op == 'admit_catalog' then
   pin.catalog=true
   redis.call('HSET',k,'p:'..token,cjson.encode(pin))
   return 1
+elseif op == 'admit_append' or op == 'append_allocate' then
+  if not owns_pin() then return redis.error_reply('snapshot append pin expired') end
+  local pin=cjson.decode(redis.call('HGET',k,'p:'..token))
+  if not pin.writing then return redis.error_reply('snapshot append pin is not writing') end
+  local request=cjson.decode(ARGV[6])
+  local function decimal(s)
+    return type(s)=='string' and (s=='0' or string.match(s,'^[1-9][0-9]*$')) and (#s<19 or (#s==19 and s<='9223372036854775807'))
+  end
+  local function greater(a,b) return #a>#b or (#a==#b and a>b) end
+  local high, peers, count='0',{},0
+  local target=op=='admit_append' and request.target or pin.ingest_target
+  if type(target)~='string' or #target~=64 or string.find(target,'[^0-9a-f]') then return redis.error_reply('invalid snapshot append target') end
+  if op=='admit_append' then
+    if pin.catalog or pin.ingest_target or not decimal(request.seed) or type(request.segments)~='number' or request.segments<1 or request.segments>8 or request.segments%1~=0 then return redis.error_reply('invalid snapshot append admission') end
+    if redis.call('HGET',k,'root')~=base then return 0 end
+    high=request.seed
+  elseif not pin.append_highwater or not decimal(request.expected) or not decimal(request.next) or not greater(request.next,request.expected) then return redis.error_reply('invalid snapshot append allocation') end
+  for n=1,#entries,2 do
+    if string.sub(entries[n],1,2)=='p:' then
+      local other=cjson.decode(entries[n+1])
+      if other.writing and other.expires>now then
+        if op=='admit_append' and (other.catalog or (other.ingest_target==target and not other.append_highwater)) then return 0 end
+        if other.ingest_target==target and other.append_highwater then
+          if not decimal(other.append_highwater) then return redis.error_reply('invalid snapshot append highwater') end
+          if greater(other.append_highwater,high) then high=other.append_highwater end
+          count=count+1;peers[#peers+1]={field=entries[n],pin=other}
+        end
+      end
+    end
+  end
+  if op=='admit_append' then
+    if count>=4 or request.segments+count>=8 then return 0 end
+    pin.ingest_target=target;pin.append_highwater=high
+    redis.call('HSET',k,'p:'..token,cjson.encode(pin))
+    return 1
+  end
+  if request.expected~=high then return high end
+  -- Exact decimal CAS: no Lua-number conversion, and no permanent allocator.
+  -- Every live peer retains the high water when an allocator exits or fails.
+  for _,peer in ipairs(peers) do
+    peer.pin.append_highwater=request.next
+    redis.call('HSET',k,peer.field,cjson.encode(peer.pin))
+  end
+  return 'ok'
 elseif op == 'admit_ingest' then
   if not owns_pin() then return -1 end
   local pin=cjson.decode(redis.call('HGET',k,'p:'..token))
@@ -459,7 +505,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   local refs = cjson.decode(redis.call('HGET',k,'r:'..id) or '[]')
   data_live(graph,refs)
   data_releasable(graph,refs)
-  if merge then
+  if merge and not merge.append then
     local oldmap=redis.call('HGETALL',KEYS[3])
     local incomplete=snapshot_metadata_publication_error(KEYS[controlN-4],graph)
     if incomplete then return redis.error_reply(incomplete) end
@@ -480,6 +526,17 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     redis.call('DEL',KEYS[controlN-4])
     redis.call('HSET',k,'w:'..merge.id,cjson.encode({state='deleting'}))
   end
+  local published=id
+  if merge and merge.append then
+    -- The appended descriptor and counter are new native values, unlike a
+    -- disjoint-key rebase's aliases. Publish their construction manifest in
+    -- place: moving only its map would let value GC shrink the wrong root's
+    -- native-key directory while readers still pin that root.
+    local incomplete=snapshot_metadata_publication_error(KEYS[controlN-4],graph)
+    if incomplete then return redis.error_reply(incomplete) end
+    published=merge.id
+    redis.call('HSET',k,'w:'..published,cjson.encode({state='committed',metadata_keys=redis.call('ZCARD','` + snapshotPrefix + `workspace:'..published..':__keys'),metadata_buckets=redis.call('HLEN',KEYS[controlN-4])}),'r:'..published,'[]')
+  end
   local committed=cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2]),metadata_buckets=redis.call('HLEN',KEYS[3])})
   if w.operation then
     local terminal=cjson.encode({state='committed',deadline=w.operation.deadline,kind=w.operation.kind,affected=w.operation.affected})
@@ -487,10 +544,11 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     -- that installs the new root, rather than a later best-effort job update.
     redis.call('HSET',k,'root',id,'w:'..id,committed,'r:'..id,'[]','o:'..id,terminal)
     redis.call('DEL','` + snapshotPrefix + `operation:'..id)
-  else redis.call('HSET',k,'root',id,'w:'..id,committed,'r:'..id,'[]') end
+  else redis.call('HSET',k,'root',published,'w:'..id,committed,'r:'..id,'[]') end
   data_release(graph,dataqueue,refs)
   for _,update in ipairs(queueupdates) do
     if update.candidate then
+      update.candidate.version=published
       redis.call('HSET',candidates,update.key,cjson.encode(update.candidate))
       redis.call('ZADD',compactionqueue,'NX',now,update.key)
     else redis.call('ZREM',compactionqueue,update.key);redis.call('HDEL',candidates,update.key) end
@@ -498,6 +556,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   local pr = redis.call('HGET', k, 'p:'..token)
   if pr then
     local pin = cjson.decode(pr)
+    if pin.append_highwater then pin.append_committed=id end
     pin.writing = false
     redis.call('HSET', k, 'p:'..token,cjson.encode(pin))
   end
@@ -624,6 +683,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 }
 
 type snapshotPin struct {
+	appendTarget *tableMeta          // immutable admission descriptor; nil for exclusive writers
 	writerTurn   *snapshotWriterTurn // assigned before returning an admitted pin
 	shared       *sharedReadView
 	reader       bool

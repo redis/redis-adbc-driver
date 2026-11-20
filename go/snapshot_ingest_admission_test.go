@@ -57,7 +57,7 @@ func (o *ingestAdmissionObserver) Process(ctx context.Context, cmd goredis.Cmder
 		if operation == "" {
 			operation = "admit_ingest"
 		}
-		if len(a) > 3+n && a[3+n] == operation {
+		if len(a) > 3+n && (a[3+n] == operation || o.operation == "" && a[3+n] == "admit_append") {
 			o.claims.Add(1)
 			if err == nil {
 				if val, ok := cmd.(interface{ Val() any }); ok && val.Val() == int64(0) && o.busy != nil {

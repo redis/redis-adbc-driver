@@ -1,6 +1,6 @@
 # Remaining partition coverage
 
-Current snapshot branch contract, 2026-11-04. See [live reads](partitioned-reads.md),
+Current source contract, reviewed 2026-11-20. See [live reads](partitioned-reads.md),
 [retained reads](retained-partition-results.md) and the [open parity gates](sdlc/changes/snapshot-parity/plan.md).
 The published 0.0.19 macOS ARM64 wheel’s native live/retained TLS checks are
 [historical platform-specific evidence](sdlc/changes/210-212/validation.md), not
@@ -17,7 +17,9 @@ Ordinary SQL has its own supported subset and remains autocommit-only.
 | DISTINCT, grouping, aggregates, windows | Rejected | Once at coordinator, within budgets | Supported subset |
 | Joins, sets, nonrecursive CTEs, permanent views/subqueries | Rejected | Bounded supported subset | Supported subset |
 | Managed copies of adopted HASHes and foreign/application indexes | Native managed partition path | Captured managed copy | Managed copy with explicit refresh |
-| Legacy storage and direct live external layouts | Rejected | Rejected by current catalog bootstrap | Rejected; no migration |
+| Explicit unmanaged registrations (application owns HASHes and indexes) | Rejected | External-key capture path; qualification below | Supported with live-source semantics |
+| Live HASH registrations (application owns HASHes; driver owns indexes) | Rejected | Rejected | Supported with live-source semantics |
+| Legacy storage without a current registration | Rejected | Rejected by current catalog bootstrap | Rejected; no migration |
 | Temporary source | Rejected | Producer-owned temporary tables/views | Connection-owned lifetime |
 | Recursive CTEs, generators, lateral/table functions | Rejected | Rejected | Supported subset |
 | Volatile/side-effect functions | Rejected | Rejected | Supported subset |
@@ -33,6 +35,65 @@ Tests compare complete Arrow values/types with ordinary execution, including
 NULL, Unicode, negative positions/lengths and extreme integer bounds. Global
 operators still run once before chunking, never once per reader.
 
+## Parallel reads by data and index ownership
+
+The following matrix describes current source behavior, not a claim that every
+released wheel or deployment has been validated. Concurrent ordinary SELECTs,
+source partition workers and retained-output readers are different operations.
+“Live partitions” is the deferred ADBC result mode, not live HASH registration.
+
+| Ownership and deployment | Independent ordinary SELECTs | Deferred source partitions | Retained coordinator and replay | Automatic aggregate range workers |
+|---|---|---|---|---|
+| Driver owns data and indexes; standard Software | Supported; each statement pins its own generation | Supported for the restricted managed query subset | Bounded managed capture; immutable output replay | Eligible queries/layouts only; overlays can fall back |
+| Driver owns data and indexes; compatible Software Flex with explicit stopgap | Supported; exact snapshot directories | Supported; exact directories, same descriptor/query limits | Flex-aware managed capture; independently stored replay | Serial fallback in the current range-worker implementation |
+| Application owns data and indexes; unmanaged registrations on supported Software/Flex | Supported; source remains live | Unsupported; [#549](https://github.com/redis/redis-adbc-driver/issues/549) | Existing external-key capture path; no managed source snapshot; see qualification below | Numeric managed range workers do not apply; bounded typed aggregate page fetches can run concurrently |
+| Application owns data; driver owns indexes; live HASH registrations | Supported; source remains live | Unsupported; [#550](https://github.com/redis/redis-adbc-driver/issues/550) | Explicitly rejected | Managed row-ID range workers do not apply |
+
+Live HASH registrations themselves are unsupported in experimental Flex mode;
+this is a deployment exclusion, not a supported mode with reduced parallelism.
+Managed copies of application/foreign data belong to the first two rows, since
+the driver owns the captured copy and its private indexes.
+
+The retained coordinator has an external-key capture branch for adopted/keyed
+application layouts in [partition_retained_capture.go](../go/partition_retained_capture.go).
+It does not capture a managed snapshot of concurrent application writes.
+That source path is distinct from both managed-copy capture and immutable
+completed-output replay. The existing historical layout evidence does not
+establish a current all-deployment retained matrix for explicit unmanaged
+registrations; validate the selected registration, types, permissions and backend
+before treating it as deployment support. Live HASH registrations are explicitly
+refused before capture. See the [retained contract](retained-partition-results.md).
+
+Implementation and focused evidence:
+
+- [Managed partition planning](../go/partitions.go) requires a permanent managed
+  row-ID table; [managed workers](../go/snapshot_partitions.go) seek exact pinned
+  directories. [Flex snapshot validation](sdlc/changes/flex-snapshots/validation.md)
+  covers managed partition generations on an actual Software Flex fixture.
+- [Aggregate range eligibility](../go/parallel_aggregate.go) and
+  [partitioned aggregate eligibility](../go/partitioned_aggregate.go) retain
+  serial fallbacks for Flex and unsupported layouts/query shapes.
+  [#551](https://github.com/redis/redis-adbc-driver/issues/551) tracks exact-directory
+  aggregate workers. [Unmanaged page-fetch evidence](sdlc/changes/unmanaged-concurrency-20261114/validation.md)
+  covers a separate bounded concurrency path; it does not add ADBC source partitions.
+- [Live HASH ownership and exclusions](live-hash-tables.md) and
+  [unmanaged ownership and exclusions](unmanaged-tables.md) remain in force.
+
+Applications schedule independent queries and `ReadPartition` calls, including
+across processes. `partition_count` controls split granularity and does not start
+workers. Retained execution runs one bounded coordinator; parallel output replay
+does not parallelize its global SQL. The [query-worker controls](worker-autotuning.md)
+apply only to eligible internal workers and share capacity across connections
+from one database handle, not across all processes. Redis QPF is a separate
+server-side setting.
+
+Independent managed SELECTs can pin different committed generations. Deferred
+partition sets retain one producer generation; a connection-scoped
+[shared read snapshot](shared-read-snapshots.md) has no exported cross-process
+attachment API. Concurrent readers do not create a common point-in-time view of
+application-owned data. [#552](https://github.com/redis/redis-adbc-driver/issues/552)
+tracks this documentation reconciliation; #549–#551 remain feature requests.
+
 ## Source-consistent capture
 
 Managed statement snapshots are always enabled. Live sets retain one producer
@@ -41,8 +102,10 @@ statements each acquire their own generation. Concurrent SQL DML/DDL does not
 change a pinned input. Readiness checks and before/after counts do not establish
 this guarantee; immutable data/catalog generations and their reference protocol do.
 
-Application-owned HASHes and indexes remain external. SQL reads a private managed
-copy, and explicit refresh publishes a new copy for future statements. External
+Application-owned HASHes and indexes remain external. Managed imports read a
+private managed copy, and explicit refresh publishes a new copy for future
+statements. Explicit unmanaged and live registrations read application HASHes
+directly; their concurrent source values are not frozen by a managed catalog pin. External
 writers do not participate in the driver’s snapshot protocol; a refresh does not
 promise an atomic capture of arbitrary concurrently changing application data.
 Completed copies and retained output preserve the captured exact values.

@@ -96,7 +96,9 @@ may opt newly opened connections into `adbc.redis.writer_admission_queue=true`
 an option within managed mode, not another table mode. It does not affect live
 unmanaged writes.
 
-The option adds bounded, best-effort FIFO turns among eligible managed writers
+Parallel existing-table Arrow appends bypass this local exclusive queue and use
+native bounded peer admission. The option adds bounded, best-effort FIFO turns
+among other eligible managed writers
 in the same loaded driver process, including independent database handles with
 matching static routing, credentials and TLS trust. It can improve contended
 whole-workload completion and high-percentile latency while increasing typical
@@ -503,12 +505,14 @@ gate also waits before execution, with bounded polling and the statement's
 cancellation/deadline. Existing immutable-index proofs are shared with the private
 workspace. No SQL or Arrow input is replayed. Reads remain available.
 
-Managed-table top-level SQL INSERT, UPDATE, DELETE and MERGE share table admission
-with append and create-append Arrow ingestion. They wait for another participating
-writer targeting the same logical table before executing SQL or consuming Arrow
-input. Waiting releases the provisional pin and reacquires a current generation,
-so SQL evaluates against the state published by the preceding writer. Independent targets
-remain concurrent. This admission uses the existing leased writer pin, including
+Managed-table top-level SQL INSERT, UPDATE, DELETE and MERGE use exclusive table
+admission. Streamed Arrow append and create-append into an existing managed table
+allow up to four concurrent inputs, including across independent client processes.
+They reserve segment capacity before consuming input and publish complete appends
+atomically. SQL writers wait for admitted appends, and appends wait for SQL or
+catalog writers. Waiting releases the provisional pin and reacquires a current
+generation, so SQL evaluates against preceding successful publications.
+Independent targets remain concurrent. This admission uses the existing leased writer pin, including
 for a table first created by create-append; it introduces no storage version or
 ownership change. Cancellation and uncertain admission replies terminate before
 execution/input consumption. DDL, additional targets in data-changing WITH
@@ -516,6 +520,25 @@ statements, older SQL clients without this admission, and changed managed read
 dependencies can still cause a publication conflict; input is never automatically
 replayed. This gate coordinates statements, not multi-statement transactions,
 and does not guarantee fairness or conflict-free arbitrary SQL.
+
+Parallel appends work in standard managed mode and the explicitly enabled
+[Flex stopgap](redis-flex-stopgap.md). Initial creation and replacement remain
+exclusive, as do retained prepared-operation ingests. The optional process-local
+writer queue is bypassed for parallel append inputs; native coordination still
+applies. Unmanaged and live tables keep their own direct-write contracts.
+
+Each stream's IDs increase in input order; converted slices have contiguous IDs,
+but different streams can interleave ranges. ID order does not imply publication
+order, and failed streams can leave gaps. Each append contributes its own final
+immutable segment/index. Capacity includes admitted peers and stays within eight
+segments; maintenance and retained readers can apply backpressure. A failed stream
+never rolls back a completed peer, and input is never automatically replayed.
+
+Catalog format 17 is unchanged. Participating older drivers remain exclusive;
+parallel staging requires the new driver. Older writers without table/catalog
+admission remain outside the concurrency guarantee. See the
+[issue #547 contract and evidence](sdlc/changes/issue-547-parallel-appends/spec.md).
+
 Unmanaged Arrow append bypasses this gate and writes application HASHes directly;
 see its [partial-write contract](unmanaged-tables.md#write-arrow-data-to-source-hashes).
 
