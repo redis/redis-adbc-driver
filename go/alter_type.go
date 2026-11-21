@@ -151,9 +151,11 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 		res.altered = slices.Delete(res.altered, k, k+1)
 	}
 	if col.Default != "" {
-		if err := e.alterTypeDefault(ctx, *col, to); err != nil {
+		text, err := e.alterTypeDefault(ctx, *col, to)
+		if err != nil {
 			return err
 		}
+		col.Default = text
 	}
 	if d, ok := in.views[col.Name]; ok {
 		return stateErrorf(stateFeatureNotSupported, "cannot alter type of a column used by a view or rule; %s", d)
@@ -190,10 +192,10 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 // to converts, as Postgres does: the expression's type must be assignable to
 // to (a string literal has the column's type, as Postgres stores it), and
 // the expression is validated as for a new DEFAULT, without evaluation.
-func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColType) error {
+func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColType) (string, error) {
 	x, err := parseExprText(col.Default)
 	if err != nil {
-		return errorf(adbc.StatusInternal, "invalid DEFAULT %q of column %q: %v", col.Default, col.Name, err)
+		return "", errorf(adbc.StatusInternal, "invalid DEFAULT %q of column %q: %v", col.Default, col.Name, err)
 	}
 	t := col.Type
 	if !unknownOrNull(x) {
@@ -202,10 +204,36 @@ func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColT
 		}
 	}
 	if !defaultAssignable(t, to) {
-		return stateErrorf(stateDatatypeMismatch, "default for column %q cannot be cast automatically to type %s", col.Name, pgTypeName(to, false))
+		return "", stateErrorf(stateDatatypeMismatch, "default for column %q cannot be cast automatically to type %s", col.Name, pgTypeName(to, false))
 	}
-	_, err = e.checkDefault(ctx, ColumnDef{Name: col.Name, Type: to, Default: x, DefaultText: col.Default})
-	return err
+	text := col.Default
+	if unknownLiteral(x) {
+		// Parse analysis already resolved this literal to the old input type.
+		// Preserve that identity, without the old assignment typmod: numeric
+		// scale and varchar length belong to assignment at use time, and ALTER
+		// removes that assignment before adding the new one.
+		text = "(" + text + ")::" + defaultInputTypeName(col.Type)
+		x, err = parseExprText(text)
+		if err != nil {
+			return "", err
+		}
+	}
+	return e.checkDefault(ctx, ColumnDef{Name: col.Name, Type: to, Default: x, DefaultText: text})
+}
+
+// Retain logical input identity without reapplying assignment typmods. BPCHAR
+// is the unbounded input type; bare CHARACTER would introduce a length of one.
+func defaultInputTypeName(t ColType) string {
+	if t.Kind == KindArray {
+		return defaultInputTypeName(t.element()) + "[]"
+	}
+	if t.Alias != "" {
+		return t.Alias
+	}
+	if t.isChar() {
+		return "bpchar"
+	}
+	return pgTypeName(t, false)
 }
 
 // alterOldChecks binds the CHECK constraints that read a column whose type

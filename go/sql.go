@@ -1009,11 +1009,14 @@ func lexQuoted(s string, q byte) (string, int, error) {
 // ---- parser ----
 
 type parser struct {
-	src       string
-	toks      []token
-	pos       int
-	numParams int
-	nextParam int
+	// restrictedExpr selects PostgreSQL b_expr for column DEFAULT clauses.
+	// Nested expression entry points (parentheses, calls, CASE) use a_expr.
+	restrictedExpr bool
+	src            string
+	toks           []token
+	pos            int
+	numParams      int
+	nextParam      int
 	// refs, when set, collects where each column reference is written (for
 	// CHECK expressions, see check.go).
 	refs *[]refSpan
@@ -2113,9 +2116,18 @@ func (p *parser) parseValue() (Expr, error) {
 
 // parseDefault parses the expression of a DEFAULT clause and returns it with
 // its source text.
-func (p *parser) parseDefault() (Expr, string, error) {
+func (p *parser) parseDefault(restricted bool) (Expr, string, error) {
 	start := p.peek().pos
-	e, err := p.parseExpr()
+	saved := p.restrictedExpr
+	p.restrictedExpr = restricted
+	var e Expr
+	var err error
+	if restricted {
+		e, err = p.parseComparison()
+	} else {
+		e, err = p.parseExpr()
+	}
+	p.restrictedExpr = saved
 	if err != nil {
 		return nil, "", err
 	}
@@ -2428,13 +2440,6 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 		return ColumnDef{}, &sqlError{msg: fmt.Sprintf("column %q has pseudo-type record", name), state: stateTableDefinition}
 	}
 	col := ColumnDef{Name: name, Type: ct, Serial: serial}
-	if p.acceptKeyword("COLLATE") {
-		coll, err := p.parseCollationName()
-		if err != nil {
-			return ColumnDef{}, err
-		}
-		col.Type.Collation = coll
-	}
 	for {
 		named, constraint := "", false
 		if p.acceptKeyword("CONSTRAINT") {
@@ -2444,6 +2449,15 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 			constraint = true
 		}
 		switch {
+		case !constraint && p.acceptKeyword("COLLATE"):
+			if col.Type.Collation != "" {
+				return ColumnDef{}, syntaxErr("multiple COLLATE clauses")
+			}
+			coll, err := p.parseCollationName()
+			if err != nil {
+				return ColumnDef{}, err
+			}
+			col.Type.Collation = coll
 		case p.acceptKeyword("GENERATED"):
 			if col.Identity != "" || col.Serial {
 				return ColumnDef{}, syntaxErr("multiple identity specifications")
@@ -2476,7 +2490,7 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 			if col.Default != nil {
 				return ColumnDef{}, &sqlError{msg: fmt.Sprintf("multiple default values specified for column %q", name)}
 			}
-			if col.Default, col.DefaultText, err = p.parseDefault(); err != nil {
+			if col.Default, col.DefaultText, err = p.parseDefault(true); err != nil {
 				return ColumnDef{}, err
 			}
 		case constraint:
@@ -2761,7 +2775,7 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 				return cmd, err
 			}
 		case p.acceptKeyword("SET", "DEFAULT"):
-			if cmd.Def.Default, cmd.Def.DefaultText, err = p.parseDefault(); err != nil {
+			if cmd.Def.Default, cmd.Def.DefaultText, err = p.parseDefault(false); err != nil {
 				return cmd, err
 			}
 			cmd.Action = AlterSetDefault
@@ -3638,7 +3652,12 @@ func (p *parser) parseCase() (Expr, error) {
 	return c, nil
 }
 
-func (p *parser) parseExpr() (Expr, error) { return p.parseOr() }
+func (p *parser) parseExpr() (Expr, error) {
+	saved := p.restrictedExpr
+	p.restrictedExpr = false
+	defer func() { p.restrictedExpr = saved }()
+	return p.parseOr()
+}
 
 func (p *parser) parseOr() (Expr, error) {
 	l, err := p.parseAnd()
@@ -3712,6 +3731,11 @@ func (p *parser) parseComparison() (Expr, error) {
 				l = compareExpr(op, l, r)
 				continue
 			}
+		}
+		// b_expr permits symbolic comparisons and IS [NOT] DISTINCT FROM,
+		// but no other supported boolean keyword operators.
+		if p.restrictedExpr && !(p.isKeyword("IS") && (p.isKeywordAt(1, "DISTINCT") || (p.isKeywordAt(1, "NOT") && p.isKeywordAt(2, "DISTINCT")))) {
+			return l, nil
 		}
 		if p.isKeyword("ISNULL") || p.isKeyword("NOTNULL") {
 			l = isNullExpr(l, strings.EqualFold(p.next().text, "NOTNULL"))
@@ -3896,7 +3920,7 @@ func (p *parser) parseOverlaps() (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	for p.acceptKeyword("OVERLAPS") {
+	for !p.restrictedExpr && p.acceptKeyword("OVERLAPS") {
 		r, err := p.parseOtherOp()
 		if err != nil {
 			return nil, err
@@ -3960,6 +3984,12 @@ func (p *parser) parseOtherOp() (Expr, error) {
 // operator op (ok is false if they don't follow). `= ANY` is IN and `<> ALL`
 // is NOT IN, so that they share IN's index unions, hash sets and semi-joins.
 func (p *parser) parseQuantified(x Expr, op string) (Expr, bool, error) {
+	if p.restrictedExpr {
+		if p.isKeyword("ANY") || p.isKeyword("SOME") || p.isKeyword("ALL") {
+			return nil, false, syntaxErr("unexpected %q in column DEFAULT", p.peek().text)
+		}
+		return nil, false, nil
+	}
 	all := p.isKeyword("ALL")
 	if !(all || p.isKeyword("ANY") || p.isKeyword("SOME")) || !(p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(") {
 		return nil, false, nil
@@ -4064,7 +4094,7 @@ func (p *parser) parseAtTimeZone() (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	for p.isKeyword("AT") {
+	for !p.restrictedExpr && p.isKeyword("AT") {
 		switch {
 		case p.isKeywordAt(1, "TIME") && p.isKeywordAt(2, "ZONE"):
 			p.pos += 3
@@ -4153,7 +4183,7 @@ func (p *parser) parsePostfix(x Expr) (Expr, error) {
 				return nil, parseErr(err)
 			}
 			x = p.noteCast(&Cast{X: x, T: ct, typeName: castTypeName(spec, ct)})
-		case p.acceptKeyword("COLLATE"):
+		case !p.restrictedExpr && p.acceptKeyword("COLLATE"):
 			if err := p.parseCollation(); err != nil {
 				return nil, err
 			}
