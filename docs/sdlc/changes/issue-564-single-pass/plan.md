@@ -77,7 +77,9 @@ oracles passed, with final notification commands reduced from 64 to zero per
 run. The [evidence record](evidence.md) reports acknowledged-time medians and
 ranges, measured client observations, unavailable server/I/O attribution and the
 discarded image-pull-overlap matrix. No 100,000-row profile or full-scale result
-is implied by the 16,384-row observations. Human maintainer review remains pending.
+is implied by the 16,384-row observations. This paragraph describes the earlier
+BIGINT-only control; later mixed-data closeout is linked below. Implementation
+was merged in PR #569; no separate formal human review decision is invented.
 
 See [combined verification](integration.md) for final integrated checks and limits.
 

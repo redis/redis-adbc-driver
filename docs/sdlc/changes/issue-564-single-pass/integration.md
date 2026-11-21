@@ -77,3 +77,7 @@ acceptance evidence. The operational ingestion stayed stopped and no AWS job
 was started. Only task-owned disposable test fixtures were used.
 
 Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.
+
+Subsequent [mixed-data closeout](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/issue-564.md) completes the remaining #564 comparison/resource criteria.
+The other issues retain their own acceptance gates; #564 does not require the
+full-canonical loading run specified by #566. Original results above are unchanged.
