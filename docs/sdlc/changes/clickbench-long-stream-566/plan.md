@@ -36,3 +36,8 @@ tests remain skipped in this worktree, pending root's allocated verified fixture
 `git diff --check` passes. Full-scale throughput/RSS/backup evidence is still absent.
 
 See [intent](intent.md) and [spec](spec.md).
+
+A subsequent independent review identified an uncertain append reply after EOF
+without a cancel error. All unresolved worker publication outcomes now preserve
+owned data. The regression asserts both the progress state and run.main's shared
+DDL-cleanup decision helper refuse cleanup after that unknown result.

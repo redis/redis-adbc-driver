@@ -195,8 +195,9 @@ Deadlines, sibling failures and caller interruption actively cancel all worker
 statements through public ADBC cancellation, including after source EOF during
 index sealing. Every worker and cancellation thread joins before the error is
 returned; source/Arrow/cursor cleanup stays with its owner. Known successful
-acknowledgments remain recorded even if cancellation races publication. A cancel
-error preserves the unknown outcome and suppresses optional DDL cleanup. This
+acknowledgments remain recorded even if cancellation races publication. Every
+unresolved worker publication outcome, including a lost append reply without any
+cancel error, preserves owned data and suppresses optional DDL cleanup. This
 relies on the Redis driver's cooperative cancel contract: a hard process limit
 against a broken/noncooperative native driver requires an external process
 supervisor. The harness never abandons native Arrow threads or promises such a

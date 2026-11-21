@@ -153,6 +153,11 @@ def index_status(client, name):
     return documents, indexing
 
 
+def cleanup_allowed(requested, metadata):
+    """Unknown publication outcomes retain owned data for explicit inspection."""
+    return bool(requested and not metadata.get("preserve_owned_data", False))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--upstream", type=Path, required=True)
@@ -519,14 +524,14 @@ def main():
                         save(args.output, result)
                     print(f"Q{number:02}: {result['result'][number - 1]}", flush=True)
             finally:
-                if args.cleanup and not result["metadata"].get("preserve_owned_data"):
+                if cleanup_allowed(args.cleanup, result["metadata"]):
                     cur.execute("DROP TABLE IF EXISTS hits")
                     cur.execute("SET search_path TO public")
                     cur.execute(f"DROP SCHEMA {namespace}")
                     result["metadata"]["cleaned_up"] = True
                     save(args.output, result)
                 elif args.cleanup:
-                    result["metadata"]["cleanup_skipped"] = "statement cancellation outcome unknown; owned data preserved"
+                    result["metadata"]["cleanup_skipped"] = "statement publication/cancellation outcome unknown; owned data preserved"
                     save(args.output, result)
     client.close()
     parquet.close()

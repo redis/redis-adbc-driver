@@ -106,7 +106,9 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
                     "container_file_cache_bytes": None,
                     "private_rows_staged": None,
                     "backup_ready": False,
-                    "preserve_owned_data": any(s.get("cancel_error", False) for s in states),
+                    "preserve_owned_data": any(
+                        s.get("cancel_error", False) or s["phase"] not in
+                        ("published", "published_after_cancel_request", "empty") for s in states),
                     "maintenance": "normal driver maintenance enabled; state not exposed by public ADBC API"}
 
     def request_cancel():

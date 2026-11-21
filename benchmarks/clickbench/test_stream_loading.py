@@ -16,7 +16,7 @@ import unittest
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from run import convert_batch, ingest_batch
+from run import convert_batch, ingest_batch, cleanup_allowed
 from stream_validation import validate_managed_stream
 from stream_loading import bounded_batches, ingest_streams, row_group_assignments, StreamWriter
 
@@ -147,6 +147,12 @@ class StreamLoading(unittest.TestCase):
         self.assertEqual(calls, [True])
         self.assertEqual(snapshots[-1]["source_rows_yielded"], 23)
         self.assertEqual(snapshots[-1]["acknowledged_rows"], 0)
+        self.assertTrue(snapshots[-1]["preserve_owned_data"])
+        # This is the same helper run.main uses to gate its final DDL cleanup.
+        metadata = {"preserve_owned_data": snapshots[-1]["preserve_owned_data"]}
+        self.assertFalse(cleanup_allowed(True, metadata))
+        self.assertTrue(cleanup_allowed(True, {"preserve_owned_data": False}))
+        self.assertFalse(cleanup_allowed(False, {"preserve_owned_data": False}))
 
     def test_empty_assignments_do_not_open_empty_appends(self):
         calls = []
