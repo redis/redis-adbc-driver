@@ -3,11 +3,89 @@ import datetime
 from pathlib import Path
 import tempfile
 import unittest
+import threading
+import time
+import signal
+from unittest.mock import patch
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from stream_validation import validate_managed_stream, IDSpool, validate_point_schema
+from stream_validation import validate_managed_stream, IDSpool, validate_point_schema, cancellation_deadline
+
+
+class DeadlineOwnership(unittest.TestCase):
+    def test_interrupt_after_watcher_start_joins_before_scope_returns(self):
+        original = threading.Thread.start
+        owners, calls = [], []
+        scope_closed = False
+        def cancel():
+            calls.append(scope_closed)
+        def start(thread):
+            original(thread)
+            owners.append(thread)
+            raise KeyboardInterrupt()
+        with patch.object(threading.Thread, "start", start):
+            with self.assertRaises(KeyboardInterrupt):
+                with cancellation_deadline(cancel, time.time() + 0.05):
+                    self.fail("interrupted startup must not enter the query body")
+        scope_closed = True
+        self.assertFalse(any(thread.is_alive() for thread in owners))
+        # Guard through the old deadline: no abandoned watcher may later cancel
+        # a cursor that has been closed or reused by its owner.
+        threading.Event().wait(0.08)
+        self.assertEqual(calls, [])
+
+    def test_second_interrupt_during_active_cancel_join_is_deferred(self):
+        original = threading.Thread.join
+        cancel_active, release = threading.Event(), threading.Event()
+        calls, owners = [], []
+        closed, injected = False, False
+        def cancel():
+            owners.append(threading.current_thread())
+            cancel_active.set()
+            self.assertTrue(release.wait(2))
+            calls.append(closed)
+        def join(thread, *args, **kwargs):
+            nonlocal injected
+            if not injected:
+                injected = True
+                release.set()
+                raise KeyboardInterrupt()
+            return original(thread, *args, **kwargs)
+        with patch.object(threading.Thread, "join", join):
+            with self.assertRaises(KeyboardInterrupt):
+                with cancellation_deadline(cancel, time.time() + 0.05):
+                    self.assertTrue(cancel_active.wait(2))
+                    raise KeyboardInterrupt()  # First interrupt from the body.
+        closed = True
+        self.assertTrue(injected)
+        self.assertFalse(any(thread.is_alive() for thread in owners))
+        threading.Event().wait(0.08)
+        self.assertEqual(calls, [False])
+
+    def test_deadline_cancel_retries_after_preexecution_noop(self):
+        first_cancel, operation_active, canceled = (threading.Event() for _ in range(3))
+        calls = []
+        closed = False
+        original_handler = signal.getsignal(signal.SIGINT)
+        def cancel():
+            calls.append(closed)
+            first_cancel.set()
+            if operation_active.is_set():
+                canceled.set()
+        with cancellation_deadline(cancel, time.time() + 0.05):
+            # The query body's ordinary SIGINT behavior remains installed.
+            self.assertIs(signal.getsignal(signal.SIGINT), original_handler)
+            self.assertTrue(first_cancel.wait(2))
+            operation_active.set()
+            self.assertTrue(canceled.wait(2), "a pre-execution no-op cancel was never retried")
+        closed = True
+        count = len(calls)
+        threading.Event().wait(0.08)
+        self.assertGreaterEqual(count, 2)
+        self.assertEqual(len(calls), count)
+        self.assertFalse(any(calls))
 
 
 class StreamValidation(unittest.TestCase):

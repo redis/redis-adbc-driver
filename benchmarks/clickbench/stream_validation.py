@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from pathlib import Path
 import tempfile
+import signal
 import threading
 import time
 
@@ -11,29 +12,76 @@ import pyarrow.parquet as pq
 
 
 @contextmanager
-def cancellation_deadline(cancel, deadline):
-    """Cancel an executing/fetching statement even when a page has not returned.
+def short_sigint_deferral():
+    """Defer standard Ctrl-C only around an ownership start/join boundary.
 
-    This relies on the driver's cooperative public cancellation contract. A
-    hard process wall-clock bound for a broken C driver needs a supervisor.
+    The caller owns propagation after its cleanup. Custom/ignored handlers are
+    untouched. The handler changes a scalar only, without taking any lock.
+    """
+    interrupted = [False]
+    previous = None
+    if (threading.current_thread() is threading.main_thread() and
+            signal.getsignal(signal.SIGINT) is signal.default_int_handler):
+        previous = signal.default_int_handler
+        def defer(signum, frame):
+            interrupted[0] = True
+        signal.signal(signal.SIGINT, defer)
+    try:
+        yield interrupted
+    finally:
+        if previous is not None:
+            signal.signal(signal.SIGINT, previous)
+
+
+@contextmanager
+def cancellation_deadline(cancel, deadline):
+    """Cancel execution/fetch, joining the watcher before scope ownership ends.
+
+    Only start/join critical sections defer standard SIGINT. The query body keeps
+    its normal KeyboardInterrupt handler. Repeated cancellation covers the race
+    where a deadline arrives before the native operation actually starts. This
+    relies on cooperative public cancellation; a broken C driver needs a process
+    supervisor for a hard wall-clock bound.
     """
     if time.time() >= deadline:
         raise RuntimeError("Managed validation deadline reached")
     done = threading.Event()
     def watch():
         remaining = deadline - time.time()
-        if not done.wait(max(0, remaining)):
+        if done.wait(max(0, remaining)):
+            return
+        while not done.is_set():
             try:
                 cancel()
             except Exception:
                 pass  # The owner reports its execution/fetch outcome.
+            done.wait(0.05)
     watcher = threading.Thread(target=watch)
-    watcher.start()
+    deferred = False
     try:
+        # Protected before start: even an injected interrupt after native thread
+        # startup must stop/join it before a cursor can be reused or closed.
+        with short_sigint_deferral() as startup_interrupt:
+            watcher.start()
+        deferred = startup_interrupt[0]
+        if deferred:
+            raise KeyboardInterrupt()
         yield
     finally:
-        done.set()
-        watcher.join()
+        # Retry the whole short cleanup boundary as well as join itself: a
+        # second interrupt may arrive while entering that boundary.
+        while True:
+            try:
+                with short_sigint_deferral() as join_interrupt:
+                    done.set()
+                    if watcher.ident is not None:
+                        watcher.join()
+                deferred = deferred or join_interrupt[0]
+                break
+            except KeyboardInterrupt:
+                deferred = True
+        if deferred:
+            raise KeyboardInterrupt()
 
 
 def ascending_ids(batch, previous=None):

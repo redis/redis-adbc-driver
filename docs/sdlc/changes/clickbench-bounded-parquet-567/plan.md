@@ -60,3 +60,14 @@ skips. Tests cover second Thread.start failure, repeat interrupt during joins,
 real repeated SIGINT during gated startup, preserved custom/ignored handlers,
 float/bool/Decimal physical type refusals, and the actual point-sample validation
 path with equal-valued Decimal output. `git diff --check` passes.
+
+Validator deadline watcher ownership received the same lifecycle review. Startup
+is now inside its protected cleanup scope; standard main-thread SIGINT is deferred
+only during short start/join ownership boundaries, leaving query-body interrupt
+behavior unchanged. Cleanup retries repeat interrupts and joins every started
+watcher before cursor reuse/close. Deadline cancellation repeats until scope end
+to cover a no-op cancel before native execution starts. The cooperative-cancel /
+external process-supervisor limitation remains explicit. Three regressions use
+fake cancel callbacks and post-return guard intervals: interrupt after watcher
+start, second interrupt during active cancel/join, and pre-execution cancel retry.
+The focused validator suite passed (13 tests); `git diff --check` passed.
