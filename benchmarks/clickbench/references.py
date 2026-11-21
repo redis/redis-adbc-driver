@@ -20,7 +20,8 @@ def file_sha256(path):
 
 
 def typed_source(con, parquet, schema):
-    source = pq.ParquetFile(parquet).schema_arrow
+    with pq.ParquetFile(parquet, pre_buffer=False) as source_file:
+        source = source_file.schema_arrow
     if set(source.names) != set(schema.names):
         raise ValueError("Parquet columns differ from the official ClickBench schema")
     con.from_parquet(str(parquet)).create_view("source_hits", replace=True)

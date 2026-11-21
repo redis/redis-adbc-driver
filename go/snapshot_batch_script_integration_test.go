@@ -115,7 +115,13 @@ func TestSnapshotCompactionScriptCacheColdHotFlush(t *testing.T) {
 		clear(observer.digests)
 		clear(observer.bodies)
 		observer.Unlock()
-		if _, err := s.snapshotCompactionStep(h.ctx, token); err != nil {
+		// Observe one atomic batch per cache trial; maintenance steps may
+		// intentionally group several independently fenced batches.
+		job, err := s.readSnapshotCompaction(h.ctx)
+		if err != nil || job == nil {
+			t.Fatal("read job", err)
+		}
+		if err := s.copySnapshotCompactionBatch(h.ctx, job); err != nil {
 			t.Fatal(err)
 		}
 		wantBody := 1

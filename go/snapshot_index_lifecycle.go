@@ -5,10 +5,14 @@ package redis
 
 import "context"
 
-// A private segment has no Search index until publication seals its row images.
+// Ordinary private segments defer their Search index until sealing. Eligible
+// Arrow appends may create it empty before their first complete-image write.
 // Keep its eventual overlay flag separately: private SQL must always resolve
 // authoritative directories, even for a future single-source baseline index.
-type snapshotIndexState struct{ overlay, deleted bool }
+type snapshotIndexState struct {
+	overlay, deleted bool
+	appendIndexed    bool // in-process only; retained operations are ineligible
+}
 
 func deferSnapshotIndex(ctx context.Context, meta *tableMeta) bool {
 	scope := snapshotOf(ctx)
@@ -50,8 +54,9 @@ func finishSnapshotIndex(ctx context.Context, meta *tableMeta) {
 	scope.mu.Unlock()
 }
 
-// Route capability discovery through an existing immutable input. A deferred
-// output index is deliberately absent, including from Software's global registry.
+// Route capability discovery through an existing immutable input. Deferred
+// output indexes may be absent (or still populating for eligible Arrow appends),
+// so their capabilities cannot replace the immutable input's planning proof.
 func snapshotSourceIndex(ctx context.Context, meta *tableMeta) string {
 	if _, pending := snapshotDeferredIndex(ctx, meta); pending {
 		for _, seg := range meta.snapshotSegments() {

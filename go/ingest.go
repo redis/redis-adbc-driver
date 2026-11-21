@@ -325,6 +325,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (count int64, resultE
 	if err != nil {
 		return -1, err
 	}
+	if err := st.prepareSnapshotAppendIndex(ctx, meta, opts.Mode); err != nil {
+		return -1, err
+	}
 
 	writeRecord := func(rec arrow.RecordBatch) (int64, error) {
 		n := int(rec.NumRows())

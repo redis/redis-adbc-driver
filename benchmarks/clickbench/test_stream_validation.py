@@ -1,0 +1,232 @@
+"""Bounded membership tests include large unordered IDs, gaps and duplicates."""
+import datetime
+from pathlib import Path
+import tempfile
+import unittest
+import threading
+import time
+import signal
+from unittest.mock import patch
+
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+from stream_validation import validate_managed_stream, IDSpool, validate_point_schema, cancellation_deadline
+
+
+class DeadlineOwnership(unittest.TestCase):
+    def test_interrupt_after_watcher_start_joins_before_scope_returns(self):
+        original = threading.Thread.start
+        owners, calls = [], []
+        scope_closed = False
+        def cancel():
+            calls.append(scope_closed)
+        def start(thread):
+            original(thread)
+            owners.append(thread)
+            raise KeyboardInterrupt()
+        with patch.object(threading.Thread, "start", start):
+            with self.assertRaises(KeyboardInterrupt):
+                with cancellation_deadline(cancel, time.time() + 0.05):
+                    self.fail("interrupted startup must not enter the query body")
+        scope_closed = True
+        self.assertFalse(any(thread.is_alive() for thread in owners))
+        # Guard through the old deadline: no abandoned watcher may later cancel
+        # a cursor that has been closed or reused by its owner.
+        threading.Event().wait(0.08)
+        self.assertEqual(calls, [])
+
+    def test_second_interrupt_during_active_cancel_join_is_deferred(self):
+        original = threading.Thread.join
+        cancel_active, release = threading.Event(), threading.Event()
+        calls, owners = [], []
+        closed, injected = False, False
+        def cancel():
+            owners.append(threading.current_thread())
+            cancel_active.set()
+            self.assertTrue(release.wait(2))
+            calls.append(closed)
+        def join(thread, *args, **kwargs):
+            nonlocal injected
+            if not injected:
+                injected = True
+                release.set()
+                raise KeyboardInterrupt()
+            return original(thread, *args, **kwargs)
+        with patch.object(threading.Thread, "join", join):
+            with self.assertRaises(KeyboardInterrupt):
+                with cancellation_deadline(cancel, time.time() + 0.05):
+                    self.assertTrue(cancel_active.wait(2))
+                    raise KeyboardInterrupt()  # First interrupt from the body.
+        closed = True
+        self.assertTrue(injected)
+        self.assertFalse(any(thread.is_alive() for thread in owners))
+        threading.Event().wait(0.08)
+        self.assertEqual(calls, [False])
+
+    def test_deadline_cancel_retries_after_preexecution_noop(self):
+        first_cancel, operation_active, canceled = (threading.Event() for _ in range(3))
+        calls = []
+        closed = False
+        original_handler = signal.getsignal(signal.SIGINT)
+        def cancel():
+            calls.append(closed)
+            first_cancel.set()
+            if operation_active.is_set():
+                canceled.set()
+        with cancellation_deadline(cancel, time.time() + 0.05):
+            # The query body's ordinary SIGINT behavior remains installed.
+            self.assertIs(signal.getsignal(signal.SIGINT), original_handler)
+            self.assertTrue(first_cancel.wait(2))
+            operation_active.set()
+            self.assertTrue(canceled.wait(2), "a pre-execution no-op cancel was never retried")
+        closed = True
+        count = len(calls)
+        threading.Event().wait(0.08)
+        self.assertGreaterEqual(count, 2)
+        self.assertEqual(len(calls), count)
+        self.assertFalse(any(calls))
+
+
+class StreamValidation(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.path = Path(self.directory.name) / "source.parquet"
+        self.rows = 70_003  # More than a validation batch; final partial batch.
+        self.schema = pa.schema([("WatchID", pa.int64()), ("Day", pa.date32()),
+                                 ("Time", pa.timestamp("us")), ("Text", pa.string())])
+        source = pa.table({"WatchID": pa.array([2**60 + i for i in range(self.rows)], type=pa.int64()),
+                           "Day": pa.array([18000] * self.rows, type=pa.int32()),
+                           "Time": pa.array([1600000001] * self.rows, type=pa.int64()),
+                           "Text": ["NUL\x00é"] * self.rows})
+        pq.write_table(source, self.path, row_group_size=9000)
+        with pq.ParquetFile(self.path, pre_buffer=False) as source:
+            self.metadata = source.metadata
+
+    def cursor(self, ids, corrupt=False):
+        owner = self
+        class Cursor:
+            canceled = False
+            calls = []
+            def execute(cursor, sql):
+                # No Go DISTINCT/ORDER BY state or broad 105-column predicate.
+                owner.assertNotIn("DISTINCT", sql)
+                owner.assertNotIn("ORDER BY", sql)
+                owner.assertNotIn("watchid", sql.lower())
+                cursor.calls.append(sql)
+                if sql == "SELECT __rowid FROM hits":
+                    cursor.rowid = None
+                else:
+                    owner.assertTrue(sql.startswith("SELECT * FROM hits WHERE __rowid = "))
+                    cursor.rowid = int(sql.rsplit(" ", 1)[1])
+            def adbc_cancel(cursor):
+                cursor.canceled = True
+            def fetch_record_batch(cursor):
+                if cursor.rowid is None:
+                    schema = pa.schema([("__rowid", pa.int64())])
+                    batches = (pa.record_batch([pa.array(ids[start:start + 17001], type=pa.int64())], schema=schema)
+                               for start in range(0, len(ids), 17001))
+                    return pa.RecordBatchReader.from_batches(schema, batches)
+                ordinal = (cursor.rowid - 11) // 3
+                row = {"watchid": 2**60 + ordinal,
+                       "day": datetime.date(2019, 4, 14),
+                       "time": datetime.datetime(2020, 9, 13, 12, 26, 41),
+                       "text": "wrong" if corrupt else "NUL\x00é"}
+                schema = pa.schema([pa.field(f.name.lower(), f.type) for f in owner.schema])
+                return pa.RecordBatchReader.from_batches(schema, pa.Table.from_pylist([row], schema=schema).to_batches())
+        return Cursor()
+
+    def validate(self, ids, **kwargs):
+        return validate_managed_stream(self.cursor(ids), self.path, self.metadata,
+            self.schema, len(ids), batch_size=8192, temp_parent=self.directory.name, **kwargs)
+
+    def test_equal_python_values_with_wrong_physical_types_are_rejected(self):
+        canonical = pa.schema([pa.field("N", pa.int64(), nullable=False)])
+        for kind, value in [(pa.float64(), 1.0), (pa.bool_(), True), (pa.decimal128(38, 0), 1)]:
+            with self.subTest(kind=kind):
+                actual = pa.schema([pa.field("n", kind, nullable=True)])
+                self.assertEqual(pa.array([value], type=kind).to_pylist(), [1])
+                with self.assertRaisesRegex(ValueError, "physical Arrow schema"):
+                    validate_point_schema(actual, canonical)
+        # Query nullability may widen; it is deliberately not a type mismatch.
+        validate_point_schema(pa.schema([pa.field("n", pa.int64(), nullable=True)]), canonical)
+        with self.assertRaisesRegex(ValueError, "physical Arrow schema"):
+            validate_point_schema(pa.schema([("N", pa.int64())]), canonical)
+
+    def test_validator_rejects_equal_decimal_point_values_before_python_comparison(self):
+        cursor = self.cursor([11 + 3 * i for i in range(self.rows)])
+        original = cursor.fetch_record_batch
+        def fetch():
+            reader = original()
+            if cursor.rowid is None:
+                return reader
+            with reader:
+                table = reader.read_all()
+            index = table.schema.get_field_index("watchid")
+            table = table.set_column(index, "watchid", table.column(index).cast(pa.decimal128(38, 0)))
+            return table.to_reader()
+        cursor.fetch_record_batch = fetch
+        with self.assertRaisesRegex(ValueError, "physical Arrow schema"):
+            validate_managed_stream(cursor, self.path, self.metadata, self.schema,
+                self.rows, temp_parent=self.directory.name)
+
+    def test_spool_rotates_to_bound_footer_metadata(self):
+        schema = pa.schema([("__rowid", pa.int64())])
+        directory = Path(self.directory.name)
+        with IDSpool(directory, schema, file_rows=4) as spool:
+            for start in range(0, 10, 2):
+                spool.write_batch(pa.record_batch([pa.array([start + 1, start + 2])], schema=schema))
+        files = sorted(directory.glob("rowids-*.parquet"))
+        self.assertEqual(len(files), 3)
+        self.assertEqual([row["__rowid"] for path in files for row in pq.read_table(path).to_pylist()], list(range(1, 11)))
+
+    def test_large_ascending_sparse_ids_use_linear_fast_path(self):
+        result = self.validate([11 + 3 * i for i in range(self.rows)])
+        self.assertEqual(result["rows"], self.rows)
+        self.assertEqual(result["membership"], "strict streamed IDs")
+        self.assertEqual(result["samples"], 5)
+        self.assertEqual(list(Path(self.directory.name).glob("adbc-validation-*")), [])
+
+    def test_valid_unordered_ids_use_exact_external_sort(self):
+        ids = [11 + 3 * i for i in range(self.rows)]
+        ids = ids[::2] + ids[1::2]
+        result = self.validate(ids)
+        self.assertEqual(result["rows"], self.rows)
+        self.assertIn("external ID-only sort", result["membership"])
+
+    def test_duplicate_across_unsorted_batches_cannot_pass(self):
+        ids = [11 + 3 * i for i in range(self.rows)]
+        ids[-1] = ids[0]
+        with self.assertRaisesRegex(ValueError, "Duplicate native row IDs"):
+            self.validate(ids)
+        self.assertEqual(list(Path(self.directory.name).glob("adbc-validation-*")), [])
+
+    def test_typed_source_oracle_detects_value_corruption(self):
+        cursor = self.cursor([11 + 3 * i for i in range(self.rows)], corrupt=True)
+        with self.assertRaisesRegex(ValueError, "canonical source sample differs"):
+            validate_managed_stream(cursor, self.path, self.metadata, self.schema,
+                self.rows, temp_parent=self.directory.name)
+
+    def test_count_mismatch_fails_without_value_samples(self):
+        cursor = self.cursor([11 + 3 * i for i in range(10)])
+        with self.assertRaisesRegex(ValueError, "row count differs"):
+            validate_managed_stream(cursor, self.path, self.metadata, self.schema, self.rows,
+                temp_parent=self.directory.name)
+        self.assertEqual(cursor.calls, ["SELECT __rowid FROM hits"])
+
+    def test_elapsed_budget_closes_reader_and_removes_spool(self):
+        with self.assertRaisesRegex(RuntimeError, "deadline reached"):
+            self.validate([11], deadline=0)
+        self.assertEqual(list(Path(self.directory.name).glob("adbc-validation-*")), [])
+
+    def test_temp_budget_fails_and_removes_spool(self):
+        # Incompressible-enough IDs exceed a 1MiB spool as count grows.
+        ids = [((i * 6364136223846793005) & ((1 << 62) - 1)) + 1 for i in range(200_003)]
+        with self.assertRaisesRegex(RuntimeError, "temporary disk budget"):
+            self.validate(ids, max_temp_mib=1)
+        self.assertEqual(list(Path(self.directory.name).glob("adbc-validation-*")), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
