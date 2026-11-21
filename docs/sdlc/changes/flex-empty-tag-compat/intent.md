@@ -2,6 +2,7 @@
 
 Date: 2026-11-21. Requestor: repository user. Status: implementation in progress.
 Base: `139350b7`; related issue [#566](https://github.com/redis/redis-adbc-driver/issues/566).
+Implementation: [PR #572](https://github.com/redis/redis-adbc-driver/pull/572).
 
 The full canonical managed Flex load staged all source rows, then native Search
 aborted during TAG index compaction. It never published or reached validation;

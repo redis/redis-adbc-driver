@@ -3,6 +3,7 @@
 Date: 2026-11-21. Base: `139350b7`. Status: bounded workaround validation;
 full-scale crash avoidance and successful 100M publication remain unverified.
 See [intent](intent.md), [specification](spec.md) and [plan](plan.md).
+Implementation: [PR #572](https://github.com/redis/redis-adbc-driver/pull/572).
 
 ## Native defect and comparison
 
@@ -19,9 +20,11 @@ unavailable as expected. The SQL directory reader must provide its semantics.
 
 With `INDEXEMPTY`, an empty-first case returned only the nonempty document for
 a nonempty TAG query before GC, but returned both the empty and nonempty
-documents afterward. Their HASH values had not changed. The captured native
-comparison therefore demonstrates an empty-term correctness defect and its
-avoidance; it does not demonstrate an executed original-order crash contrast.
+documents afterward. Their HASH values had not changed. The omission case
+wrote a nonempty document first, while this failing case wrote the empty
+document first: these observations do not isolate every ordering condition.
+They capture the old option's correctness defect and a successful omission
+scenario; they do not establish an executed original-order crash contrast.
 That follow-up fault test was not completed. Raw evidence and operational
 details remain private.
 
@@ -49,6 +52,60 @@ database's published TLS port. They are correctness checks, not a comparison
 with Linux network-namespace benchmark timings. Formatting and diff checks
 passed. A separate agent reviewed the production diff and test expectations;
 that is not human maintainer approval.
+
+## Canonical indexed pilot
+
+The Linux ARM64 shared library built from `420c9819` passed a one-writer
+canonical 105-column pilot using all 2,013,006 rows in the first four original
+Parquet row groups. The DDL was unchanged: 77 NUMERIC and 28 TAG public
+attributes remained present, with no public-field `NOINDEX` rewrite. Both
+native indexes reported zero `INDEXEMPTY` attributes. The client used the
+server's Linux network namespace, a 4 GiB limit and 4,096-row conversion
+batches. The source Software Flex fixture had a 32 GiB logical capacity,
+1 GiB RAM cache, 8 GiB container limit and verified active 4× QPF.
+
+| Observation | Result |
+| --- | ---: |
+| Source input completion, stream clock | 173.243486 s |
+| Acknowledged publication, load clock | 930.872680 s |
+| Published rows / final native indexed documents | 2,013,006 / 2,013,006 |
+| Native indexing failures | 0 |
+| Independent validation | 325.669304 s |
+| Whole case, including setup and joined cleanup | 1,258.694534 s |
+| Peak effective server working memory | 5.082 GiB |
+| Client process peak RSS | 588.27 MiB |
+| Observed OOM / OOM-kill events | 0 / 0 |
+
+Validation streamed all native logical IDs and checked count/uniqueness and
+schema, then compared five actual native-ID point samples across all 105 typed
+fields against independent DuckDB source casts. This is not an all-values check
+of every row. No external ID sort was needed. Data and the server were retained.
+Raw cgroup memory reached its 8 GiB cap while reclaiming cache, with 7,045
+`memory.events.max` increments; the effective-memory guard, PSI and OOM checks
+did not alarm. Footprints and raw charges are not interchangeable with
+unreclaimable working memory.
+
+An earlier attempt on the disposable fixture reached its unintended 4 GiB
+logical quota during input, before final indexing. Its abort/nonpublication
+was verified before that owned fixture was recreated. The successful attempt
+explicitly verified 32 GiB logical capacity before consuming input; the failed
+attempt's records remain private and are not relabeled as a code regression or
+memory-pressure result.
+
+This is bounded functional evidence, not an A/B speed comparison or completed
+100M result. The input, index/seal/publication and independent validation
+intervals must not be presented as one ingestion-only phase.
+
+Provenance SHA256:
+
+- Linux shared library:
+  `9038952254b5b43d79e8b5076125d627cb1099cf9b070c19e84a68071ab081d8`
+- Canonical DDL:
+  `42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7`
+- Complete source Parquet file (the pilot reads its first four groups):
+  `a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f`
+- Frozen private pilot harness:
+  `e9dd8cfc11c104775fa968a895ffc19e71636ab806354b273507d009a8399d77`
 
 ## Boundaries
 
