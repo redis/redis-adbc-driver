@@ -1,0 +1,866 @@
+[
+  {
+    "version": "baseline",
+    "writers": 4,
+    "trial": 1,
+    "rows": 262144,
+    "columns": 105,
+    "ack_seconds": 141.07926231500096,
+    "client_process_cpu_load_seconds": 30.593902999999997,
+    "client_lifetime_peak_rss_through_ack_bytes": 1108656128,
+    "client_sampled_peak_rss_loading_bytes": 1108717568,
+    "arrow_pool_peak_through_ack_bytes": 32879664,
+    "go_gc_max_marked_live_heap_whole_case_bytes": 297795584,
+    "go_gc_trace_samples": 7566,
+    "compaction_quiet_tail_seconds": 125.24482509900008,
+    "compaction_quiet": true,
+    "validation_id_seconds": 46.032918105000135,
+    "validation_all_export_seconds": 44.51516768699912,
+    "validation_all_oracle_seconds": 6.008171002000381,
+    "all_105_multiset_values_exact": true,
+    "cleanup_total_seconds": 62.53026894499999,
+    "cleanup_drained": true,
+    "backup_ready": "unverified; no backup attempted",
+    "server_load_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 8540585984,
+        "wbytes": 3068338176
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 139.7826747729996,
+      "data_redis_cpu_seconds": 455.02999999999884,
+      "data_redis_main_thread_cpu_seconds": 57.110000000000014,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_load_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 8652931072,
+        "wbytes": 3074162688
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 142.80284339900027,
+      "data_redis_cpu_seconds": 464.53999999999905,
+      "data_redis_main_thread_cpu_seconds": 58.090000000000146,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_target": "single Redis process with bigstore:* threads; internal control Redis excluded",
+    "server_sampling_seconds": 1,
+    "server_info_cpu": "all-zero/unavailable; direct /proc counters used",
+    "client_rss_sampling_seconds": 0.25,
+    "server_maintenance_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 6878797824,
+        "wbytes": 1480552448
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 123.71934793200126,
+      "data_redis_cpu_seconds": 320.1700000000001,
+      "data_redis_main_thread_cpu_seconds": 41.409999999999854,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_maintenance_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7027765248,
+        "wbytes": 1489182720
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 126.7424188920013,
+      "data_redis_cpu_seconds": 332.40999999999985,
+      "data_redis_main_thread_cpu_seconds": 42.36999999999989,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "loading_resource_peaks": {
+      "server_current_bytes": 3335593984,
+      "server_redis_process_rss_bytes": 1579245568,
+      "client_rss_bytes": 1108717568,
+      "client_anon_bytes": 993443840,
+      "client_current_bytes": 3574452224,
+      "client_working_set_bytes": 1397948416,
+      "client_file_bytes": 2489851904,
+      "client_inactive_file_bytes": 2176524288,
+      "case_temp_bytes": 1512636
+    },
+    "maintenance_resource_peaks": {
+      "server_current_bytes": 4323454976,
+      "server_redis_process_rss_bytes": 1711816704,
+      "client_rss_bytes": 239587328,
+      "client_anon_bytes": 122667008,
+      "client_current_bytes": 2696429568,
+      "client_working_set_bytes": 519917568,
+      "client_file_bytes": 2489839616,
+      "client_inactive_file_bytes": 2176512000,
+      "case_temp_bytes": 2681828
+    },
+    "cleanup_resource_peaks": {
+      "server_current_bytes": 3372097536,
+      "server_redis_process_rss_bytes": 1458761728,
+      "client_rss_bytes": 337338368,
+      "client_anon_bytes": 225435648,
+      "client_current_bytes": 2822238208,
+      "client_working_set_bytes": 645726208,
+      "client_file_bytes": 2489839616,
+      "client_inactive_file_bytes": 2176512000,
+      "case_temp_bytes": 3951903
+    },
+    "waves": 3,
+    "appends": 12,
+    "wave_ack_seconds": [
+      16.329095839999354,
+      16.7381237160007,
+      108.01018504999956
+    ],
+    "wave_finished_since_load_seconds": [
+      16.329649090001112,
+      33.068151515000864,
+      141.0787121480007
+    ],
+    "compaction_sampled_during_loading": true,
+    "compaction_loading_samples": 122,
+    "compaction_observed_phase_windows": {
+      "copy": {
+        "first_seconds": 17.21290467399922,
+        "last_seconds": 263.1153082459987,
+        "samples": 244
+      }
+    },
+    "peak_compaction_candidate_queue": 1,
+    "peak_data_gc_queue": 5,
+    "peak_owned_physical_rows": 524288,
+    "peak_owned_directory_memory_usage_bytes": 51048616,
+    "normal_cleanup_wait_seconds": 30.153333887999906,
+    "normal_cleanup_remaining_directories": 3,
+    "normal_cleanup_remaining_members": 236118,
+    "explicit_cleanup_seconds": 32.290808597999785,
+    "explicit_cleanup_passes": 1,
+    "logical_observer_sampling_seconds": 1,
+    "copy_install_phase_precision": "discrete samples may miss short index/install transitions; no exact integration claimed"
+  },
+  {
+    "version": "current",
+    "writers": 4,
+    "trial": 1,
+    "rows": 262144,
+    "columns": 105,
+    "ack_seconds": 94.15867416800029,
+    "client_process_cpu_load_seconds": 26.042945,
+    "client_lifetime_peak_rss_through_ack_bytes": 982167552,
+    "client_sampled_peak_rss_loading_bytes": 906616832,
+    "arrow_pool_peak_through_ack_bytes": 35679776,
+    "go_gc_max_marked_live_heap_whole_case_bytes": 311427072,
+    "go_gc_trace_samples": 6183,
+    "compaction_quiet_tail_seconds": 101.18695879699953,
+    "compaction_quiet": true,
+    "validation_id_seconds": 46.22291426999982,
+    "validation_all_export_seconds": 46.16875127200001,
+    "validation_all_oracle_seconds": 6.162606044999848,
+    "all_105_multiset_values_exact": true,
+    "cleanup_total_seconds": 62.925379944999804,
+    "cleanup_drained": true,
+    "backup_ready": "unverified; no backup attempted",
+    "server_load_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 6643597312,
+        "wbytes": 1936011264
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 92.54121895800017,
+      "data_redis_cpu_seconds": 302.7000000000007,
+      "data_redis_main_thread_cpu_seconds": 44.36999999999989,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_load_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 6676430848,
+        "wbytes": 1941032960
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 94.55753458399886,
+      "data_redis_cpu_seconds": 307.0699999999997,
+      "data_redis_main_thread_cpu_seconds": 45.549999999999955,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_target": "single Redis process with bigstore:* threads; internal control Redis excluded",
+    "server_sampling_seconds": 1,
+    "server_info_cpu": "all-zero/unavailable; direct /proc counters used",
+    "client_rss_sampling_seconds": 0.25,
+    "server_maintenance_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7599284224,
+        "wbytes": 2386362368
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 100.57907992200126,
+      "data_redis_cpu_seconds": 339.53999999999905,
+      "data_redis_main_thread_cpu_seconds": 38.190000000000055,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_maintenance_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7721394176,
+        "wbytes": 2393796608
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 102.59625358900121,
+      "data_redis_cpu_seconds": 348.22999999999956,
+      "data_redis_main_thread_cpu_seconds": 38.74000000000001,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "loading_resource_peaks": {
+      "server_current_bytes": 3965988864,
+      "server_redis_process_rss_bytes": 1589510144,
+      "client_rss_bytes": 906616832,
+      "client_anon_bytes": 790159360,
+      "client_current_bytes": 3386404864,
+      "client_working_set_bytes": 1209896960,
+      "client_file_bytes": 2489851904,
+      "client_inactive_file_bytes": 2176524288,
+      "case_temp_bytes": 1024769
+    },
+    "maintenance_resource_peaks": {
+      "server_current_bytes": 4190990336,
+      "server_redis_process_rss_bytes": 1716584448,
+      "client_rss_bytes": 248840192,
+      "client_anon_bytes": 131465216,
+      "client_current_bytes": 2696544256,
+      "client_working_set_bytes": 520032256,
+      "client_file_bytes": 2489839616,
+      "client_inactive_file_bytes": 2176512000,
+      "case_temp_bytes": 1973822
+    },
+    "cleanup_resource_peaks": {
+      "server_current_bytes": 3177136128,
+      "server_redis_process_rss_bytes": 1444016128,
+      "client_rss_bytes": 338399232,
+      "client_anon_bytes": 225705984,
+      "client_current_bytes": 2804113408,
+      "client_working_set_bytes": 627597312,
+      "client_file_bytes": 2489843712,
+      "client_inactive_file_bytes": 2176516096,
+      "case_temp_bytes": 3261907
+    },
+    "waves": 3,
+    "appends": 12,
+    "wave_ack_seconds": [
+      4.51828958599981,
+      5.2947166270005255,
+      84.34340166199945
+    ],
+    "wave_finished_since_load_seconds": [
+      4.518849461001082,
+      9.813926963000995,
+      94.1578252090003
+    ],
+    "compaction_sampled_during_loading": true,
+    "compaction_loading_samples": 88,
+    "compaction_observed_phase_windows": {
+      "copy": {
+        "first_seconds": 5.171674127999722,
+        "last_seconds": 192.48553471299965,
+        "samples": 186
+      }
+    },
+    "peak_compaction_candidate_queue": 1,
+    "peak_data_gc_queue": 5,
+    "peak_owned_physical_rows": 524288,
+    "peak_owned_directory_memory_usage_bytes": 51419672,
+    "normal_cleanup_wait_seconds": 30.204535347000274,
+    "normal_cleanup_remaining_directories": 3,
+    "normal_cleanup_remaining_members": 237654,
+    "explicit_cleanup_seconds": 32.499732389998826,
+    "explicit_cleanup_passes": 1,
+    "logical_observer_sampling_seconds": 1,
+    "copy_install_phase_precision": "discrete samples may miss short index/install transitions; no exact integration claimed"
+  },
+  {
+    "version": "current",
+    "writers": 4,
+    "trial": 2,
+    "rows": 262144,
+    "columns": 105,
+    "ack_seconds": 93.60620025200114,
+    "client_process_cpu_load_seconds": 26.042171999999997,
+    "client_lifetime_peak_rss_through_ack_bytes": 1052860416,
+    "client_sampled_peak_rss_loading_bytes": 1030770688,
+    "arrow_pool_peak_through_ack_bytes": 31171744,
+    "go_gc_max_marked_live_heap_whole_case_bytes": 294649856,
+    "go_gc_trace_samples": 6179,
+    "compaction_quiet_tail_seconds": 102.20314646400038,
+    "compaction_quiet": true,
+    "validation_id_seconds": 46.29100439600006,
+    "validation_all_export_seconds": 44.91445939500045,
+    "validation_all_oracle_seconds": 6.065755919000367,
+    "all_105_multiset_values_exact": true,
+    "cleanup_total_seconds": 60.98183877700103,
+    "cleanup_drained": true,
+    "backup_ready": "unverified; no backup attempted",
+    "server_load_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7324336128,
+        "wbytes": 2511810560
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 91.55155145900062,
+      "data_redis_cpu_seconds": 292.619999999999,
+      "data_redis_main_thread_cpu_seconds": 45.84999999999991,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_load_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7454011392,
+        "wbytes": 2521669632
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 94.5694445019999,
+      "data_redis_cpu_seconds": 301.2000000000007,
+      "data_redis_main_thread_cpu_seconds": 47.299999999999955,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_target": "single Redis process with bigstore:* threads; internal control Redis excluded",
+    "server_sampling_seconds": 1,
+    "server_info_cpu": "all-zero/unavailable; direct /proc counters used",
+    "client_rss_sampling_seconds": 0.25,
+    "server_maintenance_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7226060800,
+        "wbytes": 1615249408
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 100.62483287899886,
+      "data_redis_cpu_seconds": 345.60999999999876,
+      "data_redis_main_thread_cpu_seconds": 38.73000000000002,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_maintenance_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7389913088,
+        "wbytes": 1615278080
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 103.6430221720002,
+      "data_redis_cpu_seconds": 355.15000000000146,
+      "data_redis_main_thread_cpu_seconds": 39.460000000000036,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "loading_resource_peaks": {
+      "server_current_bytes": 4204998656,
+      "server_redis_process_rss_bytes": 1599934464,
+      "client_rss_bytes": 1030770688,
+      "client_anon_bytes": 914972672,
+      "client_current_bytes": 3516096512,
+      "client_working_set_bytes": 1339584512,
+      "client_file_bytes": 2489856000,
+      "client_inactive_file_bytes": 2176528384,
+      "case_temp_bytes": 1015611
+    },
+    "maintenance_resource_peaks": {
+      "server_current_bytes": 3539517440,
+      "server_redis_process_rss_bytes": 1740382208,
+      "client_rss_bytes": 246820864,
+      "client_anon_bytes": 129581056,
+      "client_current_bytes": 2699522048,
+      "client_working_set_bytes": 523005952,
+      "client_file_bytes": 2489843712,
+      "client_inactive_file_bytes": 2176516096,
+      "case_temp_bytes": 1994414
+    },
+    "cleanup_resource_peaks": {
+      "server_current_bytes": 3147010048,
+      "server_redis_process_rss_bytes": 1414799360,
+      "client_rss_bytes": 337035264,
+      "client_anon_bytes": 224985088,
+      "client_current_bytes": 2804740096,
+      "client_working_set_bytes": 628228096,
+      "client_file_bytes": 2489843712,
+      "client_inactive_file_bytes": 2176516096,
+      "case_temp_bytes": 3250193
+    },
+    "waves": 3,
+    "appends": 12,
+    "wave_ack_seconds": [
+      4.628052334999666,
+      5.280910711000615,
+      83.69548645500072
+    ],
+    "wave_finished_since_load_seconds": [
+      4.628609294000853,
+      9.909908297000584,
+      93.6057945850007
+    ],
+    "compaction_sampled_during_loading": true,
+    "compaction_loading_samples": 87,
+    "compaction_observed_phase_windows": {
+      "copy": {
+        "first_seconds": 5.171053960999416,
+        "last_seconds": 192.77756817199952,
+        "samples": 186
+      }
+    },
+    "peak_compaction_candidate_queue": 1,
+    "peak_data_gc_queue": 5,
+    "peak_owned_physical_rows": 524288,
+    "peak_owned_directory_memory_usage_bytes": 51189368,
+    "normal_cleanup_wait_seconds": 30.161185847000525,
+    "normal_cleanup_remaining_directories": 3,
+    "normal_cleanup_remaining_members": 217430,
+    "explicit_cleanup_seconds": 30.707939514000827,
+    "explicit_cleanup_passes": 1,
+    "logical_observer_sampling_seconds": 1,
+    "copy_install_phase_precision": "discrete samples may miss short index/install transitions; no exact integration claimed"
+  },
+  {
+    "version": "baseline",
+    "writers": 4,
+    "trial": 2,
+    "rows": 262144,
+    "columns": 105,
+    "ack_seconds": 141.4316962740013,
+    "client_process_cpu_load_seconds": 31.021092999999997,
+    "client_lifetime_peak_rss_through_ack_bytes": 1124413440,
+    "client_sampled_peak_rss_loading_bytes": 990396416,
+    "arrow_pool_peak_through_ack_bytes": 35587232,
+    "go_gc_max_marked_live_heap_whole_case_bytes": 298844160,
+    "go_gc_trace_samples": 7459,
+    "compaction_quiet_tail_seconds": 126.29009230699921,
+    "compaction_quiet": true,
+    "validation_id_seconds": 45.63839677099895,
+    "validation_all_export_seconds": 45.09231418700074,
+    "validation_all_oracle_seconds": 6.2786907110003085,
+    "all_105_multiset_values_exact": true,
+    "cleanup_total_seconds": 64.24105927900018,
+    "cleanup_drained": true,
+    "backup_ready": "unverified; no backup attempted",
+    "server_load_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 8870252544,
+        "wbytes": 2783621120
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 139.9286894809993,
+      "data_redis_cpu_seconds": 449.1399999999994,
+      "data_redis_main_thread_cpu_seconds": 57.23000000000002,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_load_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 8906715136,
+        "wbytes": 2867605504
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 141.9434805660003,
+      "data_redis_cpu_seconds": 453.6399999999994,
+      "data_redis_main_thread_cpu_seconds": 58.40000000000009,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_target": "single Redis process with bigstore:* threads; internal control Redis excluded",
+    "server_sampling_seconds": 1,
+    "server_info_cpu": "all-zero/unavailable; direct /proc counters used",
+    "client_rss_sampling_seconds": 0.25,
+    "server_maintenance_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7918977024,
+        "wbytes": 2480472064
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 125.8411480979994,
+      "data_redis_cpu_seconds": 337.1900000000023,
+      "data_redis_main_thread_cpu_seconds": 40.960000000000036,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_maintenance_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 8051838976,
+        "wbytes": 2480570368
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 127.86147230800088,
+      "data_redis_cpu_seconds": 346.4800000000032,
+      "data_redis_main_thread_cpu_seconds": 41.6099999999999,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "loading_resource_peaks": {
+      "server_current_bytes": 3620528128,
+      "server_redis_process_rss_bytes": 1594585088,
+      "client_rss_bytes": 990396416,
+      "client_anon_bytes": 874860544,
+      "client_current_bytes": 3438055424,
+      "client_working_set_bytes": 1261543424,
+      "client_file_bytes": 2489856000,
+      "client_inactive_file_bytes": 2176528384,
+      "case_temp_bytes": 1521636
+    },
+    "maintenance_resource_peaks": {
+      "server_current_bytes": 4111568896,
+      "server_redis_process_rss_bytes": 1766551552,
+      "client_rss_bytes": 244191232,
+      "client_anon_bytes": 127279104,
+      "client_current_bytes": 2704633856,
+      "client_working_set_bytes": 528117760,
+      "client_file_bytes": 2489843712,
+      "client_inactive_file_bytes": 2176524288,
+      "case_temp_bytes": 2700543
+    },
+    "cleanup_resource_peaks": {
+      "server_current_bytes": 3256406016,
+      "server_redis_process_rss_bytes": 1489358848,
+      "client_rss_bytes": 336158720,
+      "client_anon_bytes": 222052352,
+      "client_current_bytes": 2798292992,
+      "client_working_set_bytes": 621764608,
+      "client_file_bytes": 2489856000,
+      "client_inactive_file_bytes": 2176528384,
+      "case_temp_bytes": 4044895
+    },
+    "waves": 3,
+    "appends": 12,
+    "wave_ack_seconds": [
+      16.568403381999815,
+      16.596648007000113,
+      108.26449442500052
+    ],
+    "wave_finished_since_load_seconds": [
+      16.569055424000908,
+      33.16608093100149,
+      141.43103448200054
+    ],
+    "compaction_sampled_during_loading": true,
+    "compaction_loading_samples": 123,
+    "compaction_observed_phase_windows": {
+      "copy": {
+        "first_seconds": 17.23749959199995,
+        "last_seconds": 265.2199866639985,
+        "samples": 246
+      }
+    },
+    "peak_compaction_candidate_queue": 1,
+    "peak_data_gc_queue": 5,
+    "peak_owned_physical_rows": 524288,
+    "peak_owned_directory_memory_usage_bytes": 51040168,
+    "normal_cleanup_wait_seconds": 30.099255805998837,
+    "normal_cleanup_remaining_directories": 3,
+    "normal_cleanup_remaining_members": 260182,
+    "explicit_cleanup_seconds": 34.04772097300156,
+    "explicit_cleanup_passes": 1,
+    "logical_observer_sampling_seconds": 1,
+    "copy_install_phase_precision": "discrete samples may miss short index/install transitions; no exact integration claimed"
+  },
+  {
+    "version": "baseline",
+    "writers": 4,
+    "trial": 3,
+    "rows": 262144,
+    "columns": 105,
+    "ack_seconds": 141.17584148099922,
+    "client_process_cpu_load_seconds": 30.898965999999998,
+    "client_lifetime_peak_rss_through_ack_bytes": 1020485632,
+    "client_sampled_peak_rss_loading_bytes": 992948224,
+    "arrow_pool_peak_through_ack_bytes": 31296880,
+    "go_gc_max_marked_live_heap_whole_case_bytes": 307232768,
+    "go_gc_trace_samples": 7516,
+    "compaction_quiet_tail_seconds": 125.2124423919995,
+    "compaction_quiet": true,
+    "validation_id_seconds": 45.54588493799929,
+    "validation_all_export_seconds": 44.60500347800007,
+    "validation_all_oracle_seconds": 6.266106086999571,
+    "all_105_multiset_values_exact": true,
+    "cleanup_total_seconds": 62.945576694999545,
+    "cleanup_drained": true,
+    "backup_ready": "unverified; no backup attempted",
+    "server_load_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 9011941376,
+        "wbytes": 2653016064
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 139.94804418900094,
+      "data_redis_cpu_seconds": 447.22000000000116,
+      "data_redis_main_thread_cpu_seconds": 56.13000000000011,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_load_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 9055236096,
+        "wbytes": 2658029568
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 141.9685748990014,
+      "data_redis_cpu_seconds": 451.8100000000013,
+      "data_redis_main_thread_cpu_seconds": 57.13000000000011,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_target": "single Redis process with bigstore:* threads; internal control Redis excluded",
+    "server_sampling_seconds": 1,
+    "server_info_cpu": "all-zero/unavailable; direct /proc counters used",
+    "client_rss_sampling_seconds": 0.25,
+    "server_maintenance_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7557668864,
+        "wbytes": 2277314560
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 123.86971139099842,
+      "data_redis_cpu_seconds": 329.4300000000003,
+      "data_redis_main_thread_cpu_seconds": 39.84999999999991,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_maintenance_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 7695564800,
+        "wbytes": 2281291776
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 126.90673501699894,
+      "data_redis_cpu_seconds": 339.3099999999977,
+      "data_redis_main_thread_cpu_seconds": 41.0,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "loading_resource_peaks": {
+      "server_current_bytes": 4329385984,
+      "server_redis_process_rss_bytes": 1608773632,
+      "client_rss_bytes": 992948224,
+      "client_anon_bytes": 877297664,
+      "client_current_bytes": 3484090368,
+      "client_working_set_bytes": 1307578368,
+      "client_file_bytes": 2489856000,
+      "client_inactive_file_bytes": 2176528384,
+      "case_temp_bytes": 1520242
+    },
+    "maintenance_resource_peaks": {
+      "server_current_bytes": 3619123200,
+      "server_redis_process_rss_bytes": 1787371520,
+      "client_rss_bytes": 249024512,
+      "client_anon_bytes": 132124672,
+      "client_current_bytes": 2713759744,
+      "client_working_set_bytes": 537247744,
+      "client_file_bytes": 2489843712,
+      "client_inactive_file_bytes": 2176516096,
+      "case_temp_bytes": 2686001
+    },
+    "cleanup_resource_peaks": {
+      "server_current_bytes": 3200712704,
+      "server_redis_process_rss_bytes": 1429889024,
+      "client_rss_bytes": 331747328,
+      "client_anon_bytes": 219607040,
+      "client_current_bytes": 2799407104,
+      "client_working_set_bytes": 622895104,
+      "client_file_bytes": 2489843712,
+      "client_inactive_file_bytes": 2176516096,
+      "case_temp_bytes": 3929638
+    },
+    "waves": 3,
+    "appends": 12,
+    "wave_ack_seconds": [
+      16.373970716000258,
+      16.744639257998642,
+      108.05526083999939
+    ],
+    "wave_finished_since_load_seconds": [
+      16.374560923999525,
+      33.11962493200008,
+      141.1754383560001
+    ],
+    "compaction_sampled_during_loading": true,
+    "compaction_loading_samples": 123,
+    "compaction_observed_phase_windows": {
+      "copy": {
+        "first_seconds": 17.223953717000768,
+        "last_seconds": 262.90108083000086,
+        "samples": 244
+      }
+    },
+    "peak_compaction_candidate_queue": 1,
+    "peak_data_gc_queue": 5,
+    "peak_owned_physical_rows": 524288,
+    "peak_owned_directory_memory_usage_bytes": 51043600,
+    "normal_cleanup_wait_seconds": 30.05259134699918,
+    "normal_cleanup_remaining_directories": 1,
+    "normal_cleanup_remaining_members": 221184,
+    "explicit_cleanup_seconds": 32.787389765000626,
+    "explicit_cleanup_passes": 1,
+    "logical_observer_sampling_seconds": 1,
+    "copy_install_phase_precision": "discrete samples may miss short index/install transitions; no exact integration claimed"
+  },
+  {
+    "version": "current",
+    "writers": 4,
+    "trial": 3,
+    "rows": 262144,
+    "columns": 105,
+    "ack_seconds": 92.43179429099837,
+    "client_process_cpu_load_seconds": 25.611835999999997,
+    "client_lifetime_peak_rss_through_ack_bytes": 1002323968,
+    "client_sampled_peak_rss_loading_bytes": 922255360,
+    "arrow_pool_peak_through_ack_bytes": 35587232,
+    "go_gc_max_marked_live_heap_whole_case_bytes": 300941312,
+    "go_gc_trace_samples": 6192,
+    "compaction_quiet_tail_seconds": 100.22042129400143,
+    "compaction_quiet": true,
+    "validation_id_seconds": 44.78680552100013,
+    "validation_all_export_seconds": 44.15277210400018,
+    "validation_all_oracle_seconds": 5.9582824609988165,
+    "all_105_multiset_values_exact": true,
+    "cleanup_total_seconds": 57.84917848399891,
+    "cleanup_drained": true,
+    "backup_ready": "unverified; no backup attempted",
+    "server_load_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 6931402752,
+        "wbytes": 2447122432
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 91.64438366600007,
+      "data_redis_cpu_seconds": 298.9300000000003,
+      "data_redis_main_thread_cpu_seconds": 45.340000000000146,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_load_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 6969622528,
+        "wbytes": 2448551936
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 93.65992379199997,
+      "data_redis_cpu_seconds": 302.22999999999956,
+      "data_redis_main_thread_cpu_seconds": 45.92000000000007,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_target": "single Redis process with bigstore:* threads; internal control Redis excluded",
+    "server_sampling_seconds": 1,
+    "server_info_cpu": "all-zero/unavailable; direct /proc counters used",
+    "client_rss_sampling_seconds": 0.25,
+    "server_maintenance_inner_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 6670716928,
+        "wbytes": 1539571712
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 98.71228662700014,
+      "data_redis_cpu_seconds": 328.77000000000044,
+      "data_redis_main_thread_cpu_seconds": 37.26999999999998,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "server_maintenance_enclosing_sample": {
+      "software_container_physical_io_bytes": {
+        "rbytes": 6737428480,
+        "wbytes": 1543708672
+      },
+      "software_container_io_scope": "whole owned Software container; one block-device entry; includes admin/control",
+      "data_process_io_unavailable_reason": "proc IO counters not readable at current container privilege",
+      "sampled_window_seconds": 100.72721208700023,
+      "data_redis_cpu_seconds": 333.8000000000029,
+      "data_redis_main_thread_cpu_seconds": 37.84999999999991,
+      "physical_io_bytes": null,
+      "pid_incarnation_verified": true
+    },
+    "loading_resource_peaks": {
+      "server_current_bytes": 4572913664,
+      "server_redis_process_rss_bytes": 1659908096,
+      "client_rss_bytes": 922255360,
+      "client_anon_bytes": 806723584,
+      "client_current_bytes": 3406274560,
+      "client_working_set_bytes": 1229766656,
+      "client_file_bytes": 2489856000,
+      "client_inactive_file_bytes": 2176528384,
+      "case_temp_bytes": 1002558
+    },
+    "maintenance_resource_peaks": {
+      "server_current_bytes": 4812083200,
+      "server_redis_process_rss_bytes": 1806667776,
+      "client_rss_bytes": 248041472,
+      "client_anon_bytes": 130936832,
+      "client_current_bytes": 2693779456,
+      "client_working_set_bytes": 517263360,
+      "client_file_bytes": 2489856000,
+      "client_inactive_file_bytes": 2176528384,
+      "case_temp_bytes": 1929056
+    },
+    "cleanup_resource_peaks": {
+      "server_current_bytes": 3254296576,
+      "server_redis_process_rss_bytes": 1479196672,
+      "client_rss_bytes": 341532672,
+      "client_anon_bytes": 229523456,
+      "client_current_bytes": 2806521856,
+      "client_working_set_bytes": 629993472,
+      "client_file_bytes": 2489856000,
+      "client_inactive_file_bytes": 2176528384,
+      "case_temp_bytes": 3037766
+    },
+    "waves": 3,
+    "appends": 12,
+    "wave_ack_seconds": [
+      4.519088584998826,
+      5.047616668998671,
+      82.86320637099925
+    ],
+    "wave_finished_since_load_seconds": [
+      4.519668126999022,
+      9.567677752998861,
+      92.43144991599911
+    ],
+    "compaction_sampled_during_loading": true,
+    "compaction_loading_samples": 86,
+    "compaction_observed_phase_windows": {
+      "copy": {
+        "first_seconds": 5.171722252000109,
+        "last_seconds": 188.80713300099887,
+        "samples": 182
+      }
+    },
+    "peak_compaction_candidate_queue": 1,
+    "peak_data_gc_queue": 5,
+    "peak_owned_physical_rows": 524288,
+    "peak_owned_directory_memory_usage_bytes": 51176408,
+    "normal_cleanup_wait_seconds": 30.139792097999816,
+    "normal_cleanup_remaining_directories": 1,
+    "normal_cleanup_remaining_members": 189952,
+    "explicit_cleanup_seconds": 27.626214928999616,
+    "explicit_cleanup_passes": 1,
+    "logical_observer_sampling_seconds": 1,
+    "copy_install_phase_precision": "discrete samples may miss short index/install transitions; no exact integration claimed"
+  }
+]

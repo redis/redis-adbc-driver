@@ -76,7 +76,7 @@ this fixture. It is not a 12.4% ingestion speedup, an SSD cold-data result, a
 causal explanation of the historical ~105-row/s observation under concurrent
 index sealing, or evidence of distributed/core scaling.
 
-## Limits and remaining acceptance
+## Limits at the initial isolated measurement
 
 No per-command-thread/Search/client CPU attribution, phase-separated storage I/O,
 maximum resident memory, cold SSD working set, concurrent four-Arrow-writer load,
@@ -85,8 +85,18 @@ Unsupported diagnostics were not guessed; these measurements remain unperformed.
 Existing isolated-suite checks are not a new full-scale backup/restore proof.
 The burst shares the existing two-second maintenance context; cancellation and
 atomic bounds are tested, but sustained fairness under production contention
-needs the remaining wide workload. Keep #565 open until its broader acceptance
-has independent source-specific evidence. No operational ingestion or AWS job
+needs the remaining wide workload. At that stage, #565 remained open until its broader acceptance
+had independent source-specific evidence; the later closeout is linked below. No operational ingestion or AWS job
 was restarted, and no full-scale data was loaded for these checks.
 
 Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.
+
+## Subsequent concurrent measurements
+
+The [2026-11-20 repeated-wave closeout](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/issue-565.md)
+adds six representative canonical mixed-type 105-column cases with actual
+concurrent four-writer/copy overlap, exact full-value validation, resource/backlog
+windows and separately censored normal versus explicit owned cleanup. It resolves
+the concurrent-workload acceptance gap above at its stated bounded scope. Exact
+concurrent index/install CPU/I/O, cold SSD and full 100M/backup claims remain outside
+the collected evidence. Earlier isolated numbers and settings are unchanged.

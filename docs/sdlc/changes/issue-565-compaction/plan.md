@@ -1,6 +1,6 @@
 # Bounded compaction throughput: plan and evidence
 
-Date: 2026-11-20. Source: `1b5918e6`. Status: implementation and focused validation complete; broader acceptance remains.
+Date: 2026-11-20. Source: `1b5918e6`. Status: implementation, focused failure/native checks and scoped isolated/concurrent measurement acceptance complete.
 [Intent](intent.md) · [Specification](spec.md) · [Evidence](evidence.md)
 
 ## Implementation
@@ -29,9 +29,14 @@ Date: 2026-11-20. Source: `1b5918e6`. Status: implementation and focused validat
   profiles PASS every-value validation; see [measurements and limits](evidence.md).
 - `gofmt`, `git diff --check`, local documentation link checks: PASS.
 
-## Remaining issue acceptance
+## Concurrent measurement closeout
 
-Full representative wide concurrent four-Arrow-writer measurement, physical
-command/Search/client CPU attribution, SSD I/O, backlog and reclamation lag are
-not established by a bounded isolated control. Do not close #565 or claim a
-full-scale ingestion speedup on this evidence alone.
+The [six repeated-wave controls](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/issue-565.md)
+add representative canonical 105-column, three-wave/four-writer native workloads,
+exact every-value/multiplicity validation, CPU/RSS/I/O windows, sampled copy overlap,
+backlog and normal-censored/explicit reclamation measurements. Common settings,
+source and the original four/eight thresholds are retained. Current/base includes
+#564 as well as #565; isolated one/two/four-batch controls distinguish the burst's
+scoped contribution. Short concurrent index/install transitions and Search-only
+CPU are explicitly unavailable, not invented. Full canonical 100M/backup remain
+separate #566 limits, not an added gate on #565.

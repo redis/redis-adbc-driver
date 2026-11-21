@@ -62,5 +62,14 @@
     "client_os_arch": "linux/arm64"
   },
   "go_profile_mode": "static CGO_ENABLED=0 attribution control; input IPC decoded before ACK; background maintenance disabled only in this control",
-  "cshared_mode": "make build driverlib C shared library with version linker flag; streamed Parquet, ordinary background maintenance enabled"
+  "cshared_mode": "make build driverlib C shared library with version linker flag; streamed Parquet, ordinary background maintenance enabled",
+  "server_platform": {
+    "cached_actual_server_image_architecture": "arm64",
+    "cached_actual_server_image_os": "linux",
+    "container_kernel_machine": "aarch64",
+    "installed_redis_server_and_versioned_8_8_elf_machine": 183,
+    "elf_machine_name": "AArch64",
+    "live_process_executable_inspection": "proc exe unreadable at existing privilege; inspected installed server binaries instead",
+    "emulation": "no x86 image/binary observed; not inferred from ARM client execution"
+  }
 }
