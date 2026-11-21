@@ -28,7 +28,8 @@ import pyarrow.parquet as pq
 import redis
 
 from loading import ingest_batches
-from stream_loading import bounded_batches, ingest_streams, row_group_assignments
+from stream_loading import ingest_streams, row_group_assignments, StreamWriter
+from stream_validation import validate_managed_stream
 from isolation import check_isolation, resolve_memory_limit, run_isolated
 from progress import progress_path, execution_path, annotate_failure
 
@@ -152,31 +153,6 @@ def index_status(client, name):
     return documents, indexing
 
 
-def validate_stream_samples(cursor, path, metadata, schema, rows, batch_size):
-    """Match full canonical source values independently of allocated row IDs.
-
-    WatchID is not assumed unique: all matching destination rows are compared.
-    This is sampled value validation, separate from exact native membership.
-    """
-    slices = row_group_assignments(metadata, rows, 1)[0]
-    chosen = sorted({0, len(slices) // 2, len(slices) - 1})
-    checked = 0
-    for index in chosen:
-        group, start, length = slices[index]
-        for offset in sorted({start, start + length - 1}):
-            with closing(bounded_batches(path, metadata, [(group, offset, 1)], batch_size,
-                         lambda batch: ingest_batch(convert_batch(batch, schema)))) as source:
-                expected = next(source).to_pylist()[0]
-            watchid = expected["watchid"]
-            if not isinstance(watchid, int):
-                raise ValueError("Canonical WatchID must be an integer")
-            cursor.execute(f"SELECT * FROM hits WHERE watchid = {watchid}")
-            if expected not in cursor.fetch_arrow_table().to_pylist():
-                raise ValueError("Full typed canonical source sample differs after stream publication")
-            checked += 1
-    return checked
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--upstream", type=Path, required=True)
@@ -194,6 +170,10 @@ def main():
                     help="Independent ADBC append connections (default 1; managed streams support at most 4)")
     ap.add_argument("--load-strategy", choices=("batches", "managed-streams"), default="batches",
                     help="managed-streams: one long append per worker, bounded row-group input")
+    ap.add_argument("--load-validation-memory-mib", type=int, default=256)
+    ap.add_argument("--load-validation-temp-mib", type=int, default=4096)
+    ap.add_argument("--load-validation-timeout", type=float, default=1200)
+    ap.add_argument("--load-validation-temp-directory", type=Path)
     ap.add_argument("--load-prefetch", action="store_true",
                     help="Also overlap preparation and writes with a single worker")
     ap.add_argument("--machine", required=True,
@@ -228,6 +208,13 @@ def main():
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         ap.error(str(error))
     if args.load_strategy == "managed-streams":
+        if min(args.load_validation_memory_mib, args.load_validation_temp_mib,
+               args.load_validation_timeout) <= 0 or not math.isfinite(args.load_validation_timeout):
+            ap.error("Managed validation memory/disk/time limits must be finite and positive")
+        try:
+            import duckdb
+        except ImportError:
+            ap.error("managed-streams validation requires DuckDB")
         if not 1 <= args.load_workers <= 4:
             ap.error("managed-streams requires 1..4 writers")
         if args.load_prefetch or args.resume_result:
@@ -426,18 +413,27 @@ def main():
                         with dbapi.connect(driver=str(args.driver.resolve()), autocommit=True,
                                            db_kwargs={"uri": uri, **driver_options(storage), "adbc.redis.aggregate_pushdown": "exact"}) as worker_conn:
                             with worker_conn.cursor() as worker_cur:
-                                yield lambda reader: worker_cur.adbc_ingest("hits", reader, mode="append", db_schema_name=namespace)
+                                yield StreamWriter(
+                                    lambda reader: worker_cur.adbc_ingest("hits", reader, mode="append", db_schema_name=namespace),
+                                    worker_cur.adbc_cancel)
 
                     def stream_progress(snapshot):
                         result["metadata"]["stream_load"] = snapshot
+                        result["metadata"]["preserve_owned_data"] = snapshot["preserve_owned_data"]
                         result["metadata"]["loaded_rows"] = snapshot["acknowledged_rows"]
                         save(args.output, result)
 
                     empty = pa.RecordBatch.from_arrays([pa.array([], type=f.type) for f in schema], schema=schema)
-                    measured = ingest_streams(args.parquet, source_metadata, assignments,
-                        ingest_batch(empty).schema, args.batch_size,
-                        lambda batch: ingest_batch(convert_batch(batch, schema)),
-                        stream_writer, progress=stream_progress, deadline=args.deadline)
+                    try:
+                        measured = ingest_streams(args.parquet, source_metadata, assignments,
+                            ingest_batch(empty).schema, args.batch_size,
+                            lambda batch: ingest_batch(convert_batch(batch, schema)),
+                            stream_writer, progress=stream_progress, deadline=args.deadline)
+                    except BaseException as error:
+                        snapshot = getattr(error, "stream_snapshot", None)
+                        if snapshot is not None:
+                            stream_progress(snapshot)
+                        raise
                     loaded = measured["acknowledged_rows"]
                 else:
                     last_checkpoint = loaded // 1_000_000
@@ -464,16 +460,18 @@ def main():
                         if time.monotonic() > deadline:
                             raise RuntimeError("ClickBench index not ready after 600 seconds")
                         time.sleep(1)
-                cur.execute("SELECT COUNT(*) FROM hits")
-                actual = cur.fetchone()[0]
-                if actual != loaded:
-                    raise RuntimeError(f"Ingest count mismatch: expected {loaded}, got {actual}")
                 if args.load_strategy == "managed-streams":
-                    cur.execute("SELECT COUNT(DISTINCT __rowid) FROM hits")
-                    if cur.fetchone()[0] != loaded:
-                        raise RuntimeError("Managed stream native row membership is not unique")
-                    validate_stream_samples(cur, args.parquet, source_metadata, schema, args.rows, args.batch_size)
-                    result["metadata"]["stream_validation"] = "native count + unique row IDs + independent full typed source samples; logical IDs are not source ordinals"
+                    result["metadata"]["stream_validation"] = validate_managed_stream(
+                        cur, args.parquet, source_metadata, schema, loaded,
+                        memory_mib=args.load_validation_memory_mib,
+                        max_temp_mib=args.load_validation_temp_mib,
+                        timeout=args.load_validation_timeout, deadline=args.deadline,
+                        temp_parent=args.load_validation_temp_directory)
+                else:
+                    cur.execute("SELECT COUNT(*) FROM hits")
+                    actual = cur.fetchone()[0]
+                    if actual != loaded:
+                        raise RuntimeError(f"Ingest count mismatch: expected {loaded}, got {actual}")
                 elapsed_load = time.perf_counter() - started
                 result["load_time"] = None if previous else elapsed_load
                 if previous:
@@ -521,11 +519,14 @@ def main():
                         save(args.output, result)
                     print(f"Q{number:02}: {result['result'][number - 1]}", flush=True)
             finally:
-                if args.cleanup:
+                if args.cleanup and not result["metadata"].get("preserve_owned_data"):
                     cur.execute("DROP TABLE IF EXISTS hits")
                     cur.execute("SET search_path TO public")
                     cur.execute(f"DROP SCHEMA {namespace}")
                     result["metadata"]["cleaned_up"] = True
+                    save(args.output, result)
+                elif args.cleanup:
+                    result["metadata"]["cleanup_skipped"] = "statement cancellation outcome unknown; owned data preserved"
                     save(args.output, result)
     client.close()
     parquet.close()

@@ -10,13 +10,15 @@ from storage import driver_options
 import tempfile
 from pathlib import Path
 import threading
+import time
 import unittest
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from run import convert_batch, ingest_batch, validate_stream_samples
-from stream_loading import bounded_batches, ingest_streams, row_group_assignments
+from run import convert_batch, ingest_batch
+from stream_validation import validate_managed_stream
+from stream_loading import bounded_batches, ingest_streams, row_group_assignments, StreamWriter
 
 
 class StreamLoading(unittest.TestCase):
@@ -111,7 +113,7 @@ class StreamLoading(unittest.TestCase):
                     table = reader.read_all()
                     values.extend(table.to_pylist())
                     return table.num_rows
-                yield append
+                yield StreamWriter(append, lambda: None)
             finally:
                 closes.append(True)
         result = ingest_streams(self.path, self.metadata,
@@ -137,7 +139,7 @@ class StreamLoading(unittest.TestCase):
                 calls.append(True)
                 reader.read_all()
                 raise RuntimeError("uncertain append result")
-            yield append
+            yield StreamWriter(append, lambda: None)
         with self.assertRaisesRegex(RuntimeError, "uncertain append"):
             ingest_streams(self.path, self.metadata,
                 row_group_assignments(self.metadata, 23, 1), self.target_schema,
@@ -153,7 +155,7 @@ class StreamLoading(unittest.TestCase):
             def append(reader):
                 calls.append(True)
                 return reader.read_all().num_rows
-            yield append
+            yield StreamWriter(append, lambda: None)
         result = ingest_streams(self.path, self.metadata,
             row_group_assignments(self.metadata, 2, 4), self.target_schema,
             2, self.convert, writer)
@@ -168,7 +170,7 @@ class StreamLoading(unittest.TestCase):
             def append(reader):
                 reader.read_all()
                 return -1
-            yield append
+            yield StreamWriter(append, lambda: None)
         with self.assertRaisesRegex(RuntimeError, "acknowledgment differs"):
             ingest_streams(self.path, self.metadata,
                 row_group_assignments(self.metadata, 23, 1), self.target_schema,
@@ -183,24 +185,91 @@ class StreamLoading(unittest.TestCase):
             def append(reader):
                 calls.append(True)
                 return reader.read_all().num_rows
-            yield append
+            yield StreamWriter(append, lambda: None)
         with self.assertRaisesRegex(RuntimeError, "deadline reached"):
             ingest_streams(self.path, self.metadata,
                 row_group_assignments(self.metadata, 23, 1), self.target_schema,
                 2, self.convert, writer, progress=snapshots.append, deadline=0)
-        self.assertEqual(calls, [True])
+        self.assertEqual(calls, [])
         self.assertEqual(snapshots[-1]["source_rows_yielded"], 0)
         self.assertEqual(snapshots[-1]["acknowledged_rows"], 0)
 
-    def test_value_validation_does_not_use_row_ids(self):
-        table = pa.Table.from_batches([self.convert(self.source.to_batches()[0])])
-        class Cursor:
-            def execute(cursor, sql):
-                self.assertNotIn("__rowid", sql)
-                cursor.watchid = int(sql.rsplit(" ", 1)[1])
-            def fetch_arrow_table(cursor):
-                return pa.Table.from_pylist([r for r in table.to_pylist() if r["watchid"] == cursor.watchid], schema=table.schema)
-        self.assertEqual(validate_stream_samples(Cursor(), self.path, self.metadata, self.schema, 23, 2), 6)
+    def cancel_after_eof(self, cause):
+        input_done, canceled = threading.Event(), threading.Event()
+        closed, calls, snapshots = [], [], []
+        @contextmanager
+        def writer():
+            try:
+                def append(reader):
+                    rows = reader.read_all()
+                    calls.append(rows.num_rows)
+                    if cause == "sibling" and rows.column(0)[0].as_py() != 2**60:
+                        self.assertTrue(input_done.wait(2))
+                        raise RuntimeError("sibling failed")
+                    input_done.set()
+                    self.assertTrue(canceled.wait(2), "statement was not actively canceled after EOF")
+                    raise RuntimeError("statement canceled")
+                yield StreamWriter(append, canceled.set)
+            finally:
+                closed.append(True)
+        interrupted = False
+        def progress(snapshot):
+            nonlocal interrupted
+            snapshots.append(snapshot)
+            if cause == "interrupt" and input_done.is_set() and not interrupted:
+                interrupted = True
+                raise KeyboardInterrupt()
+        start = time.monotonic()
+        workers = 2 if cause == "sibling" else 1
+        expected_error = KeyboardInterrupt if cause == "interrupt" else RuntimeError
+        with self.assertRaises(expected_error):
+            ingest_streams(self.path, self.metadata,
+                row_group_assignments(self.metadata, 23, workers), self.target_schema,
+                2, self.convert, writer, progress=progress,
+                deadline=time.time() + 0.15 if cause == "deadline" else float("inf"))
+        self.assertLess(time.monotonic() - start, 1)
+        self.assertTrue(canceled.is_set())
+        self.assertEqual(len(calls), workers)
+        self.assertEqual(len(closed), workers)
+        if cause != "interrupt":
+            self.assertEqual(snapshots[-1]["acknowledged_rows"], 0)
+            self.assertTrue(all(s["worker_finished"] for s in snapshots[-1]["workers"]))
+
+    def test_sibling_failure_actively_cancels_eof_peer(self):
+        self.cancel_after_eof("sibling")
+
+    def test_deadline_actively_cancels_after_eof(self):
+        self.cancel_after_eof("deadline")
+
+    def test_caller_interrupt_actively_cancels_after_eof(self):
+        self.cancel_after_eof("interrupt")
+
+    def test_cancel_error_still_joins_owner_and_preserves_unknown_outcome(self):
+        release, closed = threading.Event(), threading.Event()
+        snapshots = []
+        @contextmanager
+        def writer():
+            try:
+                def append(reader):
+                    reader.read_all()
+                    self.assertTrue(release.wait(2))
+                    raise RuntimeError("uncertain native result")
+                def cancel():
+                    release.set()
+                    raise RuntimeError("cancel reply lost")
+                yield StreamWriter(append, cancel)
+            finally:
+                closed.set()
+        with self.assertRaises(RuntimeError):
+            ingest_streams(self.path, self.metadata,
+                row_group_assignments(self.metadata, 23, 1), self.target_schema,
+                2, self.convert, writer, progress=snapshots.append,
+                deadline=time.time() + 0.1)
+        self.assertTrue(closed.is_set())
+        self.assertTrue(snapshots[-1]["preserve_owned_data"])
+        self.assertEqual(snapshots[-1]["acknowledged_rows"], 0)
+        self.assertTrue(snapshots[-1]["workers"][0]["worker_finished"])
+
 
 
 @unittest.skipUnless(os.environ.get("CLICKBENCH_STREAM_TEST_URI") and
@@ -225,7 +294,7 @@ class NativeStreamLoading(unittest.TestCase):
                     def writer():
                         with dbapi.connect(driver=driver, autocommit=True, db_kwargs=options) as connection:
                             with connection.cursor() as worker:
-                                yield lambda reader: worker.adbc_ingest("hits", reader, mode="append", db_schema_name=namespace)
+                                yield StreamWriter(lambda reader: worker.adbc_ingest("hits", reader, mode="append", db_schema_name=namespace), worker.adbc_cancel)
                     result = ingest_streams(self.path, self.metadata,
                         row_group_assignments(self.metadata, 23, workers), self.target_schema,
                         2, self.convert, writer)
@@ -234,7 +303,7 @@ class NativeStreamLoading(unittest.TestCase):
                     self.assertEqual(tuple(cursor.fetchone()), (23, 23))
                     cursor.execute("SELECT * FROM hits ORDER BY watchid")
                     self.assertEqual(cursor.fetch_arrow_table().to_pylist(), self.expected)
-                    validate_stream_samples(cursor, self.path, self.metadata, self.schema, 23, 2)
+                    validate_managed_stream(cursor, self.path, self.metadata, self.schema, 23, batch_size=2)
                 finally:
                     cursor.execute(f"SET search_path TO {namespace}")
                     cursor.execute("DROP TABLE IF EXISTS hits")

@@ -158,6 +158,7 @@ slices of the requested source prefix. Between one and four streams are allowed.
 `--load-workers 1` also exercises this bounded source policy serially. This mode
 has no producer queue, rejects `--load-prefetch` and `--resume-result`, and never
 replays a failed or uncertain operation. The default `batches` strategy is retained.
+Managed stream validation also requires DuckDB (`--with duckdb` with uv).
 
 Each stream reuses immutable Parquet metadata and opens only its current row
 group with `pre_buffer=False`, `memory_map=False`, `buffer_size=0`, and decoding
@@ -172,9 +173,34 @@ published rows. Private staging counts and index sealing phases are explicitly
 unavailable through public ADBC; source EOF does not prove publication. Successful
 append return includes the driver's ordinary sealing/readiness/publication proofs,
 so this mode does not look for a legacy fixed-name Search index. It validates
-SQL count, unique native row IDs, and full typed canonical source samples selected
-by WatchID, never by assuming row IDs equal source offsets. Sample values are a
-separate check from exact membership; they are not a full-scale all-value proof.
+membership by streaming only native row IDs into rotating temporary Parquet files.
+Strict adjacent-ID checks use a linear fast path for sorted output. SQL output may
+be unordered: that case uses DuckDB external ID sorting and the same exact check,
+without a table-sized DISTINCT hash. Row counts must match exactly; gaps are valid.
+Destination logical-ID samples use native point lookups; an independent DuckDB
+`typed_source` SQL oracle checks all canonical values against the source prefix.
+No source offset is inferred from a logical ID, and Redis never scans all 105
+columns repeatedly to find a WatchID. Sample values are a separate check from
+exact membership; they are not a full-scale all-value proof.
+
+Validation defaults to 256 MiB DuckDB memory, 4096 MiB temporary disk and 1200
+seconds. Configure `--load-validation-memory-mib`, `--load-validation-temp-mib`,
+`--load-validation-timeout`, and `--load-validation-temp-directory` as needed.
+The disk budget covers ID spools and DuckDB spill; checks can overshoot by one
+bounded output batch. Files are removed on success and failure. Parquet files
+rotate every roughly one million IDs to bound in-memory footer metadata too.
+DuckDB memory limits are separate from Arrow/Python buffers and process RSS.
+
+Deadlines, sibling failures and caller interruption actively cancel all worker
+statements through public ADBC cancellation, including after source EOF during
+index sealing. Every worker and cancellation thread joins before the error is
+returned; source/Arrow/cursor cleanup stays with its owner. Known successful
+acknowledgments remain recorded even if cancellation races publication. A cancel
+error preserves the unknown outcome and suppresses optional DDL cleanup. This
+relies on the Redis driver's cooperative cancel contract: a hard process limit
+against a broken/noncooperative native driver requires an external process
+supervisor. The harness never abandons native Arrow threads or promises such a
+hard in-process limit.
 Normal maintenance remains enabled; its internal state is not exposed. The
 harness does not create/verify backups and always reports `backup_ready=false`.
 

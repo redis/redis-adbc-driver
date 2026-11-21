@@ -11,4 +11,28 @@ Nine focused synthetic tests passed. Full harness command: `uv run --python 3.14
 
 Self-review checked disjoint prefix coverage, no replay, failed/unknown acknowledgments, EOF versus publication timing, current-reader cleanup, reader/C Arrow ownership, and absence of private operational artifacts. Material behavior still requires human maintainer review; self-review is not approval. Native tests require allocated independently verified Software QPF4; skipped without fixture variables. No AWS, full ingestion, backup creation, speedup or full-scale memory plateau was attempted.
 
+## Review corrections and current evidence
+
+Independent root review found that the initial implementation only stopped input
+and could leave an EOF peer sealing, and that global COUNT DISTINCT / repeated
+WatchID-filtered native scans were unsuitable for full-scale validation. The
+follow-up registers public statement cancellation, checks coordinator deadlines
+after EOF, joins every worker/cancel owner, and preserves unknown cancellation
+outcomes without replay or optional DDL cleanup. A hard limit for a broken native
+driver requires process isolation; no daemon native Arrow owners are abandoned.
+
+Membership now spools only row IDs to rotating Parquet files. Exact adjacent
+checks use a linear sorted fast path or a memory/disk bounded DuckDB external
+sort for valid unordered SQL output. Destination logical-ID point samples are
+compared with independent DuckDB typed_source SQL casts, not ingestion conversion.
+Tests include 70,003 sparse/unordered IDs, duplicates across batches, spool
+rotation, value corruption and disk/deadline cleanup, plus EOF sibling-error,
+deadline and KeyboardInterrupt cancellation.
+
+Current full harness: 146 tests, 5 skips on Python 3.14.10 / PyArrow 26.0.1 /
+DuckDB 2.0.1. The 21 focused stream tests also passed with DuckDB 1.5.6 (2 native
+skips); a subsequent spool-rotation test passes on the current full suite. Native
+tests remain skipped in this worktree, pending root's allocated verified fixture.
+`git diff --check` passes. Full-scale throughput/RSS/backup evidence is still absent.
+
 See [intent](intent.md) and [spec](spec.md).

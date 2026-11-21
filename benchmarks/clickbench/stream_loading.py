@@ -3,7 +3,8 @@
 The file metadata is immutable and shared; file readers and ADBC connections are
 worker-owned. No producer queue, allocator purge or retry is used here.
 """
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+from dataclasses import dataclass
+import queue
 from contextlib import closing
 import threading
 import resource
@@ -57,6 +58,13 @@ def bounded_batches(path, metadata, assignment, batch_size, convert, *, opener=p
             raise ValueError("Parquet row group ended before its declared row count")
 
 
+@dataclass(frozen=True)
+class StreamWriter:
+    """Worker-owned append and its public, thread-safe statement cancel hook."""
+    append: object
+    cancel: object
+
+
 def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
                    writer_factory, *, progress=None, deadline=float("inf")):
     """One append per nonempty worker. Return acknowledged counts, never replay.
@@ -69,11 +77,16 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
         raise ValueError("Managed streams support 1..4 workers")
     started = time.monotonic()
     lock, stop = threading.Lock(), threading.Event()
+    handle_locks, active = [threading.Lock() for _ in assignments], {}
+    completed = queue.Queue()
+    cancel_threads = []
+    cancel_started = None
     states = [{"worker": n, "row_groups": len(groups),
                "expected_rows": sum(s[2] for s in groups),
                "source_rows_yielded": 0, "acknowledged_rows": 0,
                "private_rows_staged": None, "phase": "pending",
-               "index_seal": "not exposed by public ADBC API"}
+               "index_seal": "not exposed by public ADBC API",
+               "cancel_requested": False, "worker_finished": False}
               for n, groups in enumerate(assignments)]
 
     def update(number, **values):
@@ -93,14 +106,43 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
                     "container_file_cache_bytes": None,
                     "private_rows_staged": None,
                     "backup_ready": False,
+                    "preserve_owned_data": any(s.get("cancel_error", False) for s in states),
                     "maintenance": "normal driver maintenance enabled; state not exposed by public ADBC API"}
 
-    def worker(number, groups):
-        if not groups:
-            update(number, phase="empty", source_complete_seconds=0.0)
+    def request_cancel():
+        nonlocal cancel_started
+        stop.set()
+        if cancel_started is not None:
             return
-        count = 0
+        cancel_started = time.monotonic()
+        # The Redis driver's public cancellation contract must cooperate.
+        # An external process supervisor is required for a hard limit against
+        # a broken/noncooperative C driver; never abandon live C Arrow owners.
+        for number in range(len(assignments)):
+            def cancel(number=number):
+                while True:
+                    with handle_locks[number]:
+                        handle = active.get(number)
+                        if handle is None:
+                            return
+                        update(number, cancel_requested=True)
+                        try:
+                            handle.cancel()
+                        except BaseException:
+                            update(number, cancel_error=True)
+                    # Repeat while active: cancellation could race the native
+                    # execution's start before it has consumed its first batch.
+                    time.sleep(0.05)
+            thread = threading.Thread(target=cancel)
+            cancel_threads.append(thread)
+            thread.start()
+
+    def worker(number, groups):
+        count, error = 0, None
         try:
+            if not groups:
+                update(number, phase="empty", source_complete_seconds=0.0)
+                return
             with closing(bounded_batches(path, metadata, groups, batch_size, convert)) as batches:
                 def source():
                     nonlocal count
@@ -112,39 +154,78 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
                         yield batch
                     update(number, phase="source_complete_awaiting_append_ack",
                            source_complete_seconds=time.monotonic() - started)
-                with writer_factory() as append:
-                    with pa.RecordBatchReader.from_batches(schema, source()) as reader:
-                        update(number, phase="append_running")
-                        acknowledged = append(reader)
-                if acknowledged != count or count != states[number]["expected_rows"]:
-                    raise RuntimeError("Managed append acknowledgment differs from assigned source rows")
-                update(number, acknowledged_rows=acknowledged, phase="published",
-                       publication_ack_seconds=time.monotonic() - started)
-        except BaseException:
+                with writer_factory() as handle:
+                    if not isinstance(handle, StreamWriter):
+                        raise TypeError("writer_factory must yield StreamWriter(append, cancel)")
+                    # Unregister before the context manager closes the cursor.
+                    # The same lock serializes cancel with that close boundary.
+                    with handle_locks[number]:
+                        if stop.is_set() or time.time() >= deadline:
+                            raise RuntimeError("Stream canceled before append; input will not be replayed")
+                        active[number] = handle
+                    try:
+                        with pa.RecordBatchReader.from_batches(schema, source()) as reader:
+                            update(number, phase="append_running")
+                            acknowledged = handle.append(reader)
+                        if acknowledged != count or count != states[number]["expected_rows"]:
+                            raise RuntimeError("Managed append acknowledgment differs from assigned source rows")
+                        update(number, acknowledged_rows=acknowledged,
+                               phase="published_after_cancel_request" if stop.is_set() else "published",
+                               publication_ack_seconds=time.monotonic() - started)
+                    finally:
+                        with handle_locks[number]:
+                            active.pop(number, None)
+        except BaseException as failure:
             stop.set()
             update(number, phase="failed_acknowledgment_unknown")
-            raise
-
-    # Poll rather than writing result JSON from concurrent source callbacks.
-    error = None
-    with ThreadPoolExecutor(max_workers=len(assignments)) as executor:
-        pending = {executor.submit(worker, n, groups) for n, groups in enumerate(assignments)}
-        try:
-            while pending:
-                done, pending = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
-                for future in done:
-                    try:
-                        future.result()
-                    except BaseException as failure:
-                        error = error or failure
-                        stop.set()
-                if progress:
-                    progress(snapshot())
+            error = failure
         finally:
-            stop.set()
+            update(number, worker_finished=True)
+            completed.put((number, error))
+
+    # Every owner and cancellation thread joins before returning. No foreign
+    # thread closes a cursor or Arrow reader, including caller interruption.
+    threads = [threading.Thread(target=worker, args=(n, groups))
+               for n, groups in enumerate(assignments)]
+    for thread in threads:
+        thread.start()
+    pending, error = set(range(len(threads))), None
+    callback_failed = False
+    while pending:
+        try:
+            if time.time() >= deadline and error is None:
+                error = RuntimeError("Load deadline reached; active statements canceled without replay")
+                request_cancel()
+            if stop.is_set():
+                request_cancel()
+            try:
+                number, failure = completed.get(timeout=0.05)
+            except queue.Empty:
+                number, failure = None, None
+            if number is not None:
+                pending.remove(number)
+                threads[number].join()
+                if failure is not None:
+                    error = error or failure
+                    request_cancel()
+            if progress and not callback_failed:
+                try:
+                    progress(snapshot())
+                except BaseException:
+                    callback_failed = True
+                    raise
+        except BaseException as failure:
+            error = error or failure
+            request_cancel()
+    for thread in cancel_threads:
+        thread.join()
     final = snapshot()
-    if progress:
-        progress(final)
+    if progress and not callback_failed:
+        try:
+            progress(final)
+        except BaseException as failure:
+            error = error or failure
     if error:
+        error.stream_snapshot = final
         raise error
     return final
