@@ -222,7 +222,7 @@ func TestSnapshotCompactionResumeFencesOldOwnerAndGraftsTail(t *testing.T) {
 	if err != nil || job == nil {
 		t.Fatal(err)
 	}
-	if job.After == "" || raw.ZCard(h.ctx, snapshotMembers(job.Data)).Val() != snapshotCompactionBatchRows {
+	if job.After == "" || raw.ZCard(h.ctx, snapshotMembers(job.Data)).Val() != snapshotCompactionBatchRows*snapshotCompactionCopyBatchesPerStep {
 		t.Fatal("first batch was not checkpointed/bounded")
 	}
 	oldJob := *job
@@ -239,7 +239,7 @@ func TestSnapshotCompactionResumeFencesOldOwnerAndGraftsTail(t *testing.T) {
 		t.Fatal(err)
 	}
 	snapshotReapTest(s, h.ctx)
-	if raw.ZCard(h.ctx, snapshotMembers(job.Data)).Val() != snapshotCompactionBatchRows {
+	if raw.ZCard(h.ctx, snapshotMembers(job.Data)).Val() != snapshotCompactionBatchRows*snapshotCompactionCopyBatchesPerStep {
 		t.Fatal("expired durable output reclaimed")
 	}
 	resumed := snapshotTestStore(t, raw)

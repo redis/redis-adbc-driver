@@ -19,6 +19,10 @@ import (
 
 const snapshotCompactionTrigger = 4
 const snapshotCompactionBatchRows = 64
+
+// Amortize catalog validation without changing the persisted 64-row outcome.
+const snapshotCompactionCopyBatchesPerStep = 4
+const snapshotCompactionBurstMinRows = 1024
 const snapshotCompactionBatchBytes = 1 << 20
 const snapshotCompactionStepTimeout = 2 * time.Second
 
@@ -381,7 +385,7 @@ func (s *store) snapshotCompactionStep(ctx context.Context, token string) (progr
 	}
 	switch j.Phase {
 	case "copy":
-		return true, s.copySnapshotCompactionBatch(ctx, j)
+		return true, s.copySnapshotCompactionBurst(ctx, j, pin.root)
 	case "index":
 		return s.indexSnapshotCompaction(ctx, j)
 	case "install":
@@ -389,6 +393,47 @@ func (s *store) snapshotCompactionStep(ctx context.Context, token string) (progr
 	default:
 		return false, errorf(adbc.StatusIO, "invalid background compaction phase")
 	}
+}
+
+// Source/output references are owned by the durable job, independently of the
+// short catalog pin. Each copy still validates token, lease, physical ownership
+// and the exact durable checkpoint atomically. Publication and installation are
+// unchanged. A changed current root ends the burst so the next step re-pins and
+// validates DDL/source identity through the ordinary path.
+func (s *store) copySnapshotCompactionBurst(ctx context.Context, j *snapshotCompactionJob, root string) error {
+	batches := 1
+	var rows int64
+	for _, src := range j.Source.snapshotSegments() {
+		rows = min(rows+min(src.Rows, int64(snapshotCompactionBurstMinRows)+1), int64(snapshotCompactionBurstMinRows)+1)
+	}
+	if rows > snapshotCompactionBurstMinRows {
+		batches = snapshotCompactionCopyBatchesPerStep
+	}
+	token := j.Token
+	for n := 0; n < batches; n++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if n > 0 {
+			current, err := s.client.HGet(ctx, snapshotCatalogKey, "root").Result()
+			if err != nil {
+				return err
+			}
+			if current != root {
+				return nil
+			}
+		}
+		before := j.After
+		if err := s.copySnapshotCompactionBatch(ctx, j); err != nil {
+			return err
+		}
+		// Reconciliation can adopt a successor's durable progress. Its token
+		// is evidence of completion, never authority for this worker to write.
+		if j.Token != token || j.Phase != "copy" || j.After == before {
+			return nil
+		}
+	}
+	return nil
 }
 func (s *store) compactionWriteContext(ctx context.Context, j *snapshotCompactionJob) context.Context {
 	return context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: j.ID, pin: &snapshotPin{token: j.Token}, write: true, owned: map[string]bool{j.Data: true}})
