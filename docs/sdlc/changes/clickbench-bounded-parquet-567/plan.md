@@ -36,7 +36,7 @@ EOF cancellation and repeated interrupts; unknown outcomes retain owned data.
 The integration coordinator's Linux full ClickBench suite completed with
 **156 tests, OK, 3 unrelated Linux-isolation skips**. Real native serial,
 four-stream and four-stream NOINDEX cases passed on independently verified Redis
-Software 8.8 Flex with active 4× QPF. Synthetic native sources contain 23 rows and
+Software Flex (database reported Redis 8.8.0) with active 4× QPF. Synthetic native sources contain 23 rows and
 all 105 columns, including exact int64 values beyond double precision, temporal
 values, NULL/NUL strings, uneven groups and reader transitions. Full typed results
 and native membership were checked after file-reader closure.
@@ -55,3 +55,5 @@ throughput tradeoffs and remote read-ahead comparisons remain unmeasured. These
 small correctness cases do not establish bounded full-scale RSS or identify the
 cause of historical client growth. The stopped full-scale load was not resumed;
 no AWS resources, reusable backup or backup/restore measurements were created.
+
+Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.

@@ -7,7 +7,7 @@ unmodified-main baseline. [Intent](intent.md) · [Specification](spec.md) · [Pl
 
 ## Environment and boundaries
 
-Redis Software 8.8.0, one shard, verified active 4x QPF, Search workers 6,
+Redis Software (database reported Redis 8.8.0), one shard, verified active 4x QPF, Search workers 6,
 routing `mnp`, 32 worker connections, noeviction, TLS/RESP3. RAM and Flex were
 separate owned disposable fixtures set up with `make -C go redis-up`; management
 verification was coordinated before testing. Infrastructure identities, endpoint
@@ -88,3 +88,5 @@ atomic bounds are tested, but sustained fairness under production contention
 needs the remaining wide workload. Keep #565 open until its broader acceptance
 has independent source-specific evidence. No operational ingestion or AWS job
 was restarted, and no full-scale data was loaded for these checks.
+
+Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.
