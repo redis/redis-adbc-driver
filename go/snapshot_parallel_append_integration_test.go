@@ -67,8 +67,20 @@ func TestSnapshotParallelAppendQueued(t *testing.T) {
 }
 
 func TestSnapshotParallelAppendStagedCancellation(t *testing.T) {
+	snapshotParallelAppendStagedCancellation(t, false)
+}
+
+func TestSnapshotAppendIndexedStagedCancellation(t *testing.T) {
+	snapshotParallelAppendStagedCancellation(t, true)
+}
+
+func snapshotParallelAppendStagedCancellation(t *testing.T, earlyIndex bool) {
 	h, raw, db := newSnapshotHarnessMode(t, false, false)
-	h.exec("CREATE TABLE t(id BIGINT NOT NULL)")
+	declaration := "CREATE TABLE t(id BIGINT NOT NULL)"
+	if earlyIndex {
+		declaration = "CREATE TABLE t(id BIGINT NOT NULL NOINDEX)"
+	}
+	h.exec(declaration)
 	st, _ := admissionStatement(t, admissionConnection(t, db), "t", adbc.OptionValueIngestModeAppend, 1, nil)
 	ctx, cancel := context.WithCancel(h.ctx)
 	defer cancel()
@@ -105,10 +117,22 @@ func TestSnapshotParallelAppendStagedCancellation(t *testing.T) {
 }
 
 func TestSnapshotParallelAppendStreams(t *testing.T) {
+	snapshotParallelAppendStreams(t, false)
+}
+
+func TestSnapshotAppendIndexedParallelStreams(t *testing.T) {
+	snapshotParallelAppendStreams(t, true)
+}
+
+func snapshotParallelAppendStreams(t *testing.T, earlyIndex bool) {
 	for _, fail := range []bool{false, true} {
 		t.Run(fmt.Sprint("fail=", fail), func(t *testing.T) {
 			h, raw, db := newSnapshotHarnessMode(t, false, false)
-			h.exec("CREATE TABLE t(id BIGINT NOT NULL)")
+			declaration := "CREATE TABLE t(id BIGINT NOT NULL)"
+			if earlyIndex {
+				declaration = "CREATE TABLE t(id BIGINT NOT NULL NOINDEX)"
+			}
+			h.exec(declaration)
 			h.exec("INSERT INTO t VALUES(0)")
 			s := snapshotTestStore(t, raw)
 			old, pin, err := s.acquireSnapshot(h.ctx)
@@ -123,9 +147,15 @@ func TestSnapshotParallelAppendStreams(t *testing.T) {
 			readers := make([]*parallelAppendReader, 4)
 			done := make([]chan result, 4)
 			finished := make([]bool, 4)
+			observers := make([]*snapshotAppendIndexObserver, 4)
 			for i := range readers {
 				st, _ := admissionStatement(t, admissionConnection(t, db), "t", adbc.OptionValueIngestModeAppend, int64(i+1), nil)
 				impl := st.(*statementImpl)
+				ctx := h.ctx
+				if earlyIndex {
+					observers[i] = &snapshotAppendIndexObserver{}
+					ctx = snapshotAppendIndexTransport(t, ctx, st, observers[i])
+				}
 				r := &parallelAppendReader{RecordReader: impl.params, staged: make(chan struct{}), resume: make(chan struct{})}
 				if fail && i == 1 {
 					r.failure = errors.New("deliberate stream failure")
@@ -133,7 +163,7 @@ func TestSnapshotParallelAppendStreams(t *testing.T) {
 				impl.params = r
 				readers[i] = r
 				done[i] = make(chan result, 1)
-				go func(i int) { n, err := st.ExecuteUpdate(h.ctx); done[i] <- result{n, err} }(i)
+				go func(i int) { n, err := st.ExecuteUpdate(ctx); done[i] <- result{n, err} }(i)
 			}
 			// Always unblock input, including a fatal overlap assertion.
 			defer func() {
@@ -163,6 +193,9 @@ func TestSnapshotParallelAppendStreams(t *testing.T) {
 					t.Fatalf("stream %d exited before overlap: %+v", i, v)
 				case <-time.After(15 * time.Second):
 					t.Fatalf("stream %d did not stage concurrently", i)
+				}
+				if earlyIndex && (observers[i].creates.Load() != 1 || observers[i].rows.Load() != 1) {
+					t.Fatalf("stream %d did not populate its initial index before staging: %+v", i, observers[i])
 				}
 			}
 			h.expectRows("SELECT COUNT(*) FROM t", "1")
@@ -225,6 +258,13 @@ func TestSnapshotParallelAppendStreams(t *testing.T) {
 			}
 			snapshotReapTest(s, h.ctx)
 			noAdmissionPins(t, h, raw)
+			if earlyIndex {
+				for i, observer := range observers {
+					if observer.creates.Load() != 1 || observer.notifications.Load() != 0 {
+						t.Fatalf("stream %d rebuilt/notified its early index: %+v", i, observer)
+					}
+				}
+			}
 		})
 	}
 }

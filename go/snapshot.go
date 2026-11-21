@@ -1405,8 +1405,8 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 		return err
 	}
 	// Document counts alone cannot establish that incremental updates have
-	// settled. Populate a fresh index from the final registered row images and
-	// require both readiness metadata and a native indexed-row proof.
+	// settled. Seal a fresh final index (eligible Arrow appends populated it
+	// with their original images), then require readiness and indexed-row proof.
 	if err := s.rebuildSnapshotTableIndexes(ctx, tables); err != nil {
 		return err
 	}
@@ -1553,12 +1553,14 @@ func (s *store) rebuildSnapshotTableIndexes(ctx context.Context, tables []*table
 		if deferred {
 			meta.SnapshotOverlay = overlay
 		}
-		meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
-		if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
-			return wrapRedis(err, "failed to index final snapshot rows")
-		}
-		if err := s.populateSnapshotIndex(ctx, meta); err != nil {
-			return err
+		if !snapshotAppendIndexed(ctx, meta) {
+			meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
+			if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
+				return wrapRedis(err, "failed to index final snapshot rows")
+			}
+			if err := s.populateSnapshotIndex(ctx, meta); err != nil {
+				return err
+			}
 		}
 		raw, err := json.Marshal(meta)
 		if err != nil {
