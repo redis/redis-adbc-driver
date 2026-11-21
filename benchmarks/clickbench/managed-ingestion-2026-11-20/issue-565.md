@@ -25,8 +25,9 @@ All six cases pass exact native row-ID membership, physical Arrow schema,
 independent typed point checks, and a two-way DuckDB EXCEPT ALL comparison of
 all 105 values and row multiplicities. Source rows yielded and acknowledged
 rows are separately recorded. Source positions are never equated to logical IDs.
-Each owned index/directory and data/metadata/compaction queue is drained before
-the next trial. No resource alarm or process-incarnation change occurred.
+After successful DROP, owned graph directories and data/metadata/compaction
+queues are verified drained before the next trial. Index cleanup follows the
+tested driver ownership protocol; no independent orphan-index audit is claimed. No resource alarm or process-incarnation change occurred.
 
 ## Acknowledgment and maintenance
 

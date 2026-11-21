@@ -50,8 +50,9 @@ versions. Each worker supplies one long append. Ordinary maintenance, four-segme
 trigger and eight-segment admission limits remain enabled and unchanged.
 
 Three alternating observations for each revision/writer count, fresh client
-process each; reused Redis process, allocator and Flash caches. Owned row/index/
-directory and metadata/data/compaction queues drain before the next case.
+process each; reused Redis process, allocator and Flash caches. After successful DROP, owned graph directories and metadata/data/compaction
+queues are verified drained before the next case. Index cleanup follows the
+tested ownership protocol, without an independent orphan-index audit.
 
 | Revision | Writers | Median ACK seconds | Median post-ACK compaction-quiet observation, seconds | Median client process CPU, seconds | Max process RSS through ACK, MiB |
 | --- | ---: | ---: | ---: | ---: | ---: |
