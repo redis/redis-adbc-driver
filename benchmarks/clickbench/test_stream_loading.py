@@ -382,8 +382,8 @@ class StreamLoading(unittest.TestCase):
                      "requires an allocated, independently verified Software QPF4 fixture")
 class NativeStreamLoading(unittest.TestCase):
     setUp = StreamLoading.setUp
-    # Keep source unit checks in StreamLoading; run only these two native cases.
-    def native_load(self, workers):
+    # Keep source unit checks in StreamLoading; native cases also exercise NOINDEX.
+    def native_load(self, workers, noindex=False):
         uri = os.environ["CLICKBENCH_STREAM_TEST_URI"]
         driver = os.environ["CLICKBENCH_STREAM_TEST_DRIVER"]
         namespace = "clickbench_" + uuid.uuid4().hex[:12]
@@ -394,7 +394,7 @@ class NativeStreamLoading(unittest.TestCase):
                 cursor.execute(f"CREATE SCHEMA {namespace}")
                 try:
                     cursor.execute(f"SET search_path TO {namespace}")
-                    cursor.execute("CREATE TABLE hits (" + ",".join(f"{f.name.lower()} {types[f.type]}" for f in self.schema) + ")")
+                    cursor.execute("CREATE TABLE hits (" + ",".join(f"{f.name.lower()} {types[f.type]}" + (" NOINDEX" if noindex else "") for f in self.schema) + ")")
                     @contextmanager
                     def writer():
                         with dbapi.connect(driver=driver, autocommit=True, db_kwargs=options) as connection:
@@ -420,6 +420,9 @@ class NativeStreamLoading(unittest.TestCase):
 
     def test_native_four_streams(self):
         self.native_load(4)
+
+    def test_native_four_noindex_streams(self):
+        self.native_load(4, noindex=True)
 
 
 if __name__ == "__main__":
