@@ -151,6 +151,43 @@ before index/count verification and query timing. More workers can hurt a
 single-shard server or an indexing-bound workload, so measure before increasing
 the count. The driver retains its 1,000-command pipeline limit.
 
+For managed tables, select `--load-strategy managed-streams --load-workers 4`
+to use one long Arrow append per writer. The coordinator creates the schema and
+table first; workers own separate connections and disjoint, exhaustive row-group
+slices of the requested source prefix. Between one and four streams are allowed.
+`--load-workers 1` also exercises this bounded source policy serially. This mode
+has no producer queue, rejects `--load-prefetch` and `--resume-result`, and never
+replays a failed or uncertain operation. The default `batches` strategy is retained.
+
+Each stream reuses immutable Parquet metadata and opens only its current row
+group with `pre_buffer=False`, `memory_map=False`, `buffer_size=0`, and decoding
+threads disabled. Readers close at row-group transitions and on failure; exported
+Arrow buffers retain ownership independently. Memory still includes the current
+row group's compressed pages, conversion buffers, and native-driver buffers;
+small Arrow batches do not impose a hard RSS cap. No per-batch GC or allocator
+purge is used.
+
+Stream progress records input rows yielded separately from append-acknowledged
+published rows. Private staging counts and index sealing phases are explicitly
+unavailable through public ADBC; source EOF does not prove publication. Successful
+append return includes the driver's ordinary sealing/readiness/publication proofs,
+so this mode does not look for a legacy fixed-name Search index. It validates
+SQL count, unique native row IDs, and full typed canonical source samples selected
+by WatchID, never by assuming row IDs equal source offsets. Sample values are a
+separate check from exact membership; they are not a full-scale all-value proof.
+Normal maintenance remains enabled; its internal state is not exposed. The
+harness does not create/verify backups and always reports `backup_ready=false`.
+
+Results include reader policy, worker phases, client OS, network route from
+`placement.runner.network_route` (otherwise marked unverified), schema SHA-256,
+and file-stat/row-group source identity. Use `--hash-source` for a content SHA-256;
+it performs an additional complete source read before the load timer. Progress
+reports process peak RSS separately from Arrow live/pool peak bytes. Go heap and
+container file-cache measurements are explicitly unavailable and require a
+separate profiler. No full-scale memory plateau or throughput improvement is
+claimed by the synthetic tests. Use verified Redis Software Flex and active QPF4
+for integration measurements, and record server resources and actual route.
+
 Parallel loads allocate unique row IDs in execution order. Their row IDs no
 longer identify source offsets, so `--resume-result` rejects parallel runs.
 Interrupted parallel loads require a fresh generated schema. Results record the

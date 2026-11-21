@@ -11,6 +11,7 @@ import ipaddress
 import json
 import math
 import os
+import platform
 from pathlib import Path
 import re
 import subprocess
@@ -27,6 +28,7 @@ import pyarrow.parquet as pq
 import redis
 
 from loading import ingest_batches
+from stream_loading import bounded_batches, ingest_streams, row_group_assignments
 from isolation import check_isolation, resolve_memory_limit, run_isolated
 from progress import progress_path, execution_path, annotate_failure
 
@@ -150,6 +152,31 @@ def index_status(client, name):
     return documents, indexing
 
 
+def validate_stream_samples(cursor, path, metadata, schema, rows, batch_size):
+    """Match full canonical source values independently of allocated row IDs.
+
+    WatchID is not assumed unique: all matching destination rows are compared.
+    This is sampled value validation, separate from exact native membership.
+    """
+    slices = row_group_assignments(metadata, rows, 1)[0]
+    chosen = sorted({0, len(slices) // 2, len(slices) - 1})
+    checked = 0
+    for index in chosen:
+        group, start, length = slices[index]
+        for offset in sorted({start, start + length - 1}):
+            with closing(bounded_batches(path, metadata, [(group, offset, 1)], batch_size,
+                         lambda batch: ingest_batch(convert_batch(batch, schema)))) as source:
+                expected = next(source).to_pylist()[0]
+            watchid = expected["watchid"]
+            if not isinstance(watchid, int):
+                raise ValueError("Canonical WatchID must be an integer")
+            cursor.execute(f"SELECT * FROM hits WHERE watchid = {watchid}")
+            if expected not in cursor.fetch_arrow_table().to_pylist():
+                raise ValueError("Full typed canonical source sample differs after stream publication")
+            checked += 1
+    return checked
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--upstream", type=Path, required=True)
@@ -160,9 +187,13 @@ def main():
                     help="Pilot row limit; use 99997497 for the full benchmark")
     ap.add_argument("--storage", choices=("ram", "flex-stopgap"),
                     help="Default: flex-stopgap for full scale, ram for smaller fixtures")
+    ap.add_argument("--hash-source", action="store_true",
+                    help="Record full Parquet SHA-256 before the load timer (extra complete file read)")
     ap.add_argument("--batch-size", type=int, default=10_000)
     ap.add_argument("--load-workers", type=int, default=1,
-                    help="Independent ADBC append connections (default 1); parallel workers prefetch batches")
+                    help="Independent ADBC append connections (default 1; managed streams support at most 4)")
+    ap.add_argument("--load-strategy", choices=("batches", "managed-streams"), default="batches",
+                    help="managed-streams: one long append per worker, bounded row-group input")
     ap.add_argument("--load-prefetch", action="store_true",
                     help="Also overlap preparation and writes with a single worker")
     ap.add_argument("--machine", required=True,
@@ -196,7 +227,12 @@ def main():
         check_isolation(trial_memory_mib)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         ap.error(str(error))
-    prefetch = args.load_workers > 1 or args.load_prefetch
+    if args.load_strategy == "managed-streams":
+        if not 1 <= args.load_workers <= 4:
+            ap.error("managed-streams requires 1..4 writers")
+        if args.load_prefetch or args.resume_result:
+            ap.error("managed-streams has no producer queue and cannot resume uncertain streams")
+    prefetch = args.load_strategy == "batches" and (args.load_workers > 1 or args.load_prefetch)
     placement = validate_placement(json.loads(args.placement.read_text()))
     try:
         uri = deployment_uri(args.deployment, os.environ, placement["database"].get("primary_hosts", ()))
@@ -213,11 +249,18 @@ def main():
     if len(queries) != 43 or any(not q.endswith(";") for q in queries):
         ap.error("Expected the 43 official, single-line PostgreSQL queries")
     schema = arrow_schema(ddl)
-    parquet = pq.ParquetFile(args.parquet)
-    if parquet.metadata.num_rows < args.rows:
+    parquet = pq.ParquetFile(args.parquet, pre_buffer=False, memory_map=False)
+    source_metadata = parquet.metadata
+    if args.load_strategy == "managed-streams":
+        parquet.close()
+    if source_metadata.num_rows < args.rows:
         ap.error("Parquet file has fewer rows than requested")
     with args.driver.open("rb") as driver_file:
         driver_sha256 = hashlib.file_digest(driver_file, "sha256").hexdigest()
+    source_sha256 = None
+    if args.hash_source:
+        with args.parquet.open("rb") as source_file:
+            source_sha256 = hashlib.file_digest(source_file, "sha256").hexdigest()
     previous = json.loads(args.resume_result.read_text()) if args.resume_result else None
     if previous:
         if previous["metadata"].get("storage", "ram") != storage:
@@ -244,9 +287,16 @@ def main():
                      "driver_binary_sha256": driver_sha256,
                      "requested_rows": args.rows, "loaded_rows": 0,
                      "batch_size": args.batch_size, "load_workers": args.load_workers,
+                     "load_strategy": args.load_strategy,
+                     "source_reader_policy": "pre_buffer=False; one row-group reader per stream; no producer queue" if args.load_strategy == "managed-streams" else "pre_buffer=False; one file reader",
+                     "client_os": platform.platform(),
+                     "network_route": placement["runner"].get("network_route", "unverified; record route before performance attribution"),
+                     "schema_sha256": hashlib.sha256(schema.serialize().to_pybytes()).hexdigest(),
+                     "source_sha256": source_sha256,
+                     "source_fingerprint": {"kind": "file stat and row-group counts (not content hash)", "bytes": args.parquet.stat().st_size, "mtime_ns": args.parquet.stat().st_mtime_ns, "row_groups": [source_metadata.row_group(g).num_rows for g in range(source_metadata.num_row_groups)]},
                      "load_prefetch_batches": 2 * args.load_workers if prefetch else 0,
-                     "resume_safe_source_order": args.load_workers == 1,
-                     "source_rows": parquet.metadata.num_rows,
+                     "resume_safe_source_order": args.load_workers == 1 and args.load_strategy == "batches",
+                     "source_rows": source_metadata.num_rows,
                      "official_scale": args.rows == FULL_ROWS,
                      "namespace": namespace, "columns": 105,
                      "placement": placement,
@@ -368,33 +418,62 @@ def main():
                                 worker_cur.adbc_ingest("hits", ingest_batch(batch), mode="append", db_schema_name=namespace)
                             yield append
 
-                last_checkpoint = loaded // 1_000_000
-                with closing(ingest_batches(batches(), writer, args.load_workers, prefetch=prefetch)) as counts:
-                    for count in counts:
-                        loaded += count
-                        if loaded // 1_000_000 > last_checkpoint or loaded == args.rows:
-                            last_checkpoint = loaded // 1_000_000
-                            result["metadata"]["loaded_rows"] = loaded
-                            save(args.output, result)
-                            print(f"Ingested {loaded:,}/{args.rows:,} rows", flush=True)
-                        if time.time() >= args.deadline:
-                            result["metadata"]["stopped_for_budget"] = True
-                            save(args.output, result)
-                            raise RuntimeError("Budget deadline reached during ingestion")
+                if args.load_strategy == "managed-streams":
+                    assignments = row_group_assignments(source_metadata, args.rows, args.load_workers)
+
+                    @contextmanager
+                    def stream_writer():
+                        with dbapi.connect(driver=str(args.driver.resolve()), autocommit=True,
+                                           db_kwargs={"uri": uri, **driver_options(storage), "adbc.redis.aggregate_pushdown": "exact"}) as worker_conn:
+                            with worker_conn.cursor() as worker_cur:
+                                yield lambda reader: worker_cur.adbc_ingest("hits", reader, mode="append", db_schema_name=namespace)
+
+                    def stream_progress(snapshot):
+                        result["metadata"]["stream_load"] = snapshot
+                        result["metadata"]["loaded_rows"] = snapshot["acknowledged_rows"]
+                        save(args.output, result)
+
+                    empty = pa.RecordBatch.from_arrays([pa.array([], type=f.type) for f in schema], schema=schema)
+                    measured = ingest_streams(args.parquet, source_metadata, assignments,
+                        ingest_batch(empty).schema, args.batch_size,
+                        lambda batch: ingest_batch(convert_batch(batch, schema)),
+                        stream_writer, progress=stream_progress, deadline=args.deadline)
+                    loaded = measured["acknowledged_rows"]
+                else:
+                    last_checkpoint = loaded // 1_000_000
+                    with closing(ingest_batches(batches(), writer, args.load_workers, prefetch=prefetch)) as counts:
+                        for count in counts:
+                            loaded += count
+                            if loaded // 1_000_000 > last_checkpoint or loaded == args.rows:
+                                last_checkpoint = loaded // 1_000_000
+                                result["metadata"]["loaded_rows"] = loaded
+                                save(args.output, result)
+                                print(f"Ingested {loaded:,}/{args.rows:,} rows", flush=True)
+                            if time.time() >= args.deadline:
+                                result["metadata"]["stopped_for_budget"] = True
+                                save(args.output, result)
+                                raise RuntimeError("Budget deadline reached during ingestion")
                 # Cloud indexing can lag the completed writes. Include readiness
                 # in load time rather than benchmarking incomplete indexes.
-                deadline = time.monotonic() + 600
-                while True:
-                    num_docs, indexing = index_status(client, f"idx:{namespace}:hits")
-                    if num_docs and all(count == loaded for count in num_docs) and indexing == 0:
-                        break
-                    if time.monotonic() > deadline:
-                        raise RuntimeError("ClickBench index not ready after 600 seconds")
-                    time.sleep(1)
+                if args.load_strategy != "managed-streams":
+                    deadline = time.monotonic() + 600
+                    while True:
+                        num_docs, indexing = index_status(client, f"idx:{namespace}:hits")
+                        if num_docs and all(count == loaded for count in num_docs) and indexing == 0:
+                            break
+                        if time.monotonic() > deadline:
+                            raise RuntimeError("ClickBench index not ready after 600 seconds")
+                        time.sleep(1)
                 cur.execute("SELECT COUNT(*) FROM hits")
                 actual = cur.fetchone()[0]
                 if actual != loaded:
                     raise RuntimeError(f"Ingest count mismatch: expected {loaded}, got {actual}")
+                if args.load_strategy == "managed-streams":
+                    cur.execute("SELECT COUNT(DISTINCT __rowid) FROM hits")
+                    if cur.fetchone()[0] != loaded:
+                        raise RuntimeError("Managed stream native row membership is not unique")
+                    validate_stream_samples(cur, args.parquet, source_metadata, schema, args.rows, args.batch_size)
+                    result["metadata"]["stream_validation"] = "native count + unique row IDs + independent full typed source samples; logical IDs are not source ordinals"
                 elapsed_load = time.perf_counter() - started
                 result["load_time"] = None if previous else elapsed_load
                 if previous:
@@ -449,6 +528,7 @@ def main():
                     result["metadata"]["cleaned_up"] = True
                     save(args.output, result)
     client.close()
+    parquet.close()
 
 
 if __name__ == "__main__":
