@@ -1,7 +1,8 @@
 # Single-pass append: bounded matched evidence
 
-Date: 2026-11-20. Status: bounded correctness and matched control complete;
-full-scale acceptance and human maintainer review remain pending.
+Date: 2026-11-20. Historical bounded BIGINT control. Subsequent representative
+mixed-data closeout is recorded in [the measured acceptance report](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/issue-564.md).
+The original observations below are unchanged.
 See [intent](intent.md), [specification](spec.md), [plan](plan.md), and
 [#564](https://github.com/redis/redis-adbc-driver/issues/564).
 
@@ -15,7 +16,7 @@ compaction was disabled in this control, so it does not measure the compaction
 change or interactions with an active compactor.
 
 The coordinating agent ran both static Linux ARM64 test binaries against the
-same dedicated Redis Software 8.8.0 Flex fixture, from its Linux container network
+same dedicated Redis Software Flex fixture (database reported Redis 8.8.0), from its Linux container network
 namespace over TLS. `REDIS_SNAPSHOT_FLEX=true` enabled the driver's Flex stopgap.
 Management checks established active QPF4, six Search workers, mnp routing,
 32 connections, noeviction and one shard. Setup used `make -C go redis-up`.
@@ -85,5 +86,9 @@ and does not establish source Parquet conversion, string/TAG behavior, SSD
 pressure, background-compaction backlog, reclamation lag or long-run memory
 behavior. There was no 100-million-row ingestion, reusable full-scale backup,
 AWS run or 43-query benchmark in this change. Existing input streaming remains
-stopped. Full-scale issue acceptance and human maintainer review remain pending;
-these results alone are not grounds to close the issue.
+stopped during this original control. These BIGINT-only observations alone did
+not complete acceptance. The later linked mixed-data/resource measurements
+supply the remaining #564 evidence; a 100-million-row run is a separate #566
+criterion. Implementation was merged in PR #569; agent review is not human approval.
+
+Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.

@@ -1,8 +1,9 @@
 # Implementation and validation
 
 Date: 2026-11-20. Source: `1b5918e6`. Status: implementation and focused correctness
-verification and bounded matched control complete; full-scale evidence and human
-review pending.
+verification and representative mixed 105-column comparisons complete.
+A 100-million-row run is not an issue #564 acceptance criterion; human approval
+is not inferred from measurement results.
 See [intent](intent.md), [spec](spec.md) and
 [#564](https://github.com/redis/redis-adbc-driver/issues/564).
 
@@ -23,7 +24,7 @@ agent's clean twelve-observation Linux/Flex comparison and explicit resource and
 full-scale limits. The checks below are the original focused Go correctness
 evidence; they do not imply that the broader integration suite has finished.
 
-Verified dedicated Redis Software 8.8.0 RAM and Flex fixtures: active QPF4, six
+Verified dedicated Redis Software RAM and Flex fixtures (database reported Redis 8.8.0): active QPF4, six
 Search workers, mnp routing, 32 connections, TLS, noeviction, one shard. Fixtures
 were configured through `make -C go redis-up` and management policy verified by
 the coordinating agent. Fixture identities and raw evidence remain private.
@@ -76,6 +77,14 @@ oracles passed, with final notification commands reduced from 64 to zero per
 run. The [evidence record](evidence.md) reports acknowledged-time medians and
 ranges, measured client observations, unavailable server/I/O attribution and the
 discarded image-pull-overlap matrix. No 100,000-row profile or full-scale result
-is implied by the 16,384-row observations. Human maintainer review remains pending.
+is implied by the 16,384-row observations. This paragraph describes the earlier
+BIGINT-only control; later mixed-data closeout is linked below. Implementation
+was merged in PR #569; no separate formal human review decision is invented.
 
 See [combined verification](integration.md) for final integrated checks and limits.
+
+Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.
+
+## Representative mixed-data measurement closeout
+
+The [2026-11-20 measured closeout](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/issue-564.md) supplies three alternating serial/four-writer baseline/current observations for independently typed canonical mixed IPC and streamed 262,144-row data, exact all-105-column value validation, positive command-phase observations and explicit CPU/RSS/I/O scopes. See its per-criterion checklist; #566's separate full-canonical ingestion gate is not imposed on this issue.

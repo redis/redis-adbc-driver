@@ -27,7 +27,7 @@ before merging; no merge or release is part of this work.
 
 ## Checks
 
-Dedicated Redis Software 8.8.0 RAM and Flex fixtures were created through
+Dedicated Redis Software RAM and Flex fixtures (database reported Redis 8.8.0) were created through
 `make -C go redis-up`. Management verification established active 4x QPF, six
 Search workers, mnp routing, 32 connections, one shard, TLS and noeviction.
 Native Linux ARM64 tests ran in the fixture network namespace; the Python test
@@ -75,3 +75,9 @@ queries remain unperformed. Multi-shard runtime work remains gated on supported
 coordination and design review. Keep the issues open for their remaining
 acceptance evidence. The operational ingestion stayed stopped and no AWS job
 was started. Only task-owned disposable test fixtures were used.
+
+Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.
+
+Subsequent [mixed-data closeout](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/issue-564.md) completes the remaining #564 comparison/resource criteria.
+The other issues retain their own acceptance gates; #564 does not require the
+full-canonical loading run specified by #566. Original results above are unchanged.

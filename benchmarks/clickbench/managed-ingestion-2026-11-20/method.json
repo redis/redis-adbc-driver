@@ -1,0 +1,75 @@
+{
+  "baseline_commit": "1b5918e6f1e72ee6e5659efd72547e58108d21a4",
+  "current_commit": "4faa88065450b9451fa5d06b2fe1aff81fb295a9",
+  "harness_sha256": "cff31573396e1d9acf1b54a9190bf1cab124ddc60cbc533beb67627f48ba732a",
+  "server_observer_sha256": "6bf5139d43f51688996d15a94b4cf43e6dbb28b10d4d8338fbd4bed6790fc671",
+  "rows": 262144,
+  "columns": 105,
+  "public_columns_noindex": true,
+  "row_groups": 64,
+  "source_group_rows": 4096,
+  "client_container_memory_bytes": 4294967296,
+  "server_container_memory_bytes": 21474836480,
+  "flex_ram_cache_bytes": 12884901888,
+  "go_environment": {
+    "GODEBUG": "gctrace=1",
+    "GOMEMLIMIT": "1GiB",
+    "GOMAXPROCS": "4",
+    "GOGC": "runtime default100",
+    "REDIS_ADBC_TELEMETRY_DISABLED": "true"
+  },
+  "route": "Linux client in Redis server network namespace",
+  "cache": "warm source; reused Redis process; owned GC drained before next trial; allocator/Flash cache carryover measured",
+  "software_product_build": "8.2.6-58",
+  "redis_database_version": "8.8.0",
+  "software_image_digest": "sha256:679d117a56fc26cf94a394e2c2e619a51235b109254b189ae65f9da499b293e6",
+  "query_performance_factor": 4,
+  "search_workers": 6,
+  "scheduler": "mnp",
+  "connections": 32,
+  "eviction_policy": "noeviction",
+  "single_data_shard": true,
+  "tls": true,
+  "resp": 3,
+  "host": "Apple M5 Max / 36GiB RAM",
+  "docker_vm": {
+    "vcpus": 16,
+    "memory_bytes": 33783865344
+  },
+  "engine": "Flex bigstore v2; search_on_bigstore enabled",
+  "flash": "Docker Desktop shared virtual disk; no dedicated/cold NVMe claim",
+  "source_parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "canonical_ddl_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+  "canonical_arrow_schema_sha256": "e282a85b981043f1271306e6e5772e1e775132f363df3649d2cdca218c30dca7",
+  "pilot_parquet_sha256": "ba8f16d493577426897b54e0b05c4807c303cbb5b6c5cb384441dfbd6e391ce5",
+  "profile_ipc_sha256": "f11f56dc4db25c00723cc46c6d4707e18cd6e65fa09c8b1875ccb8fb8b685e16",
+  "profile_observer_sha256": "b12207f6e7be9a303b6729e228f375c85067126bc7c8cd8e58b852df245573a8",
+  "cshared_driver_sha256": {
+    "baseline": "3aff27c1e0a0c79cf5fbd45ee6eca7c6ecd744d6dd807b611c09596a00d40822",
+    "current": "301c3991be218d836e26db32be16e6aab901157624b4372960395d7c8767e584"
+  },
+  "TLS_trust": "externally configured verified CA; trust files remain private",
+  "go_profile_binaries_sha256": {
+    "baseline": "06a3bf565b30452359a7fdc32c5dded8e706e4fce338da762f281433a38d5b99",
+    "current": "eb30f5a07215ab35d3fa14dd3f753efbe76265aad0783d51f010293ef5f1eea9"
+  },
+  "runtime_versions": {
+    "python": "3.14.10",
+    "pyarrow": "26.0.1",
+    "adbc_driver_manager": "1.13.0",
+    "duckdb": "1.5.6",
+    "go": "1.27.4",
+    "client_os_arch": "linux/arm64"
+  },
+  "go_profile_mode": "static CGO_ENABLED=0 attribution control; input IPC decoded before ACK; background maintenance disabled only in this control",
+  "cshared_mode": "make build driverlib C shared library with version linker flag; streamed Parquet, ordinary background maintenance enabled",
+  "server_platform": {
+    "cached_actual_server_image_architecture": "arm64",
+    "cached_actual_server_image_os": "linux",
+    "container_kernel_machine": "aarch64",
+    "installed_redis_server_and_versioned_8_8_elf_machine": 183,
+    "elf_machine_name": "AArch64",
+    "live_process_executable_inspection": "proc exe unreadable at existing privilege; inspected installed server binaries instead",
+    "emulation": "no x86 image/binary observed; not inferred from ARM client execution"
+  }
+}
