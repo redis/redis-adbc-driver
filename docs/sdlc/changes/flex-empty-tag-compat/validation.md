@@ -4,6 +4,7 @@ Date: 2026-11-21. Base: `139350b7`. Status: bounded workaround validation;
 full-scale crash avoidance and successful 100M publication remain unverified.
 See [intent](intent.md), [specification](spec.md) and [plan](plan.md).
 Implementation: [PR #572](https://github.com/redis/redis-adbc-driver/pull/572).
+Upstream native report: [RediSearch #12458](https://github.com/RediSearch/RediSearch/issues/12458).
 
 ## Native defect and comparison
 
@@ -107,6 +108,42 @@ Provenance SHA256:
 - Frozen private pilot harness:
   `e9dd8cfc11c104775fa968a895ffc19e71636ab806354b273507d009a8399d77`
 
+## Pilot native backup compatibility
+
+The documented Software export API successfully exported the retained pilot
+into one 791,276,467-byte compressed RDB artifact. Complete source and copied
+file SHA256 values matched. The source catalog root, table descriptor and exact
+2,013,006-member directory remained unchanged. Export plus artifact verification
+took 65.253 seconds, with no resource-observer alerts. Source data is retained.
+
+Native import into a separate, freshly verified empty Flex database on the
+same pinned Software build completed in 489.21 seconds. The target used the
+same 32 GiB logical capacity, 1 GiB cache and 8 GiB server cap, with verified
+active 4× QPF. Its restored native index reported exactly 2,013,006 documents,
+zero failures, `indexing=0` and `percent_indexed=1`.
+
+Independent restored-data validation passed in 331.350 seconds, including the
+final admission comparison. It repeated the complete native-ID count/uniqueness
+and schema checks plus five independent typed canonical-source samples. The
+source and restored exact directory SHA256 matched across all 2,013,006 fixed
+20-byte native IDs; catalog root and table descriptor matched. The five saved
+actual-native-ID Arrow rows also matched in physical schema and all 106 columns
+(105 public columns plus native ID). The restored public native schema retained
+all 77 NUMERIC and 28 TAG attributes with zero `INDEXEMPTY` attributes. Active
+4× QPF was reverified after import. The source remained unchanged.
+
+This establishes a reusable local native backup for this same-build 2,013,006-row
+pilot. It does not establish a full-scale backup, cross-version compatibility,
+S3 delivery or AWS restore. The verified artifact remains private.
+
+The first import request was definitively refused because the artifact was
+under a Software system directory. The supported corrected import used the
+same checksum-verified file in a separate service-user-owned, non-system local
+directory. Redis Software 8.2 explicitly requires that location distinction;
+no import restriction or security setting was bypassed. See the
+[8.2 release notes](https://redis.io/docs/latest/operate/rs/release-notes/rs-8-2-releases/)
+and [documented import procedure](https://redis.io/docs/latest/operate/rs/databases/import-export/import-data/).
+
 ## Boundaries
 
 Existing physical indexes are not migrated, and their storage engine is not
@@ -116,7 +153,7 @@ performed for this change. Normal RAM index policy is unchanged, while the
 focused native compatibility run used Flex. Application-owned indexes retain
 their own declared capabilities.
 
-No 100M load or reusable-backup success is claimed. The failed full run remains
+No 100M load or full-scale reusable-backup success is claimed. The failed full run remains
 recorded under its actual earlier driver and native index flags. A future
 canonical indexed load also needs an adequate operation deadline; changing a
 future deadline cannot extend a running statement. Do not replay an unknown
