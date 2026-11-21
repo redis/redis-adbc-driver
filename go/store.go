@@ -453,7 +453,9 @@ func indexAttrArgs(c columnMeta) []any {
 	}
 	if c.PlainIndex {
 		if c.Type.Kind == KindString {
-			return append(attr, "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE", "INDEXEMPTY")
+			// Flex reads managed values through exact directories. Keep empty
+			// values in their HASHes without creating native empty-term postings.
+			return append(attr, "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE")
 		}
 		return append(attr, "NUMERIC")
 	}
@@ -1325,7 +1327,9 @@ func indexCreateArgs(meta *tableMeta) []any {
 		args = append(args, snapshotDeletedField, "NUMERIC")
 	}
 	if meta.SnapshotSourceKey {
-		args = append(args, indexAttrArgs(snapshotSourceKeyColumn())...)
+		column := snapshotSourceKeyColumn()
+		column.PlainIndex = meta.PlainIndex
+		args = append(args, indexAttrArgs(column)...)
 	}
 	for _, c := range meta.Columns {
 		if c.Indexed {
