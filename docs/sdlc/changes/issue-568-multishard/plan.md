@@ -1,37 +1,62 @@
 # Multi-shard managed ingestion: plan and evidence
 
-Date: 2026-11-20. Source: `1b5918e6`. Status: assessment complete; runtime work deferred.
-[Intent](intent.md) · [Specification](spec.md) · [Design](design.md)
+Date: 2026-11-20. Base: `bc6780e9`. User continuation recorded in [intent](intent.md).
+Status: revised contract and executable model delivered; real topology proof pending.
+[Specification](spec.md) · [Design](design.md)
 
-## Completed
+## Completed in this revision
 
-- Inspected `go/snapshot.go`, `snapshot_rows.go`, `snapshot_append.go`,
-  `snapshot_compaction_copy.go` and the ownership/publication invariants.
-- Read current driver issues #339/#340 and upstream Redis #16180/#16184.
-- Checked official Redis Cluster and pipelining references on 2026-11-20.
-- Specified alternatives, required proofs, failure handling and compatibility.
-- Checked local relative documentation links and diff whitespace. No runtime
-  behavior changed for #568; no server tests were needed for this documentation.
+- Re-read #568 and the current single-slot layout, central publication/reference
+  helpers, reader-retention and fenced row-reclamation code.
+- Corrected the earlier claim that runtime progress necessarily waits for a
+  supported coordinated live-view API. Managed immutable data can use one central
+  manifest/reference authority; a custom live distributed snapshot is unnecessary.
+- Specified monotonic central commit/abort/retirement, sealed participant retention,
+  permanent local deletion fences and delayed exact-identity cleanup grants.
+- Rechecked official Redis Software replication/persistence and WAIT/WAITAOF
+  documentation on 2026-11-20. Those facilities are candidates to investigate;
+  their documentation does not itself prove this protocol's rollback safety.
+- Checked documentation links and diff whitespace. This revision changes only
+  the four #568 records; no production files, servers or cloud resources change.
 
-## Phases still requiring decisions and work
+## Executable model delivered
 
-1. Confirm supported server/product coordination, persistence and Search contract
-   with upstream; record exact releases, docs and failure semantics. An open
-   feature request is not an API. Obtain design review before a custom coordinator.
-2. Measure a baseline on an owned verified Software/Flex QPF4 topology: command
-   processor CPU per physical primary, Search worker CPU, client conversion CPU,
-   bytes/rows per shard, network RTT, SSD I/O/latency, index lag, copy/install/GC
-   time and end-to-end acknowledged publication. Separate fresh load from queries.
-3. If a supported primitive satisfies the design, build a fenced experimental
-   layout, starting with one append generation and two real primaries; validate
-   exact distribution and failure behavior before general DML/compaction.
-4. Add pinned readers, DML overlays, concurrent schema work, cross-partition
-   compaction/GC and durable recovery. Inject failures before/after every prepare,
-   seal, publish, outcome read, reference transfer and deletion boundary.
-5. Validate 1/2/4 writers and 1/2/4 physical primaries with constant total data and
-   resources, warm/cold SSD controls and full independent results. Cover all 43
-   queries, concurrent writers/readers, cancellation, resharding, promotion,
-   restart and compatible full backup/restore. Report uneven placement and
-   unsupported diagnostics. Do not claim full-scale results from a tiny fixture.
+Built a bounded reference model as a separately reviewable change. It models two
+participants, a central manifest decision, a reader pin, preparation references,
+local sealing and delayed reclamation grants. Enumerate explicitly bounded
+interleavings of prepare/seal reports, publish/abort, writer expiry, pin/release,
+GC admission, late initialization/writes, delayed/duplicated/lost delivery and
+crash/recovery. Describe the actual bounds and any fairness/liveness limits.
 
-No AWS resources, operational ingestion data or backup artifacts were changed.
+Required checks: no partial publication; retained/pinned generations cannot be
+reclaimed; terminal central retirement forbids later publication/reference;
+local deletion fencing prevents resurrection; lost replies do not replay source;
+and terminal outcomes remain discoverable. Include a negative trace where central
+retirement rolls back after remote deletion, demonstrating the model assumption
+rather than claiming that arbitrary failover is solved. The finite model and 14 tests pass; see [evidence](evidence.md) for exact bounds,
+review findings and counterexamples. This is not a Redis/Lua/runtime or performance
+proof.
+
+## Subsequent implementation and verification
+
+1. Add explicitly fenced experimental placement/participant records and bounded
+   local batch/seal operations under a new format boundary. Keep production
+   protocol 17 unchanged. Exercise narrow prepare/seal/private-output behavior
+   before routing ordinary SQL/Arrow publication through it.
+2. Establish exact Software/Flex product/version, persistence, eligible failover
+   participants and connection/routing semantics for durability barriers. Test
+   central-decision rollback, participant loss and stale cleanup grants; reject
+   unavailable/unsupported cases explicitly. Address local terminal-evidence growth.
+3. Integrate central publication/pins and remote cleanup using the proven state
+   transitions. Native tests use real multi-primary Software/Flex with verified
+   active QPF4; inspect actual physical distribution. No cross-slot script shortcut.
+4. Verify concurrent DML/DDL, exact reads, overlay/tombstone/provenance handling,
+   global merges, cancellation/unknown outcomes, GC/backpressure, promotion,
+   restart, topology change and complete compatible manifest-backed restore.
+5. Measure 1/2/4 writers and physical primaries with controlled total resources,
+   CPU/Search/client/I/O attribution, backlog and validated acknowledged completion.
+   Independently fetch/validate all 43 canonical ClickBench queries. No linear or
+   all-core scaling promise; no full-scale reload without an authorized load run.
+
+The open issue's real-topology and full correctness/performance acceptance remains
+incomplete. No native tests or operational ingestion were run for this revision.

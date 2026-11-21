@@ -1,163 +1,178 @@
-# Multi-shard managed ingestion assessment
+# Immutable generations across shards: coordination assessment
 
-Date: 2026-11-20. Source: `1b5918e6`. Status: investigation, not implemented or approved.
-[Intent](intent.md) · [Specification](spec.md) · [Plan](plan.md)
+Date: 2026-11-20. Base: `bc6780e9`. Status: proposed concrete contract; reference
+model delivered; runtime proof pending. [Intent](intent.md) · [Spec](spec.md) · [Plan](plan.md)
 
-## Evidence and upstream status
+## Revised conclusion and code evidence
 
-`go/snapshot.go` defines protocol 17 and places the catalog and metadata under
-`adbc:{meta}:snapshot:17:`. `snapshot_rows.go` constructs managed row prefixes
-with `{meta}`; index names, exact row directories and atomic copy/write scripts
-rely on that placement. `snapshot_append.go` coordinates private append intents
-and publication into the same logical table. Changing only row prefixes breaks
-fences that atomically reference catalog, ownership graph, directory and rows.
+Immutable managed partitions can be written on several shards and published as
+one logical table by a single-slot manifest decision. Every reader pins that
+manifest and reads only its immutable partition identities. This construction
+does not require a coordinated live-shard read view. The earlier blanket dependency
+on such an upstream facility was overconservative. #339/#340 remain useful for
+native/live read views; their unavailable APIs do not prohibit this work.
 
-Redis's [Cluster specification](https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/)
-limits multi-key operations to one slot. Hash tags deliberately co-locate keys.
-[Pipelining](https://redis.io/docs/latest/develop/using-commands/pipelining/)
-reduces request overhead; it does not make one slot's command execution
-parallel across primaries. QPF increases Search query resources; it is not a
-row-placement protocol. Driver fixtures verify QPF separately from placement.
+The existing implementation already separates central decisions from much of
+physical cleanup. [Publication](../../../../go/snapshot.go) checks the current root,
+workspace and references, then changes the root and terminal outcome centrally.
+[Data references](../../../../go/snapshot_data_refs.go) require live exact physical
+identity before retaining a segment; releases enqueue zero-reference candidates.
+`claim_data` changes an unreferenced generation to deleting before
+`reapSnapshotStep` deletes registered rows. [Row GC](../../../../go/snapshot_gc_batch.go)
+fences each bounded deletion. These are useful patterns; moving their checks to
+different slots requires new participant records and proofs, not prefix edits.
 
-As checked through the primary GitHub API on 2026-11-20, Redis requests
-[#16180](https://github.com/redis/redis/issues/16180) (reusable read views) and
-[#16184](https://github.com/redis/redis/issues/16184) (coordinated cross-shard
-views) are OPEN. Their request bodies do not establish shipped APIs, Search
-participation, product availability or a schedule. This inspection is not proof
-that every product lacks another suitable primitive; product confirmation is
-an explicit discovery gate. Driver [#339](https://github.com/redis/redis-adbc-driver/issues/339)
-tracks native views and [#340](https://github.com/redis/redis-adbc-driver/issues/340)
-tracks coordinated read integration. #568 adds physical ingestion placement;
-a read-only view alone does not make multi-shard publication safe.
+Current [row layout](../../../../go/snapshot_rows.go) and index/directory/write
+fences explicitly use `{meta}` and protocol 17. That is the present implementation,
+not a fundamental requirement that immutable row payloads share the catalog slot.
 
-## Placement and bounded allocation
+## Placement and local preparation
 
-A proposed new-format table descriptor records a placement version, immutable
-logical table identity, generation, partition count, partition-to-tag mapping,
-and membership epoch. A deterministic hash of immutable logical row identity
-selects a partition. Each partition tag co-locates its row HASHes, exact directory,
-local control, durable outcomes and local retention journal. Row identity remains
-logical; physical prefixes never become public `__key` or overwrite provenance.
+A new-format central plan names a fixed bounded set of participants. Each entry
+binds table identity, schema version/hash, generation/incarnation, physical prefix,
+placement tag and partition identity. Register the plan and preparation references
+before input consumption or any remote initialization. Deterministically partition
+logical row IDs; preserve original hidden provenance independently of physical IDs.
 
-Validate the mapping through the management topology and slot ownership against
-physical primaries, including effective QPF on each participant. Several tags
-can land on one primary; reject a claimed scaling experiment unless independent
-counters show writes on distinct primaries. Partition count is distinct from
-writer count. Allocate a bounded worker pool and bounded rows/bytes per partition;
-cap both aggregate queued bytes and active workers. Backpressure must propagate
-to Arrow consumption. Do not materialize the entire input to repartition it.
+Co-locate each participant's HASHes, exact directory, ownership fence, batch
+outcome and seal in its own tag. A bounded worker pool batches by participant;
+cap aggregate queued bytes and apply backpressure to Arrow consumption. Several
+tags may map to one primary, so topology/command counters must establish actual
+distribution. Changing physical slot ownership is distinct from changing the
+logical partition map; migration/failover behavior needs native validation.
 
-Changing partition count or membership is a new immutable placement generation,
-not reinterpreting existing IDs in place. In-flight work stays on its captured
-epoch or fails explicitly. Redirect handling must not replay uncertain writes.
-A supported server contract must define migration/promotion fencing first.
+Local batches atomically validate exact identity, owner/fence, expected checkpoint
+and permissions, then register complete images and their durable outcome. Unknown
+replies are resolved by reading that outcome; no caller input replay. A local
+writable-to-sealed transition fixes row membership, values, counts and index
+readiness. Seal receipts bind the exact central plan and participant incarnation.
+A seal never expires merely because a writer lease ends. Subsequent writes fail.
+The source need not be replayable after process loss; partial private work can abort.
 
-## Publication and ownership: required protocol, unresolved implementation
+## One authoritative central publication and retention decision
 
-An immutable generation can be prepared privately on several shards and made
-visible through one catalog-root decision. This is a possible *logical* model,
-not proof of a complete distributed protocol. Before that decision, every shard
-must durably seal exact schema/generation/partition identity, counts, directories,
-index readiness and immutable data, and retain its output independently of the
-writer process. The central descriptor references only sealed partitions.
+Keep all commit/abort decisions, manifests, preparation/job references, reader
+pins and authoritative transitive liveness in one central slot. Central Lua/CAS
+publishes only a complete verified seal set with unchanged schema/dependencies;
+it atomically installs the manifest, transfers preparation ownership to manifest
+ownership and records the terminal outcome. An uncertain response reads this
+unique durable outcome. A conflicting publication does not replay SQL/Arrow.
+A canceled writer cannot delete an already committed generation.
 
-A suitable supported facility must supply durable ownership transfer and a
-well-defined consistency/durability boundary for these prepared objects and the
-catalog decision. A client collecting receipts and CASing the root is insufficient:
-GC could release a shard's preparation while the root is being committed, or a
-promotion/restore could retain the catalog but lose a partition. Central lease
-expiry cannot authorize shard deletion during an unavailable decision read.
+Pin acquisition is atomic with selecting the central committed manifest. It
+protects that manifest's transitive participant references. Participants do not
+independently expire committed/prepared data or decide liveness from local lease
+age. Therefore independently fetching their already sealed images still reads
+one logical table snapshot. Native live read-view acquisition is unnecessary.
+Expired/invalid reader pins fail under the normal bounded reader contract.
 
-Consequently this assessment does **not** propose implementing a home-grown
-prepare/commit coordinator or call a central CAS a distributed transaction.
-If supported primitives do not supply the needed retention/fencing contract,
-implementation is blocked pending design approval and a separately specified
-coordinator/recovery protocol. All-or-nothing SQL visibility remains required.
+Every partition and query path must verify the expected immutable incarnation,
+seal and exact directory; missing/replaced participants cause an explicit error.
+Never interpret absence as an empty partition or reopen a live generation.
+Logical version/tombstone resolution precedes predicates and aggregation; global
+merge precedes DISTINCT, ORDER BY, OFFSET and LIMIT. Search indexes must be sealed
+and ready for the exact partition or reads use the exact immutable directory.
+Existing local Search/routing assumptions need implementation work. All canonical
+queries require complete, independently checked results before a correctness claim.
 
-Each local batch must atomically validate local epoch, owner token, unexpired
-fence, prefix identity, expected checkpoint and control permissions before
-registering directory entries and writing complete images plus its durable
-outcome. Use local monotonic fencing generations, not synchronized client clocks.
-The central intent records participating partitions and immutable source refs
-before work can escape the writer; admission occurs before consuming Arrow.
-Exact cross-shard retention/decision proofs remain an upstream/design gate.
+## Terminal reclamation authorization: resolving the GC race
 
-## Failure, cancellation, recovery and GC obligations
+A receipt followed by a root CAS alone does not prevent premature collection.
+The missing rule is monotonic central retirement:
 
-| Boundary | Required outcome |
-| --- | --- |
-| One partition refuses before mutation | Stop consumption, cancel siblings; preserve acknowledged counts and prepare ownership until abort is safely decided. |
-| Local mutation reply lost | Read that partition's unique durable outcome; never resend unknown mutation or consume source again. If unreadable, report indeterminate and retain discoverable work. |
-| Writer/coordinator disconnect | A durable discoverable participant set enables bounded recovery; no input/process resume is implied. |
-| Seal partially succeeds | Unsealed generation stays invisible; cleanup proves no publish decision can still refer to each object. |
-| Root decision reply lost | Read unique durable decision; unreadable decision remains indeterminate, not assumed abort. |
-| Cancel after root commit | Report established publication outcome; cleanup cannot delete committed output because caller context ended. |
-| Lease expiry/network partition | Fence stale writers locally; unknown central decision prohibits destructive cleanup. Space/backpressure may increase rather than sacrifice correctness. |
-| DDL or competing DML | Validate pinned dependencies/lineage before publication; conflict without replaying SQL/Arrow. |
-| Missing partition/failover | Preserve promised boundary or return explicit unavailable/invalidation error; never substitute live rows. |
+1. A central atomic transition proves zero transitive reader/manifest/writer/job
+   references, removes future publication/reference eligibility for that generation
+   permanently, and records an exact-identity reclamation grant.
+2. Publish/retain and retire inspect the same central state. If publication wins,
+   retirement is forbidden by its references. If retirement wins, late seal reports,
+   publication or reference acquisition fail permanently. An abort/expiry decision
+   must first make the writer's outcome terminal; local clocks do not authorize GC.
+3. A collector delivers the grant, possibly much later or more than once, only
+   for its bound generation/incarnation/prefix. The local script atomically enters
+   deleting before any physical deletion, rejecting subsequent row writes/seals.
+   A grant arriving before delayed local initialization must also establish that
+   terminal fence, so a late initializer cannot recreate the output.
+4. Delete registered rows/indexes/directories in bounded guarded steps, retain
+   progress/outcomes, then acknowledge completion centrally. Unknown completion
+   replies require reconciliation. Do not erase terminal evidence while old work
+   can arrive; safe tombstone truncation/epoch rotation is a separate proof.
 
-Reader pins require a supported retention boundary spanning the captured manifest's
-partitions. Acquisition must protect all references before exposing rows, bound
-partial acquisition and renew/release/expiry, and clean up abandoned participants.
-A list of independent shard pins acquired at different times is not automatically
-one distributed snapshot. Immutable managed generations simplify value retention,
-but do not by themselves solve reference transfer, collection and topology races.
+No cross-shard atomic command is required for those ordering rules. Remote deletion
+is asynchronous after an irreversible central decision. Network loss causes retained
+private data/backpressure, rather than speculative deletion. Registered unique
+identities and terminal fences prevent late-writer resurrection. This is a driver
+coordination protocol to implement and verify using current primitives, not a
+claim that Redis supplies distributed transactions.
 
-Compaction operates private partition outputs; install must preserve exact source
-range/newer tails and transfer source/output refs safely. GC uses registered exact
-prefixes, shard-local atomic liveness/fence checks and durable work queues. It
-must never scan arbitrary application keys, guess from missing metadata, or treat
-a timed-out coordinator as permission to delete. Retention debt and cleanup lag
-must be observable and bounded by admission/backpressure.
+## Failure model and the actual durability gate
 
-## Query and schema semantics
+The positive reference model must state that committed central and participant
+history does not independently roll back. It can then explore delayed/lost replies,
+writer crashes, cancellation, partial preparation, lease expiry, reader pins and
+reordered/duplicated cleanup deliveries without requiring live views.
 
-One authorized catalog snapshot binds planner, workers and all result pages to
-the same schema, placement and generation. Every participating shard must validate
-the same identity/epoch; capability or authorization failure fails the statement.
-Partition readers resolve newest row versions and tombstones before predicates,
-aggregates and LIMIT. Updates preserve original provenance and routing identity.
-Duplicate overlay versions cannot become duplicate logical rows at merge.
+Rollback is a real separate counterexample: central retirement issues grant G;
+a remote shard deletes; the central shard loses that retirement and recovers an
+older root referencing the deleted participant. Likewise a surviving catalog
+commit can reference a participant whose sealed writes were lost. Ordinary local
+reference checks do not solve either case. Split-brain/stale authority and reset
+or restore epochs must also be fenced; a client clock is insufficient.
 
-Search candidate discovery and HASH reads must share the promised boundary.
-If Search cannot participate, use an approved exact-directory immutable path
-with full predicate checks, not a mixture of live index membership and old rows.
-Partition-local aggregates need exact combiners: SUM/COUNT versus AVG state,
-NULLs, decimal overflow, NaN, DISTINCT and order-sensitive operations differ.
-Top-k/ordered merge needs a global ordering/tie/NULL contract and final
-OFFSET/LIMIT; independent shard limits are insufficient in general. Joins,
-subqueries and partition-independent execution retain the shared catalog pin.
-All canonical queries require complete fetch and independent expected results.
+[Software replication consistency](https://redis.io/docs/latest/operate/rs/databases/durability-ha/consistency/)
+documents asynchronous acknowledgment and WAIT/WAITAOF alternatives. The
+[Software WAIT guide](https://redis.io/docs/latest/operate/rs/clusters/optimize/wait/)
+and [WAITAOF command](https://redis.io/docs/latest/commands/waitaof/) describe
+connection-scoped prior-write acknowledgment and returned counts, including timeout.
+Those facilities are candidates for durable-before-publish and durable-before-delete
+barriers. They are not, by themselves, a proof against history rollback or every
+possible promoted member. Do not issue a barrier on an unrelated pooled connection
+and infer it covers earlier writes; verify routing and connection affinity.
 
-## Storage format, backup and rollout
+[WAIT](https://redis.io/docs/latest/commands/wait/) explicitly does not establish a
+strongly consistent store; WAITAOF likewise retains failover/restart qualifications.
+[Software persistence](https://redis.io/docs/latest/operate/rs/databases/configure/database-persistence/)
+documents AOF policies and that Flex/Auto Tiering flash is not persistent storage.
+Runtime support must bind exact product/version, AOF configuration, acknowledged
+counts, all eligible failover copies and recovery epochs. Verify the complete
+protocol under promotion/restart/restore; do not infer a guarantee from an open
+feature request, replica count alone or a successful small command probe.
 
-A physically distributed layout requires a new explicit storage protocol and
-capability identifier checked before opening or writing. Protocol 17 remains
-single-slot and must be rejected by the distributed reader unless it deliberately
-opens the unchanged legacy path. No automatic in-place migration is designed.
-A supported explicit export/import would create a new destination and validate
-all data before cutover; source ownership is preserved on failure.
+Until that failure contract is demonstrated, the executable model and isolated
+private-write prototype remain useful progress. A runtime path must fail closed
+on unproven/missing participant state or topology/recovery epochs; this is not an
+availability or data-loss guarantee. No sharded production safety is claimed by
+the model's no-rollback assumption.
 
-Full backups must carry the manifest, exact physical prefixes, placement epoch,
-control/ownership/outcome records and every referenced partition at one compatible
-boundary. Independent shard RDB files taken at different logical times are not
-assumed compatible. Restore must prove complete participant coverage, references,
-server/module features, format and effective QPF before queries or writes; reject
-partial/incompatible restores and stale in-flight fences. Restore/remap across a
-changed shard count requires an explicit supported process, not string rewriting.
+## Redis primitive boundaries and backup
 
-## Alternatives and decision
+[Multi-key command guidance](https://redis.io/docs/latest/develop/using-commands/multi-key-operations/)
+and [Software resharding guidance](https://redis.io/faq/doc/2aur5jkvx8/what-needs-to-be-checked-before-resharding-a-redis-enterprise-database)
+require attention to slot locality. Proxy handling of some variadic commands does
+not make arbitrary multi-slot Lua/MULTI atomic. Keep each local batch wholly local
+and the central decision wholly central.
 
-| Option | Benefit | Limitation / disposition |
-| --- | --- | --- |
-| Keep one slot; bounded batch/index/compaction improvements | Existing publication/backup proof; deployable incremental work (#564–567). | Command-thread ceiling remains; measure improvements, no distributed claim. |
-| More clients/readers/pipelines on one slot | Overlap conversion and transport, amortize calls. | Does not distribute row execution. Retain as controlled tuning. |
-| Supported coordinated views/bulk or immutable-generation facility | Prefer server-owned failure, membership and lifetime semantics. | Verify exact product/Search/durability contract; open requests are not availability. Preferred discovery path. |
-| Driver custom distributed coordinator | Could separate catalog decision from private shard writes. | Substantial new protocol and failure/GC proof; not authorized by this assessment. Deferred design gate. |
-| Multiple unrelated tables/databases with client UNION | Easy independent write placement. | Changes table/query/schema/backup semantics; not a substitute for issue acceptance. |
-| RDB/offline import | Potential faster bulk-load path where officially supported. | Requires compatible authoritative control/directory/index format and atomic restore; not a live distributed publication primitive. |
+An immutable manifest also supplies a possible logical backup boundary: pin it,
+retain all referenced sealed participants through export, copy them, and verify
+complete exact identity/count coverage before finalizing a backup manifest.
+Copies need not occur simultaneously because those objects do not change.
+This requires a deliberately specified backup format and restore/recovery epoch;
+it does not establish compatibility for arbitrary independent shard RDBs or
+silently authorize protocol-17 backup reinterpretation. Partial snapshots, missing
+participants and stale writer/delete capabilities must be rejected on restore.
 
-Proceed with compatible single-slot improvements now. Keep multi-shard runtime
-work blocked on a verified supported coordination contract or an explicitly
-reviewed alternative. No multi-primary deployment, distributed ingestion result,
-new backup compatibility or all-core speedup is claimed by this design record.
+## Reference model and next runtime step
+
+The [bounded reference model](../../../../scripts/multishard_model/README.md)
+encodes one central authority, two participants, preparation/seal/publication, one
+reader and delayed terminal GC. Its 3,096-state exploration and 14 tests pass;
+see [evidence](evidence.md) for bounds, review fixes and negative traces. There
+are no row images or native scripts in this model, so it cannot establish their
+atomicity, no-replay implementation, durability or performance. Central rollback
+remains an explicit failing-assumption trace.
+
+Then add a new-format experimental participant layout and narrow bounded private
+batch/seal operations before ordinary SQL/Arrow publication/GC integration.
+Real multi-primary Software/Flex QPF4 tests, schema/overlay/query/backup correctness,
+CPU/storage attribution and end-to-end throughput remain issue acceptance work.
+The user's continued #568 request authorizes continuing that scoped engineering
+work; the earlier generated document's approval wording is not an approval policy.
