@@ -168,7 +168,13 @@ func tagLookup(col columnMeta, v string) (lit string, exact, ok bool) {
 			tag, ok = t, true
 		}
 	}
-	if tag == "" && col.App != nil && !col.App.indexEmpty {
+	indexEmpty := !col.PlainIndex
+	if col.App != nil {
+		// Application-owned indexes advertise their own physical attributes;
+		// the managed plain-index policy must not replace that declaration.
+		indexEmpty = col.App.indexEmpty
+	}
+	if tag == "" && !indexEmpty {
 		// A TAG without INDEXEMPTY holds no empty tag, and refuses to
 		// look one up.
 		return "", false, false

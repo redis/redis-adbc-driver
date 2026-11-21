@@ -7,6 +7,22 @@ and requires RESP3, plain NUMERIC/TAG Search support and noeviction. See the
 
 ## Statement-snapshot implementation
 
+New driver-owned plain Flex TAG indexes omit `INDEXEMPTY`. Empty strings remain
+in their authoritative HASH fields and remain distinct from NULL in SQL. The
+managed directory reader evaluates empty, whitespace and other normalized TAG
+predicates on the stored values; it does not depend on native empty-term
+postings. NUMERIC row-ID membership and the full publication proofs remain
+required. Normal RAM indexes and application-owned index capabilities retain
+their existing policy.
+
+This is a driver compatibility workaround for native empty-TAG compaction
+behavior observed on Software 8.2.6-58 / Search 8.8.8, not a storage-engine fix.
+Existing physical indexes are not rewritten when opened; an old index that
+contains `INDEXEMPTY` retains that native risk. Historical backups and results
+keep their original index settings. See the
+[change record](sdlc/changes/flex-empty-tag-compat/validation.md) for actual
+validation and limits, including the outstanding full-scale rerun.
+
 Flex snapshot reads traverse exact immutable row-ID directories and retrieve
 HASH values. Newest versions and tombstones are resolved before predicates,
 sorting, aggregation and SQL limits. This applies to single-segment baselines

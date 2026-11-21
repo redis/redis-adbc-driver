@@ -31,7 +31,7 @@ import (
 func TestFlexPlainSchema(t *testing.T) {
 	meta := &tableMeta{PlainIndex: true, Columns: []columnMeta{{Name: "n", Type: typeInt64, Indexed: true}, {Name: "s", Type: typeString, Indexed: true}}}
 	args := fmt.Sprint(indexCreateArgs(meta))
-	if strings.Contains(args, "SORTABLE") || strings.Contains(args, "UNF") || !strings.Contains(args, "__rowid NUMERIC n NUMERIC s TAG") {
+	if strings.Contains(args, "SORTABLE") || strings.Contains(args, "UNF") || strings.Contains(args, "INDEXEMPTY") || !strings.Contains(args, "__rowid NUMERIC n NUMERIC s TAG") {
 		t.Fatal(args)
 	}
 	c := columnMeta{Indexed: true, PlainIndex: true, Type: typeInt64}
@@ -39,8 +39,8 @@ func TestFlexPlainSchema(t *testing.T) {
 		t.Fatal("plain index qualified for sortable pushdown")
 	}
 	meta.PlainIndex = false
-	if !strings.Contains(fmt.Sprint(indexCreateArgs(meta)), "SORTABLE") {
-		t.Fatal("standard schema lost SORTABLE")
+	if args := fmt.Sprint(indexCreateArgs(meta)); !strings.Contains(args, "SORTABLE") || !strings.Contains(args, "INDEXEMPTY") {
+		t.Fatal("standard schema lost SORTABLE or INDEXEMPTY", args)
 	}
 }
 
