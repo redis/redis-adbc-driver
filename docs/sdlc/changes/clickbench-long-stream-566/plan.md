@@ -38,7 +38,7 @@ DDL `schema_sha256` separate from `arrow_schema_sha256` and optional source hash
 The integration coordinator ran the full ClickBench Python suite on Linux:
 **156 tests, OK, 3 unrelated Linux-isolation skips**. This includes real native
 serial, four-stream and four-stream NOINDEX ingestion on independently verified
-Redis Software 8.8 Flex with active 4× QPF. Each native case uses a synthetic
+Redis Software Flex (database reported Redis 8.8.0) with active 4× QPF. Each native case uses a synthetic
 23-row, 105-column source with exact values, uneven groups, reader closure and
 native membership checks. Environment: Python 3.14.10, PyArrow 26, ADBC manager
 1.13, DuckDB 1.5.6, built Linux C shared driver, owned server network namespace.
@@ -55,3 +55,5 @@ The full-scale load remains stopped. No 99,997,497-row load, all-row value proof
 full-scale throughput/RSS result, reusable backup or backup/restore measurement
 was produced. No AWS resources were started. Tiny native tests establish focused
 correctness, not a full-scale speedup, memory plateau or completed benchmark.
+
+Product-version wording is clarified in the [measurement provenance erratum](../../../../benchmarks/clickbench/managed-ingestion-2026-11-20/provenance-erratum.md); historical timings and settings are unchanged.
