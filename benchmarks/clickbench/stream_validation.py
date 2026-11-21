@@ -54,6 +54,17 @@ def ascending_ids(batch, previous=None):
     return bool(ordered), last
 
 
+def validate_point_schema(actual, canonical):
+    """Names/order and physical Arrow types are exact; query nullability may widen.
+
+    Python numeric equality alone accepts Decimal/int, float/int and bool/int.
+    Field metadata and nullability are not canonical query-value type identity.
+    """
+    expected_names = [field.name.lower() for field in canonical]
+    if actual.names != expected_names or actual.types != canonical.types:
+        raise ValueError("Native point result physical Arrow schema differs from canonical columns")
+
+
 class IDSpool:
     """Rotate files so Parquet footer metadata is bounded as well as row data."""
     def __init__(self, directory, schema, file_rows=1 << 20):
@@ -165,6 +176,7 @@ def validate_managed_stream(cursor, path, metadata, schema, expected_rows, *,
                         cursor.execute(f"SELECT * FROM hits WHERE __rowid = {row_id}")
                         target = None
                         with cursor.fetch_record_batch() as reader:
+                            validate_point_schema(reader.schema, schema)
                             for batch in reader:
                                 if batch.num_rows:
                                     if target is not None or batch.num_rows != 1:

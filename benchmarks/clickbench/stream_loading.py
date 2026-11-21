@@ -5,6 +5,7 @@ worker-owned. No producer queue, allocator purge or retry is used here.
 """
 from dataclasses import dataclass
 import queue
+import signal
 from contextlib import closing
 import threading
 import resource
@@ -81,6 +82,10 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
     completed = queue.Queue()
     cancel_threads = []
     cancel_started = None
+    startup_gate = threading.Event()
+    interrupted = False
+    inline_cancels = set()
+    error = None
     states = [{"worker": n, "row_groups": len(groups),
                "expected_rows": sum(s[2] for s in groups),
                "source_rows_yielded": 0, "acknowledged_rows": 0,
@@ -111,6 +116,33 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
                         ("published", "published_after_cancel_request", "empty") for s in states),
                     "maintenance": "normal driver maintenance enabled; state not exposed by public ADBC API"}
 
+    def remember_failure(failure):
+        nonlocal error
+        error = error or failure
+        stop.set()
+
+    def cancel_once(number):
+        with handle_locks[number]:
+            handle = active.get(number)
+            if handle is None:
+                return False
+            update(number, cancel_requested=True)
+            try:
+                handle.cancel()
+            except BaseException:
+                update(number, cancel_error=True)
+            return True
+
+    def join_owned(thread):
+        # Defer even a directly raised/injected KeyboardInterrupt until every
+        # C Arrow owner and cancellation helper has completed its ownership.
+        while True:
+            try:
+                thread.join()
+                return
+            except BaseException as failure:
+                remember_failure(failure)
+
     def request_cancel():
         nonlocal cancel_started
         stop.set()
@@ -122,26 +154,31 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
         # a broken/noncooperative C driver; never abandon live C Arrow owners.
         for number in range(len(assignments)):
             def cancel(number=number):
-                while True:
-                    with handle_locks[number]:
-                        handle = active.get(number)
-                        if handle is None:
-                            return
-                        update(number, cancel_requested=True)
-                        try:
-                            handle.cancel()
-                        except BaseException:
-                            update(number, cancel_error=True)
-                    # Repeat while active: cancellation could race the native
-                    # execution's start before it has consumed its first batch.
+                while cancel_once(number):
+                    # Repeat across the native execution-start race.
                     time.sleep(0.05)
-            thread = threading.Thread(target=cancel)
-            cancel_threads.append(thread)
-            thread.start()
+            thread = None
+            try:
+                thread = threading.Thread(target=cancel)
+                thread.start()
+            except BaseException as failure:
+                remember_failure(failure)
+                if thread is not None and thread.ident is not None:
+                    cancel_threads.append(thread)
+                else:
+                    # Thread creation failure must not disable cancellation.
+                    inline_cancels.add(number)
+                    update(number, cancel_error=True)
+            else:
+                cancel_threads.append(thread)
 
     def worker(number, groups):
         count, error = 0, None
         try:
+            startup_gate.wait()
+            if stop.is_set():
+                update(number, phase="canceled_before_append")
+                return
             if not groups:
                 update(number, phase="empty", source_complete_seconds=0.0)
                 return
@@ -185,42 +222,82 @@ def ingest_streams(path, metadata, assignments, schema, batch_size, convert,
             update(number, worker_finished=True)
             completed.put((number, error))
 
-    # Every owner and cancellation thread joins before returning. No foreign
-    # thread closes a cursor or Arrow reader, including caller interruption.
-    threads = [threading.Thread(target=worker, args=(n, groups))
-               for n, groups in enumerate(assignments)]
-    for thread in threads:
-        thread.start()
-    pending, error = set(range(len(threads))), None
+    # Install signal deferral before the first thread starts. A real SIGINT
+    # cannot tear Thread.start/join between ownership registration and cleanup.
+    # Non-main callers still get the same handling for raised exceptions.
+    original_sigint = None
+    if (threading.current_thread() is threading.main_thread() and
+            signal.getsignal(signal.SIGINT) is signal.default_int_handler):
+        original_sigint = signal.default_int_handler
+        def defer_interrupt(signum, frame):
+            nonlocal interrupted
+            # Signal handlers cannot take Event/registry locks or call ADBC.
+            interrupted = True
+        signal.signal(signal.SIGINT, defer_interrupt)
+    # Preserve SIG_IGN, SIG_DFL and custom handlers unchanged. Only Python's
+    # standard KeyboardInterrupt handler participates in this deferral.
+    threads, pending = [], set()
     callback_failed = False
-    while pending:
+    try:
+        # No native append starts until startup succeeds as a whole. A partial
+        # startup failure releases started owners into a canceled state instead.
         try:
-            if time.time() >= deadline and error is None:
-                error = RuntimeError("Load deadline reached; active statements canceled without replay")
-                request_cancel()
-            if stop.is_set():
-                request_cancel()
-            try:
-                number, failure = completed.get(timeout=0.05)
-            except queue.Empty:
-                number, failure = None, None
-            if number is not None:
-                pending.remove(number)
-                threads[number].join()
-                if failure is not None:
-                    error = error or failure
-                    request_cancel()
-            if progress and not callback_failed:
+            for number, groups in enumerate(assignments):
+                thread = threading.Thread(target=worker, args=(number, groups))
                 try:
-                    progress(snapshot())
-                except BaseException:
-                    callback_failed = True
-                    raise
+                    thread.start()
+                except BaseException as failure:
+                    remember_failure(failure)
+                    if thread.ident is not None:
+                        threads.append(thread)
+                        pending.add(number)
+                    break
+                else:
+                    threads.append(thread)
+                    pending.add(number)
         except BaseException as failure:
-            error = error or failure
-            request_cancel()
-    for thread in cancel_threads:
-        thread.join()
+            remember_failure(failure)
+        finally:
+            if interrupted:
+                remember_failure(KeyboardInterrupt())
+            startup_gate.set()
+        while pending:
+            try:
+                if interrupted:
+                    remember_failure(KeyboardInterrupt())
+                if time.time() >= deadline and error is None:
+                    remember_failure(RuntimeError("Load deadline reached; active statements canceled without replay"))
+                if stop.is_set():
+                    request_cancel()
+                for number in inline_cancels:
+                    cancel_once(number)
+                try:
+                    number, failure = completed.get(timeout=0.05)
+                except queue.Empty:
+                    number, failure = None, None
+                if number is not None:
+                    pending.remove(number)
+                    if failure is not None:
+                        remember_failure(failure)
+                        request_cancel()
+                if progress and not callback_failed:
+                    try:
+                        progress(snapshot())
+                    except BaseException:
+                        callback_failed = True
+                        raise
+            except BaseException as failure:
+                remember_failure(failure)
+                request_cancel()
+        for thread in threads:
+            join_owned(thread)
+        for thread in cancel_threads:
+            join_owned(thread)
+        if interrupted:
+            remember_failure(KeyboardInterrupt())
+    finally:
+        if original_sigint is not None:
+            signal.signal(signal.SIGINT, original_sigint)
     final = snapshot()
     if progress and not callback_failed:
         try:

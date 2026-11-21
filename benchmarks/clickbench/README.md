@@ -194,7 +194,12 @@ DuckDB memory limits are separate from Arrow/Python buffers and process RSS.
 Deadlines, sibling failures and caller interruption actively cancel all worker
 statements through public ADBC cancellation, including after source EOF during
 index sealing. Every worker and cancellation thread joins before the error is
-returned; source/Arrow/cursor cleanup stays with its owner. Known successful
+returned; source/Arrow/cursor cleanup stays with its owner. Startup is gated so
+a partial thread-start failure cannot leave an append running. Standard main-thread
+Ctrl-C is deferred during ownership cleanup; custom/ignored signal handlers retain
+their behavior. Native sample result column names/order and physical Arrow types
+must match the canonical schema before values are compared; query nullability
+metadata is allowed to widen. Known successful
 acknowledgments remain recorded even if cancellation races publication. Every
 unresolved worker publication outcome, including a lost append reply without any
 cancel error, preserves owned data and suppresses optional DDL cleanup. This

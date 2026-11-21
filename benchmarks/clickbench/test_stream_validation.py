@@ -7,7 +7,7 @@ import unittest
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from stream_validation import validate_managed_stream, IDSpool
+from stream_validation import validate_managed_stream, IDSpool, validate_point_schema
 
 
 class StreamValidation(unittest.TestCase):
@@ -62,6 +62,36 @@ class StreamValidation(unittest.TestCase):
     def validate(self, ids, **kwargs):
         return validate_managed_stream(self.cursor(ids), self.path, self.metadata,
             self.schema, len(ids), batch_size=8192, temp_parent=self.directory.name, **kwargs)
+
+    def test_equal_python_values_with_wrong_physical_types_are_rejected(self):
+        canonical = pa.schema([pa.field("N", pa.int64(), nullable=False)])
+        for kind, value in [(pa.float64(), 1.0), (pa.bool_(), True), (pa.decimal128(38, 0), 1)]:
+            with self.subTest(kind=kind):
+                actual = pa.schema([pa.field("n", kind, nullable=True)])
+                self.assertEqual(pa.array([value], type=kind).to_pylist(), [1])
+                with self.assertRaisesRegex(ValueError, "physical Arrow schema"):
+                    validate_point_schema(actual, canonical)
+        # Query nullability may widen; it is deliberately not a type mismatch.
+        validate_point_schema(pa.schema([pa.field("n", pa.int64(), nullable=True)]), canonical)
+        with self.assertRaisesRegex(ValueError, "physical Arrow schema"):
+            validate_point_schema(pa.schema([("N", pa.int64())]), canonical)
+
+    def test_validator_rejects_equal_decimal_point_values_before_python_comparison(self):
+        cursor = self.cursor([11 + 3 * i for i in range(self.rows)])
+        original = cursor.fetch_record_batch
+        def fetch():
+            reader = original()
+            if cursor.rowid is None:
+                return reader
+            with reader:
+                table = reader.read_all()
+            index = table.schema.get_field_index("watchid")
+            table = table.set_column(index, "watchid", table.column(index).cast(pa.decimal128(38, 0)))
+            return table.to_reader()
+        cursor.fetch_record_batch = fetch
+        with self.assertRaisesRegex(ValueError, "physical Arrow schema"):
+            validate_managed_stream(cursor, self.path, self.metadata, self.schema,
+                self.rows, temp_parent=self.directory.name)
 
     def test_spool_rotates_to_bound_footer_metadata(self):
         schema = pa.schema([("__rowid", pa.int64())])

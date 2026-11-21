@@ -41,3 +41,22 @@ A subsequent independent review identified an uncertain append reply after EOF
 without a cancel error. All unresolved worker publication outcomes now preserve
 owned data. The regression asserts both the progress state and run.main's shared
 DDL-cleanup decision helper refuse cleanup after that unknown result.
+
+Further review tightened lifecycle startup and typed value proof. Worker startup
+is gated before any append; partial thread-start failures release/cancel/join
+started owners before error propagation. Cleanup joins defer repeat interrupts.
+Only the main thread's standard Python SIGINT handler is temporarily deferred;
+its handler sets a scalar flag without acquiring locks or calling ADBC. Custom,
+ignored and OS-default handlers retain their original behavior.
+
+Native point samples require canonical lowercase column names/order and exact
+Arrow physical types before Python tuple comparison. Query nullability and field
+metadata may differ intentionally. This rejects Python-equal float, bool and
+Decimal values returned under an incorrect physical type.
+
+P2 verification: full ClickBench Python suite 151 tests, 5 skips; after adding
+one real repeated-SIGINT startup test, focused stream suite 28 tests, 2 native
+skips. Tests cover second Thread.start failure, repeat interrupt during joins,
+real repeated SIGINT during gated startup, preserved custom/ignored handlers,
+float/bool/Decimal physical type refusals, and the actual point-sample validation
+path with equal-valued Decimal output. `git diff --check` passes.

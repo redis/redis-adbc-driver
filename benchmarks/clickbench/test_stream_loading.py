@@ -3,6 +3,7 @@ from collections import Counter
 from contextlib import contextmanager
 import datetime
 import os
+import signal
 import uuid
 
 import adbc_driver_manager.dbapi as dbapi
@@ -12,6 +13,7 @@ from pathlib import Path
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -199,6 +201,103 @@ class StreamLoading(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual(snapshots[-1]["source_rows_yielded"], 0)
         self.assertEqual(snapshots[-1]["acknowledged_rows"], 0)
+
+    def test_partial_thread_start_failure_joins_owners_before_return(self):
+        original = threading.Thread.start
+        started, calls, snapshots = [], [], []
+        attempts = 0
+        def start(thread):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 2:
+                raise RuntimeError("injected second worker startup failure")
+            original(thread)
+            started.append(thread)
+        @contextmanager
+        def writer():
+            def append(reader):
+                calls.append(True)
+                return reader.read_all().num_rows
+            yield StreamWriter(append, lambda: None)
+        with patch.object(threading.Thread, "start", start):
+            with self.assertRaisesRegex(RuntimeError, "second worker startup failure") as caught:
+                ingest_streams(self.path, self.metadata,
+                    row_group_assignments(self.metadata, 23, 4), self.target_schema,
+                    2, self.convert, writer, progress=snapshots.append)
+        self.assertFalse(any(thread.is_alive() for thread in started))
+        self.assertEqual(calls, [])  # Startup gate prevents any native publication.
+        self.assertTrue(snapshots[-1]["preserve_owned_data"])
+        self.assertFalse(cleanup_allowed(True, caught.exception.stream_snapshot))
+
+    def test_second_interrupt_during_join_is_deferred_until_all_owners_finish(self):
+        original = threading.Thread.join
+        injected = False
+        def join(thread, *args, **kwargs):
+            nonlocal injected
+            if not injected:
+                injected = True
+                raise KeyboardInterrupt()
+            return original(thread, *args, **kwargs)
+        # First interrupt comes from the progress callback after source EOF;
+        # the injected second interrupt arrives while ownership is being joined.
+        with patch.object(threading.Thread, "join", join):
+            self.cancel_after_eof("interrupt")
+        self.assertTrue(injected)
+
+    def test_standard_sigint_during_startup_defers_and_joins_every_owner(self):
+        original_start = threading.Thread.start
+        original_handler = signal.getsignal(signal.SIGINT)
+        started, calls = [], []
+        @contextmanager
+        def writer():
+            def append(reader):
+                calls.append(True)
+                return reader.read_all().num_rows
+            yield StreamWriter(append, lambda: None)
+        def start(thread):
+            original_start(thread)
+            started.append(thread)
+            if len(started) == 1:
+                signal.raise_signal(signal.SIGINT)
+                signal.raise_signal(signal.SIGINT)
+        try:
+            signal.signal(signal.SIGINT, signal.default_int_handler)
+            with patch.object(threading.Thread, "start", start):
+                with self.assertRaises(KeyboardInterrupt) as caught:
+                    ingest_streams(self.path, self.metadata,
+                        row_group_assignments(self.metadata, 23, 4), self.target_schema,
+                        2, self.convert, writer)
+            self.assertFalse(any(thread.is_alive() for thread in started))
+            self.assertEqual(calls, [])
+            self.assertTrue(caught.exception.stream_snapshot["preserve_owned_data"])
+            self.assertIs(signal.getsignal(signal.SIGINT), signal.default_int_handler)
+        finally:
+            signal.signal(signal.SIGINT, original_handler)
+
+    def test_custom_and_ignored_sigint_handlers_are_preserved(self):
+        original = signal.getsignal(signal.SIGINT)
+        calls = []
+        @contextmanager
+        def writer():
+            yield StreamWriter(lambda reader: reader.read_all().num_rows, lambda: None)
+        try:
+            for handler in (lambda signum, frame: calls.append(signum), signal.SIG_IGN):
+                signal.signal(signal.SIGINT, handler)
+                sent = False
+                def progress(snapshot):
+                    nonlocal sent
+                    self.assertIs(signal.getsignal(signal.SIGINT), handler)
+                    if not sent:
+                        sent = True
+                        signal.raise_signal(signal.SIGINT)
+                result = ingest_streams(self.path, self.metadata,
+                    row_group_assignments(self.metadata, 23, 1), self.target_schema,
+                    2, self.convert, writer, progress=progress)
+                self.assertEqual(result["acknowledged_rows"], 23)
+                self.assertIs(signal.getsignal(signal.SIGINT), handler)
+            self.assertEqual(calls, [signal.SIGINT])
+        finally:
+            signal.signal(signal.SIGINT, original)
 
     def cancel_after_eof(self, cause):
         input_done, canceled = threading.Event(), threading.Event()
