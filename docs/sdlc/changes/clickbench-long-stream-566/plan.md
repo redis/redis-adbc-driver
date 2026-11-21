@@ -1,73 +1,57 @@
 # Long managed ClickBench streams: plan and evidence
 
-Date: 2026-11-20. Source: 1b5918e6. Status: implementation complete; native/performance evidence pending.
-Issue: https://github.com/redis/redis-adbc-driver/issues/566
+Date: 2026-11-20. Baseline: `1b5918e6`.
+Status: implementation and focused Software/Flex correctness validated;
+full-scale performance acceptance remains open.
+Issue: [#566](https://github.com/redis/redis-adbc-driver/issues/566).
+[Intent](intent.md) · [Specification](spec.md)
 
-## Implementation and verification
+## Delivered behavior
 
-run.py, stream_loading.py, test_stream_loading.py and README.md. Implement source partitioning, long append ownership and progress first; validate failures, exact values and native SQL membership. Full-scale loading and backup performance remain unmeasured and are outside this change; the user stopped the operational load.
+`run.py --load-strategy managed-streams` creates the table through the coordinator,
+then uses one long append on each of 1–4 independent ADBC connections. Workers
+receive disjoint, exhaustive row-group slices, including uneven source prefixes.
+The default batch strategy is retained. Streams have no producer queue or replay;
+source-yielded rows and successful publication acknowledgments are separate.
+Private staging, index-seal and maintenance phases are explicitly unavailable;
+normal driver proofs/maintenance remain enabled and backup readiness stays false.
 
-Nine focused synthetic tests passed. Full harness command: `uv run --python 3.14 --with pyarrow --with redis --with adbc-driver-manager --with duckdb python -m unittest discover -s benchmarks/clickbench -p 'test_*.py'`: 135 tests passed, 5 skips (3 existing Linux-only and 2 new native fixture tests). Environment: Python 3.14.10, PyArrow 26.0.1. `git diff --check` passed. A first broader run lacked optional DuckDB and failed imports; rerun with the dependency passed.
+Startup is gated before any append. Failure, deadline and interruption actively
+cancel statements, including after source EOF, and join every owner before return.
+Unresolved outcomes preserve owned data and suppress optional DDL cleanup.
+Standard main-thread SIGINT is deferred at ownership boundaries; custom/ignored
+handlers are preserved. Validator watchers protect startup/join, retain ordinary
+query-body interrupts and repeat cancellation across execution-start races.
+A broken/noncooperative native driver needs a process supervisor for a hard limit.
 
-Self-review checked disjoint prefix coverage, no replay, failed/unknown acknowledgments, EOF versus publication timing, current-reader cleanup, reader/C Arrow ownership, and absence of private operational artifacts. Material behavior still requires human maintainer review; self-review is not approval. Native tests require allocated independently verified Software QPF4; skipped without fixture variables. No AWS, full ingestion, backup creation, speedup or full-scale memory plateau was attempted.
+Membership validation streams only row IDs to rotating temporary Parquet files.
+Strict adjacent checks use a linear sorted fast path; unordered output uses a
+bounded DuckDB external sort. There is no global Go DISTINCT state or repeated
+wide Redis scan. Logical-ID point samples require exact canonical column names,
+order and Arrow physical types, then compare all values with independent
+`references.typed_source` SQL casts. Logical IDs never imply source ordinals.
+Validation has explicit memory, temporary-disk and time budgets. Provenance keeps
+DDL `schema_sha256` separate from `arrow_schema_sha256` and optional source hash.
 
-## Review corrections and current evidence
+## Verification and review
 
-Independent root review found that the initial implementation only stopped input
-and could leave an EOF peer sealing, and that global COUNT DISTINCT / repeated
-WatchID-filtered native scans were unsuitable for full-scale validation. The
-follow-up registers public statement cancellation, checks coordinator deadlines
-after EOF, joins every worker/cancel owner, and preserves unknown cancellation
-outcomes without replay or optional DDL cleanup. A hard limit for a broken native
-driver requires process isolation; no daemon native Arrow owners are abandoned.
+The integration coordinator ran the full ClickBench Python suite on Linux:
+**156 tests, OK, 3 unrelated Linux-isolation skips**. This includes real native
+serial, four-stream and four-stream NOINDEX ingestion on independently verified
+Redis Software 8.8 Flex with active 4× QPF. Each native case uses a synthetic
+23-row, 105-column source with exact values, uneven groups, reader closure and
+native membership checks. Environment: Python 3.14.10, PyArrow 26, ADBC manager
+1.13, DuckDB 1.5.6, built Linux C shared driver, owned server network namespace.
 
-Membership now spools only row IDs to rotating Parquet files. Exact adjacent
-checks use a linear sorted fast path or a memory/disk bounded DuckDB external
-sort for valid unordered SQL output. Destination logical-ID point samples are
-compared with independent DuckDB typed_source SQL casts, not ingestion conversion.
-Tests include 70,003 sparse/unordered IDs, duplicates across batches, spool
-rotation, value corruption and disk/deadline cleanup, plus EOF sibling-error,
-deadline and KeyboardInterrupt cancellation.
+Synthetic regressions additionally cover 70,003 sparse/unordered IDs, cross-batch
+duplicates, spool rotation, value/schema corruption, budgets, partial thread
+startup, EOF cancellation, repeated interrupts and watcher ownership. Independent
+agent review reports no outstanding findings; eight focused review checks passed.
+`git diff --check` passed. Human maintainer approval is not recorded.
 
-Current full harness: 146 tests, 5 skips on Python 3.14.10 / PyArrow 26.0.1 /
-DuckDB 2.0.1. The 21 focused stream tests also passed with DuckDB 1.5.6 (2 native
-skips); a subsequent spool-rotation test passes on the current full suite. Native
-tests remain skipped in this worktree, pending root's allocated verified fixture.
-`git diff --check` passes. Full-scale throughput/RSS/backup evidence is still absent.
+## Remaining evidence
 
-See [intent](intent.md) and [spec](spec.md).
-
-A subsequent independent review identified an uncertain append reply after EOF
-without a cancel error. All unresolved worker publication outcomes now preserve
-owned data. The regression asserts both the progress state and run.main's shared
-DDL-cleanup decision helper refuse cleanup after that unknown result.
-
-Further review tightened lifecycle startup and typed value proof. Worker startup
-is gated before any append; partial thread-start failures release/cancel/join
-started owners before error propagation. Cleanup joins defer repeat interrupts.
-Only the main thread's standard Python SIGINT handler is temporarily deferred;
-its handler sets a scalar flag without acquiring locks or calling ADBC. Custom,
-ignored and OS-default handlers retain their original behavior.
-
-Native point samples require canonical lowercase column names/order and exact
-Arrow physical types before Python tuple comparison. Query nullability and field
-metadata may differ intentionally. This rejects Python-equal float, bool and
-Decimal values returned under an incorrect physical type.
-
-P2 verification: full ClickBench Python suite 151 tests, 5 skips; after adding
-one real repeated-SIGINT startup test, focused stream suite 28 tests, 2 native
-skips. Tests cover second Thread.start failure, repeat interrupt during joins,
-real repeated SIGINT during gated startup, preserved custom/ignored handlers,
-float/bool/Decimal physical type refusals, and the actual point-sample validation
-path with equal-valued Decimal output. `git diff --check` passes.
-
-Validator deadline watcher ownership received the same lifecycle review. Startup
-is now inside its protected cleanup scope; standard main-thread SIGINT is deferred
-only during short start/join ownership boundaries, leaving query-body interrupt
-behavior unchanged. Cleanup retries repeat interrupts and joins every started
-watcher before cursor reuse/close. Deadline cancellation repeats until scope end
-to cover a no-op cancel before native execution starts. The cooperative-cancel /
-external process-supervisor limitation remains explicit. Three regressions use
-fake cancel callbacks and post-return guard intervals: interrupt after watcher
-start, second interrupt during active cancel/join, and pre-execution cancel retry.
-The focused validator suite passed (13 tests); `git diff --check` passed.
+The full-scale load remains stopped. No 99,997,497-row load, all-row value proof,
+full-scale throughput/RSS result, reusable backup or backup/restore measurement
+was produced. No AWS resources were started. Tiny native tests establish focused
+correctness, not a full-scale speedup, memory plateau or completed benchmark.
