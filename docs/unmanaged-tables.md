@@ -44,6 +44,14 @@ The mode option is also available on a connection; set it before enabling
 index names. Quote punctuation, for example `redis_foreign."idx:users"`.
 Multiple source prefixes and index FILTER membership are respected.
 
+Native filtered indexes on tested Software RAM and Flex builds can omit
+application keys containing a zero byte, including after TTL notifications.
+The HASH can still exist and satisfy the FILTER. Complete filtered-index
+inclusion is not guaranteed for these keys; use NUL-free application key names
+when that inclusion is required. Reads follow native membership and do not
+repair the application index. See the
+[native controls and affected configurations](sdlc/changes/defaults-and-binary-membership/validation.md#native-search-investigation-559).
+
 Foreign column inference samples up to 128 source HASHes and includes indexed
 attributes. Incompatible values outside the sample can fail a query. Explicit
 `adbc.redis.foreign_indexes_refresh=true` refreshes registered schema and source

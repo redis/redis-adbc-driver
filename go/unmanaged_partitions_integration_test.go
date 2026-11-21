@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -85,6 +86,18 @@ func unmanagedPartitionFixture(t *testing.T) (*sqlHarness, *goredis.Client, adbc
 	members, err := parseSearchCount(reply)
 	if err != nil || members < 0 || members > 1 {
 		t.Fatal("native NUL membership oracle", members, err)
+	}
+	full, err := raw.Do(h.ctx, "FT.SEARCH", "source_idx", "*", "NOCONTENT", "LIMIT", 0, 128, "DIALECT", 2).Result()
+	if err != nil || snapshotReplyWarning(full) {
+		t.Fatal("native complete membership oracle", err)
+	}
+	keys, err := parseSearchKeys(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count, err := parseSearchCount(full)
+	if err != nil || count != int64(len(keys)) || slices.Contains(keys, nulKey) != (members == 1) || !slices.Contains(keys, binaryKey) {
+		t.Fatal("complete and singleton membership controls disagree", count, err)
 	}
 	if members == 1 {
 		expected[nulKey] = unmanagedPartitionTestRow{[]byte(nulKey), "1002", "9007199254741995", "nul-key"}
@@ -738,5 +751,110 @@ func TestUnmanagedPartitionBufferedIndexIdentity(t *testing.T) {
 				t.Fatal("buffered result escaped after native index-definition change")
 			}
 		})
+	}
+}
+
+// The unfiltered control proves positive NUL-key coverage as well as following
+// a filtered index's native omission. No application index is repaired by reads.
+func TestUnmanagedPartitionBinaryMembershipControls(t *testing.T) {
+	for _, filtered := range []bool{false, true} {
+		for _, initial := range []bool{false, true} {
+			t.Run(fmt.Sprintf("filter=%v/initial=%v", filtered, initial), func(t *testing.T) {
+				h, raw, _ := newSnapshotHarnessMode(t, false, false)
+				keys := []string{"app:" + string([]byte{'a', 0, 'b'}), "app:" + string([]byte{'a', 255, 'b'})}
+				if !strings.ContainsRune(keys[0], 0) {
+					t.Fatal("missing actual NUL")
+				}
+				dumps := map[string]string{}
+				expires := map[string]int64{}
+				populate := func() {
+					for i, key := range keys {
+						if err := raw.HSet(h.ctx, key, "n", 1002+2*i, "v", 9007199254741995+int64(i), "s", "binary", "active", 1, "unknown", "preserve").Err(); err != nil {
+							t.Fatal(err)
+						}
+						if err := raw.PExpire(h.ctx, key, time.Hour).Err(); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				if initial {
+					populate()
+				}
+				args := []any{"FT.CREATE", "source_idx", "ON", "HASH", "PREFIX", 2, "app:", "app:sub:"}
+				if filtered {
+					args = append(args, "FILTER", "@active==1")
+				}
+				args = append(args, "SCHEMA", "n", "NUMERIC", "v", "NUMERIC", "s", "TAG", "active", "NUMERIC")
+				if err := raw.Do(h.ctx, args...).Err(); err != nil {
+					t.Fatal(err)
+				}
+				if !initial {
+					populate()
+				}
+				if err := (&store{client: raw}).awaitIndexReady(h.ctx, "source_idx"); err != nil {
+					t.Fatal(err)
+				}
+				expected := map[string]unmanagedPartitionTestRow{}
+				full, err := raw.Do(h.ctx, "FT.SEARCH", "source_idx", "*", "NOCONTENT", "LIMIT", 0, 10, "DIALECT", 2).Result()
+				if err != nil || snapshotReplyWarning(full) {
+					t.Fatal("full oracle", err)
+				}
+				fullKeys, err := parseSearchKeys(full)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, key := range keys {
+					reply, err := raw.Do(h.ctx, "FT.SEARCH", "source_idx", "*", "INKEYS", 1, key, "LIMIT", 0, 0, "DIALECT", 2).Result()
+					if err != nil || snapshotReplyWarning(reply) {
+						t.Fatal("singleton oracle", err)
+					}
+					n, err := parseSearchCount(reply)
+					if err != nil || n < 0 || n > 1 || slices.Contains(fullKeys, key) != (n == 1) {
+						t.Fatal("inconsistent native controls", n, err)
+					}
+					if (!filtered || i == 1) && n != 1 {
+						t.Fatal("native positive control omitted")
+					}
+					if n == 1 {
+						expected[key] = unmanagedPartitionTestRow{[]byte(key), strconv.Itoa(1002 + 2*i), strconv.FormatInt(9007199254741995+int64(i), 10), "binary"}
+					}
+					dumps[key], err = raw.Dump(h.ctx, key).Result()
+					if err != nil {
+						t.Fatal(err)
+					}
+					expires[key], err = raw.Do(h.ctx, "PEXPIRETIME", key).Int64()
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				setter := h.conn.(adbc.GetSetOptionsWithContext)
+				if err := setter.SetOption(h.ctx, OptionStringForeignIndexesMode, "unmanaged"); err != nil {
+					t.Fatal(err)
+				}
+				if err := setter.SetOption(h.ctx, OptionStringForeignIndexes, "true"); err != nil {
+					t.Fatal(err)
+				}
+				_, _, parts := unmanagedPartitionStatement(t, h, 3)
+				var rows []unmanagedPartitionTestRow
+				for _, part := range parts.PartitionIDs {
+					got, err := unmanagedPartitionRows(h.conn, h.ctx, part)
+					if err != nil {
+						t.Fatal(err)
+					}
+					rows = append(rows, got...)
+				}
+				assertUnmanagedPartitionRows(t, rows, expected)
+				for _, key := range keys {
+					dump, err := raw.Dump(h.ctx, key).Result()
+					if err != nil || dump != dumps[key] {
+						t.Fatal("source HASH changed", err)
+					}
+					expiry, err := raw.Do(h.ctx, "PEXPIRETIME", key).Int64()
+					if err != nil || expiry != expires[key] {
+						t.Fatal("source TTL changed", err)
+					}
+				}
+			})
+		}
 	}
 }

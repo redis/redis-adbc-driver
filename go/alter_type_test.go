@@ -155,19 +155,19 @@ func TestApplyAlterType(t *testing.T) {
 			want: strings.Replace(base, "a integer", "a smallint", 1)},
 		// The values stay as they are: only the metadata changes.
 		{sql: `ALTER TABLE t ALTER COLUMN s TYPE varchar(10)`, rewrite: "false", rechecked: "len",
-			want: strings.Replace(base, "varchar(5)", "varchar(10)", 1)},
+			want: strings.Replace(strings.Replace(base, "varchar(5)", "varchar(10)", 1), "default 'x'", "default ('x')::character varying", 1)},
 		{sql: `ALTER TABLE t ALTER COLUMN s TYPE text`, rewrite: "false", rechecked: "len",
-			want: strings.Replace(base, "varchar(5)", "varchar", 1)},
+			want: strings.Replace(strings.Replace(base, "varchar(5)", "varchar", 1), "default 'x'", "default ('x')::character varying", 1)},
 		{sql: `ALTER TABLE t ALTER COLUMN a TYPE integer`, rewrite: "false", want: base},
 		{sql: `ALTER TABLE t ALTER COLUMN a TYPE integer USING a + 1`, rewrite: "true", want: base},
 		{sql: `ALTER TABLE t ALTER COLUMN s TYPE varchar(3)`, rewrite: "true", rechecked: "len",
-			want: strings.Replace(base, "varchar(5)", "varchar(3)", 1)},
+			want: strings.Replace(strings.Replace(base, "varchar(5)", "varchar(3)", 1), "default 'x'", "default ('x')::character varying", 1)},
 		// The default converts (an integer to text, a string literal of the
 		// column's type to a longer string), and the CHECKs bind again.
 		{sql: `ALTER TABLE t ALTER COLUMN v TYPE text`, rewrite: "true", rechecked: "c",
 			want: strings.Replace(base, "v integer", "v varchar", 1)},
 		{sql: `ALTER TABLE t ALTER COLUMN s TYPE char(5)`, rewrite: "true", rechecked: "len",
-			want: strings.Replace(base, "varchar(5)", "char(5)", 1)},
+			want: strings.Replace(strings.Replace(base, "varchar(5)", "char(5)", 1), "default 'x'", "default ('x')::character varying", 1)},
 		// A column the index can't hold, and one that becomes indexable.
 		{sql: `ALTER TABLE t ALTER COLUMN a TYPE bytea USING NULL`, rewrite: "true",
 			want: strings.Replace(base, "a integer indexed", "a varbinary", 1)},

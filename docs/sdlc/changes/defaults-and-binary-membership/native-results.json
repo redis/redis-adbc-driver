@@ -1,0 +1,647 @@
+{
+  "date": "2026-11-20",
+  "software_version": "8.2.6-58",
+  "redis_version": "8.8.0",
+  "search_module_version": 80808,
+  "qpf": {
+    "active": true,
+    "factor": 4,
+    "effective_search_workers": 6,
+    "routing": "mnp",
+    "connections": 32
+  },
+  "client": {
+    "os": "macOS arm64",
+    "route": "Docker published port"
+  },
+  "native_cases": {
+    "ram": [
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      }
+    ],
+    "flex": [
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 5,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 5,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 5,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 5,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": true,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": true,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 4,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": false,
+          "inkeys_count": 0
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": true,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "none",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "before",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      },
+      {
+        "initial_scan": false,
+        "filtered": false,
+        "overlapping_prefixes": false,
+        "ttl": "after",
+        "total": 6,
+        "nul": {
+          "key_hex": "6170703a610062",
+          "exists": 1,
+          "full_member": true,
+          "inkeys_count": 1
+        }
+      }
+    ]
+  }
+}

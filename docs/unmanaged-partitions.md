@@ -64,8 +64,14 @@ including FILTER and multiple prefixes. HASHes are authoritative for values and
 SQL rechecks the full predicate. Source keys/unknown fields/TTLs/indexes remain
 unchanged. A key omitted by the native application index is omitted by partitions,
 even if its HASH fields would appear to satisfy the index FILTER. Some tested
-Software filtered-index fixtures omit NUL-bearing keys; this is recorded native
-behavior, not permission to invent membership. Indexed non-UTF8 keys retain their
+Software filtered-index fixtures omit NUL-bearing keys. The
+[native investigation](sdlc/changes/defaults-and-binary-membership/validation.md#native-search-investigation-559)
+isolates FILTER and notification effects on Software RAM and actual Flex: even a
+future TTL assignment can remove an initially indexed NUL-bearing key while its
+HASH still exists. Complete filtered-index inclusion of arbitrary NUL-bearing
+application keys is not guaranteed on these builds; use NUL-free key names when
+that inclusion is required. Reads follow native membership and never repair the
+application index. Indexed non-UTF8 keys retain their
 exact bytes; project `CAST(__key AS BYTEA)` for keys that are not UTF-8 text.
 
 Source values remain live. Application writes, TTL expiry and indexing lag may
