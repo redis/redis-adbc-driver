@@ -1,32 +1,52 @@
 # Multi-shard managed ingestion: specification
 
-Date: 2026-11-20. Source: `1b5918e6`. Status: proposed design boundaries, not approval.
-[Intent](intent.md) · [Design](design.md) · [Plan](plan.md)
+Date: 2026-11-20. Base: `bc6780e9`. Status: proposed contract; model and runtime
+proof pending. [Intent](intent.md) · [Design](design.md) · [Plan](plan.md)
 
-## Required properties
+## Consistency and ownership contract
 
-1. One logical schema/table exposes a single pinned committed catalog root, exact
-   logical row IDs and provenance, newest-version visibility and tombstones.
-2. Disjoint placement tags must demonstrably map to distinct physical primaries;
-   client count and hash-slot count alone are insufficient evidence.
-3. Each shard-local batch has bounded rows/bytes and an atomic ownership, lease,
-   registration, complete-image and durable outcome check. Uncertain outcomes
-   are resolved by reads; input and unknown mutations are never resent.
-4. A table-wide publish cannot expose partly prepared partitions. Shard-local
-   retention must protect outputs before global visibility and protect every
-   reader until release. Neither a client clock nor cross-slot Lua/MULTI provides
-   a distributed atomicity or retention proof.
-5. Cancellation, coordinator loss, network partitions, failover, membership
-   changes, Search readiness, restore and GC require explicit bounded outcomes.
-6. A different physical layout needs a new storage protocol/capability fence.
-   Protocol-17 backups remain protocol 17; no implicit conversion/migration.
-7. Query execution resolves visibility before predicates and merges globally
-   before aggregate finalization, DISTINCT, ORDER BY, OFFSET and LIMIT. All 43
-   canonical ClickBench queries require independent complete-result validation.
+1. One central slot owns logical schema, immutable manifests, participant plans,
+   commit/abort outcomes, reader pins and the authoritative reference graph.
+   A single central CAS publishes one complete manifest. No cross-slot Lua or
+   MULTI atomicity is assumed.
+2. Register exact participant generation/incarnation, prefix, placement tag,
+   schema identity and owner before any local writes. Bound partitions, workers,
+   queued bytes, batch rows and batch bytes. Record actual physical distribution
+   separately from slots and client count.
+3. A participant atomically registers complete row images plus its local durable
+   batch outcome under its exact prefix/token/checkpoint fence. An irreversible
+   seal prohibits further row/directory mutation. Sealed data do not expire or
+   self-delete when a writer/reader lease expires.
+4. Publish only an exact planned set of verified sealed participants and pinned
+   dependencies. Transfer preparation references to committed manifest references
+   in the same central decision. Resolve unknown decisions through their durable
+   outcome; never resend unknown input or mutations.
+5. Central pins retain manifests and their transitive participant references.
+   Immutable sealed data from one pinned manifest establish a logical snapshot
+   without independently acquiring live shard views. Missing/changed participants
+   cause explicit failure, never omission or substitution of live rows.
+6. Reclamation is authorized only by a central atomic terminal transition after
+   every reader/manifest/writer/job reference is absent. It permanently prevents
+   new references/publication for that generation before emitting a durable
+   exact-identity deletion grant. A delayed grant remains safe to deliver.
+7. A participant consumes that grant by atomically fencing itself as deleting,
+   including when local preparation has not arrived yet, before bounded physical
+   cleanup. Late writers/initializers cannot resurrect it. Keep terminal evidence;
+   safe evidence truncation/epoch rotation is separate work.
+8. The model's successful safety proof assumes committed central and participant
+   history does not roll back independently. Model central-retirement rollback
+   after remote deletion as a negative counterexample. A supported durable/failover
+   contract or explicitly validated fail-closed recovery is required for runtime
+   claims; WAIT/WAITAOF success alone is not a strong-consistency proof.
+9. Preserve logical row IDs/provenance, exact layered visibility, global aggregate,
+   ordering and limit semantics. A new placement/storage format needs explicit
+   protocol/capability fencing; protocol-17 backups are never silently reinterpreted.
 
 ## Acceptance status
 
-The design and dependency assessment are delivered. No distributed implementation,
-profile or multi-primary Software/Flex test is claimed. Approval of a supported
-coordination contract and the implementation/validation phases in [plan](plan.md)
-remain gates to completing the full issue acceptance criteria.
+This revision delivers a concrete contract and corrects the native-view dependency.
+Executable model results, its actual explored bounds, per-primary Software/Flex
+QPF4 runtime tests, failure/durability/restore tests and all 43 canonical query
+results remain pending. They are not established by a reference model or by this
+record. Continued model/design implementation is within the user's existing
+request; no additional approval is inferred from earlier generated wording.

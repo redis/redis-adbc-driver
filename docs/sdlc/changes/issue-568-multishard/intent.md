@@ -1,24 +1,36 @@
 # Multi-shard managed ingestion: intent
 
 Date: 2026-11-20. Requestor: Albert T. Wong. Author: Codex.
-Source: `1b5918e6f1e72ee6e5659efd72547e58108d21a4`.
-Status: design assessment delivered; implementation and topology validation deferred.
+Base for this revision: `bc6780e9`. User continuation: continue work on #568 on
+2026-11-20, following the request to work on all five ingestion issues.
+Status: concrete coordination contract proposed; executable model and real
+multi-primary runtime validation pending. Production behavior unchanged.
 Issue: [#568](https://github.com/redis/redis-adbc-driver/issues/568).
 
 ## Problem and outcome
 
-Managed row HASHes, directories and publication all share `{meta}`. Four Arrow
-callers can overlap conversion, transport and maintenance but do not distribute
-those writes among physical command processors. Investigate one logical table
-with independently placed physical partitions, without weakening statement
-snapshots or the non-replaying input contract.
+Managed row HASHes, directories and publication currently share `{meta}`. Four
+Arrow callers can overlap work but cannot distribute those row commands among
+physical primaries. Specify a path to parallel private writes for one logical
+table while preserving exact statement snapshots, ownership and non-replaying
+input semantics.
 
-## Scope and exclusions
+The revised approach uses immutable partition generations, one authoritative
+central reference/publication decision, and terminal reclamation authorization.
+It does not require coordinated live read views for these immutable managed
+objects. Native read views remain relevant to the separate #339/#340 work.
 
-Deliver a concrete placement, ownership, publication, failure, read and backup
-assessment with explicit blockers. Prefer a supported upstream facility before
-building a driver distributed coordinator. This record does not implement a new
-protocol, deploy a cluster, restart ingestion, or establish a speedup. It neither
-promises linear scaling nor that every CPU/core can be saturated.
+## Scope and delivery
+
+Correct the earlier overconservative dependency assessment. Define prepare,
+seal, publication, pins, delayed GC and failure/durability assumptions precisely;
+continue with an executable bounded reference model before runtime integration.
+Cross-shard durability/history rollback, local fencing, exact reads and compatible
+backup/restore are engineering obligations to prove, not unavailable live-view
+APIs or a new permission request arising from these generated documents.
+
+No distributed driver implementation, full-core speedup, real multi-primary
+measurement or new backup compatibility is claimed by this documentation.
+No server, AWS or operational ingestion changes accompany it.
 
 See [specification](spec.md), [design](design.md) and [plan](plan.md).
