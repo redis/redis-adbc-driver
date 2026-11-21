@@ -75,11 +75,10 @@ claim follows from these logs.
 
 The focused Go verification in [the plan](plan.md#evidence) passed on dedicated
 Software RAM and Flex/QPF4 fixtures, including a race-enabled RAM concurrency
-and failure subset. The coordinating agent additionally reported **156 native
-Python tests passed and three unrelated isolation cases skipped** on verified
+and failure subset. The coordinating agent additionally reported **156 Python
+tests run successfully (153 passed and three unrelated isolation cases skipped)** on verified
 Software Flex/QPF4, including serial, four-writer and four-writer NOINDEX paths.
-The broader Go snapshot suite was still running when this record was written;
-its result is not claimed here.
+See [combined verification](integration.md) for the final integrated Go checks.
 
 This synthetic source has BIGINT columns rather than ClickBench's mixed types
 and does not establish source Parquet conversion, string/TAG behavior, SSD

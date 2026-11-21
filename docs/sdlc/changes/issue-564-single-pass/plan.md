@@ -13,7 +13,8 @@ See [intent](intent.md), [spec](spec.md) and
 3. Add eligibility and native ordering/fault/isolation regressions; run unit
    checks and focused dedicated Software/QPF4 RAM and Flex fixtures.
 4. Record actual checks, skips, review findings and remaining performance gaps.
-   No full ClickBench reload, AWS resources, push or merge in this task.
+   No full ClickBench reload or AWS resources. Publish a draft PR for review;
+   do not merge.
 
 ## Evidence
 
@@ -76,3 +77,5 @@ run. The [evidence record](evidence.md) reports acknowledged-time medians and
 ranges, measured client observations, unavailable server/I/O attribution and the
 discarded image-pull-overlap matrix. No 100,000-row profile or full-scale result
 is implied by the 16,384-row observations. Human maintainer review remains pending.
+
+See [combined verification](integration.md) for final integrated checks and limits.
