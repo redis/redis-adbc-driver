@@ -1,0 +1,41 @@
+{
+  "attempts": [
+    {
+      "scope": "incomplete full canonical indexed managed-load attempt; not a full-scale result",
+      "target_rows": 99997497,
+      "columns": 105,
+      "writers": 1,
+      "server_gib": 20,
+      "client_gib": 4,
+      "flex_ram_cache_gib": 12,
+      "effective_server_guard_gib": 17,
+      "qpf": 4,
+      "software_version": "8.2.6-58",
+      "database_version": "8.8.0",
+      "client_route": "Linux ARM64 server network namespace",
+      "production_go_commit": "4faa88065450b9451fa5d06b2fe1aff81fb295a9",
+      "index_policy": "unchanged upstream canonical DDL; Flex plain indexes; 77 NUMERIC and 28 TAG public attributes",
+      "backup_ready": false,
+      "outcome": "aborted; raw durable audit confirmed no publication",
+      "resource_samples": 17853,
+      "staged_members_at_readonly_audit": 37378684,
+      "oom_events": 0,
+      "oom_kill_events": 0,
+      "memory_max_events_delta": 2273,
+      "effective_memory_at_stop_gib": 17.062,
+      "raw_memory_at_stop_gib": 17.495,
+      "redis_process_rss_at_stop_gib": 15.285,
+      "vm_available_at_stop_gib": 11.679,
+      "flash_free_at_stop_gib": 1326.714,
+      "api_statistics_gap": "approximately first ten minutes; independent resource guard remained active",
+      "driver_sha256": "301c3991be218d836e26db32be16e6aab901157624b4372960395d7c8767e584",
+      "method_sha256": "be148dc74f36a6e46d8b13816c9806139124bcb5d5ce04586644850be76fdd84",
+      "physical_ddl_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+      "source_rows_yielded": 37380988,
+      "acknowledged_rows": 0,
+      "total_seconds": 4502.426467753001,
+      "statement_timeout_seconds": 21600,
+      "validation_timeout_seconds": 21600
+    }
+  ]
+}
