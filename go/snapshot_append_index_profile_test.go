@@ -6,9 +6,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -112,7 +114,7 @@ func TestSnapshotAppendIndexProfile(t *testing.T) {
 	if rows < 1 || rows > 100000 || (writers != 1 && writers != 4) || rows%writers != 0 {
 		t.Fatal("use 1..100000 total rows divisible by 1 or 4 writers")
 	}
-	h, _, db := newSnapshotHarnessMode(t, false, false)
+	h, raw, db := newSnapshotHarnessMode(t, false, false)
 	declarations := make([]string, 105)
 	for col := range declarations {
 		name := fmt.Sprintf("c%d", col)
@@ -165,6 +167,9 @@ func TestSnapshotAppendIndexProfile(t *testing.T) {
 		elapsed time.Duration
 	}
 	done := make(chan result, writers)
+	var cpuStart, cpuEnd syscall.Rusage
+	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuStart)
+	serverStart, serverStartOK := appendIndexServerCPU(h.ctx, raw)
 	start := time.Now()
 	for writer, stmt := range statements {
 		go func() {
@@ -179,6 +184,18 @@ func TestSnapshotAppendIndexProfile(t *testing.T) {
 		results[r.writer] = r
 	}
 	elapsed := time.Since(start)
+	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuEnd)
+	serverEnd, serverEndOK := appendIndexServerCPU(h.ctx, raw)
+	clientCPU := float64(cpuEnd.Utime.Nano()+cpuEnd.Stime.Nano()-cpuStart.Utime.Nano()-cpuStart.Stime.Nano()) / 1e6
+	peakRSS := cpuEnd.Maxrss
+	if runtime.GOOS != "darwin" {
+		peakRSS *= 1024
+	}
+	serverCPU := "unavailable"
+	if serverStartOK && serverEndOK && serverEnd > serverStart {
+		serverCPU = fmt.Sprintf("%.3f", (serverEnd-serverStart)*1000)
+	}
+	t.Logf("APPEND_PROFILE_RESOURCES client_cpu_ms=%.3f client_peak_rss_through_ack_bytes=%d server_cpu_ms=%s", clientCPU, peakRSS, serverCPU)
 	for _, r := range results {
 		if r.err != nil || r.n != int64(rows/writers) {
 			t.Fatalf("writer %d acknowledged %d: %v", r.writer, r.n, r.err)
@@ -198,4 +215,26 @@ func TestSnapshotAppendIndexProfile(t *testing.T) {
 		t.Logf("APPEND_PROFILE_WORKER writer=%d input_ms=%.3f row_write_wall_ms=%.3f creates=%d create_ms=%.3f notify_calls=%d notify_ms=%.3f native_info_proof_ms=%.3f seal_publish_ms=%.3f acknowledged_ms=%.3f", writer,
 			float64(reader.eof.Sub(reader.first).Microseconds())/1000, float64(hook.lastRowNS.Load()-hook.firstRowNS.Load())/1e6, hook.creates.Load(), float64(hook.createNS.Load())/1e6, hook.notifications.Load(), float64(hook.notifyNS.Load())/1e6, float64(hook.proofNS.Load())/1e6, float64(hook.publishNS.Load())/1e6, float64(results[writer].elapsed.Microseconds())/1000)
 	}
+}
+
+// INFO CPU is optional on Software proxies; absence is reported, not imputed.
+func appendIndexServerCPU(ctx context.Context, client *goredis.Client) (float64, bool) {
+	raw, err := client.Info(ctx, "cpu").Result()
+	if err != nil {
+		return 0, false
+	}
+	total, count := 0.0, 0
+	for _, line := range strings.Split(raw, "\n") {
+		key, value, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok || (key != "used_cpu_user" && key != "used_cpu_sys") {
+			continue
+		}
+		n, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return 0, false
+		}
+		total += n
+		count++
+	}
+	return total, count == 2
 }

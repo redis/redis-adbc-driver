@@ -162,11 +162,16 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.4).
   Tuple partitions establish visibility even when invoked independently of their
   coordinator. Compact authoritative scans carry exact row-ID bounds, including
   tails; a pushed Search range alone does not restrict a snapshot directory scan.
-  Ordinary private outputs stay unindexed until final sealing; staging SQL reads exact
-  directories. Build one empty final index for ordinary outputs, populate it from
-  exact directories with bounded lease/ownership/identity/permission-checked
-  unchanged row-ID notifications, then require readiness, zero failures, exact
-  prefix/cardinality and a warning-free indexed-row-ID count before publication.
+  Ordinary private outputs defer indexing until final sealing; staging SQL reads
+  exact directories. Eligible schema-stable managed Arrow append/create_append
+  outputs with all public columns NOINDEX and no imported source-key TAG create
+  their owned empty final index before the first input Next; original bounded
+  row-image writes populate it. Retained operations and other ordinary outputs
+  keep the deferred create/notification path. Both paths require readiness, zero
+  failures, exact prefix/cardinality and the existing warning-free indexed-row-ID
+  proof before publication; do not backfill or retry an uncertain early create.
+  Deferred outputs populate their final index from exact directories with bounded
+  lease/ownership/identity/permission-checked unchanged row-ID notifications.
   Unknown notification replies abort without replay; never recreate a missing HASH.
   A typed native query-permission refusal retains write-only compatibility by
   constructing a new private index with the original initial-scan proof. Never
@@ -174,7 +179,11 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.4).
   Background compaction creates an empty final index before its first atomic
   complete-image copy batch, gated on an empty declared output directory and
   unchanged copy checkpoint. Existing copy outcomes/repair populate that index;
-  keep the separate native readiness phase. Populated private outputs without their required index are retired and rebuilt
+  keep the separate native readiness phase. Large selected sources may amortize
+  catalog checks across at most four existing atomic 64-row copy batches per
+  bounded maintenance step; check cancellation, original token and current root
+  between copies. Durable outcomes and per-batch fences remain unchanged, and
+  root changes return to full validation. Populated private outputs without their required index are retired and rebuilt
   from retained sources; never backfill an older worker's output. No new job format is needed.
   Track private tombstones when restoring a baseline's published overlay flag.
   No-op UPDATE/DELETE do not publish empty generations or build indexes.
