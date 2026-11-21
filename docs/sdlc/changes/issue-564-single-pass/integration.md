@@ -39,8 +39,8 @@ remain private.
 - Go unit-only: `env -u REDIS_URI -u REDIS_SNAPSHOT_URI -u REDIS_SOFTWARE_URI
   -u REDIS_FLEX_URI go test -count=1 -p 1 ./...`: PASS; native tests intentionally
   skip when endpoints are absent.
-- Software RAM selector `^TestSnapshot`: **373 top-level tests passed,
-  74 capability/opt-in cases skipped**, no failures in the final complete run.
+- Software RAM selector `^TestSnapshot`: **377 top-level tests passed,
+  70 capability/opt-in cases skipped**, no failures in the final complete run.
 - Software Flex selector `^TestSnapshot(Append(Index|Indexed)|Compaction)`:
   **48 top-level tests passed, 6 opt-in cases skipped**, no failures. Covers the
   combined indexing/compaction changes and their fault/ownership regressions.
