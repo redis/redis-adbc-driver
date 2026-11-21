@@ -74,7 +74,8 @@ and multiplicity in 262,144 rows ×105 columns, serial and four-writer,
 unchanged/current; all use the bounded source policy. Separate native component
 JSON records process RSS/Arrow peaks through ACK and Go GC marked-live peaks
 across the whole case, under an explicit 1GiB Go soft memory limit. The
-[representative Go trace](native-go-heap.csv) retains runtime-relative GC samples
+[representative Go trace](native-go-heap.csv), from the current driver with four
+writers in trial 1, retains runtime-relative GC samples
 through load, maintenance, validation and reclamation; it is not exact phase
 alignment or total Go RSS. Validation includes its own bounded DuckDB memory.
 
