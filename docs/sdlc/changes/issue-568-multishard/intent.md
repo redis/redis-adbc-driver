@@ -3,8 +3,8 @@
 Date: 2026-11-20. Requestor: Albert T. Wong. Author: Codex.
 Base for this revision: `bc6780e9`. User continuation: continue work on #568 on
 2026-11-20, following the request to work on all five ingestion issues.
-Status: concrete coordination contract proposed; executable model and real
-multi-primary runtime validation pending. Production behavior unchanged.
+Status: concrete coordination contract and bounded executable model delivered;
+real multi-primary runtime validation pending. Production behavior unchanged.
 Issue: [#568](https://github.com/redis/redis-adbc-driver/issues/568).
 
 ## Problem and outcome

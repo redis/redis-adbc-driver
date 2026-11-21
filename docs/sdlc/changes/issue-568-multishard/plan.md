@@ -1,7 +1,7 @@
 # Multi-shard managed ingestion: plan and evidence
 
 Date: 2026-11-20. Base: `bc6780e9`. User continuation recorded in [intent](intent.md).
-Status: revised contract delivered; executable model and real topology proof pending.
+Status: revised contract and executable model delivered; real topology proof pending.
 [Specification](spec.md) · [Design](design.md)
 
 ## Completed in this revision
@@ -19,9 +19,9 @@ Status: revised contract delivered; executable model and real topology proof pen
 - Checked documentation links and diff whitespace. This revision changes only
   the four #568 records; no production files, servers or cloud resources change.
 
-## Immediate executable work
+## Executable model delivered
 
-Build a bounded reference model as a separately reviewable change. Model two
+Built a bounded reference model as a separately reviewable change. It models two
 participants, a central manifest decision, a reader pin, preparation references,
 local sealing and delayed reclamation grants. Enumerate explicitly bounded
 interleavings of prepare/seal reports, publish/abort, writer expiry, pin/release,
@@ -33,8 +33,9 @@ reclaimed; terminal central retirement forbids later publication/reference;
 local deletion fencing prevents resurrection; lost replies do not replay source;
 and terminal outcomes remain discoverable. Include a negative trace where central
 retirement rolls back after remote deletion, demonstrating the model assumption
-rather than claiming that arbitrary failover is solved. Model proof is pending in
-this documentation commit and is not a Redis/Lua/runtime or performance proof.
+rather than claiming that arbitrary failover is solved. The finite model and 14 tests pass; see [evidence](evidence.md) for exact bounds,
+review findings and counterexamples. This is not a Redis/Lua/runtime or performance
+proof.
 
 ## Subsequent implementation and verification
 

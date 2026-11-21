@@ -1,7 +1,7 @@
 # Immutable generations across shards: coordination assessment
 
 Date: 2026-11-20. Base: `bc6780e9`. Status: proposed concrete contract; reference
-model and runtime proof pending. [Intent](intent.md) · [Spec](spec.md) · [Plan](plan.md)
+model delivered; runtime proof pending. [Intent](intent.md) · [Spec](spec.md) · [Plan](plan.md)
 
 ## Revised conclusion and code evidence
 
@@ -160,15 +160,15 @@ it does not establish compatibility for arbitrary independent shard RDBs or
 silently authorize protocol-17 backup reinterpretation. Partial snapshots, missing
 participants and stale writer/delete capabilities must be rejected on restore.
 
-## Next reviewable step and remaining scope
+## Reference model and next runtime step
 
-Implement a bounded executable reference model of the central authority, two
-participants, preparation/seal/publication, one reader and delayed terminal GC.
-State explored bounds; assert no partial publication, no pinned reclamation, no
-post-retirement reference/publication, no local resurrection and no mutation/input
-replay. Include rollback as an explicit failing-assumption trace. Model result is
-pending in this documentation commit; even a passing model is not a Go/Lua or
-multi-primary durability proof.
+The [bounded reference model](../../../../scripts/multishard_model/README.md)
+encodes one central authority, two participants, preparation/seal/publication, one
+reader and delayed terminal GC. Its 3,096-state exploration and 14 tests pass;
+see [evidence](evidence.md) for bounds, review fixes and negative traces. There
+are no row images or native scripts in this model, so it cannot establish their
+atomicity, no-replay implementation, durability or performance. Central rollback
+remains an explicit failing-assumption trace.
 
 Then add a new-format experimental participant layout and narrow bounded private
 batch/seal operations before ordinary SQL/Arrow publication/GC integration.

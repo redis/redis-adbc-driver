@@ -1,6 +1,6 @@
 # Multi-shard managed ingestion: specification
 
-Date: 2026-11-20. Base: `bc6780e9`. Status: proposed contract; model and runtime
+Date: 2026-11-20. Base: `bc6780e9`. Status: proposed contract and bounded model delivered; runtime
 proof pending. [Intent](intent.md) · [Design](design.md) · [Plan](plan.md)
 
 ## Consistency and ownership contract
@@ -33,7 +33,7 @@ proof pending. [Intent](intent.md) · [Design](design.md) · [Plan](plan.md)
    including when local preparation has not arrived yet, before bounded physical
    cleanup. Late writers/initializers cannot resurrect it. Keep terminal evidence;
    safe evidence truncation/epoch rotation is separate work.
-8. The model's successful safety proof assumes committed central and participant
+8. The positive model exploration assumes committed central and participant
    history does not roll back independently. Model central-retirement rollback
    after remote deletion as a negative counterexample. A supported durable/failover
    contract or explicitly validated fail-closed recovery is required for runtime
@@ -45,8 +45,9 @@ proof pending. [Intent](intent.md) · [Design](design.md) · [Plan](plan.md)
 ## Acceptance status
 
 This revision delivers a concrete contract and corrects the native-view dependency.
-Executable model results, its actual explored bounds, per-primary Software/Flex
-QPF4 runtime tests, failure/durability/restore tests and all 43 canonical query
-results remain pending. They are not established by a reference model or by this
-record. Continued model/design implementation is within the user's existing
+The [bounded model](../../../../scripts/multishard_model/README.md) explores
+3,096 states and 14,340 transitions with 14 passing tests; see [evidence](evidence.md).
+Per-primary Software/Flex QPF4 runtime tests, failure/durability/restore tests and
+all 43 canonical query results remain pending. They are not established by the
+reference model or by this record. Continued model/design implementation is within the user's existing
 request; no additional approval is inferred from earlier generated wording.
