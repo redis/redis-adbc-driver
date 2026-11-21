@@ -73,7 +73,7 @@ batches. The source Software Flex fixture had a 32 GiB logical capacity,
 | Independent validation | 325.669304 s |
 | Whole case, including setup and joined cleanup | 1,258.694534 s |
 | Peak effective server working memory | 5.082 GiB |
-| Client process peak RSS | 588.27 MiB |
+| Client process peak RSS | 603.14 MiB |
 | Observed OOM / OOM-kill events | 0 / 0 |
 
 Validation streamed all native logical IDs and checked count/uniqueness and
