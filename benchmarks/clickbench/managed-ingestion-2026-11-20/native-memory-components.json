@@ -1,0 +1,144 @@
+{
+  "scope": "twelve 262144-row native controls; RSS/Arrow through ACK; Go GC marked-live maximum is whole case including validation/cleanup",
+  "go_environment": {
+    "GOMEMLIMIT": "1GiB",
+    "GOMAXPROCS": 4,
+    "GOGC": "default 100",
+    "GODEBUG": "gctrace=1"
+  },
+  "observations": [
+    {
+      "version": "baseline",
+      "writers": 1,
+      "trial": 1,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 457027584,
+      "arrow_pool_peak_through_ack_bytes": 15116480,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 78643200,
+      "go_gc_trace_samples": 495
+    },
+    {
+      "version": "current",
+      "writers": 1,
+      "trial": 1,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 457248768,
+      "arrow_pool_peak_through_ack_bytes": 15116480,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 78643200,
+      "go_gc_trace_samples": 456
+    },
+    {
+      "version": "baseline",
+      "writers": 4,
+      "trial": 1,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 1071181824,
+      "arrow_pool_peak_through_ack_bytes": 46529552,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 298844160,
+      "go_gc_trace_samples": 4249
+    },
+    {
+      "version": "current",
+      "writers": 4,
+      "trial": 1,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 1065574400,
+      "arrow_pool_peak_through_ack_bytes": 46552272,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 308281344,
+      "go_gc_trace_samples": 3475
+    },
+    {
+      "version": "current",
+      "writers": 4,
+      "trial": 2,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 1056038912,
+      "arrow_pool_peak_through_ack_bytes": 46529552,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 299892736,
+      "go_gc_trace_samples": 3460
+    },
+    {
+      "version": "baseline",
+      "writers": 4,
+      "trial": 2,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 1038360576,
+      "arrow_pool_peak_through_ack_bytes": 46529552,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 295698432,
+      "go_gc_trace_samples": 4252
+    },
+    {
+      "version": "current",
+      "writers": 1,
+      "trial": 2,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 455159808,
+      "arrow_pool_peak_through_ack_bytes": 15116480,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 78643200,
+      "go_gc_trace_samples": 455
+    },
+    {
+      "version": "baseline",
+      "writers": 1,
+      "trial": 2,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 455118848,
+      "arrow_pool_peak_through_ack_bytes": 15116480,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 79691776,
+      "go_gc_trace_samples": 477
+    },
+    {
+      "version": "baseline",
+      "writers": 1,
+      "trial": 3,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 451874816,
+      "arrow_pool_peak_through_ack_bytes": 15116480,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 79691776,
+      "go_gc_trace_samples": 476
+    },
+    {
+      "version": "current",
+      "writers": 1,
+      "trial": 3,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 457199616,
+      "arrow_pool_peak_through_ack_bytes": 15116480,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 78643200,
+      "go_gc_trace_samples": 452
+    },
+    {
+      "version": "baseline",
+      "writers": 4,
+      "trial": 3,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 1056374784,
+      "arrow_pool_peak_through_ack_bytes": 46552272,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 300941312,
+      "go_gc_trace_samples": 4253
+    },
+    {
+      "version": "current",
+      "writers": 4,
+      "trial": 3,
+      "rows": 262144,
+      "columns": 105,
+      "client_lifetime_peak_rss_through_ack_bytes": 1045377024,
+      "arrow_pool_peak_through_ack_bytes": 46474960,
+      "go_gc_max_marked_live_heap_whole_case_bytes": 293601280,
+      "go_gc_trace_samples": 3463
+    }
+  ],
+  "warning": "GC marked-live heap is not total Go RSS. RSS-minus-Arrow is not Go heap. Independent component peaks need not coincide."
+}
