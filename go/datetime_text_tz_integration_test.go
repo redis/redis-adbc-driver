@@ -182,7 +182,7 @@ func TestTimeZonesIssue88(t *testing.T) {
 	expectTypes(t, schema, sfInt32, sfTSTZ, sfTS)
 	h.exec(`CREATE VIEW it_tzx_v AS SELECT id, tz AT TIME ZONE 'Asia/Tokyo' AS tokyo FROM it_tzx`)
 	h.expectRows(`SELECT id, CAST(tokyo AS VARCHAR) FROM it_tzx_v WHERE id IN (5, 6) ORDER BY id`, "5|2024-01-10 19:00:00", "6|NULL")
-	h.exec(`CREATE TABLE it_tzx_def (id INTEGER, ingested TIMESTAMP DEFAULT CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')`)
+	h.exec(`CREATE TABLE it_tzx_def (id INTEGER, ingested TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))`)
 	h.exec(`INSERT INTO it_tzx_def (id) VALUES (1)`)
 	h.expectRows(`SELECT ingested IS NOT NULL, ingested < LOCALTIMESTAMP FROM it_tzx_def`, "true|true")
 	h.exec(`INSERT INTO it_tzx VALUES (8, TIMESTAMPTZ '2024-07-04 16:00:00+00' AT TIME ZONE 'America/Chicago',

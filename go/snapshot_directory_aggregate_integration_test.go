@@ -185,6 +185,9 @@ func (h *directoryAggregateBarrier) ProcessHook(next goredis.ProcessHook) goredi
 			select {
 			case <-h.ready:
 			case <-ctx.Done():
+				// Cancellation can win this select even after ready closes.
+				// Count peers that leave here as well as at the later wait.
+				h.cancelled.Add(1)
 				cmd.SetErr(ctx.Err())
 				return ctx.Err()
 			}
@@ -211,6 +214,20 @@ func (h *directoryAggregateBarrier) ProcessHook(next goredis.ProcessHook) goredi
 			}
 		}
 		return next(ctx, cmd)
+	}
+}
+
+func TestDirectoryAggregateBarrierEarlyCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), directoryAggregateObservation{}, true))
+	cancel()
+	hook := &directoryAggregateBarrier{ready: make(chan struct{}), release: make(chan struct{})}
+	cmd := goredis.NewIntCmd(ctx, "zlexcount", "unused", "-", "+")
+	err := hook.ProcessHook(func(context.Context, goredis.Cmder) error {
+		t.Fatal("canceled barrier reached Redis")
+		return nil
+	})(ctx, cmd)
+	if err != context.Canceled || hook.cancelled.Load() != 1 {
+		t.Fatalf("early cancellation: %v, observed %d", err, hook.cancelled.Load())
 	}
 }
 

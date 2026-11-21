@@ -126,3 +126,25 @@ regressions and explicit documented coverage limit.
 
 Raw logs, endpoint/infrastructure identifiers, credentials and trust material
 remain private.
+
+## PR #563 CI follow-up
+
+The first complete CI run found two test-fixture issues:
+
+- `TestTimeZonesIssue88` still used an unparenthesized DEFAULT `AT TIME ZONE`
+  expression. Its expression is now parenthesized, retaining its existing
+  time-zone/value assertions and PostgreSQL's restricted DEFAULT grammar.
+- The directory aggregate cancellation barrier counted cancellation only after
+  its initial readiness wait. A sibling could observe cancellation in that
+  first wait after all four workers had entered, return correctly, and leave
+  the observation counter at two instead of three. Count that exit as well;
+  the strict three-sibling count, join, failure-cause and budget assertions stay.
+
+A deterministic unit regression reproduced the missing early-cancellation count
+before the fix. It passed 20 repetitions with the race detector afterward.
+The time-zone lifecycle passed on newly created Software with management-verified
+active/effective 4x QPF. The snapshot failure/join lifecycle passed ten repetitions with the race
+detector (40 failure-mode executions). All Go unit packages also pass.
+These changes affect tests only; production behavior and historical native
+membership/default comparison evidence are unchanged. Live ordinary and snapshot
+checks run sequentially on the disposable fixture.
