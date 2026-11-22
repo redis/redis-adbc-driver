@@ -91,3 +91,17 @@ refused those users before retained replay. Add only FCALL to the public-driver
 reader grants, preserve the namespace read-only key pattern and denial checks,
 and document the preinstalled-library requirement. The lower-level raw storage
 reader permissions are unchanged. No fallback or namespace write grant was added.
+
+Correction validation: all unit packages passed (root 29.313 seconds); four
+Software fixture management safety tests passed. The full native partition TLS
+check passed on owned Redis Software 8.8.0 with freshly verified effective 4x
+QPF and strict TLS: 19 checks, 6 metadata checks, and 5 retained subchecks,
+including independent minimal-ACL workers, namespace denial, replay after source
+DROP, cancellation/early release, revocation and verified owned-key cleanup.
+The standalone Go ACL test could not be used as live evidence locally because
+its initial attempt overlapped TLS fixture reconfiguration; no pass is claimed
+for that attempt. CI reruns exercise it on their isolated fixtures.
+
+The setup guide now explains bundled automatic installation and the trusted
+setup-user path using the existing online doctor, without requiring manual Lua
+provisioning or granting FUNCTION LOAD to restricted runtime users.

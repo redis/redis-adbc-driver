@@ -102,8 +102,9 @@ support and compatibility-testing scope of this project.
   Driver metadata shares one hash slot (`adbc:{meta}:…`), so the driver's
   multi-key transactions never cross slots. A cluster only has database 0;
   on standalone servers only database 0 has been tested.
-- **ACL permissions,** if the database has ACL users: the commands and keys
-  under [ACL users](#acl-users) below.
+- **Explicit ACL credentials and permissions:** a nonempty username/password
+  pair and the commands and keys under [ACL users](#acl-users) below. Anonymous
+  and password-only connections are unsupported.
 
 ### Driver-managed setup
 
