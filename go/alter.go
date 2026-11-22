@@ -1083,7 +1083,7 @@ func (s *store) startCleanup(schema, table string) {
 
 // resumeCleanups restarts the cleanups recorded by earlier connections.
 func (s *store) resumeCleanups(ctx context.Context) error {
-	members, err := s.redis(ctx).SMembers(ctx, cleanupKey).Result()
+	members, err := scanSet(ctx, s.redis(ctx), cleanupKey).Result()
 	if err != nil {
 		return wrapRedis(err, "failed to read pending cleanups")
 	}

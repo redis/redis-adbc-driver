@@ -66,7 +66,7 @@ for i,id in ipairs(ids) do redis.call('HSET',KEYS[i+3],'` + rowIDField + `',id) 
 return #ids
 `
 
-var snapshotIndexNotifyDigest = goredis.NewScript(snapshotIndexNotifyLua).Hash()
+var snapshotIndexNotifyDigest = newRedisFunction(snapshotIndexNotifyLua).Name()
 
 func (s *store) notifySnapshotIndexBatch(ctx context.Context, prefix string, members []string) error {
 	scope := snapshotOf(ctx)
@@ -74,7 +74,7 @@ func (s *store) notifySnapshotIndexBatch(ctx context.Context, prefix string, mem
 	if scope == nil || !scope.write || scope.pin == nil || !snapshotOwns(ctx, prefix) || data == "" || prefix != snapshotRowPrefix(prefix) || len(members) == 0 || len(members) > 256 {
 		return errorf(adbc.StatusInvalidState, "invalid snapshot index notification context")
 	}
-	args := []any{"EVAL", snapshotIndexNotifyLua, 3 + len(members), snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(data)}
+	args := []any{"FCALL", redisFunctionName(snapshotIndexNotifyLua), 3 + len(members), snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(data)}
 	for _, member := range members {
 		n, err := strconv.ParseInt(member, 10, 64)
 		if err != nil || n < 1 || len(member) != 20 || member != formatSnapshotIndexMember(n) {

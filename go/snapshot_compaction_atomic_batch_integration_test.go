@@ -40,7 +40,7 @@ type compactionAtomicBatchObserver struct {
 func (*compactionAtomicBatchObserver) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func (h *compactionAtomicBatchObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if h.denyResolution && h.lost.Load() && cmd.Name() == "hget" && len(args) == 3 && args[1] == snapshotCatalogKey && args[2] == "compaction" && h.denied.CompareAndSwap(false, true) {
 			err := fmt.Errorf("compaction outcome probe unavailable")
 			cmd.SetErr(err)
@@ -308,7 +308,10 @@ func TestSnapshotCompactionAtomicAllDeletedPage(t *testing.T) {
 	}
 }
 
-type compactionPartialCopyHook struct{ fired atomic.Bool }
+type compactionPartialCopyHook struct {
+	fired        atomic.Bool
+	functionName string
+}
 
 func (*compactionPartialCopyHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func (*compactionPartialCopyHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
@@ -316,21 +319,27 @@ func (*compactionPartialCopyHook) ProcessPipelineHook(next goredis.ProcessPipeli
 }
 func (h *compactionPartialCopyHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if len(args) > 1 && (args[1] == snapshotCompactionCopyLua || args[1] == snapshotCompactionCopyDigest) && h.fired.CompareAndSwap(false, true) {
-			// Inject into the actual wire command, including the cached path.
-			args[0] = "EVAL"
-			args[1] = strings.Replace(snapshotCompactionCopyLua, "for i,fields in ipairs(rows) do redis.call('HSET',KEYS[i+3],unpack(fields)) end", "for i,fields in ipairs(rows) do redis.call('HSET',KEYS[i+3],unpack(fields));if i==1 then return redis.error_reply('injected incomplete compaction copy') end end", 1)
-			if args[1] == snapshotCompactionCopyLua {
-				return fmt.Errorf("partial-copy injection did not match")
-			}
+			// Select a separately installed test function without changing production code.
+			cmd.Args()[0], cmd.Args()[1] = "FCALL", h.functionName
 		}
 		return next(ctx, cmd)
 	}
 }
+func newCompactionPartialCopyHook(t *testing.T, admin processor) *compactionPartialCopyHook {
+	t.Helper()
+	body := strings.Replace(snapshotCompactionCopyLua, "for i,fields in ipairs(rows) do redis.call('HSET',KEYS[i+3],unpack(fields)) end", "for i,fields in ipairs(rows) do redis.call('HSET',KEYS[i+3],unpack(fields));if i==1 then return redis.error_reply('injected incomplete compaction copy') end end", 1)
+	if body == snapshotCompactionCopyLua {
+		t.Fatal("partial-copy injection did not match")
+	}
+	functionName := installTestFunction(t, admin, body)
+	return &compactionPartialCopyHook{functionName: functionName}
+}
+
 func TestSnapshotCompactionAtomicIncompleteCopyResumes(t *testing.T) {
 	h, raw, s, job, token := compactionAtomicFixture(t)
-	hook := &compactionPartialCopyHook{}
+	hook := newCompactionPartialCopyHook(t, raw)
 	s.client.AddHook(hook)
 	if _, err := s.snapshotCompactionStep(h.ctx, token); err == nil {
 		t.Fatal("incomplete batch reported completion")

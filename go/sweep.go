@@ -172,8 +172,14 @@ const (
 func (c *hashConn) sweepCandidates(ctx context.Context, res *Sweep) (map[string]*SweptPrefix, error) {
 	pipe := c.client.Pipeline()
 	released := pipe.HGetAll(ctx, releasedKey)
-	reserved := pipe.SMembers(ctx, prefixesKey)
-	dropped := pipe.SMembers(ctx, droppedAdoptedKey)
+	reserved := scanSet(ctx, c.client, prefixesKey)
+	if err := reserved.Err(); err != nil {
+		return nil, err
+	}
+	dropped := scanSet(ctx, c.client, droppedAdoptedKey)
+	if err := dropped.Err(); err != nil {
+		return nil, err
+	}
 	jobs := pipe.HGetAll(ctx, rekeyKey)
 	if _, err := pipe.Exec(ctx); err != nil {
 		return nil, wrapRedis(err, "failed to read the released key prefixes")

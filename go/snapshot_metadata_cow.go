@@ -123,7 +123,7 @@ func (s *store) cloneSnapshotMetadata(_ context.Context, ctx context.Context, ba
 	// directory cardinalities, references and live pin before its first write.
 	// Repeating the weaker client-side manifest pipeline cannot strengthen
 	// that atomic proof, and adds a round trip to every managed mutation.
-	return wrapRedis(once(ctx, s.client, "EVAL", snapshotMetadataCloneRoot, 5, snapshotCatalogKey, snapshotMetadataMap(base), snapshotMetadataMap(id), snapshotMetadataGraph, snapshotMetadataKeys(base), id, snapshotOf(ctx).pin.token, base).Err(), "failed to share snapshot metadata root")
+	return wrapRedis(once(ctx, s.client, "FCALL", redisFunctionName(snapshotMetadataCloneRoot), 5, snapshotCatalogKey, snapshotMetadataMap(base), snapshotMetadataMap(id), snapshotMetadataGraph, snapshotMetadataKeys(base), id, snapshotOf(ctx).pin.token, base).Err(), "failed to share snapshot metadata root")
 }
 
 // Called only from the key-position hook. Internal protocol keys bypass this
@@ -283,7 +283,7 @@ func resolveSnapshotMetadataRead(ctx context.Context, suffix string, writing boo
 			}
 			source := snapshotWorkspace(valueOwner) + suffix
 			target := snapshotWorkspace(scope.id) + suffix
-			if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataOwnValue, 10, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), source, target, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(scope.id), snapshotDataQueue, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix, valueOwner).Err(); err != nil {
+			if err := once(ctx, s.redis(ctx), "FCALL", redisFunctionName(snapshotMetadataOwnValue), 10, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), source, target, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(scope.id), snapshotDataQueue, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix, valueOwner).Err(); err != nil {
 				return "", err
 			}
 			bucket[suffix] = scope.id
@@ -417,7 +417,7 @@ redis.call('HDEL',KEYS[2],'v:'..KEYS[1],'e:'..KEYS[1],'t:'..KEYS[1]);redis.call(
 `
 
 func (s *store) retireSnapshotMetadata(ctx context.Context, id string) error {
-	return once(ctx, s.client, "EVAL", snapshotMetadataRetireRoot, 4, snapshotCatalogKey, snapshotMetadataMap(id), snapshotMetadataGraph, snapshotMetadataBucketQueue, id).Err()
+	return once(ctx, s.client, "FCALL", redisFunctionName(snapshotMetadataRetireRoot), 4, snapshotCatalogKey, snapshotMetadataMap(id), snapshotMetadataGraph, snapshotMetadataBucketQueue, id).Err()
 }
 func (s *store) collectSnapshotMetadata(ctx context.Context) error {
 	ids, err := s.client.ZRange(ctx, snapshotMetadataBucketQueue, 0, 15).Result()
@@ -432,7 +432,7 @@ func (s *store) collectSnapshotMetadata(ctx context.Context) error {
 		if _, err := strconv.ParseUint(parts[1], 16, 8); err != nil {
 			return err
 		}
-		if err := once(ctx, s.client, "EVAL", snapshotMetadataCollectBucket, 5, snapshotMetadataBucket(parts[0], parts[1]), snapshotMetadataGraph, snapshotMetadataBucketQueue, snapshotMetadataValueQueue, snapshotMetadataDirectory(parts[0], parts[1]), id).Err(); err != nil {
+		if err := once(ctx, s.client, "FCALL", redisFunctionName(snapshotMetadataCollectBucket), 5, snapshotMetadataBucket(parts[0], parts[1]), snapshotMetadataGraph, snapshotMetadataBucketQueue, snapshotMetadataValueQueue, snapshotMetadataDirectory(parts[0], parts[1]), id).Err(); err != nil {
 			return err
 		}
 	}
@@ -445,7 +445,7 @@ func (s *store) collectSnapshotMetadata(ctx context.Context) error {
 		if !ok || len(rest) < 34 || rest[32] != ':' || !snapshotMetadataID(rest[:32]) {
 			return errorf(adbc.StatusIO, "invalid retiring metadata object")
 		}
-		if err := once(ctx, s.client, "EVAL", snapshotMetadataCollectValue, 5, key, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(rest[:32]), snapshotDataQueue).Err(); err != nil {
+		if err := once(ctx, s.client, "FCALL", redisFunctionName(snapshotMetadataCollectValue), 5, key, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(rest[:32]), snapshotDataQueue).Err(); err != nil {
 			return err
 		}
 	}
@@ -510,7 +510,7 @@ func (s *store) pruneSnapshotMetadata(ctx context.Context) error {
 	defer scope.metadataMu.Unlock()
 	for suffix := range scope.metadata.prune {
 		slot := snapshotMetadataSlot(suffix)
-		n, err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataPruneValue, 6, snapshotCatalogKey, snapshotMetadataBucket(scope.id, slot), snapshotWorkspace(scope.id)+suffix, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix).Int()
+		n, err := once(ctx, s.redis(ctx), "FCALL", redisFunctionName(snapshotMetadataPruneValue), 6, snapshotCatalogKey, snapshotMetadataBucket(scope.id, slot), snapshotWorkspace(scope.id)+suffix, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix).Int()
 		if err != nil {
 			return err
 		}

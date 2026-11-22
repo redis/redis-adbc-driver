@@ -25,7 +25,7 @@ type snapshotUtilityMetadataObserver struct {
 
 func (*snapshotUtilityMetadataObserver) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func (o *snapshotUtilityMetadataObserver) observe(cmd goredis.Cmder) bool {
-	a := cmd.Args()
+	a := snapshotObservedControlArgs(cmd)
 	if !o.active.Load() || len(a) < 3 || a[1] != snapshotMutation {
 		return false
 	}

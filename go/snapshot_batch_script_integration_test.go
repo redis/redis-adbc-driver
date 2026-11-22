@@ -6,7 +6,6 @@ package redis
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 
@@ -19,55 +18,6 @@ type snapshotBatchWire struct {
 	digests, bodies map[string]int
 }
 
-func TestSnapshotBatchScriptEvalOnlySoftware(t *testing.T) {
-	uri := os.Getenv("REDIS_SCRIPT_EVAL_ONLY_URI")
-	if uri == "" {
-		t.Skip("requires an owned Software EVAL-only operator fixture")
-	}
-	operator, err := goredis.ParseURL(uri)
-	admin, adminErr := goredis.ParseURL(os.Getenv("REDIS_SNAPSHOT_URI"))
-	if err != nil || adminErr != nil || operator.Addr != admin.Addr || operator.DB != admin.DB || operator.Username == "" || operator.TLSConfig == nil || admin.TLSConfig == nil {
-		t.Fatal("operator endpoint differs from the owned strict-TLS fixture")
-	}
-	h, _, _ := newSnapshotHarnessOptions(t, false, false, map[string]string{adbc.OptionKeyURI: uri})
-	rec := followupRecord(4000)
-	defer rec.Release()
-	empty := rec.NewSlice(0, 0)
-	err = followupIngest(h.ctx, h.conn, "eval_only", adbc.OptionValueIngestModeCreate, empty)
-	empty.Release()
-	if err != nil {
-		t.Fatal(err)
-	}
-	observer := &snapshotBatchWire{digests: map[string]int{}, bodies: map[string]int{}}
-	ctx, impl := statisticsHookedTransport(t, h, observer)
-	for trial := range 4 {
-		part := rec.NewSlice(int64(trial*1000), int64((trial+1)*1000))
-		err := followupIngest(ctx, h.conn, "eval_only", adbc.OptionValueIngestModeAppend, part)
-		part.Release()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	observer.Lock()
-	for _, digest := range []string{snapshotWriteBatchDigest, snapshotIndexNotifyDigest} {
-		if observer.digests[digest] != 1 || observer.bodies[digest] != 16 {
-			t.Errorf("EVAL-only row/index commands: digest attempts %d full bodies %d, want 1/16", observer.digests[digest], observer.bodies[digest])
-		}
-	}
-	observer.Unlock()
-	snapshotDrainCompactionTest(t, impl.store)
-	observer.Lock()
-	if observer.digests[snapshotCompactionCopyDigest] != 1 || observer.bodies[snapshotCompactionCopyDigest] == 0 || !impl.store.compactionScript.evalOnly.Load() {
-		t.Error("EVAL-only compaction did not retain one refused digest followed by full bodies")
-	}
-	observer.Unlock()
-	actual, err := followupFetch(ctx, h.conn, "SELECT * FROM eval_only")
-	if err != nil {
-		t.Fatal(err)
-	}
-	followupValidate(t, actual, 1, 4000)
-}
-
 func (*snapshotBatchWire) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func (*snapshotBatchWire) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return next
@@ -78,7 +28,7 @@ func (h *snapshotBatchWire) ProcessHook(next goredis.ProcessHook) goredis.Proces
 		if len(a) > 1 {
 			h.Lock()
 			for _, s := range []struct{ body, digest string }{{snapshotWriteBatchLua, snapshotWriteBatchDigest}, {snapshotIndexNotifyLua, snapshotIndexNotifyDigest}, {snapshotCompactionCopyLua, snapshotCompactionCopyDigest}} {
-				if cmd.Name() == "evalsha" && a[1] == s.digest {
+				if cmd.Name() == "fcall" && a[1] == s.digest {
 					h.digests[s.digest]++
 				} else if cmd.Name() == "eval" && a[1] == s.body {
 					h.bodies[s.digest]++
@@ -90,7 +40,7 @@ func (h *snapshotBatchWire) ProcessHook(next goredis.ProcessHook) goredis.Proces
 	}
 }
 
-func TestSnapshotCompactionScriptCacheColdHotFlush(t *testing.T) {
+func TestSnapshotCompactionFunctionsSurviveScriptFlush(t *testing.T) {
 	h, raw, _ := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE TABLE t(id INTEGER,v BIGINT)")
 	h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,257) AS g(i)")
@@ -124,10 +74,7 @@ func TestSnapshotCompactionScriptCacheColdHotFlush(t *testing.T) {
 		if err := s.copySnapshotCompactionBatch(h.ctx, job); err != nil {
 			t.Fatal(err)
 		}
-		wantBody := 1
-		if trial == 1 {
-			wantBody = 0
-		}
+		wantBody := 0
 		observer.Lock()
 		if observer.digests[snapshotCompactionCopyDigest] != 1 || observer.bodies[snapshotCompactionCopyDigest] != wantBody {
 			t.Errorf("trial %d: digest attempts %d full bodies %d, want 1/%d", trial, observer.digests[snapshotCompactionCopyDigest], observer.bodies[snapshotCompactionCopyDigest], wantBody)
@@ -149,7 +96,7 @@ func TestSnapshotCompactionScriptCacheColdHotFlush(t *testing.T) {
 	}
 }
 
-func TestSnapshotBatchScriptCacheColdHotFlush(t *testing.T) {
+func TestSnapshotBatchFunctionsSurviveScriptFlush(t *testing.T) {
 	h, raw, _ := newSnapshotHarnessMode(t, false, false)
 	rec := followupRecord(3000)
 	defer rec.Release()
@@ -177,10 +124,7 @@ func TestSnapshotBatchScriptCacheColdHotFlush(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		wantBody := 1
-		if trial == 1 {
-			wantBody = 0
-		}
+		wantBody := 0
 		observer.Lock()
 		for _, digest := range []string{snapshotWriteBatchDigest, snapshotIndexNotifyDigest} {
 			if observer.digests[digest] != 4 || observer.bodies[digest] != wantBody {

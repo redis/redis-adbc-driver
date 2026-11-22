@@ -1988,9 +1988,7 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 		if err := e.store.checkKeyRowsKept(ctx, meta, changes); err != nil {
 			return err
 		}
-		if err := keyRowUpdateScript.Load(ctx, e.store.redis(ctx)).Err(); err != nil {
-			return wrapRedis(err, "failed to load the update script")
-		}
+
 	}
 	for start := 0; start < len(changes); start += pipelineChunk {
 		if start > 0 {

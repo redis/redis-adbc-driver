@@ -179,7 +179,7 @@ func (h *unmanagedCreateLostReply) Process(ctx context.Context, cmd goredis.Cmde
 
 func (h *unmanagedCreateLostReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		if strings.EqualFold(cmd.Name(), "ft.create") && len(cmd.Args()) > 1 && cmd.Args()[1] == "new_idx" {
+		if strings.EqualFold(cmd.Name(), "ft.create") && len(snapshotObservedControlArgs(cmd)) > 1 && snapshotObservedControlArgs(cmd)[1] == "new_idx" {
 			h.calls++
 			if snapshotOf(ctx) != nil || h.input.calls.Load() != 0 {
 				h.t.Fatal("source creation fenced or input consumed before registration")
@@ -323,7 +323,7 @@ type unmanagedCreateAfter struct {
 
 func (h *unmanagedCreateAfter) Process(ctx context.Context, cmd goredis.Cmder) error {
 	err := h.UniversalClient.Process(ctx, cmd)
-	if err == nil && strings.EqualFold(cmd.Name(), "ft.create") && len(cmd.Args()) > 1 && cmd.Args()[1] == "new_idx" {
+	if err == nil && strings.EqualFold(cmd.Name(), "ft.create") && len(snapshotObservedControlArgs(cmd)) > 1 && snapshotObservedControlArgs(cmd)[1] == "new_idx" {
 		h.calls++
 		h.after()
 	}
@@ -479,7 +479,7 @@ type unmanagedCreateBefore struct {
 }
 
 func (h *unmanagedCreateBefore) Process(ctx context.Context, cmd goredis.Cmder) error {
-	if strings.EqualFold(cmd.Name(), "ft.create") && len(cmd.Args()) > 1 && cmd.Args()[1] == "new_idx" {
+	if strings.EqualFold(cmd.Name(), "ft.create") && len(snapshotObservedControlArgs(cmd)) > 1 && snapshotObservedControlArgs(cmd)[1] == "new_idx" {
 		h.before()
 	}
 	return h.UniversalClient.Process(ctx, cmd)

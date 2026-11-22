@@ -273,7 +273,7 @@ func TestSnapshotImportOutputSplitsWideCapturePage(t *testing.T) {
 
 func (h *snapshotImportJournalInterruption) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		if len(a) < 3 || !strings.EqualFold(fmt.Sprint(a[0]), "eval") {
 			return next(ctx, cmd)
 		}

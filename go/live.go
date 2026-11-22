@@ -189,9 +189,9 @@ func (s *store) publishLive(ctx context.Context, name, before string, meta *tabl
 		return err
 	}
 	after, _ := json.Marshal(liveRecord{State: "ready", Meta: meta})
-	n, err := once(ctx, s.client, "EVAL", `
+	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`
 if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end
-redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`, 1, liveRegistry, name, before, string(after)).Int()
+redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, name, before, string(after)).Int()
 	if err != nil {
 		return wrapRedis(err, "live registration publication outcome is uncertain")
 	}
@@ -451,7 +451,7 @@ func (s *store) updateLiveRows(ctx context.Context, m *tableMeta, changes []rowC
 		if err := s.checkLiveIdentity(ctx, m); err != nil {
 			return err
 		}
-		args := []any{"EVAL", keyRowUpdateLua, 1, ch.key}
+		args := []any{"FCALL", redisFunctionName(keyRowUpdateLua), 1, ch.key}
 		args = append(args, keyRowArgs(ch)...)
 		n, err := once(ctx, s.redis(ctx), args...).Int()
 		if err != nil {
@@ -478,7 +478,7 @@ func (s *store) deleteLiveKeys(ctx context.Context, m *tableMeta, keys []string)
 		if err := s.checkLiveIdentity(ctx, m); err != nil {
 			return err
 		}
-		n, err := once(ctx, s.redis(ctx), "EVAL", `if redis.call('TYPE',KEYS[1]).ok ~= 'hash' then return 0 end; return redis.call('DEL',KEYS[1])`, 1, key).Int()
+		n, err := once(ctx, s.redis(ctx), "FCALL", redisFunctionName(`if redis.call('TYPE',KEYS[1]).ok ~= 'hash' then return 0 end; return redis.call('DEL',KEYS[1])`), 1, key).Int()
 		if err != nil {
 			return wrapRedis(err, "live DELETE outcome is uncertain; earlier row changes may have applied")
 		}
@@ -565,7 +565,7 @@ func UnregisterLiveHashes(ctx context.Context, options map[string]string, table 
 	if r.State != "deleting" {
 		r.State = "deleting"
 		next, _ := json.Marshal(r)
-		n, err := once(ctx, c.client, "EVAL", `if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`, 1, liveRegistry, table, raw, string(next)).Int()
+		n, err := once(ctx, c.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, table, raw, string(next)).Int()
 		if err != nil {
 			return wrapRedis(err, "live removal admission outcome is uncertain")
 		}
@@ -577,7 +577,7 @@ func UnregisterLiveHashes(ctx context.Context, options map[string]string, table 
 	if err := c.st.searchDo(ctx, r.Meta.index(), "FT.DROPINDEX", r.Meta.index()).Err(); err != nil && !isUnknownIndex(err) {
 		return wrapRedis(err, "live index removal outcome is uncertain; registration retained")
 	}
-	n, err := once(ctx, c.client, "EVAL", `if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HDEL',KEYS[1],ARGV[1]); return 1`, 1, liveRegistry, table, raw).Int()
+	n, err := once(ctx, c.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HDEL',KEYS[1],ARGV[1]); return 1`), 1, liveRegistry, table, raw).Int()
 	if err != nil {
 		return wrapRedis(err, "live removal publication outcome is uncertain")
 	}

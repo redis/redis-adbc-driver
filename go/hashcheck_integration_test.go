@@ -391,7 +391,7 @@ func TestCopyHashes(t *testing.T) {
 // The ACL rules the driver reference documents for check and copy.
 var (
 	aclCheckCommands     = []string{"+ping", "+info", "+scan", "+hkeys", "+hmget", "+ft._list", "+ft.info", "+ft.aggregate", "+memory|usage"}
-	aclCheckMetaCommands = []string{"+get", "+exists", "+smembers", "+sismember", "+hget", "+hexists", "+hgetall"}
+	aclCheckMetaCommands = []string{"+get", "+exists", "+sscan", "+sismember", "+hget", "+hexists", "+hgetall"}
 	aclCopyCommands      = []string{"+scan", "+hkeys"}
 )
 

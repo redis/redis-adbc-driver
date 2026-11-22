@@ -49,7 +49,7 @@ type rbacManager struct {
 // Keep rules additive; resetting command/key permissions is outside our ownership.
 // Import capture journals contain row values. Keep metadata grants positive:
 // a wildcard over workspace values would reveal unpublished captured payloads.
-const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember +zmscore" +
+const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +sscan +sismember +zmscore" +
 	" %R~adbc:schemas %R~" + snapshotCatalogKey + " %R~" + snapshotPrefix + "metadata:*" +
 	" %R~" + snapshotPrefix + "absent:*" +
 	" %R~" + snapshotPrefix + "workspace:*:__keys" +
@@ -66,13 +66,13 @@ const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft
 	" %R~" + snapshotPrefix + "workspace:*:seq:*" +
 	" %R~" + snapshotPrefix + "workspace:*:sequence-state:*"
 
-// ACL selectors keep EVAL's declared-key envelope separate from commands a
+// ACL selectors keep FCALL's declared-key envelope separate from commands a
 // script may execute. Only this backend role/ACL domain HASH is writable; SADD registers
 // retention but cannot remove another principal's namespace.
 func rbacReaderACL(domain string) string {
 	own := snapshotReaderPrefix + snapshotReaderNamespace(domain)
 	return rbacBaseACL + " +time +scard +hlen +hstrlen +zcard +zrange +zrangebylex +zscore +zlexcount +memory|usage %R~" + snapshotReaderDirectory + " %R~" + snapshotReaderDomains + " %R~" + snapshotReaderPrefix + "* %R~" + snapshotPrefix + "members:*" +
-		" (+eval ~" + snapshotCatalogKey + " ~" + snapshotPrefix + "*)" +
+		" (+fcall ~" + snapshotCatalogKey + " ~" + snapshotPrefix + "*)" +
 		" (+hset +hdel ~" + own + ") (+sadd ~" + snapshotReaderDirectory + ")"
 }
 
@@ -350,7 +350,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 			defer cancel()
 			// Only this process removes its lock; administrators must quiesce all
 			// grant writers before manually recovering an abandoned lock.
-			_ = once(cleanup, e.store.client, "EVAL", `if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end return 0`, 1, lock, token).Err()
+			_ = once(cleanup, e.store.client, "FCALL", redisFunctionName(`if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end return 0`), 1, lock, token).Err()
 		}
 	}()
 	acl, _, err := e.rbac.readRole(ctx, st.Role)

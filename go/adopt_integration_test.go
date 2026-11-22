@@ -200,7 +200,7 @@ func TestAdoptedUpdateRaces(t *testing.T) {
 	meta := &tableMeta{Schema: "public", Name: "it_ad_race", KeyPrefix: f.prefix, Adopted: true, KeyRows: true}
 	st := &store{client: f.raw}
 	ctx := f.h.ctx
-	if err := keyRowUpdateScript.Load(ctx, f.raw).Err(); err != nil {
+	if err := ensureRedisFunctions(ctx, f.raw); err != nil {
 		t.Fatal(err)
 	}
 	gone := rowChange{key: f.prefix + "2", set: []any{"n", "2"}}
@@ -305,7 +305,7 @@ func TestAdoptBlockers(t *testing.T) {
 // adopted table needs (driver reference).
 var (
 	aclAdoptCommands = []string{"+scan", "+hkeys"}
-	aclUpdateAdopted = []string{"+hlen", "+eval", "+evalsha", "+script|load"}
+	aclUpdateAdopted = []string{"+hlen", "+fcall", "+function|load"}
 )
 
 // A user with the driver's rules and adopt's adopts, and then queries; one

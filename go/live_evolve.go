@@ -209,7 +209,7 @@ func (s *store) swapLiveEvolution(ctx context.Context, before string, r *liveRec
 	if len(after) > 1<<20 {
 		return "", errorf(adbc.StatusInvalidArgument, "live evolution descriptor exceeds 1 MiB")
 	}
-	n, err := once(ctx, s.client, "EVAL", `if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`, 1, liveRegistry, r.Meta.Name, before, string(after)).Int()
+	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, r.Meta.Name, before, string(after)).Int()
 	if err != nil {
 		return "", wrapRedis(err, "live evolution transition outcome uncertain; inspect/resume retained identity")
 	}

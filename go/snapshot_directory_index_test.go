@@ -51,7 +51,7 @@ func (h *snapshotDirectoryPopulationHook) command(ctx context.Context, cmd gored
 			page = h.members[start:min(start+256, len(h.members))]
 		}
 		cmd.(*goredis.StringSliceCmd).SetVal(page)
-	case "eval", "evalsha":
+	case "fcall":
 		h.notifications++
 		if h.notifyErr != nil {
 			cmd.SetErr(h.notifyErr)

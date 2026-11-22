@@ -684,19 +684,20 @@ This is not a claim of uninterrupted query availability or a proven fix.
 Unavailable/inconsistent views must fail explicitly rather than return mixed
 results, switch to live data or replay uncertain SQL/input.
 
-In addition to ordinary Search/HASH/metadata commands, the mode requires `EVAL`,
+In addition to ordinary Search/HASH/metadata commands, the mode requires `FCALL`,
 `TIME`, `DBSIZE`, `DUMP`, `RESTORE`, `SCAN`, `ZRANGE`, `ZLEXCOUNT`, `ZCARD`, `ZSCORE` and
 `ZRANGEBYLEX` and `INFO`, plus namespace access. Lua directory registration also
 requires `ZADD` and `ZREM`.
 Lua fences invoke the underlying write commands, which also need ACL permission.
 Read-only SQL clients still need control-hash write permission for reader pins.
 
-Standalone control, row-image, index-notification and compaction-copy calls use
-`EVALSHA` to avoid repeatedly transmitting Lua bodies. A definite cache miss
-allows one full-body `EVAL`; an explicit command-permission denial retains
-`EVAL`-only compatibility. Script-cache loss does not require an application
-retry. Lost replies never trigger this fallback; the existing outcome checks
-and explicit errors still apply.
+Atomic control, row-image, index-notification and compaction-copy operations use
+versioned Redis Functions through `FCALL`. The driver never uses EVAL/EVALSHA or
+script-cache recovery. A trusted initializer needs `FUNCTION LOAD` when the
+library is absent; other roles can use the installed library with `FCALL` and
+the underlying command/key grants. Each new socket verifies the function library.
+Lost operation replies retain the existing durable outcome checks; they never
+trigger replay or a legacy fallback. See [ACL users](driver-reference.md#acl-users).
 
 ## Validation
 

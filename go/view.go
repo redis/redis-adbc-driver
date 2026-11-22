@@ -285,7 +285,7 @@ func (s *store) listViews(ctx context.Context, schema string) ([]string, error) 
 	if schema == foreignSchema {
 		return nil, nil
 	}
-	members, err := s.redis(ctx).SMembers(ctx, viewsKey(schema)).Result()
+	members, err := scanSet(ctx, s.redis(ctx), viewsKey(schema)).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to list views")
 	}

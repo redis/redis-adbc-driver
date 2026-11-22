@@ -69,7 +69,7 @@ func (s *store) deleteSnapshotRowBatch(ctx context.Context, prefix string, membe
 	if id == "" || prefix != snapshotRowPrefix(prefix) || len(members) == 0 || len(members) > 256 {
 		return 0, errorf(adbc.StatusIO, "invalid snapshot reclamation batch")
 	}
-	args := []any{"EVAL", snapshotGCRowBatchLua, 3 + len(members), snapshotMetadataGraph, snapshotDataQueue, snapshotMembers(id)}
+	args := []any{"FCALL", redisFunctionName(snapshotGCRowBatchLua), 3 + len(members), snapshotMetadataGraph, snapshotDataQueue, snapshotMembers(id)}
 	for _, member := range members {
 		n, err := strconv.ParseInt(member, 10, 64)
 		if err != nil || n < 1 || len(member) != 20 {

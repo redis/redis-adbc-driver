@@ -468,7 +468,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	peer := open(peerURI.String(), "")
 	admin.exec(`GRANT SELECT ON it_rbac_renamed TO ` + roleName)
 	waitRows(`SELECT id FROM it_rbac_renamed`, "84")
-	t.Run("two_restricted_principals", func(t *testing.T) { checkSnapshotRestrictedPeers(t, reader, peer) })
+	t.Run("two_restricted_principals", func(t *testing.T) { checkSnapshotRestrictedPeers(t, reader, peer, client) })
 	t.Run("peer_captured_payload_is_private", func(t *testing.T) { checkSnapshotImportPayloadACL(t, peerURI.String()) })
 	admin.exec(`REVOKE SELECT ON it_rbac_renamed FROM ` + roleName)
 	// Users sharing one backend role share its lease authorization domain.

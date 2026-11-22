@@ -347,7 +347,7 @@ return {last, metadata}
 `
 
 func (s *store) allocateFlexRowIDs(ctx context.Context, meta *tableMeta, n int) (int64, string, error) {
-	reply, err := s.redis(ctx).Eval(ctx, flexAllocateRowIDs, []string{seqKey(meta.Schema, meta.Name), metaKey(meta.Schema, meta.Name)}, n, exactDoubleLimit).Slice()
+	reply, err := newRedisFunction(flexAllocateRowIDs).Run(ctx, s.redis(ctx), []string{seqKey(meta.Schema, meta.Name), metaKey(meta.Schema, meta.Name)}, n, exactDoubleLimit).Slice()
 	if err != nil {
 		if strings.Contains(err.Error(), "ADBC_FLEX_ROW_ID_LIMIT") {
 			return 0, "", flexUnsupported("row IDs beyond 2^53")

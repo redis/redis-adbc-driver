@@ -116,7 +116,7 @@ type snapshotSequenceLostReply struct {
 
 func (h *snapshotSequenceLostReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		if len(a) < 2 || !strings.EqualFold(fmt.Sprint(a[0]), "eval") || !strings.Contains(fmt.Sprint(a[1]), "volatile snapshot SQL sequence counter") {
 			return next(ctx, cmd)
 		}

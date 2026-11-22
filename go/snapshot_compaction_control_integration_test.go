@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -352,46 +351,5 @@ func TestSnapshotCompactionCombinedRetainsMetadataProof(t *testing.T) {
 	}
 	if err := raw.ZRem(h.ctx, snapshotMetadataKeys(root), "corrupt-test-entry").Err(); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestSnapshotCompactionCombinedEvalOnlySoftware(t *testing.T) {
-	uri := os.Getenv("REDIS_SCRIPT_EVAL_ONLY_URI")
-	if uri == "" {
-		t.Skip("requires an owned Software EVAL-only operator fixture")
-	}
-	h, raw, _, token, original := newCompactionControlJob(t)
-	opts, err := goredis.ParseURL(uri)
-	if err != nil || opts.Addr != raw.Options().Addr || opts.DB != raw.Options().DB || opts.Username == "" || raw.Options().TLSConfig == nil {
-		t.Fatal("operator differs from owned strict-TLS fixture")
-	}
-	opts.TLSConfig = raw.Options().TLSConfig.Clone()
-	opts.ContextTimeoutEnabled = true
-	client := goredis.NewClient(opts)
-	defer client.Close()
-	client.AddHook(snapshotHook{})
-	observer := &controlScriptWireObserver{}
-	observer.enabled.Store(true)
-	client.AddHook(observer)
-	s := &store{client: client, snapshots: true}
-	job, ctx, pin, err := s.acquireCompactionStepCatalog(h.ctx, token)
-	if err != nil || pin == nil || job == nil || job.ID != original.ID {
-		t.Fatal("EVAL-only combined acquire failed")
-	}
-	defer pin.release()
-	if err := s.validateSnapshotMetadata(ctx, pin.root); err != nil {
-		t.Fatal("EVAL-only metadata proof failed")
-	}
-	if err := pin.valid(ctx); err != nil {
-		t.Fatal("EVAL-only read pin invalid")
-	}
-	pin.release()
-	if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+pin.token).Val() {
-		t.Fatal("EVAL-only read pin leaked")
-	}
-	observer.mu.Lock()
-	defer observer.mu.Unlock()
-	if observer.denied != 1 || observer.successes != 3 || observer.noRetry || !s.controlScript.evalOnly.Load() {
-		t.Fatal("combined acquire lost one-refusal EVAL-only compatibility", observer.denied, observer.successes)
 	}
 }

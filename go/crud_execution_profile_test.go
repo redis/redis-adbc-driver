@@ -56,7 +56,7 @@ type crudProfileHook struct {
 func (*crudProfileHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func crudProfileCategory(cmd goredis.Cmder) string {
 	category := compactionProfileCategory(cmd)
-	args := cmd.Args()
+	args := snapshotObservedControlArgs(cmd)
 	if len(args) > 1 {
 		key, _ := args[1].(string)
 		switch {
@@ -70,9 +70,9 @@ func crudProfileCategory(cmd goredis.Cmder) string {
 			return "metadata_object_" + category
 		}
 	}
-	// Future/test candidate resolver scripts may use EVALSHA. Categorize their
+	// Categorize function-based candidate resolvers by their
 	// declared root-map inputs, without recording script digests or arguments.
-	if (category == "evalsha" || category == "eval" || category == "evalsha_ro" || category == "eval_ro") && len(args) > 3 {
+	if (category == "fcall" || category == "fcall_ro") && len(args) > 3 {
 		n, _ := strconv.Atoi(fmt.Sprint(args[2]))
 		for _, arg := range args[3:min(len(args), 3+n)] {
 			if key, ok := arg.(string); ok && strings.HasPrefix(key, snapshotPrefix+"metadata:root:") {
@@ -517,7 +517,7 @@ func TestCRUDProfileWrappedValueBytes(t *testing.T) {
 	ctx := context.Background()
 	values := goredis.NewSliceCmd(ctx, "HMGET", "synthetic", "a", "b")
 	values.SetVal([]any{"one", []byte{'a', 0, 'b'}, nil})
-	generic := goredis.NewCmd(ctx, "EVAL", "synthetic", 0)
+	generic := goredis.NewCmd(ctx, "FCALL", "synthetic", 0)
 	generic.SetVal([]any{"one", []byte{'a', 0, 'b'}, nil, []any{"not counted"}})
 	projected := unmanagedProjectionCmd{Cmder: values}
 	wrappedOnce := onceCmd{Cmd: generic}

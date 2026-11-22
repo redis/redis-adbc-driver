@@ -220,7 +220,7 @@ func (s *store) operationControl(ctx context.Context, op, id, token, base string
 		cmd.SetErr(errorf(adbc.StatusInvalidArgument, "invalid operation identity, permissions or plan"))
 		return cmd
 	}
-	return once(ctx, s.client, "EVAL", snapshotOperationLua, 5, snapshotCatalogKey, snapshotOperationRegistry, snapshotOperationKey(id), snapshotMetadataMap(id), snapshotMetadataGraph, op, id, token, base, retention.Milliseconds(), string(raw), kind, affected)
+	return once(ctx, s.client, "FCALL", redisFunctionName(snapshotOperationLua), 5, snapshotCatalogKey, snapshotOperationRegistry, snapshotOperationKey(id), snapshotMetadataMap(id), snapshotMetadataGraph, op, id, token, base, retention.Milliseconds(), string(raw), kind, affected)
 }
 
 func captureSnapshotOperationPlan(ctx context.Context, kind string, affected int64, importMeta *tableMeta) (*snapshotOperationPlan, error) {
@@ -321,7 +321,7 @@ func (s *store) snapshotOperationStatus(ctx context.Context, id string) (*Snapsh
 	if !snapshotMetadataID(id) {
 		return nil, errorf(adbc.StatusInvalidArgument, "invalid operation handle")
 	}
-	raw, err := once(ctx, s.client, "EVAL", snapshotOperationStatusLua, 2, snapshotCatalogKey, snapshotOperationKey(id), id).Text()
+	raw, err := once(ctx, s.client, "FCALL", redisFunctionName(snapshotOperationStatusLua), 2, snapshotCatalogKey, snapshotOperationKey(id), id).Text()
 	if err == goredis.Nil {
 		return nil, errorf(adbc.StatusNotFound, "operation not found or retention expired")
 	}
@@ -436,7 +436,7 @@ func chargeSnapshotOperation(ctx context.Context, amount int64) error {
 	if scope == nil || !scope.operation {
 		return nil
 	}
-	_, err := once(ctx, scope.store.client, "EVAL", snapshotOperationChargeLua, 1, snapshotCatalogKey, scope.id, scope.pin.token, amount).Int()
+	_, err := once(ctx, scope.store.client, "FCALL", redisFunctionName(snapshotOperationChargeLua), 1, snapshotCatalogKey, scope.id, scope.pin.token, amount).Int()
 	return wrapRedis(err, "operation control admission failed; protected command was not sent")
 }
 

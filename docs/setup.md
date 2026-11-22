@@ -35,15 +35,36 @@ python -m adbc_driver_redis doctor --offline
 ```
 
 Set `REDIS_URI` in your application's environment or secret manager. Examples
-below read it rather than embedding credentials. Use `redis://host:port/0` for
-plaintext or `rediss://host:port/0` for verified TLS; credentials use
-`redis[s]://username:password@host:port/0` with URI-encoded reserved characters.
+below read it rather than embedding credentials. An explicit ACL username and
+nonempty password are required, along with RESP3 and Redis Functions. Use
+`redis://username:password@host:port/0` for plaintext or
+`rediss://username:password@host:port/0` for verified TLS, URI-encoding reserved
+characters. Replace the example credentials with your configured ACL credentials.
+See [function initialization and ACL permissions](driver-reference.md#acl-users).
 Use the deployment's endpoint and port, rather than assuming 6379.
 
 ```sh
-export REDIS_URI='redis://localhost:6379/0'
+export REDIS_URI='redis://app:YOUR_URL_ENCODED_PASSWORD@localhost:6379/0'
 python -m adbc_driver_redis doctor
 ```
+
+### Automatic Functions setup
+
+The driver bundles its Functions library and installs it automatically when it
+first connects to a server where that version is missing. No Lua files or manual
+`FUNCTION LOAD` command are needed. Supply an explicit ACL username and password;
+the connecting user needs its normal application permissions, `+fcall`, and
+`+function|load` when installation is needed. The online `doctor` command above
+exercises this same setup path.
+
+For restricted application users, run `doctor` first using a trusted setup user's
+credentials supplied through the environment or secret manager. After it succeeds,
+applications can connect with their own ACL credentials and `+fcall` without
+`+function|load`. Repeat the setup with the new driver before deploying an upgrade
+that changes its bundled library, and initialize new Cluster nodes before restricted
+clients use them. Existing libraries coexist. See the
+[ACL reference](driver-reference.md#acl-users) for the full application grants;
+FCALL alone does not authorize SQL data access.
 
 `doctor` returns 0 when requested checks pass, 1 on a diagnostic failure and 2
 for invalid arguments. Without a URI it runs offline. `--offline` ignores
@@ -179,7 +200,7 @@ CREATE EXTENSION REPOSITORY IF NOT EXISTS query_farm
   WITH PREFIX 'https://duckdb-extensions.query.farm';
 INSTALL adbc_scanner FROM query_farm;
 LOAD adbc_scanner FROM query_farm;
-ATTACH 'redis://localhost:6379/0' AS r (TYPE adbc, driver 'redis', READ_ONLY);
+ATTACH 'redis://app:YOUR_URL_ENCODED_PASSWORD@localhost:6379/0' AS r (TYPE adbc, driver 'redis', READ_ONLY);
 SELECT * FROM adbc_scan('r', 'SELECT 1 AS one');
 DETACH r;
 ```

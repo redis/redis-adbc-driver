@@ -150,7 +150,7 @@ func (p *snapshotImportSpool) captureControl(ctx context.Context, op string) (bo
 		return false, err
 	}
 	data := snapshotDataID(p.meta.prefix())
-	n, err := once(ctx, p.store.client, "EVAL", snapshotImportCaptureLua, 7,
+	n, err := once(ctx, p.store.client, "FCALL", redisFunctionName(snapshotImportCaptureLua), 7,
 		snapshotCatalogKey, snapshotMetadataGraph, rows, keys, snapshotMembers(data), sequence, snapshotMetadataKeys(scope.id),
 		op, scope.id, scope.pin.token, data).Int()
 	if err != nil {

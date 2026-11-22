@@ -192,10 +192,10 @@ func (s *store) reserveLive(ctx context.Context, meta *tableMeta) (string, error
 	if len(raw) > 1<<20 {
 		return "", errorf(adbc.StatusInvalidArgument, "live descriptor exceeds 1 MiB")
 	}
-	n, err := once(ctx, s.client, "EVAL", `
+	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`
 if redis.call('HEXISTS',KEYS[1],ARGV[1]) == 1 then return 0 end
 if redis.call('HLEN',KEYS[1]) >= tonumber(ARGV[3]) then return -1 end
-redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); return 1`, 1, liveRegistry, meta.Name, string(raw), liveMaxTables).Int()
+redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); return 1`), 1, liveRegistry, meta.Name, string(raw), liveMaxTables).Int()
 	if err != nil {
 		return "", wrapRedis(err, "live registration outcome uncertain; inspect before retrying")
 	}
@@ -212,7 +212,7 @@ func (s *store) stageLiveReplacement(ctx context.Context, before string, meta *t
 	if err != nil {
 		return "", err
 	}
-	n, err := once(ctx, s.client, "EVAL", `if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`, 1, liveRegistry, meta.Name, before, string(raw)).Int()
+	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, meta.Name, before, string(raw)).Int()
 	if err != nil {
 		return "", wrapRedis(err, "live replacement staging outcome uncertain; registration retained")
 	}

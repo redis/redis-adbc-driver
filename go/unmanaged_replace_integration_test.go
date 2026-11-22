@@ -227,7 +227,7 @@ func (h *unmanagedReplaceHook) ProcessHook(next goredis.ProcessHook) goredis.Pro
 	}
 }
 func replaceScript(cmd goredis.Cmder, script string) bool {
-	return cmd.Name() == "eval" && len(cmd.Args()) > 1 && cmd.Args()[1] == script
+	return snapshotObservedControlName(cmd) == "eval" && len(snapshotObservedControlArgs(cmd)) > 1 && snapshotObservedControlArgs(cmd)[1] == script
 }
 
 func TestUnmanagedArrowReplaceDeleteFailure(t *testing.T) {
@@ -515,7 +515,7 @@ func TestUnmanagedArrowReplaceEmptyInput(t *testing.T) {
 
 func TestUnmanagedReplaceInventoryReplyBudget(t *testing.T) {
 	h, raw, _ := unmanagedIngestFixture(t, false)
-	err := raw.Do(h.ctx, "EVAL", unmanagedReplaceInspectLua, 1, "app:seed", "n", 0).Err()
+	err := once(h.ctx, raw, "FCALL", redisFunctionName(unmanagedReplaceInspectLua), 1, "app:seed", "n", 0).Err()
 	if err == nil || !strings.Contains(err.Error(), "inventory exceeds 64 MiB") {
 		t.Fatalf("ignored remaining reply budget: %v", err)
 	}

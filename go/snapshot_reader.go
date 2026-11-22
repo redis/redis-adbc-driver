@@ -154,13 +154,13 @@ func (s *store) snapshotReaderKeys(ctx context.Context, refresh bool) ([]any, er
 	return keys, nil
 }
 
-const snapshotNamespaceRead = `if redis.call('SCARD',KEYS[1])>128 or (redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES',0) or 0)>262144 then return redis.error_reply('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end return redis.call('SMEMBERS',KEYS[1])`
+const snapshotNamespaceRead = `if redis.call('SCARD',KEYS[1])>128 or (redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES',0) or 0)>262144 then return redis.error_reply('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end local result,seen={},{};local cursor='0';repeat local page=redis.call('SSCAN',KEYS[1],cursor,'COUNT',128);cursor=page[1];for _,v in ipairs(page[2]) do if not seen[v] then seen[v]=true;result[#result+1]=v end end until cursor=='0';return result`
 
 func (s *store) snapshotNamespaceKeys(ctx context.Context, directory string) ([]any, error) {
 
 	// Atomic read-only size checks precede materializing an untrusted directory.
-	// A separate SCARD followed by SMEMBERS could race arbitrary raw SADD calls.
-	names, err := once(ctx, s.client, "EVAL", snapshotNamespaceRead, 1, directory).StringSlice()
+	// A separate SCARD followed by SSCAN could race arbitrary raw SADD calls.
+	names, err := once(ctx, s.client, "FCALL", redisFunctionName(snapshotNamespaceRead), 1, directory).StringSlice()
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (s *store) registerRBACReaderDomains(ctx context.Context, manager *rbacMana
 	if len(domains) > 128 {
 		return errorf(adbc.StatusInvalidArgument, "RBAC reader domain limit (128) exceeded")
 	}
-	args := []any{"EVAL", `local n=redis.call('SCARD',KEYS[1]);for _,v in ipairs(ARGV) do if redis.call('SISMEMBER',KEYS[1],v)==0 then n=n+1 end end;if n>128 then return redis.error_reply('RBAC reader domain limit (128) exceeded; administrator reconciliation required') end;return redis.call('SADD',KEYS[1],unpack(ARGV))`, 1, snapshotReaderDomains}
+	args := []any{"FCALL", redisFunctionName(`local n=redis.call('SCARD',KEYS[1]);for _,v in ipairs(ARGV) do if redis.call('SISMEMBER',KEYS[1],v)==0 then n=n+1 end end;if n>128 then return redis.error_reply('RBAC reader domain limit (128) exceeded; administrator reconciliation required') end;return redis.call('SADD',KEYS[1],unpack(ARGV))`), 1, snapshotReaderDomains}
 	args = append(args, domains...)
 	return wrapRedis(once(ctx, s.client, args...).Err(), "cannot register RBAC reader authorization domains")
 }
@@ -207,7 +207,7 @@ func (s *store) discoverReaderDomain(ctx context.Context) (string, error) {
 	}
 	keys := []any{snapshotReaderDirectory}
 	keys = append(keys, domains[1:]...)
-	args := []any{"EVAL", `local own='';for i=2,#KEYS do if redis.acl_check_cmd('HSET',KEYS[i],'probe','') and redis.acl_check_cmd('HDEL',KEYS[i],'probe') and redis.acl_check_cmd('SADD',KEYS[1],'probe') then if own~='' then return redis.error_reply('multiple reader authorization domains; SQL RBAC requires a single Redis role') end;own=KEYS[i] end end;return own`, len(keys)}
+	args := []any{"FCALL", redisFunctionName(`local own='';for i=2,#KEYS do if redis.acl_check_cmd('HSET',KEYS[i],'probe','') and redis.acl_check_cmd('HDEL',KEYS[i],'probe') and redis.acl_check_cmd('SADD',KEYS[1],'probe') then if own~='' then return redis.error_reply('multiple reader authorization domains; SQL RBAC requires a single Redis role') end;own=KEYS[i] end end;return own`), len(keys)}
 	args = append(args, keys...)
 	own, err := once(ctx, s.client, args...).Text()
 	if err != nil {
@@ -257,7 +257,7 @@ func (s *store) readerControl(ctx context.Context, producer, op, token, id, root
 		}
 		keys := []any{snapshotCatalogKey, snapshotReaderDirectory, snapshotReaderPrefix + s.readerNamespace, producer}
 		keys = append(keys, directory...)
-		args := []any{"EVAL", snapshotReaderControl, len(keys)}
+		args := []any{"FCALL", redisFunctionName(snapshotReaderControl), len(keys)}
 		args = append(args, keys...)
 		args = append(args, op, s.readerNamespace, token, id, root, ttl, len(directory)-1)
 		cmd := once(ctx, s.client, args...)
