@@ -556,10 +556,14 @@ func (s *store) claimNames(ctx context.Context, schema, table string, access ...
 			released = pipe.HExists(ctx, releasedKey, nm.prefix)
 			pipe.HSet(ctx, namesNextKey, nm.base, n)
 		}
-		adopted := pipe.SMembers(ctx, adoptedKey)
 		if _, err := pipe.Exec(ctx); err != nil {
 			return tableNames{}, wrapRedis(err, "failed to reserve a key prefix")
 		}
+		adopted := scanSet(ctx, s.redis(ctx), adoptedKey)
+		if err := adopted.Err(); err != nil {
+			return tableNames{}, err
+		}
+
 		gotP, _ := addP.Int64()
 		var foreign bool
 		var ferr error
@@ -612,7 +616,10 @@ func (s *store) freeNames(ctx context.Context, tx *goredis.Tx, schema, table str
 			if !nm.temp {
 				released = p.HExists(ctx, releasedKey, nm.prefix)
 			}
-			adopted = p.SMembers(ctx, adoptedKey)
+			adopted = scanSet(ctx, tx, adoptedKey)
+			if err := adopted.Err(); err != nil {
+				return err
+			}
 			return nil
 		}); err != nil {
 			return tableNames{}, err
@@ -1708,7 +1715,10 @@ func (t *tableMeta) sameKeysAs(o *tableMeta) bool {
 func (s *store) renamedTo(ctx context.Context, meta *tableMeta) (string, error) {
 	pipe := s.redis(ctx).Pipeline()
 	kept := pipe.SIsMember(ctx, prefixesKey, meta.prefix())
-	listed := pipe.SMembers(ctx, tablesKey(meta.Schema))
+	listed := scanSet(ctx, s.redis(ctx), tablesKey(meta.Schema))
+	if err := listed.Err(); err != nil {
+		return "", err
+	}
 	if _, err := pipe.Exec(ctx); err != nil {
 		return "", wrapRedis(err, "failed to drop table")
 	}
@@ -1740,7 +1750,7 @@ func isUnknownIndex(err error) bool {
 }
 
 func (s *store) listSchemas(ctx context.Context) ([]string, error) {
-	members, err := s.redis(ctx).SMembers(ctx, schemasKey).Result()
+	members, err := scanSet(ctx, s.redis(ctx), schemasKey).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to list schemas")
 	}
@@ -1832,7 +1842,7 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 	if err != nil {
 		return err
 	}
-	sequences, err := s.redis(ctx).SMembers(ctx, sequencesKey(schema)).Result()
+	sequences, err := scanSet(ctx, s.redis(ctx), sequencesKey(schema)).Result()
 	if err != nil {
 		return err
 	}
@@ -1880,7 +1890,7 @@ func (s *store) listTables(ctx context.Context, schema string) ([]string, error)
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignNames(ctx)
 	}
-	members, err := s.redis(ctx).SMembers(ctx, tablesKey(schema)).Result()
+	members, err := scanSet(ctx, s.redis(ctx), tablesKey(schema)).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to list tables")
 	}

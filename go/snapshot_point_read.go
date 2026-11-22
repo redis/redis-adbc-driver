@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
-	goredis "github.com/redis/go-redis/v9"
 )
 
 // A single-row managed write often misses several newer segments before finding
@@ -50,7 +49,7 @@ end
 return {1,row}
 `
 
-var snapshotPointReadDigest = goredis.NewScript(snapshotPointReadLua).Hash()
+var snapshotPointReadDigest = newRedisFunction(snapshotPointReadLua).Name()
 
 // handled=false is only a local eligibility refusal or a definite top-level
 // script ACL refusal. A lost read reply fails the statement; it is not replayed.
@@ -75,7 +74,7 @@ func (s *store) fetchSnapshotPoint(ctx context.Context, seg snapshotSegment, key
 		names = append([]string{rowIDField}, fields...)
 		names = append(names, snapshotDeletedField)
 	}
-	args := []any{"EVAL", snapshotPointReadLua, 2, key, directory, member, strconv.FormatInt(seg.Rows, 10), owned, mode}
+	args := []any{"FCALL", redisFunctionName(snapshotPointReadLua), 2, key, directory, member, strconv.FormatInt(seg.Rows, 10), owned, mode}
 	bytes := len(key) + len(directory) + len(member) + len(owned) + len(mode) + 20
 	for _, name := range names {
 		args = append(args, name)
@@ -88,7 +87,7 @@ func (s *store) fetchSnapshotPoint(ctx context.Context, seg snapshotSegment, key
 	if err != nil {
 		// Inner native errors are explicitly prefixed above, never NOPERM here.
 		// Preserve custom selector ACLs that allow native HASH/directory commands
-		// but cannot declare their keys together in an EVAL envelope.
+		// but cannot declare their keys together in an FCALL envelope.
 		if native, ok := err.(interface {
 			error
 			RedisError()

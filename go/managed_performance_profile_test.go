@@ -23,7 +23,7 @@ type managedPerformanceCalls struct {
 
 func (p *managedPerformanceCalls) DialHook(next goredis.DialHook) goredis.DialHook { return next }
 func managedPerformanceCategory(cmd goredis.Cmder) string {
-	args := cmd.Args()
+	args := snapshotObservedControlArgs(cmd)
 	name := cmd.Name()
 	var script any
 	if len(args) > 1 {
@@ -35,13 +35,13 @@ func managedPerformanceCategory(cmd goredis.Cmder) string {
 	if name == "eval" && len(args) > 1 {
 		switch script {
 		case snapshotWriteBatchLua:
-			return "eval-row-batch"
+			return "fcall-row-batch"
 		case snapshotIndexNotifyLua:
-			return "eval-index-notify"
+			return "fcall-index-notify"
 		case snapshotControl:
-			return "eval-control"
+			return "fcall-control"
 		}
-		return "eval-other"
+		return "fcall-other"
 	}
 	if name == "evalsha" {
 		return "evalsha"

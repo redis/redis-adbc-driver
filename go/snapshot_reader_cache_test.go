@@ -27,7 +27,7 @@ func (c *readerCacheClient) Process(ctx context.Context, cmd goredis.Cmder) erro
 	if marker, ok := cmd.(interface{ NoRetry() bool }); !ok || !marker.NoRetry() {
 		c.t.Fatal("cache command can retry unknown outcomes")
 	}
-	a := cmd.Args()
+	a := snapshotObservedControlArgs(cmd)
 	set := cmd.(interface{ SetVal(any) })
 	if len(a) > 1 && a[0] == "EVAL" && a[1] == snapshotNamespaceRead {
 		c.lookups++

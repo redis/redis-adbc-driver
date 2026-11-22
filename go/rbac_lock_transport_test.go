@@ -26,7 +26,7 @@ func (*rbacLockLostReply) ProcessPipelineHook(next goredis.ProcessPipelineHook) 
 }
 func (h *rbacLockLostReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if cmd.Name() != "set" || len(args) < 4 || fmt.Sprint(args[1]) != h.lock {
 			return next(ctx, cmd)
 		}

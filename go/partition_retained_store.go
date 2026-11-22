@@ -77,8 +77,8 @@ func retainedSHA(data []byte) string {
 // Every key touched by a script is declared and has the same tenant hash tag.
 // Scripts are deliberately sent once; callers abort uncertain uploads. No
 // transport retry may turn a failed publication into a fresh execution.
-func (s *retainedStore) eval(ctx context.Context, script string, keys []string, args ...any) (any, error) {
-	command := []any{"EVAL", script, len(keys)}
+func (s *retainedStore) call(ctx context.Context, function redisFunction, keys []string, args ...any) (any, error) {
+	command := []any{"FCALL", function.Name(), len(keys)}
 	for _, key := range keys {
 		command = append(command, key)
 	}
@@ -261,7 +261,7 @@ func (s *retainedStore) begin(ctx context.Context, reserved int64) (*retainedUpl
 	}
 	configuration, _ := json.Marshal(s.limits)
 	keys := append(s.quotaKeys(), s.jobKey(id, "meta"), s.jobKey(id, "manifest"))
-	result, err := s.eval(ctx, retainedBeginLua, keys, string(configuration), id, reserved, nonce,
+	result, err := s.call(ctx, newRedisFunction(retainedBeginLua), keys, string(configuration), id, reserved, nonce,
 		s.limits.TotalBytes, s.limits.Jobs, s.lease.Milliseconds())
 	if err != nil {
 		return nil, err
@@ -279,7 +279,7 @@ func (u *retainedUpload) put(ctx context.Context, payload []byte, rows int64) er
 		return errorf(adbc.StatusInvalidState, "retained partition upload inactive or resource limit exceeded")
 	}
 	keys := []string{u.store.jobKey(u.id, "meta"), u.store.jobKey(u.id, fmt.Sprint("chunk:", len(u.chunks)))}
-	if _, err := u.store.eval(ctx, retainedPutLua, keys, u.nonce, len(u.chunks), payload,
+	if _, err := u.store.call(ctx, newRedisFunction(retainedPutLua), keys, u.nonce, len(u.chunks), payload,
 		u.deadline, u.reserved, u.bytes, u.id); err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (u *retainedUpload) commit(ctx context.Context, schema string, ttl time.Dur
 	for index := range u.chunks {
 		keys = append(keys, u.store.jobKey(u.id, fmt.Sprint("chunk:", index)))
 	}
-	if _, err := u.store.eval(ctx, retainedCommitLua, keys, u.id, u.nonce, data, m.Expires,
+	if _, err := u.store.call(ctx, newRedisFunction(retainedCommitLua), keys, u.id, u.nonce, data, m.Expires,
 		u.deadline, u.reserved, u.bytes); err != nil {
 		return ref, err
 	}
@@ -425,7 +425,7 @@ func (s *retainedStore) revoke(ctx context.Context, id, nonce string) error {
 	for i := range maxRetainedChunks {
 		keys = append(keys, s.jobKey(id, fmt.Sprint("chunk:", i)))
 	}
-	_, err := s.eval(ctx, retainedRevokeLua, keys, id, nonce)
+	_, err := s.call(ctx, newRedisFunction(retainedRevokeLua), keys, id, nonce)
 	return err
 }
 

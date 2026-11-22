@@ -195,7 +195,7 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 				c.add("pg_constraint", map[string]Value{"oid": oidValue(cid), "conname": str(ck.Name), "connamespace": oidValue(c.namespaceOID(schema)), "contype": str("c"), "conrelid": oidValue(id), "contypid": oidValue(0), "conindid": oidValue(0), "confrelid": oidValue(0), "convalidated": boolValue(true), "conislocal": boolValue(true), "conbin": str(ck.Expr)})
 			}
 		}
-		seqNames, err := e.store.redis(ctx).SMembers(ctx, sequencesKey(schema)).Result()
+		seqNames, err := scanSet(ctx, e.store.redis(ctx), sequencesKey(schema)).Result()
 		if err != nil {
 			return nil, err
 		}

@@ -119,7 +119,7 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 	// Require RESP3 for every endpoint and cluster node. go-redis can silently
 	// fall back to RESP2 when HELLO fails, so verify each new connection too.
 	opts.Protocol = 3
-	opts.OnConnect = requireRESP3
+	opts.OnConnect = requireModernConnection
 	opts.DisableIdentity = true
 	// Snapshot leases, cleanup and statement lifetimes need their context
 	// deadlines enforced on socket I/O, independently of ordinary timeouts.
@@ -271,6 +271,9 @@ func clusterOptions(o *goredis.Options) *goredis.ClusterOptions {
 func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient, cfg *clientConfig, t timeouts, writeFollows bool, err error) {
 	if cfg, err = d.clientConfig(); err != nil {
 		return nil, nil, t, false, err
+	}
+	if cfg.single.Username == "" || cfg.single.Password == "" {
+		return nil, nil, t, false, errorf(adbc.StatusInvalidArgument, "an explicit Redis ACL username and password are required; anonymous and password-only connections are unsupported")
 	}
 	t, writeFollows = d.timeouts.resolve(cfg.single)
 	client, err = d.connect(ctx, cfg, t)

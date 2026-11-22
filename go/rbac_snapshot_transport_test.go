@@ -42,7 +42,7 @@ type restrictedAcquireFault struct {
 
 func (h *restrictedAcquireFault) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if len(args) < 4 || args[0] != "EVAL" || args[1] != snapshotReaderControl {
 			return next(ctx, cmd)
 		}
@@ -107,7 +107,7 @@ func checkSnapshotRestrictedTransport(t *testing.T, admin, reader *sqlHarness) {
 					if mode == "cancel_after_refusal" {
 						cancel()
 					}
-					args := cmd.Args()
+					args := snapshotObservedControlArgs(cmd)
 					n, _ := strconv.Atoi(fmt.Sprint(args[2]))
 					token := fmt.Sprint(args[3+n+2])
 					if a.client.HExists(admin.ctx, snapshotReaderPrefix+s.readerNamespace, token).Val() {

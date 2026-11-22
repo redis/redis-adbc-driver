@@ -690,7 +690,7 @@ func identityValueError(name string) error {
 	return stateErrorf("428C9", "cannot insert a non-DEFAULT value into column %q", name)
 }
 func (s *store) ownedSequences(ctx context.Context, schema, table string, ids ...int64) ([]*sequenceMeta, error) {
-	names, err := s.redis(ctx).SMembers(ctx, sequencesKey(schema)).Result()
+	names, err := scanSet(ctx, s.redis(ctx), sequencesKey(schema)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -746,7 +746,7 @@ func (e *executor) restartOwnedSequences(ctx context.Context, metas []*tableMeta
 }
 
 func (e *executor) sequenceRows(ctx context.Context, schema string) ([][]Value, error) {
-	names, err := e.store.redis(ctx).SMembers(ctx, sequencesKey(schema)).Result()
+	names, err := scanSet(ctx, e.store.redis(ctx), sequencesKey(schema)).Result()
 	if err != nil {
 		return nil, err
 	}

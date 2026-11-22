@@ -38,7 +38,7 @@ func snapshotClusterClient(t *testing.T) *goredis.ClusterClient {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts.Protocol, opts.OnConnect, opts.DisableIdentity = 3, requireRESP3, true
+	opts.Protocol, opts.OnConnect, opts.DisableIdentity = 3, requireModernConnection, true
 	if opts.TLSConfig != nil {
 		opts.TLSConfig.RootCAs, err = tlstrust.Roots()
 		if err != nil {

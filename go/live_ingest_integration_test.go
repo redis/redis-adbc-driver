@@ -246,7 +246,7 @@ func (h *liveArrowPipelineHook) ProcessPipelineHook(next goredis.ProcessPipeline
 		var source []goredis.Cmder
 		bytes := 0
 		for _, cmd := range commands {
-			a := cmd.Args()
+			a := snapshotObservedControlArgs(cmd)
 			if len(a) < 2 || a[0] != "EVAL" || a[1] != keyRowInsertLua {
 				continue
 			}

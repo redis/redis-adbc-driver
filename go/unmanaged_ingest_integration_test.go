@@ -311,7 +311,7 @@ type unmanagedArrowCancelHook struct {
 func (h *unmanagedArrowCancelHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
-		if err == nil && strings.EqualFold(cmd.Name(), "eval") && len(cmd.Args()) > 3 && cmd.Args()[3] == "app:first" {
+		if err == nil && strings.EqualFold(snapshotObservedControlName(cmd), "eval") && len(cmd.Args()) > 3 && cmd.Args()[3] == "app:first" {
 			h.calls++
 			h.cancel()
 		}
@@ -322,7 +322,7 @@ func (h *unmanagedArrowCancelHook) ProcessPipelineHook(next goredis.ProcessPipel
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
 		err := next(ctx, cmds)
 		for _, cmd := range cmds {
-			if err == nil && cmd.Name() == "eval" && len(cmd.Args()) > 3 && cmd.Args()[3] == "app:first" {
+			if err == nil && snapshotObservedControlName(cmd) == "eval" && len(cmd.Args()) > 3 && cmd.Args()[3] == "app:first" {
 				h.calls++
 				h.cancel()
 				break

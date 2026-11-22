@@ -54,18 +54,18 @@ def main():
         name = "gc-preflight-" + uuid.uuid4().hex + "@example.com"
         try:
             principals.create(name, secrets.token_urlsafe(32), [
-                "+ping", "+eval", "+hget", "+hexists", "+zscore", "+zcard", "+del",
+                "+ping", "+fcall", "+hget", "+hexists", "+zscore", "+zcard", "+del",
                 "+hset", "+exists", "+type", "+time", "~*"])
             replacement = "replace-preflight-" + uuid.uuid4().hex + "@example.com"
             principals.create(replacement, secrets.token_urlsafe(32), [
-                "+ping", "+eval", "+hget", "+zscore", "+hset", "+zadd", "+type", "+time", "~*"])
+                "+ping", "+fcall", "+hget", "+zscore", "+hset", "+zadd", "+type", "+time", "~*"])
             cleanup = "cleanup-recovery-" + uuid.uuid4().hex + "@example.com"
             principals.create(cleanup, secrets.token_urlsafe(32),
                               ["+@all", "-ft.dropindex", "~*"])
             import_uris = {}
             for denied in ("hdel", "zrem"):
                 person = "import-preflight-" + uuid.uuid4().hex + "@example.com"
-                commands = ["ping", "eval", "hget", "hexists", "zscore", "hset", "zadd", "hdel", "zrem", "type", "time"]
+                commands = ["ping", "fcall", "get", "hget", "hexists", "hlen", "zscore", "zcard", "zrange", "hset", "zadd", "hdel", "zrem", "exists", "type", "time"]
                 principals.create(person, secrets.token_urlsafe(32),
                                   ["+" + command for command in commands if command != denied] + ["~*"])
                 import_uris["REDIS_SNAPSHOT_IMPORT_" + denied.upper() + "_ACL_URI"] = principals.people[person]["uri"]

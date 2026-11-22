@@ -332,7 +332,7 @@ type rekeyGCBarrier struct {
 
 func (b *rekeyGCBarrier) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if len(args) > 6 && strings.EqualFold(fmt.Sprint(args[0]), "EVAL") && args[1] == snapshotGCRowBatchLua &&
 			strings.HasPrefix(fmt.Sprint(args[6]), b.prefix) && b.paused.CompareAndSwap(false, true) {
 			close(b.ready)

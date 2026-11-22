@@ -31,7 +31,7 @@ func (h *snapshotGCPageObserver) ProcessHook(next goredis.ProcessHook) goredis.P
 		if err != nil {
 			return err
 		}
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		var rows []any
 		if len(args) > 1 && strings.EqualFold(fmt.Sprint(args[0]), "DEL") && strings.HasPrefix(fmt.Sprint(args[1]), h.prefix) {
 			rows = args[1:]
@@ -122,7 +122,7 @@ func TestSnapshotGCBatchAdmission(t *testing.T) {
 			}
 			var err error
 			if mode == "wrong_key" {
-				err = raw.Eval(h.ctx, snapshotGCRowBatchLua,
+				err = newRedisFunction(snapshotGCRowBatchLua).Run(h.ctx, raw,
 					[]string{snapshotMetadataGraph, snapshotDataQueue, directory, prefix + "1", prefix + "3"},
 					id, prefix, members[0], members[1]).Err()
 			} else {
@@ -226,7 +226,7 @@ func TestSnapshotGCBatchPermissionPreflight(t *testing.T) {
 	directory := snapshotMembers(snapshotDataID(meta.prefix()))
 	member := fmt.Sprintf("%020d", 1)
 	// Verify the tested ACL difference rather than accepting any authentication
-	// or EVAL denial as evidence that the atomic preflight works.
+	// or FCALL denial as evidence that the atomic preflight works.
 	probe := meta.prefix() + "acl-probe"
 	if err := raw.Set(h.ctx, probe, "probe", 0).Err(); err != nil {
 		t.Fatal(err)

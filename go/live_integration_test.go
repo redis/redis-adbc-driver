@@ -273,7 +273,7 @@ func TestLiveUpdateMissingRowRefusesResurrection(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes := []rowChange{{key: f.prefix + "one", set: []any{"v", "11"}}}
-	if err := keyRowUpdateScript.Load(h.ctx, f.raw).Err(); err != nil {
+	if err := ensureRedisFunctions(h.ctx, f.raw); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.updateKeyRows(h.ctx, meta, changes); err == nil {

@@ -165,7 +165,7 @@ func (e *executor) mutateSnapshotSequenceValue(ctx context.Context, schema, name
 				return wrapRedis(err, "read current sequence definition bucket")
 			}
 		}
-		n, err := once(ctx, e.store.client, "EVAL", snapshotSequenceValueCAS, 8, snapshotCatalogKey, snapshotMetadataGraph, counter, snapshotMetadataMap(root), snapshotMetadataBucket(bucketOwner, slot), definition, scope.pin.leaseKey(), snapshotReaderDirectory, scope.id, scope.pin.token, scope.pin.root, owner, slot, suffix, before, string(after), root, bucketOwner, mode).Int()
+		n, err := once(ctx, e.store.client, "FCALL", redisFunctionName(snapshotSequenceValueCAS), 8, snapshotCatalogKey, snapshotMetadataGraph, counter, snapshotMetadataMap(root), snapshotMetadataBucket(bucketOwner, slot), definition, scope.pin.leaseKey(), snapshotReaderDirectory, scope.id, scope.pin.token, scope.pin.root, owner, slot, suffix, before, string(after), root, bucketOwner, mode).Int()
 		if err != nil {
 			return wrapRedis(err, "sequence allocation outcome is unknown; allocation was not replayed")
 		}

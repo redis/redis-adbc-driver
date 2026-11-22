@@ -37,7 +37,7 @@ func (s *store) snapshotSchemas(ctx context.Context) ([]string, error) {
 	if !slices.Contains(schemas, foreignSchema) {
 		schemas = append(schemas, foreignSchema)
 	}
-	temps, err := s.redis(ctx).SMembers(ctx, snapshotTempSchemasKey).Result()
+	temps, err := scanSet(ctx, s.redis(ctx), snapshotTempSchemasKey).Result()
 	if err != nil {
 		return nil, err
 	}

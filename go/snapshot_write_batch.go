@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
-	goredis "github.com/redis/go-redis/v9"
 )
 
 const snapshotWriteBatchRows = 256
@@ -183,7 +182,7 @@ type snapshotInsertRow struct {
 	fields      []any
 }
 
-var snapshotWriteBatchDigest = goredis.NewScript(snapshotWriteBatchLua).Hash()
+var snapshotWriteBatchDigest = newRedisFunction(snapshotWriteBatchLua).Name()
 
 func (s *store) insertSnapshotBatch(ctx context.Context, prefix string, rows []snapshotInsertRow) error {
 	return s.snapshotRowBatch(ctx, prefix, rows, false)
@@ -210,7 +209,7 @@ func (s *store) snapshotRowBatch(ctx context.Context, prefix string, rows []snap
 	if journal != nil {
 		keyCount += 3
 	}
-	args := []any{"EVAL", snapshotWriteBatchLua, keyCount, snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(data)}
+	args := []any{"FCALL", redisFunctionName(snapshotWriteBatchLua), keyCount, snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(data)}
 	for _, row := range rows {
 		args = append(args, row.key)
 	}

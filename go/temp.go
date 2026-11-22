@@ -358,7 +358,7 @@ func (s *store) dropTempObjects(ctx context.Context, schema string, stillDead fu
 // without closing (their alive key has expired). It is best effort: errors
 // are ignored and the next connection tries again.
 func (s *store) sweepTemp(ctx context.Context) {
-	ids, err := s.redis(ctx).SMembers(ctx, tempOwnersKey).Result()
+	ids, err := scanSet(ctx, s.redis(ctx), tempOwnersKey).Result()
 	if err != nil || len(ids) == 0 {
 		return
 	}

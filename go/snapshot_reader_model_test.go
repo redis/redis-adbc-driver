@@ -171,7 +171,7 @@ func newReaderLeaseModel(t *testing.T) *readerLeaseModel {
 }
 func (m *readerLeaseModel) namespaces(t *testing.T) []string {
 	t.Helper()
-	names, err := m.raw.SMembers(m.ctx, m.names).Result()
+	names, err := scanSet(m.ctx, m.raw, m.names).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func (m *readerLeaseModel) control(t *testing.T, client goredis.UniversalClient,
 	for _, name := range names {
 		keys = append(keys, m.base+"reader:"+name)
 	}
-	args := []any{"EVAL", readerLeaseModelControl, len(keys)}
+	args := []any{"FCALL", installTestFunction(t, m.raw, readerLeaseModelControl), len(keys)}
 	args = append(args, keys...)
 	args = append(args, m.base, op, ns, token, root, other, len(names))
 	return once(m.ctx, client, args...)
@@ -199,7 +199,7 @@ func (m *readerLeaseModel) collect(t *testing.T, names []string) *goredis.Cmd {
 	for _, ns := range names {
 		keys = append(keys, m.base+"reader:"+ns)
 	}
-	args := []any{"EVAL", readerLeaseModelCollect, len(keys)}
+	args := []any{"FCALL", installTestFunction(t, m.raw, readerLeaseModelCollect), len(keys)}
 	args = append(args, keys...)
 	args = append(args, m.base, len(names), strings.Repeat("a", 32))
 	return once(m.ctx, m.raw, args...)
@@ -224,9 +224,9 @@ func TestSnapshotReaderLeaseModelIsolationAndRetention(t *testing.T) {
 		t.Fatal("mixed-key read/lease script failed", err)
 	}
 	// Direct and scripted mutation of definitions, data or another principal's
-	// leases remain denied even though EVAL itself has declared RW key access.
+	// leases remain denied even though FCALL itself has declared RW key access.
 	modelDenied(t, m.reader.HSet(m.ctx, m.catalog, "root", "forbidden").Err())
-	modelDenied(t, m.reader.Do(m.ctx, "EVAL", "return redis.call('HSET',KEYS[1],'root','forbidden')", 1, m.catalog).Err())
+	modelDenied(t, m.reader.Do(m.ctx, "FCALL", installTestFunction(t, m.raw, "return redis.call('HSET',KEYS[1],'root','forbidden')"), 1, m.catalog).Err())
 	modelDenied(t, m.reader.Set(m.ctx, m.base+"rows:a", "forbidden", 0).Err())
 	modelDenied(t, m.reader.HSet(m.ctx, m.base+"reader:"+m.other, token, "forbidden").Err())
 	modelDenied(t, m.reader.SRem(m.ctx, m.names, m.other).Err())
@@ -405,7 +405,7 @@ func TestSnapshotReaderLeaseModelRejectsStaleOrEscapedState(t *testing.T) {
 	}
 	// A malformed explicit key list is rejected before even a shadow mutation.
 	escaped := strings.TrimSuffix(m.base, ":") + "-escaped:catalog"
-	cmd := once(m.ctx, m.raw, "EVAL", readerLeaseModelControl, 4, escaped, m.names, own, m.catalog, m.base, "acquire", m.namespace, snapshotID(), "", "", 0)
+	cmd := once(m.ctx, m.raw, "FCALL", installTestFunction(t, m.raw, readerLeaseModelControl), 4, escaped, m.names, own, m.catalog, m.base, "acquire", m.namespace, snapshotID(), "", "", 0)
 	if err := cmd.Err(); err == nil || !strings.Contains(err.Error(), "escaped isolated prefix") {
 		t.Fatal("model prefix fence failed", err)
 	}
@@ -437,7 +437,7 @@ func (h *readerModelLostReply) ProcessHook(next goredis.ProcessHook) goredis.Pro
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
 		args := cmd.Args()
-		if err != nil || len(args) < 4 || !strings.EqualFold(fmt.Sprint(args[0]), "EVAL") {
+		if err != nil || len(args) < 4 || !strings.EqualFold(fmt.Sprint(args[0]), "FCALL") {
 			return err
 		}
 		count, _ := strconv.Atoi(fmt.Sprint(args[2]))

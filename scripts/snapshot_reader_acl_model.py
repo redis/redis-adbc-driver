@@ -24,11 +24,11 @@ from software_partition_tls import SoftwareAPI, SoftwarePrincipals, qpf_4x_ready
 def rules(prefix, user):
     namespace = hashlib.sha256(user.encode()).hexdigest()
     return [
-        "+ping", "+hget", "+hgetall", "+get", "+exists", "+smembers",
-        "+scard", "+sismember", "+time", "+eval_ro", "%R~" + prefix + "*",
-        # EVAL's conservative key specification needs RW access to its declared
+        "+ping", "+hget", "+hgetall", "+get", "+exists", "+sscan",
+        "+scard", "+sismember", "+time", "+fcall_ro", "%R~" + prefix + "*",
+        # FCALL's conservative key specification needs RW access to its declared
         # keys. Actual Lua commands still require their separate selectors.
-        "(+eval ~" + prefix + "*)",
+        "(+fcall ~" + prefix + "*)",
         "(+hset +hdel ~" + prefix + "*:reader:" + namespace + ")",
         "(+sadd ~" + prefix + "*:namespaces)",
     ]

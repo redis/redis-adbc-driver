@@ -396,14 +396,26 @@ are refused without migration. See [snapshots](snapshots.md).
 The command profile for trusted writers is:
 
 ```text
-+ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +evalsha +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
++ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +sscan +sismember +multi +exec +watch +unwatch +fcall +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 # Cluster API clients also need
 +cluster|slots +command
 ```
 
-`+evalsha` permits cached control-script execution without ACL audit refusals.
-Existing EVAL-only writers remain compatible through the explicit command-refusal
-fallback, which can record an EVALSHA denial before selecting EVAL.
+Connections require an explicit ACL username and password (the explicitly named
+`default` ACL user is allowed); anonymous, password-only and empty-password
+connections are rejected before
+network access. RESP3 and Redis Functions are required. Atomic driver operations
+use `FCALL`; EVAL/EVALSHA and script-cache fallbacks are unsupported.
+
+On each new socket the driver probes its versioned function library. If missing,
+it installs the library with `FUNCTION LOAD`, requiring `+function|load` on that
+initializer. A trusted administrator can initialize the database first so other
+roles need only `+fcall` and the commands/key permissions required by their
+operations. Library and function names include the complete driver function-set
+version; installation never replaces another version. A missing function, ACL
+refusal or uncertain operation reply fails without replay. Reconnect after an
+administrator removes function libraries. Metadata set enumeration uses `SSCAN`;
+it deduplicates pages and does not persist cursors.
 
 Writers need `~adbc:*` for metadata, `~adbc_snapshot16_{meta}_*` for
 their versioned Search index namespace, and
@@ -417,7 +429,7 @@ the old mutable recipe's `INCR`, `DUMP` and `RESTORE` are no longer required.
 For example, a trusted writer for `public` and temporary tables uses:
 
 ```text
-ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +evalsha +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
+ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +sscan +sismember +multi +exec +watch +unwatch +fcall +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 ```
 
 `HELLO` and `AUTH` are always allowed. Add `+select` for a nonzero URI database,
@@ -443,7 +455,7 @@ would expose import journals containing row values.
 The ordinary query command profile alongside these lease controls is:
 
 ```text
-+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember +zmscore
++ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +sscan +sismember +zmscore
 ```
 
 Add `%R~<table-access-id>~*` per SELECT-authorized logical table, or deliberately
@@ -601,7 +613,8 @@ with `xattr -d com.apple.quarantine redis-adbc`.
 
 `redis-adbc` links the driver as a Go library, so it needs neither cgo nor
 the shared library. It connects with `-uri`, else `$REDIS_URI`, else
-`redis://localhost:6379/0`. Set a password in `$REDIS_URI` rather than in
+`redis://localhost:6379/0`, which requires both credential options; prefer
+an explicit username/password URI in `$REDIS_URI`. Set credentials there rather than in
 `-uri`, where other users of the machine can see it in the process list.
 `-option key=value` (repeatable) sets a database option, such as
 `-option adbc.redis.read_timeout=30m`. Flags go before anything else.
@@ -935,7 +948,7 @@ commands:
 
 ```text
 +ping +info +scan +hkeys +hmget +ft._list +ft.info +ft.aggregate +memory|usage
-+get +exists +smembers +sismember +hget +hexists +hgetall
++get +exists +sscan +sismember +hget +hexists +hgetall
 # A cluster (OSS Cluster API) also
 +cluster|slots +command
 ```
@@ -963,7 +976,7 @@ inserts, updates or deletes its rows needs the driver's rules, write access to
 the keys (`~user:*`), and the row scripts' permissions:
 
 ```text
-+hlen +eval +evalsha +script|load
++hlen +fcall +function|load
 ```
 
 ### Sweep leftover rows
@@ -1394,7 +1407,7 @@ The driver executes SQL as follows:
 | Window functions | Computed by the driver once the rows are known: after WHERE, GROUP BY and HAVING (which still run in the index when they can), before QUALIFY, ORDER BY and LIMIT. Rows are hashed into partitions and each partition is sorted once per distinct PARTITION BY / ORDER BY; frame aggregates add and remove rows as the frame slides (O(1) amortized per row; sums, averages and variances add and subtract exact sums, also of doubles). With `EXCLUDE CURRENT ROW / GROUP / TIES` the frame has a hole, so each row's frame is aggregated afresh (O(frame) per row), as PostgreSQL does; `FIRST_VALUE` / `LAST_VALUE` / `NTH_VALUE` stay O(1), also with `IGNORE NULLS`. A query with window functions never pushes its LIMIT into the index |
 | `CREATE TEMP TABLE` / `VIEW` | Same as a permanent table or view, in the connection's `pg_temp_<id>` schema. Unqualified names are looked up there first (in memory, no extra round trip) |
 | `TRUNCATE` | Like `DROP TABLE` and `CREATE TABLE` with the same metadata: reserves a new key prefix and index name and runs `FT.CREATE` for each table, switches the metadata of every table of the statement to the new names in one `WATCH`/`MULTI` (which also releases the old names), then runs `FT.DROPINDEX <old> DD`, which deletes every row the old index knows about. Statements still writing to the table find out and fail (see "Key prefixes are never reused") |
-| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns, waiting for Search backfill before metadata publication, and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD`. `ALTER COLUMN … TYPE` that converts values does the same under the table's own name: `FT.CREATE` of the new names' index with the new attributes, pipelined `HGETALL` of every row the old index lists and `HSET` of each converted row to its new key, one transaction to switch the metadata, then `FT.DROPINDEX <old> DD`; it also scans the views (`SMEMBERS` and `GET` of each one) to find those that read the column |
+| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns, waiting for Search backfill before metadata publication, and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD`. `ALTER COLUMN … TYPE` that converts values does the same under the table's own name: `FT.CREATE` of the new names' index with the new attributes, pipelined `HGETALL` of every row the old index lists and `HSET` of each converted row to its new key, one transaction to switch the metadata, then `FT.DROPINDEX <old> DD`; it also scans the views (`SSCAN` and `GET` of each one) to find those that read the column |
 | Views | `CREATE VIEW` plans the body without running it, which checks its tables, columns and function calls. Single-table views without GROUP BY/aggregates/window functions/LIMIT are expanded in place: the outer query's filters are rewritten over the base table and run in its index. Other views are computed once per query, like a derived table |
 | Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it. A FROM-list item after a comma that has a `RIGHT` or `FULL` join is joined on its own, then cross joined with the rows of the items before the comma (see "Commas"), and `WHERE` conditions that read both are applied after that. An `ON` condition with a correlated subquery waits until every item it may read is joined (up to v0.0.12, in an inner join of three or more items it could run before, and `from a join b on true join c on exists (select … where … = c.x)` returned no rows) |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
@@ -4486,9 +4499,9 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an eligible unordered incremental managed/live-table SELECT, bounded managed DISTINCT, or managed UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
 | `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |
 | `adbc.redis.result_layouts` | statement | JSON map of exact result names to explicit physical Arrow layouts; SQL/table schemas remain canonical. See [layout contract](arrow-interoperability.md#explicit-result-layouts). |
-| `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see [URI parameters](#uri-parameters)) |
+| `uri` | database | `redis://user:pass@host:port/db` (or set both credential options), or `rediss://…` for TLS, with go-redis's query parameters (see [URI parameters](#uri-parameters)) |
 | `adbc.redis.tls_ca_file` | database | PEM file supplying exclusive TLS trust roots for new `rediss://` connections, including cluster nodes. Empty (default) uses system roots. Requires certificate verification; each partition worker supplies its own local path. |
-| `username`, `password` | database | Credentials (override the URI) |
+| `username`, `password` | database | Explicit ACL username and password required; credentials override the URI |
 | `adbc.redis.address`, `adbc.redis.db` | database | Used when no URI is given |
 | `adbc.redis.cluster` | database | `auto` (default) / `true` / `false`: OSS Cluster API client or single endpoint |
 | `adbc.redis.default_schema` | database | Schema for unqualified names (default `public`). `SET search_path` and the ADBC current schema change it for one connection; `RESET search_path` goes back to it |

@@ -131,7 +131,7 @@ if #del > 0 then redis.call('HDEL', KEYS[1], unpack(del)) end
 return 1
 `
 
-var keyRowUpdateScript = goredis.NewScript(keyRowUpdateLua)
+var keyRowUpdateScript = newRedisFunction(keyRowUpdateLua)
 
 // keyRowArgs is keyRowUpdateScript's ARGV for a change.
 func keyRowArgs(ch rowChange) []any {
@@ -198,15 +198,14 @@ func (s *store) updateKeyRows(ctx context.Context, meta *tableMeta, changes []ro
 	pipe := s.redis(ctx).Pipeline()
 	cmds := make([]*goredis.Cmd, len(changes))
 	for i, ch := range changes {
-		cmds[i] = keyRowUpdateScript.EvalSha(ctx, pipe, []string{ch.key}, keyRowArgs(ch)...)
+		cmds[i] = keyRowUpdateScript.Run(ctx, pipe, []string{ch.key}, keyRowArgs(ch)...)
 	}
-	_, _ = pipe.Exec(ctx) // each command's error is checked below
+	if _, err := pipe.Exec(ctx); err != nil {
+		return wrapRedis(err, "failed to update rows")
+	}
 	for i, cmd := range cmds {
 		n, err := cmd.Int64()
-		if err != nil && strings.HasPrefix(err.Error(), "NOSCRIPT") {
-			// A shard that lost its scripts (a failover, say).
-			n, err = keyRowUpdateScript.Eval(ctx, s.redis(ctx), []string{changes[i].key}, keyRowArgs(changes[i])...).Int64()
-		}
+
 		if err != nil {
 			return wrapRedis(err, "failed to update rows")
 		}

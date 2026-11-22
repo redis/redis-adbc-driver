@@ -21,8 +21,8 @@ type unmanagedPerformanceHook struct {
 
 func (h *unmanagedPerformanceHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
-		if cmd.Name() == "eval" && len(args) > 1 && args[1] == keyRowInsertLua {
+		args := snapshotObservedControlArgs(cmd)
+		if snapshotObservedControlName(cmd) == "eval" && len(args) > 1 && args[1] == keyRowInsertLua {
 			h.inserts++
 		}
 		return next(ctx, cmd)
@@ -32,8 +32,8 @@ func (h *unmanagedPerformanceHook) ProcessPipelineHook(next goredis.ProcessPipel
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
 		writes, bytes := 0, 0
 		for _, cmd := range cmds {
-			args := cmd.Args()
-			if cmd.Name() == "eval" && len(args) > 1 && args[1] == keyRowInsertLua {
+			args := snapshotObservedControlArgs(cmd)
+			if snapshotObservedControlName(cmd) == "eval" && len(args) > 1 && args[1] == keyRowInsertLua {
 				writes++
 				bytes += 32
 				for _, arg := range args {
@@ -213,7 +213,7 @@ type unmanagedInsertRaceHook struct {
 func (h *unmanagedInsertRaceHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
 		for _, cmd := range cmds {
-			if cmd.Name() == "eval" && len(cmd.Args()) > 1 && cmd.Args()[1] == keyRowInsertLua {
+			if snapshotObservedControlName(cmd) == "eval" && len(snapshotObservedControlArgs(cmd)) > 1 && snapshotObservedControlArgs(cmd)[1] == keyRowInsertLua {
 				h.batches++
 				if h.batches == 1 {
 					if err := h.raw.HSet(ctx, h.key, "n", "999").Err(); err != nil {

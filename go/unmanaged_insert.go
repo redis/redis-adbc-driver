@@ -51,7 +51,7 @@ func (s *store) writeSourceKeyRows(ctx context.Context, meta *tableMeta, rows []
 		bytes := 0
 		for i := start; i < len(rows) && len(args) < unmanagedInsertPipelineRows; i++ {
 			row := rows[i]
-			command := []any{"EVAL", keyRowInsertLua, 1, row[ki].S}
+			command := []any{"FCALL", redisFunctionName(keyRowInsertLua), 1, row[ki].S}
 			for j, c := range meta.Columns {
 				if j != ki && !row[j].Null {
 					command = append(command, c.field(), c.encode(row[j], c.TextFormat))

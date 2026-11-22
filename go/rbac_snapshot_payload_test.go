@@ -98,7 +98,7 @@ func checkSnapshotImportPayloadACL(t *testing.T, readerURI string) {
 	}
 }
 
-func checkSnapshotRestrictedPeers(t *testing.T, first, second *sqlHarness) {
+func checkSnapshotRestrictedPeers(t *testing.T, first, second *sqlHarness, admin goredis.UniversalClient) {
 	t.Helper()
 	f, s := *first, *second
 	f.t, s.t = t, t
@@ -120,7 +120,7 @@ func checkSnapshotRestrictedPeers(t *testing.T, first, second *sqlHarness) {
 	for _, pair := range [][2]*store{{a, b}, {b, a}} {
 		key := snapshotReaderPrefix + pair[1].readerNamespace
 		modelDenied(t, pair[0].client.HSet(first.ctx, key, "forbidden", "{}").Err())
-		modelDenied(t, once(first.ctx, pair[0].client, "EVAL", `return redis.call('HSET',KEYS[1],'forbidden','{}')`, 1, key).Err())
+		modelDenied(t, once(first.ctx, pair[0].client, "FCALL", installTestFunction(t, admin, `return redis.call('HSET',KEYS[1],'forbidden','{}')`), 1, key).Err())
 	}
 	ctx, pin, err := a.acquireSnapshot(first.ctx)
 	if err != nil {

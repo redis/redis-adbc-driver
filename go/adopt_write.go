@@ -123,7 +123,7 @@ redis.call('HSET', KEYS[1], unpack(ARGV))
 return 1
 `
 
-var keyRowInsertScript = goredis.NewScript(keyRowInsertLua)
+var keyRowInsertScript = newRedisFunction(keyRowInsertLua)
 
 func (s *store) writeKeyRows(ctx context.Context, meta *tableMeta, rows [][]Value) (int64, error) {
 	if len(rows) == 0 {
@@ -160,7 +160,7 @@ func (s *store) writeKeyRows(ctx context.Context, meta *tableMeta, rows [][]Valu
 }
 
 // Check the type at deletion time: a key can change since SCAN TYPE hash.
-var truncateKeyRowScript = goredis.NewScript(`
+var truncateKeyRowScript = newRedisFunction(`
 if redis.call('TYPE', KEYS[1]).ok == 'hash' then return redis.call('UNLINK', KEYS[1]) end
 return 0
 `)

@@ -351,7 +351,7 @@ func (s *store) updateUnmanagedRows(ctx context.Context, meta *tableMeta, change
 		if err != nil {
 			return err
 		}
-		args := []any{"EVAL", keyRowUpdateLua, 1, change.key}
+		args := []any{"FCALL", redisFunctionName(keyRowUpdateLua), 1, change.key}
 		args = append(args, keyRowArgs(change)...)
 		n, err := once(rowCtx, s.client, args...).Int()
 		if err != nil {
@@ -378,7 +378,7 @@ func (s *store) deleteUnmanagedRows(ctx context.Context, meta *tableMeta, keys [
 		if err != nil {
 			return err
 		}
-		if err := once(rowCtx, s.client, "EVAL", unmanagedDeleteLua, 1, key).Err(); err != nil {
+		if err := once(rowCtx, s.client, "FCALL", redisFunctionName(unmanagedDeleteLua), 1, key).Err(); err != nil {
 			return wrapRedis(err, "unmanaged DELETE failed; source writes may be partially applied")
 		}
 	}

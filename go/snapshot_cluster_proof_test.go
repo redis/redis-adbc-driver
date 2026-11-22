@@ -44,7 +44,7 @@ func snapshotClusterFreshClient() (*goredis.ClusterClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("diagnostic connection options unavailable")
 	}
-	opts.Protocol, opts.OnConnect, opts.DisableIdentity = 3, requireRESP3, true
+	opts.Protocol, opts.OnConnect, opts.DisableIdentity = 3, requireModernConnection, true
 	opts.ContextTimeoutEnabled = true
 	if opts.TLSConfig != nil {
 		opts.TLSConfig.RootCAs, err = tlstrust.Roots()

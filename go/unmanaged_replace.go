@@ -139,7 +139,7 @@ func (s *store) unmanagedReplaceInventory(ctx context.Context, meta *tableMeta) 
 			if remaining < 0 {
 				return nil, errorf(adbc.StatusInvalidArgument, "replacement inventory exceeds 64 MiB")
 			}
-			v, err := once(ctx, s.client, "EVAL", unmanagedReplaceInspectLua, 1, key, meta.Columns[0].field(), remaining).Slice()
+			v, err := once(ctx, s.client, "FCALL", redisFunctionName(unmanagedReplaceInspectLua), 1, key, meta.Columns[0].field(), remaining).Slice()
 			if err != nil {
 				return nil, wrapRedis(err, "replacement inventory refused")
 			}
@@ -391,7 +391,7 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 		{"HSET", probe, meta.Columns[0].field(), "0"}, {"TYPE", probe},
 		{"DUMP", probe}, {"PEXPIRETIME", probe}, {"EXISTS", probe},
 	} {
-		args := []any{"EVAL", "if not redis.acl_check_cmd(unpack(ARGV)) then return redis.error_reply('NOPERM replacement command denied') end return 1", 0}
+		args := []any{"FCALL", redisFunctionName("if not redis.acl_check_cmd(unpack(ARGV)) then return redis.error_reply('NOPERM replacement command denied') end return 1"), 0}
 		args = append(args, command...)
 		if err := once(ctx, st.client, args...).Err(); err != nil {
 			return 0, wrapRedis(err, "replacement permission preflight failed")
@@ -410,7 +410,7 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 			return 0, err
 		}
 		p.outcome = "unknown"
-		n, err := once(ctx, st.client, "EVAL", unmanagedReplaceDeleteLua, 1, image.key, image.dump, strconv.FormatInt(image.expiry, 10)).Int()
+		n, err := once(ctx, st.client, "FCALL", redisFunctionName(unmanagedReplaceDeleteLua), 1, image.key, image.dump, strconv.FormatInt(image.expiry, 10)).Int()
 		if err != nil {
 			return 0, wrapRedis(err, "replacement delete was not replayed")
 		}

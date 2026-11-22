@@ -22,8 +22,8 @@ type unmanagedLostReply struct {
 
 func (h *unmanagedLostReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
-		if len(args) < 4 || !strings.EqualFold(cmd.Name(), "eval") || args[3] != "app:1" {
+		args := snapshotObservedControlArgs(cmd)
+		if len(args) < 4 || !strings.EqualFold(snapshotObservedControlName(cmd), "eval") || args[3] != "app:1" {
 			return next(ctx, cmd)
 		}
 		h.calls++
@@ -47,8 +47,8 @@ func (h *unmanagedLostReply) ProcessPipelineHook(next goredis.ProcessPipelineHoo
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
 		first := -1
 		for i, cmd := range cmds {
-			args := cmd.Args()
-			if len(args) >= 4 && cmd.Name() == "eval" && args[1] == keyRowInsertLua {
+			args := snapshotObservedControlArgs(cmd)
+			if len(args) >= 4 && snapshotObservedControlName(cmd) == "eval" && args[1] == keyRowInsertLua {
 				if snapshotOf(ctx) != nil {
 					h.t.Fatal("source pipeline entered a managed fence")
 				}

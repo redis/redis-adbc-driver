@@ -33,6 +33,10 @@ and updating those same HASHes through SQL.
 [Setup and installation](docs/setup.md) · [SQL reference](docs/driver-reference.md) ·
 [Build from source](docs/building.md)
 
+Connections require RESP3, Redis Functions, and an explicit ACL username and password.
+Password-only connections and EVAL/EVALSHA compatibility fallbacks are unsupported.
+See [connection and ACL requirements](docs/driver-reference.md#acl-users).
+
 ## Contents
 
 - [How tables and snapshots work](#how-tables-and-snapshots-work)

@@ -49,9 +49,9 @@ var (
 		"+ft._list", "+ft.create", "+ft.alter", "+ft.info", "+ft.dropindex", "+ft.aggregate", "+ft.cursor", "+ft.search", "+ft.profile",
 		"+get", "+set", "+del", "+exists", "+incrby",
 		"+hset", "+hget", "+hmget", "+hgetall", "+hdel", "+hincrby", "+hexists",
-		"+sadd", "+srem", "+smembers", "+sismember",
+		"+sadd", "+srem", "+sscan", "+sismember",
 		"+multi", "+exec", "+watch", "+unwatch",
-		"+eval", "+evalsha", "+copy", "+dbsize", "+time", "+type", "+unlink", "+pexpireat",
+		"+fcall", "+copy", "+dbsize", "+time", "+type", "+unlink", "+pexpireat",
 		"+hlen", "+hstrlen", "+hscan", "+scard", "+memory|usage",
 		"+zadd", "+zrem", "+zcard", "+zrange", "+zrangebylex", "+zrangebyscore", "+zremrangebyscore", "+zscore", "+zmscore", "+zlexcount",
 	}
@@ -59,7 +59,7 @@ var (
 	aclReadOnly        = []string{
 		"+ping", "+info",
 		"+ft._list", "+ft.info", "+ft.aggregate", "+ft.cursor", "+ft.search", "+ft.profile",
-		"+get", "+exists", "+hget", "+hmget", "+hgetall", "+smembers", "+sismember", "+zmscore",
+		"+get", "+exists", "+hget", "+hmget", "+hgetall", "+sscan", "+sismember", "+zmscore",
 	}
 )
 

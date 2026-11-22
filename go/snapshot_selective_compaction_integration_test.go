@@ -199,7 +199,7 @@ func TestSnapshotSelectiveCompactionRepairsIncompleteTombstoneBatch(t *testing.T
 	if err := s.checkpointSnapshotCompaction(h.ctx, &changed); err == nil {
 		t.Fatal("checkpoint changed the immutable source range/tombstone policy")
 	}
-	s.client.AddHook(&compactionPartialCopyHook{})
+	s.client.AddHook(newCompactionPartialCopyHook(t, raw))
 	if _, err := s.snapshotCompactionStep(h.ctx, token); err == nil {
 		t.Fatal("partial copy reported success")
 	}

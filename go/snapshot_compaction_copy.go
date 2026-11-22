@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
-	goredis "github.com/redis/go-redis/v9"
 )
 
 type snapshotCompactionCopyOutcome struct {
@@ -107,11 +106,11 @@ redis.call('HSET',catalog,'compaction',completed,'w:'..workspace,renewed)
 return #rows
 `
 
-var snapshotCompactionCopyDigest = goredis.NewScript(snapshotCompactionCopyLua).Hash()
+var snapshotCompactionCopyDigest = newRedisFunction(snapshotCompactionCopyLua).Name()
 
 func (s *store) commitSnapshotCompactionCopy(ctx context.Context, j *snapshotCompactionJob, after string, rows []snapshotInsertRow) error {
 	operation := snapshotID()
-	args := []any{"EVAL", snapshotCompactionCopyLua, 3 + len(rows), snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(j.Data)}
+	args := []any{"FCALL", redisFunctionName(snapshotCompactionCopyLua), 3 + len(rows), snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(j.Data)}
 	for _, row := range rows {
 		args = append(args, row.key)
 	}

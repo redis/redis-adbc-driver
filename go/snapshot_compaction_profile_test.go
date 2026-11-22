@@ -40,7 +40,7 @@ type compactionPhaseProfile struct {
 // Record categories and elapsed client round trips only. Arguments, keys, row
 // values and endpoint/credential data are deliberately absent from the report.
 func compactionProfileCategory(cmd goredis.Cmder) string {
-	a := cmd.Args()
+	a := snapshotObservedControlArgs(cmd)
 	name := cmd.Name()
 	var script any
 	if len(a) > 1 {
@@ -114,7 +114,7 @@ func (p *compactionPhaseProfile) record(phase, category string, commands int, el
 
 func compactionProfileScriptBytes(cmd goredis.Cmder) int64 {
 	a := cmd.Args()
-	if len(a) > 1 && (strings.EqualFold(fmt.Sprint(a[0]), "EVAL") || strings.EqualFold(fmt.Sprint(a[0]), "EVALSHA")) {
+	if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "FCALL") {
 		if body, ok := a[1].(string); ok {
 			return int64(len(body))
 		}

@@ -82,7 +82,7 @@ func (s *store) mergeSnapshotEntry(ctx context.Context, original *snapshotScope,
 			return err
 		}
 	}
-	if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataMergeEntry, 9, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataBucket(original.id, slot), snapshotMetadataMap(original.id), snapshotWorkspace(original.id)+suffix, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix, sourceOwner, original.id, original.pin.token).Err(); err != nil {
+	if err := once(ctx, s.redis(ctx), "FCALL", redisFunctionName(snapshotMetadataMergeEntry), 9, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataBucket(original.id, slot), snapshotMetadataMap(original.id), snapshotWorkspace(original.id)+suffix, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix, sourceOwner, original.id, original.pin.token).Err(); err != nil {
 		return err
 	}
 	if sourceOwner == "" {

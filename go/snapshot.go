@@ -1000,8 +1000,8 @@ type snapshotFencedCommand struct {
 }
 
 func (c snapshotFencedCommand) Args() []any      { return c.args }
-func (c snapshotFencedCommand) Name() string     { return "eval" }
-func (c snapshotFencedCommand) FullName() string { return "eval" }
+func (c snapshotFencedCommand) Name() string     { return "fcall" }
+func (c snapshotFencedCommand) FullName() string { return "fcall" }
 func (c snapshotFencedCommand) NoRetry() bool    { return true }
 
 const snapshotMutationAdmission = `
@@ -1172,17 +1172,17 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 				break
 			}
 		}
-		script := snapshotRowMutation
+		function := redisFunctionName(snapshotRowMutation)
 		if strings.HasPrefix(fmt.Sprint(keys[len(keys)-1]), snapshotPrefix+"workspace:") {
-			script = snapshotMutation
+			function = redisFunctionName(snapshotMutation)
 		}
 		if scope.store != nil && scope.store.flexEnabled() && strings.EqualFold(fmt.Sprint(original[0]), "incrby") && strings.HasPrefix(fmt.Sprint(original[1]), snapshotWorkspace(scope.id)+"seq:") {
 			// Native INCRBY participates in metadata COW and the writer fence.
 			// Check the Flex numeric-ID ceiling inside that same atomic fence,
 			// before advancing the private counter or recording its presence.
-			script = snapshotDataEdges + snapshotDescriptorRefs + snapshotMutationAdmission + snapshotMutationPrepare + snapshotFlexRowLimit + snapshotMutationApply
+			function = redisFunctionName(snapshotDataEdges + snapshotDescriptorRefs + snapshotMutationAdmission + snapshotMutationPrepare + snapshotFlexRowLimit + snapshotMutationApply)
 		}
-		args := []any{"EVAL", script, len(keys)}
+		args := []any{"FCALL", function, len(keys)}
 		args = append(args, keys...)
 		data := []string{}
 		for _, key := range keys[1:] {
@@ -1193,7 +1193,7 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 		args = append(args, scope.id, scope.pin.token, strings.Join(data, ","), member)
 		args = append(args, cmd.Args()...)
 		// Cmder's private stringArg belongs to the original typed command;
-		// Args serializes EVAL. Route by the original key, not envelope slot 3.
+		// Args serializes FCALL. Route by the original key, not envelope slot 3.
 		// All original keys and the control key share the catalog hash tag.
 		cmd.SetFirstKeyPos(1)
 		return snapshotFencedCommand{Cmder: cmd, args: args}
@@ -1212,7 +1212,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	name := strings.ToLower(fmt.Sprint(args[0]))
 	var positions []int
 	switch name {
-	case "zrange", "zrangebylex", "zscore", "zlexcount", "zcard", "zadd", "zrem", "get", "getrange", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "smembers", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
+	case "zrange", "zrangebylex", "zscore", "zlexcount", "zcard", "zadd", "zrem", "get", "getrange", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "sscan", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
 		positions = []int{1}
 	case "del", "unlink", "exists", "watch", "mget":
 		for n := 1; n < len(args); n++ {
@@ -1224,7 +1224,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 				positions = append(positions, n+1)
 			}
 		}
-	case "eval", "evalsha":
+	case "fcall":
 		if len(args) > 2 {
 			count, _ := strconv.Atoi(fmt.Sprint(args[2]))
 			for n := 3; n < 3+count && n < len(args); n++ {
@@ -2169,7 +2169,7 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 		return err
 	}
 	if initialized {
-		capable, err := once(ctx, s.client, "EVAL", `return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`, 1, snapshotCatalogKey).Int()
+		capable, err := once(ctx, s.client, "FCALL", redisFunctionName(`return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`), 1, snapshotCatalogKey).Int()
 		if err != nil {
 			return wrapRedis(err, "failed to inspect snapshot control capability")
 		}

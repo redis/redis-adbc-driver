@@ -476,11 +476,11 @@ func (a *adopter) reserve(ctx context.Context, rec string) (resumed bool, err er
 				resumed = true
 				return nil
 			}
-			used, err := tx.SMembers(ctx, prefixesKey).Result()
+			used, err := scanSet(ctx, tx, prefixesKey).Result()
 			if err != nil {
 				return err
 			}
-			adopted, err := tx.SMembers(ctx, adoptedKey).Result()
+			adopted, err := scanSet(ctx, tx, adoptedKey).Result()
 			if err != nil {
 				return err
 			}

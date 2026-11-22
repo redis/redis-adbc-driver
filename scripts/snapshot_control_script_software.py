@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Verify standalone snapshot scripts with an EVAL-only Software operator.
+"""Verify Function requirements and point leases on Redis Software.
 
 Destructive Go snapshot fixtures run only on an explicitly owned local test
-database. The temporary full operator excludes EVALSHA; this is not a restricted
-SQL reader. Credentials and operational identifiers remain in private files/env.
+database. The temporary full operator excludes FCALL and must be rejected; it
+is not a restricted SQL reader. Credentials and operational identifiers remain in private files/env.
 """
 
 import argparse
@@ -60,21 +60,21 @@ def main():
         operator = "script-operator-" + uuid.uuid4().hex + "@example.com"
         point_operator = "point-lease-" + uuid.uuid4().hex + "@example.com"
         try:
-            principals.create(operator, secrets.token_urlsafe(32), ["~*", "+@all", "-evalsha"])
+            principals.create(operator, secrets.token_urlsafe(32), ["~*", "+@all", "-fcall"])
             principals.create(point_operator, secrets.token_urlsafe(32), ["~*", "+@all", "-hgetall"])
             verify()
             env = dict(os.environ, REDIS_SNAPSHOT_URI=uri,
-                       REDIS_SCRIPT_EVAL_ONLY_URI=principals.people[operator]["uri"],
+                       REDIS_FUNCTIONS_DENIED_URI=principals.people[operator]["uri"],
                        REDIS_SCRIPT_POINT_LEASE_URI=principals.people[point_operator]["uri"],
                        REDIS_RETAINED_CONTROL_PERSISTENCE="guaranteed")
             subprocess.run(["go", "test", "-race", "-json", "-count=1", "-p", "1",
-                            "-timeout=2m", "-run", "^TestSnapshot(ControlScript(EvalOnly|PointLease)|BatchScriptEvalOnly)Software$", "."],
+                            "-timeout=2m", "-run", "^(TestRedisFunctionsRejectEvalOnlySoftware|TestSnapshotControlScriptPointLeaseSoftware)$", "."],
                            cwd=Path(__file__).resolve().parents[1] / "go", env=env, check=True)
         finally:
             principals.cleanup()
             verify()
     print(json.dumps({"software": True, "qpf": 4, "strict_tls": True,
-                      "eval_only_operator_verified": True, "point_lease_operator_verified": True,
+                      "eval_only_operator_rejected": True, "point_lease_operator_verified": True,
                       "owned_principals_removed": True}))
 
 

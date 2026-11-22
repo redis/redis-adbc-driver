@@ -102,7 +102,7 @@ func TestLiveMergeUncertainDeleteAndCancellation(t *testing.T) {
 			defer cancel()
 			calls := 0
 			execution.client.AddHook(&unmanagedReplaceHook{after: func(_ context.Context, cmd goredis.Cmder) error {
-				if cmd.Name() == "eval" && len(cmd.Args()) > 1 && strings.Contains(cmd.Args()[1].(string), "redis.call('DEL',KEYS[1])") {
+				if snapshotObservedControlName(cmd) == "eval" && len(cmd.Args()) > 1 && strings.Contains(snapshotObservedControlArgs(cmd)[1].(string), "redis.call('DEL',KEYS[1])") {
 					calls++
 					if stop {
 						cancel()

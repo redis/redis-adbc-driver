@@ -22,7 +22,7 @@ type readerCacheObserver struct {
 
 func (h *readerCacheObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		if len(a) > 1 && a[0] == "EVAL" && a[1] == snapshotNamespaceRead {
 			h.lookups.Add(1)
 		}

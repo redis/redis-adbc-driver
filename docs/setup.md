@@ -35,13 +35,16 @@ python -m adbc_driver_redis doctor --offline
 ```
 
 Set `REDIS_URI` in your application's environment or secret manager. Examples
-below read it rather than embedding credentials. Use `redis://host:port/0` for
-plaintext or `rediss://host:port/0` for verified TLS; credentials use
-`redis[s]://username:password@host:port/0` with URI-encoded reserved characters.
+below read it rather than embedding credentials. An explicit ACL username and
+nonempty password are required, along with RESP3 and Redis Functions. Use
+`redis://username:password@host:port/0` for plaintext or
+`rediss://username:password@host:port/0` for verified TLS, URI-encoding reserved
+characters. Replace the example credentials with your configured ACL credentials.
+See [function initialization and ACL permissions](driver-reference.md#acl-users).
 Use the deployment's endpoint and port, rather than assuming 6379.
 
 ```sh
-export REDIS_URI='redis://localhost:6379/0'
+export REDIS_URI='redis://app:YOUR_URL_ENCODED_PASSWORD@localhost:6379/0'
 python -m adbc_driver_redis doctor
 ```
 
@@ -179,7 +182,7 @@ CREATE EXTENSION REPOSITORY IF NOT EXISTS query_farm
   WITH PREFIX 'https://duckdb-extensions.query.farm';
 INSTALL adbc_scanner FROM query_farm;
 LOAD adbc_scanner FROM query_farm;
-ATTACH 'redis://localhost:6379/0' AS r (TYPE adbc, driver 'redis', READ_ONLY);
+ATTACH 'redis://app:YOUR_URL_ENCODED_PASSWORD@localhost:6379/0' AS r (TYPE adbc, driver 'redis', READ_ONLY);
 SELECT * FROM adbc_scan('r', 'SELECT 1 AS one');
 DETACH r;
 ```

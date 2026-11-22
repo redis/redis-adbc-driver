@@ -86,7 +86,7 @@ build.after=after;redis.call('HSET',KEYS[5],buildfield,cjson.encode(build));retu
 
 func (s *store) snapshotMetadataBucketStep(ctx context.Context, slot, source string) (int, error) {
 	scope := snapshotOf(ctx)
-	return once(ctx, s.redis(ctx), "EVAL", snapshotMetadataCloneBucket, 8, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(source, slot), snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataBucketQueue, snapshotMetadataDirectory(source, slot), snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, source).Int()
+	return once(ctx, s.redis(ctx), "FCALL", redisFunctionName(snapshotMetadataCloneBucket), 8, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(source, slot), snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataBucketQueue, snapshotMetadataDirectory(source, slot), snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, source).Int()
 }
 
 // Caller holds metadataMu. A new scope can resume an interrupted private bucket

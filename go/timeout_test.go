@@ -263,7 +263,7 @@ func TestClientURIClusterParams(t *testing.T) {
 		"redis://localhost:1/0?addr=localhost:2&max_redirects=5": `addr, max_redirects apply`,
 	} {
 		db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{
-			adbc.OptionKeyURI: uri, OptionStringCluster: "false"})
+			adbc.OptionKeyUsername: "test-user", adbc.OptionKeyPassword: "test-password", adbc.OptionKeyURI: uri, OptionStringCluster: "false"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -448,6 +448,8 @@ func TestTimeoutNoReply(t *testing.T) {
 	}()
 	ctx := context.Background()
 	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{
+		adbc.OptionKeyUsername:  "test-user",
+		adbc.OptionKeyPassword:  "test-password",
 		adbc.OptionKeyURI:       "redis://" + ln.Addr().String() + "/0",
 		OptionStringReadTimeout: "200ms",
 	})
@@ -512,6 +514,8 @@ func newFakeRedis(t *testing.T, hang ...string) *fakeRedis {
 						_, _ = conn.Write([]byte("*2\r\n+proto\r\n:2\r\n"))
 					case name == "HELLO" && !slices.Contains(hang, "REJECT_HELLO"):
 						_, _ = conn.Write([]byte("%1\r\n+proto\r\n:3\r\n"))
+					case name == "SSCAN":
+						_, _ = conn.Write([]byte("*2\r\n$1\r\n0\r\n*0\r\n"))
 					case name == "PING":
 						_, _ = conn.Write([]byte("+PONG\r\n"))
 					case name == "HGET":

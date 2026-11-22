@@ -130,7 +130,7 @@ type lostImportCompletionReply struct {
 
 func (h *lostImportCompletionReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		complete := len(a) > 10 && a[0] == "EVAL" && a[1] == snapshotImportCaptureLua && a[10] == "complete"
 		if complete {
 			h.completeCalls.Add(1)

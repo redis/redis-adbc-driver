@@ -141,7 +141,7 @@ func TestAdoptBlockedRefreshDuringCompaction(t *testing.T) {
 	a := &adopter{c: c, o: HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_compact", Apply: true, Types: map[string]string{"balance": "NUMERIC(38,2)"}}, progress: func(string) {}, res: &HashAdoption{Report: &HashReport{Prefix: f.prefix}}}
 	blocked, err := a.snapshotAdopt(c.context(h.ctx))
 	if err == nil || blocked == nil || len(blocked.Report.Checks) != 1 || blocked.Report.Checks[0].Ready || blocked.Applied {
-		t.Fatal("typed refresh was not blocked")
+		t.Fatalf("typed refresh was not blocked: result=%+v err=%v", blocked, err)
 	}
 	if !hook.ran || hook.err != nil {
 		t.Fatal("compaction did not interleave with planning", hook.err)

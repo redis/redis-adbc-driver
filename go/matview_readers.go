@@ -213,7 +213,7 @@ func (s *store) collectMatviewGeneration(ctx context.Context, prefix string) err
 	return matviewReleaseScript.Run(ctx, s.redis(ctx), []string{matviewRetiredKey, prefixesKey, indexesKey, releasedKey, readers}, prefix, m.index()).Err()
 }
 
-var matviewReleaseScript = goredis.NewScript(`
+var matviewReleaseScript = newRedisFunction(`
 if redis.call('HDEL', KEYS[1], ARGV[1]) == 1 then
   redis.call('SREM', KEYS[2], ARGV[1])
   redis.call('SREM', KEYS[3], ARGV[2])

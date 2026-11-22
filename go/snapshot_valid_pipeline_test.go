@@ -33,7 +33,7 @@ func (h *snapshotLeaseProofReplies) reply(cmd goredis.Cmder) error {
 			panic("lease can retry")
 		}
 		h.wires = append(h.wires, append([]any(nil), c.Args()...))
-		if c.Args()[0] == "EVALSHA" && h.validErr != nil {
+		if c.Args()[0] == "FCALL" && h.validErr != nil {
 			c.SetErr(h.validErr)
 			return h.validErr
 		}
@@ -130,27 +130,15 @@ func TestSnapshotAcquireProofRejectsUncertainOrExpiredLease(t *testing.T) {
 		})
 	}
 }
-func TestSnapshotAcquireProofFallsBackOnlyForDefiniteDigestRefusal(t *testing.T) {
-	for _, denied := range []bool{false, true} {
-		t.Run(map[bool]string{false: "missing", true: "denied"}[denied], func(t *testing.T) {
-			s, ctx, _, h := snapshotLeaseProofFixture(t, false)
-			h.validErr = controlScriptNativeError("NOSCRIPT missing digest")
-			if denied {
-				h.validErr = controlScriptNativeError("NOPERM this user has no permissions to run the 'evalsha' command")
-			}
-			if err := s.validateSnapshotRead(ctx); err != nil {
-				t.Fatal(err)
-			}
-			if h.batches != 1 || h.direct != 1 || len(h.wires) != 2 || h.wires[0][0] != "EVALSHA" || h.wires[1][0] != "EVAL" {
-				t.Fatal("wrong definite-refusal fallback", h.batches, h.direct, len(h.wires))
-			}
-			before, after := h.wires[0], h.wires[1]
-			if !reflect.DeepEqual(before[2:], after[2:]) || after[1] != snapshotControl {
-				t.Fatal("fallback changed native lease proof")
-			}
-			if denied && !s.controlScript.evalOnly.Load() {
-				t.Fatal("native command denial not retained")
-			}
-		})
+func TestSnapshotAcquireProofDoesNotReplayRefusals(t *testing.T) {
+	for _, failure := range []error{controlScriptNativeError("ERR Function not found"), controlScriptNativeError("NOPERM fcall")} {
+		s, ctx, _, h := snapshotLeaseProofFixture(t, false)
+		h.validErr = failure
+		if err := s.validateSnapshotRead(ctx); err == nil {
+			t.Fatal("refused function accepted")
+		}
+		if h.batches != 1 || h.direct != 0 || len(h.wires) != 1 || h.wires[0][0] != "FCALL" {
+			t.Fatal("refused function replayed", h.wires)
+		}
 	}
 }

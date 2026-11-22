@@ -26,7 +26,7 @@ type snapshotBucketAccess struct {
 
 func (h *snapshotBucketAccess) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HGETALL") && strings.HasPrefix(fmt.Sprint(a[1]), snapshotPrefix+"metadata:bucket:") {
 			h.whole.Add(1)
 		}
@@ -358,7 +358,7 @@ type snapshotBucketLostStep struct {
 func (h *snapshotBucketLostStep) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		if err == nil && len(a) > 1 && a[1] == snapshotMetadataCloneBucket && h.lost.CompareAndSwap(false, true) {
 			cmd.SetErr(io.ErrUnexpectedEOF)
 			return io.ErrUnexpectedEOF

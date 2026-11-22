@@ -13,7 +13,7 @@ import (
 )
 
 // Cluster pipelines pass through both coordinator and node hooks. Fenced
-// commands are EVAL by then and already-scoped keys are left unchanged. Direct
+// commands are FCALL by then and already-scoped keys are left unchanged. Direct
 // Search/WATCH calls must also have fences, including on newly discovered nodes.
 // The returned function attaches to nodes discovered before installation.
 func addSnapshotHooks(client goredis.UniversalClient) func(context.Context) error {

@@ -311,10 +311,12 @@ func (c *hashConn) checkAdoptPrefix(ctx context.Context, cl *Checklist, tables [
 			return nil
 		}
 	}
-	pipe := c.client.Pipeline()
-	used := pipe.SMembers(ctx, prefixesKey)
-	adopted := pipe.SMembers(ctx, adoptedKey)
-	if _, err := pipe.Exec(ctx); err != nil && err != goredis.Nil {
+	used := scanSet(ctx, c.client, prefixesKey)
+	if err := used.Err(); err != nil {
+		return err
+	}
+	adopted := scanSet(ctx, c.client, adoptedKey)
+	if err := adopted.Err(); err != nil {
 		return wrapRedis(err, "failed to read the table registry")
 	}
 	for _, set := range [][]string{used.Val(), adopted.Val()} {
