@@ -66,10 +66,10 @@ def check_retained_tls(principals, control, schema, planner_uri, worker_name,
                       'adbc.redis.partition_result_namespace': namespace,
                       'adbc.redis.stream_batch_rows': '1'}
     routing = ['+cluster|slots', '+command', '+asking'] if cluster_mode == 'true' else []
-    principals.create(worker, password, ['%R~' + prefixes[0] + '*', '+ping', '+time', '+getrange', *routing])
+    principals.create(worker, password, ['%R~' + prefixes[0] + '*', '+ping', '+fcall', '+time', '+getrange', *routing])
     router = (redis.RedisCluster.from_url(admin_uri, ssl_ca_certs=str(ca),
               decode_responses=True, protocol=3) if cluster_mode == 'true' else control)
-    report = {'status': 'running', 'checks': [], 'minimal_worker_commands': ['PING', 'TIME', 'GETRANGE', *routing],
+    report = {'status': 'running', 'checks': [], 'minimal_worker_commands': ['PING', 'FCALL', 'TIME', 'GETRANGE', *routing],
               'control_persistence_verification': 'managed-api' if verified_policy else 'redis-config',
               'verified_eviction_policy': verified_policy}
     data = pa.table({'id': pa.array([2**53 + i for i in range(31)], pa.int64()),

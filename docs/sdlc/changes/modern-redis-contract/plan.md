@@ -81,3 +81,13 @@ Combined-source checks passed on 2026-11-22:
 - Shared-library build, generated-function inventory check and whitespace checks.
 
 No full combined-source Software, Cluster, failover/RDB or Flex rerun is claimed.
+
+## PR #575 restricted-reader correction
+
+The first PR CI run passed all Go and snapshot shards, but the independent
+retained-worker fixture and the macOS minimal-reader test still provisioned
+PING/TIME/GETRANGE without FCALL. The required Functions bootstrap therefore
+refused those users before retained replay. Add only FCALL to the public-driver
+reader grants, preserve the namespace read-only key pattern and denial checks,
+and document the preinstalled-library requirement. The lower-level raw storage
+reader permissions are unchanged. No fallback or namespace write grant was added.

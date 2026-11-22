@@ -188,12 +188,15 @@ closed. Cleanup never deletes source data. Small namespace control keys persist
 until operator cleanup after all jobs expire.
 
 Descriptors contain no credentials, endpoint, SQL or arbitrary Redis keys and
-are not bearer authorization. A minimal worker needs `+ping +time +getrange`
+are not bearer authorization. A minimal worker needs `+ping +fcall +time +getrange`
 and `%R~adbc:{retained:TENANT}:*`; Cluster additionally needs `+cluster|slots
 +command +asking`. Publishers need existing SQL/source privileges, source SCAN,
 known-field reads and index membership, topology checks when clustered, plus
-namespace EVAL and the scripts' declared String/ZSET operations. Publishers are
-trusted within their namespace. Give separate tenant credentials/namespace
+namespace FCALL and the functions' declared String/ZSET operations. All driver
+connections probe the preinstalled Functions library with FCALL; restricted
+readers do not need FUNCTION LOAD. See
+[function initialization](driver-reference.md#acl-users). Publishers are trusted
+within their namespace. Give separate tenant credentials/namespace
 policies; key ACLs remain the authorization boundary.
 
 Retained mode adds a complete coordinator read, serialization/upload, stored
