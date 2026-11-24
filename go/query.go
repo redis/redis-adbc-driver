@@ -478,10 +478,26 @@ func andAll(exprs []Expr) Expr {
 
 // decodeRow converts a fetched HASH into values keyed by column name.
 func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Value, error) {
+	return decodeRowCapacity(meta, row, only, 0)
+}
+
+const maxOwnedFactRowCapacity = 64
+
+func decodedRowCapacity(only map[string]bool, hint int) int {
+	capacity := len(only) + 1
+	if hint > capacity && hint <= maxOwnedFactRowCapacity {
+		capacity = hint
+	}
+	return capacity
+}
+
+// Only the direct native owned-fact reader supplies a bounded complete-leaf
+// capacity. The ordinary decoder keeps its exact historical allocation policy.
+func decodeRowCapacity(meta *tableMeta, row aggRow, only map[string]bool, hint int) (map[string]Value, error) {
 	if meta.Unmanaged && !unmanagedSourceKey(row[keyField]) {
 		return nil, errorf(adbc.StatusInvalidArgument, "unmanaged index contains a key overlapping driver storage")
 	}
-	out := make(map[string]Value, len(only)+1)
+	out := make(map[string]Value, decodedRowCapacity(only, hint))
 	if meta.KeyRows {
 		out[keyField] = stringValue(row["__key"])
 	} else if raw, ok := row[rowIDField]; ok {
@@ -523,7 +539,9 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
-	streamJoin         bool // exact grouped reduction may consume a bounded star-join stream
+	rowCapacity        int   // source-only bounded owned-fact allocation hint; never inherit
+	streamJoin         bool  // exact grouped reduction may consume a bounded star-join stream
+	ownedRows          *bool // coordinator-only callback marker; never inherit in source requests
 	livePartition      *livePartitionScan
 	unmanagedPartition *unmanagedPartitionBucket
 	aggregateInputs    bool                 // direct scalar inputs: bounded larger unmanaged key pages
@@ -599,6 +617,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	rowCapacity   int
 	livePartition *livePartitionScan
 	liveScan      *liveCollectionScan
 	flexUnmanaged *flexUnmanagedScan
@@ -664,7 +683,7 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 			}
 		}
 	}
-	it = &scanIter{meta: meta, need: need, residual: req.where.residual, env: e.newEnv(ctx, meta.types(), params), diagnostics: e.diagnostics}
+	it = &scanIter{meta: meta, rowCapacity: req.rowCapacity, need: need, residual: req.where.residual, env: e.newEnv(ctx, meta.types(), params), diagnostics: e.diagnostics}
 	if ctx != nil {
 		it.subBudget, _ = ctx.Value(subBudgetKey{}).(*subWork)
 	}
@@ -766,6 +785,13 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 			if it.delta != nil && len(it.delta.sources) == 1 && !snapshotOwns(ctx, req.meta.prefix()) && req.meta.SnapshotRows != nil {
 				it.delta.pageRows, it.delta.directoryPageRows = wideFetchChunk, wideFetchChunk
 			}
+		}
+		// An internal exact-range caller may bound directory overfetch as well
+		// as output pages. This changes only batching: visibility, identity,
+		// pin and source checks stay in the existing exact-directory iterator.
+		if req.ranges != nil && req.ranges.cap > 0 && it.delta != nil {
+			page := int(min(req.ranges.cap, int64(snapshotDeltaPage)))
+			it.delta.pageRows, it.delta.directoryPageRows = page, page
 		}
 		return it, nil
 	}
@@ -1312,7 +1338,7 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 				return nil, nil, err
 			}
 		}
-		vals, err := decodeRow(it.meta, raw, it.need)
+		vals, err := decodeRowCapacity(it.meta, raw, it.need, it.rowCapacity)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2511,6 +2537,10 @@ func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, 
 	meta := plan.meta
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
 	req.streamJoin = streamingStarAggregate(plan, aggs)
+	streamRowsOwned := false
+	if req.streamJoin {
+		req.ownedRows = &streamRowsOwned
+	}
 	if req.need == nil {
 		req.need = map[string]bool{}
 	}
@@ -2634,17 +2664,10 @@ func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, 
 					}
 				}
 				if !ok {
-					// Redis scans own their freshly decoded maps. Prune only
-					// after aggregate inputs have been consumed; shared memory
-					// relations must keep their original rows for other scans.
-					if meta.isMem {
-						g.rep = maps.Clone(vals)
-					}
-					for name := range g.rep {
-						if !repNeed[name] {
-							delete(g.rep, name)
-						}
-					}
+					// Native rows and proven stream callbacks own their maps.
+					// Prune only after all aggregate inputs; unmarked memory
+					// rows retain their original clone-before-prune behavior.
+					g.rep = aggregateRepresentativeRow(vals, repNeed, meta.isMem && !streamRowsOwned)
 				}
 			}
 			return nil
