@@ -25,26 +25,46 @@ Results:
 
 ## TPC-H subset
 
-Fixture: 10% of the retained SF1 source (every order with `o_orderkey % 10 = 1` plus its lineitems, full dimension tables), 1.91M rows. Run from the macOS host through the Docker published port, on a host shared with other sessions' fixtures and workloads. Each query runs in a fresh process and is fully fetched. Results are validated against DuckDB 2.0.1 as row multisets (rel 1e-7 / abs 1e-6).
+Fixture: 10% of the retained SF1 source (every order with `o_orderkey % 10 = 1` plus its lineitems, full dimension tables), 1.91M rows. Run from the macOS host through the Docker published port. Each query runs in a fresh process and is fully fetched. Results are validated against DuckDB 2.0.1 as row multisets (rel 1e-7 / abs 1e-6).
 
-| Query | main `1245ac2c` (1 run) | this branch (3 runs, s) | Peak RSS main → branch |
+**Concurrent load:** the coordinating session's SF1 timed runs on a Software Flex server shared the host CPUs throughout. Times are labeled observations, not controlled speedups.
+
+Both libraries were built side by side: `origin/main` `1245ac2c` and this branch `1f6a8f44`. Each query ran on main, then on the branch, back to back.
+
+| Query | main `1245ac2c` (s) | branch (s) | Plan main → branch | Peak RSS main → branch |
+|---|---|---|---|---|
+| Q1 | 5.52 / 6.90 / 4.89 | 6.15 / 4.68 / 4.32 | unchanged (`partitioned_exact`) | 846 MB → 909 MB |
+| Q3 (#579) | 13.95 / 8.32 / 9.89 | 9.86 / 9.36 / 4.65 | eager → snowflake, parallel fact | 767 MB → 302 MB |
+| Q4 | 3.16 / 3.24 / 6.05 | 4.51 / 4.51 / 2.78 | unchanged (`select_scan`) | 117 MB → 111 MB |
+| Q5 (#581) | 166.12 | 7.82 | eager → snowflake, parallel fact | 7.10 GB → 370 MB |
+| Q7 (#582) | 148.28 | 5.07 | eager → snowflake | 6.61 GB → 368 MB |
+| Q8 (#583) | process timeout (180 s) | 11.52 | eager → snowflake, parallel fact | — → 288 MB |
+| Q9 (#584) | 50.08 / 41.62 / 41.06 | 12.98 / 12.56 / 8.67 | eager → snowflake, parallel fact | 4.64 GB → 1.79 GB |
+| Q18 | 3.81 / 2.84 / 2.70 | 3.61 / 3.07 / 2.58 | outer join eager → snowflake | 537 MB → 502 MB |
+| Q19 | 3.75 / 3.85 / 2.65 | 0.65 / 0.60 / 0.67 | eager join with implied lists | 530 MB → 162 MB |
+| Q21 | 11.28 / 11.20 / 12.18 | 11.78 / 11.98 / 12.75 | joined rows now streamed | 341 MB → 213 MB |
+
+Every run validated. Q5, Q7 and Q8 ran once per side, because main takes minutes on them. Earlier same-day runs of this branch, three each, were Q5 3.64–4.21 s, Q7 2.11–2.19 s and Q8 3.00–3.39 s.
+
+Q4, Q18 and Q21 were then rerun as five alternating pairs, with the first side alternating:
+
+| Query | main (s) | branch (s) | Medians |
 |---|---|---|---|
-| Q3 | 26.90 s | 5.11 / 5.39 / 3.46 | 743 MB → 292 MB |
-| Q5 | 220.40 s | 4.21 / 3.67 / 3.64 | 6.40 GB → 417 MB |
-| Q7 | 101.12 s | 2.19 / 2.11 / 2.13 | 8.66 GB → 365 MB |
-| Q8 | process timeout (180 s) | 3.00 / 3.21 / 3.39 | — → 296 MB |
-| Q9 | 40.92 s | 7.68 / 5.63 / 5.81 | 5.40 GB → 1.82 GB |
-| Q18 (also affected) | 3.39 s | 1.75 / 2.56 / 2.55 | 458 MB → 529 MB |
-| Q19 (also affected) | 3.56 s | 0.82 / 0.75 / 0.78 | 553 MB → 175 MB |
-| Q21 (#632, also affected) | 9.86 s | 9.33 / 9.94 / 9.69 | 388 MB → 247 MB |
+| Q4 | 3.67 / 2.26 / 2.58 / 3.06 / 2.80 | 2.64 / 2.45 / 2.83 / 3.08 / 3.10 | 2.80 vs 2.83 |
+| Q18 | 7.49 / 4.29 / 2.86 / 3.63 / 3.06 | 7.16 / 5.83 / 4.24 / 3.19 / 2.10 | 3.63 vs 4.24 |
+| Q21 | 9.02 / 9.82 / 9.70 / 10.51 / 11.27 | 9.12 / 9.65 / 9.72 / 9.99 / 13.04 | 9.82 vs 9.72 |
 
-Every run validated. The main baseline ran once on the same contended host, and its Q3 is slower than its earlier uncontended 5.95 s, so the ratios are not controlled speedups.
+All 30 runs validated.
+- **Q4 and Q21:** no difference.
+- **Q18:** pairwise branch − main differences are −0.33, +1.54, +1.38, −0.44 and −0.96 s (median −0.33 s), while load drifted from about 7 s down to about 2 s. That is no consistent slowdown. Q18's cost is its inner grouped aggregate (#629), which is the same on both sides.
+- **Q1:** its plan is unchanged.
 
-Plans:
-- Q3, Q5, Q8 and Q9 use the parallel fact reader.
-- Q7's fact keeps the serial Search path, because its supplier-key union makes its filter selective.
-- Q7's branches shrink to 798 suppliers and 12,117 orders through the implied nation lists.
-- Q9 reads partsupp and orders with the parallel dimension reader.
+## Plan changes outside Q3/Q5/Q7/Q8/Q9
+
+- **Q19:** the implied per-column literal lists push `p_brand IN (3 values)` and `p_container IN (12 values)` into the part scan. The complete `OR` and the #586 common conjuncts remain, and Q19 still uses the eager join. `TestJoinCommonQ19Plan`, `TestJoinCommonResults` and `TestSQLJoinCommonQ19` pass.
+- **Q18:** its outer customer/orders/lineitem join is now a snowflake. The orders branch carries the uncorrelated `IN` subquery as a pushed filter, so it stays on the serial readers. DATE `GROUP BY` (`o_orderdate`) is admitted to streaming.
+- **Q21:** its lineitem/orders/supplier/nation join now streams in `scanMem`. #632's page probes then filter the returned rows unchanged.
+- **Other non-aggregate inner joins** whose fact has at least 65,536 rows also stream, so their unordered row order may differ.
 
 ## Not established
 
