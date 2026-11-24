@@ -193,6 +193,12 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 		return nil, false, nil
 	}
 	tuningQuery := wp.query
+	directoryQuery := "*"
+	if directory && e.store.flexSnapshotTable(meta) {
+		// Keep only the already compiled source predicate, never the worker's
+		// synthetic row-ID range. Directory bounds remain exact int64.
+		directoryQuery = wp.query
+	}
 	if directory {
 		// Normalize once so a one-worker budget grant uses the same exact
 		// source and full predicate as a multi-worker directory execution.
@@ -202,7 +208,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 		p := *plan
 		p.meta = meta
 		plan = &p
-		wp.query, wp.original, wp.residual = "*", predicate, predicate
+		wp.query, wp.original, wp.residual = directoryQuery, predicate, predicate
 	}
 	// Measure actual fetched rows, never sequence IDs (which can have gaps).
 	if e.workerBudget != nil && (e.queryWorkers == 0 || e.workerBudget.automatic()) {
@@ -310,7 +316,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 				req.ranges = &rowIDRangeScan{lo: lower, hi: upper}
 			}
 			if directory {
-				req.where.query, req.where.original, req.where.residual = "*", predicate, predicate
+				req.where.query, req.where.original, req.where.residual = directoryQuery, predicate, predicate
 			}
 			handled, scanErr := local.scanScalarAggregateValues(ctx, req, params, aggs, func(values []Value) error {
 				if err := cancelled(ctx); err != nil {
