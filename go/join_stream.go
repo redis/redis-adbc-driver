@@ -403,6 +403,9 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 			return true, err
 		}
 	}
+	if handled, err := e.scanParallelStarFacts(ctx, shape, jp, params, visit); handled {
+		return true, err
+	}
 	var pending error
 	out := make([]map[string]Value, 0, starOutputPage)
 	flush := func() {
