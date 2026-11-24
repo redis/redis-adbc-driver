@@ -40,3 +40,7 @@ python3 -m unittest discover -s benchmarks/olap-release -p 'test_*.py' -v
 ```
 
 Nine synthetic-adapter tests use real child processes without database queries: distinct PIDs/import isolation, crash attribution, missing references, mismatch/no-ratio, validator timeout, private cleanup, output reuse refusal, credential redaction, bounded multi-pass sorting, truncation and separate third-path reporting. Related harness issue: [#596](https://github.com/redis/redis-adbc-driver/issues/596). Historical OOMs from a shared worker cannot establish the Redis driver's isolated memory requirement.
+
+## Focused live follow-up
+
+See [Q19 follow-up](Q19-FOLLOWUP.md) for the isolated SF1 measurements: direct Redis ADBC validates, while the third-path Q19 warm-up hits the 60-second deadline (tracked in #599). Full suites remain stopped.

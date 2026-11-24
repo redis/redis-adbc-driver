@@ -1,0 +1,36 @@
+{
+  "scope": "live third-engine smoke; six synthetic rows",
+  "query": "SELECT category, SUM(amount) AS total, COUNT(*) AS n FROM olap_q19_third_smoke WHERE id >= 2 GROUP BY category ORDER BY category NULLS LAST",
+  "status": "passed",
+  "rows": [
+    [
+      "a",
+      "2.50",
+      2
+    ],
+    [
+      "b",
+      "2.50",
+      2
+    ],
+    [
+      null,
+      "3.00",
+      1
+    ]
+  ],
+  "provenance": {
+    "execution": "DuckDB planner over Redis ADBC attached catalog",
+    "query_pushdown": false,
+    "extension": "adbc_scanner",
+    "extension_version": "98ff0a39fc",
+    "redis_library_sha256": "f3637eb3a41d5286a954ed33b11916751194d210250fd8fb194a9f423e8b8801"
+  },
+  "plan": [
+    [
+      "physical_plan",
+      "\u256d\u2500 Order By \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Order By: category ASC      \u2502\n\u2502 ~1 row                      \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n\u256d\u2500 Hash Group By \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Groups: #0                  \u2502\n\u2502 Aggregates: sum(#1),        \u2502\n\u2502             count_star()    \u2502\n\u2502 ~1 row                      \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n\u256d\u2500 Projection \u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Projections: category,      \u2502\n\u2502              amount         \u2502\n\u2502 ~1 row                      \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n\u256d\u2500 Adbc Scan Table \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Table: olap_q19_third_smoke \u2502\n\u2502 Database: r                 \u2502\n\u2502 Projections: id, category,  \u2502\n\u2502              amount         \u2502\n\u2502 Filters: id >= 2            \u2502\n\u2502 ~1 row                      \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n"
+    ]
+  ],
+  "initial_assertion_note": "Initial plan-name assertion expected uppercase underscore spelling; DuckDB 2.0 renders title-case labels. Assertion normalized; query results already matched on first attempt."
+}
