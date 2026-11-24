@@ -6,7 +6,7 @@ See [intent](intent.md), [plan](plan.md).
 Use the prior conservative pinned/immutable/managed/plain Flex eligibility gate.
 COUNT each source with plain FT.SEARCH LIMIT 0 0, bracketed by fresh complete
 index identity/readiness proofs. Reject warnings, malformed counts, and counts
-exceeding published physical rows. Admit at most 65,536 source candidates total
+exceeding published physical rows. Admit at most 131,072 source candidates total
 and 16 MiB estimated canonical key payload across every segment. Count is a
 planning upper bound, never a visible row count. A broad source falls back before
 exposing rows to the original exact-directory scan with no page filter.
