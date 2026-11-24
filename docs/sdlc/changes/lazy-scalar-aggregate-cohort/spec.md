@@ -19,3 +19,7 @@ Finalize only the member actually requested, using the same inferred result type
 ## Boundaries
 
 State lives in a fresh per-statement execution cache and is tied to one exact snapshot scope; no cross-statement/cache reuse or detached goroutines are introduced. Parallel workers have their own existing execution caches and do not share this cohort state. Source scanning is serial and deterministic; speculative work on unused lanes can affect CPU cost, but must not surface their SQL/value errors early. This prototype deliberately uses full original-directory control coverage and makes no generic selective-scan performance claim. Root review and an immutable rebuilt artifact are required before a Q9-only live pilot.
+
+## Reviewed HASH-read uncertainty correction
+
+The shared `fetchHashCommands` helper now tolerates only a direct `execErr == redis.Nil`. A wrapped Nil or composed Nil/transport error fails closed, even if every individual HMGET reply is populated. This hardening is required for the cohort's successful-result cache boundary; it also applies to other consumers of this specific shared helper. Ordinary direct-Nil tolerance remains unchanged. This is not an audit claim about all other read helpers. See [bug #609](https://github.com/redis/redis-adbc-driver/issues/609).
