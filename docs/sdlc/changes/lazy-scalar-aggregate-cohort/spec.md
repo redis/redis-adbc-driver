@@ -23,3 +23,5 @@ State lives in a fresh per-statement execution cache and is tied to one exact sn
 ## Reviewed HASH-read uncertainty correction
 
 The shared `fetchHashCommands` helper now tolerates only a direct `execErr == redis.Nil`. A wrapped Nil or composed Nil/transport error fails closed, even if every individual HMGET reply is populated. This hardening is required for the cohort's successful-result cache boundary; it also applies to other consumers of this specific shared helper. Ordinary direct-Nil tolerance remains unchanged. This is not an audit claim about all other read helpers. See [bug #609](https://github.com/redis/redis-adbc-driver/issues/609).
+
+Reviewable implementation: [PR #610](https://github.com/redis/redis-adbc-driver/pull/610).

@@ -8,3 +8,5 @@ See [intent](intent.md), [specification](spec.md), [validation](validation.md).
 4. Exercise real parsed CASE/outer-table planning plus activation, and the ordinary streaming SELECT route, with nondelegating command hooks. Assert registration, no pre-execution reads, zero scans for outer/nested CASE gates and exactly one fact scan for invoked siblings.
 5. Compare rejected-row decode/error order, defaults/NULL markers and exact AVG result types/values against the serial reference. Test cancellation, later-page/source-control failure, unsupported sources/shapes, 32-member/eight-field caps and statement/snapshot separation.
 6. Run focused and full unit-only checks, freeze source, and hand it to root for independent review. Do not build/run a native library, publish a PR or run any live query in this prototype task.
+
+Reviewable implementation: [PR #610](https://github.com/redis/redis-adbc-driver/pull/610).

@@ -45,3 +45,5 @@ Independent review identified [#609](https://github.com/redis/redis-adbc-driver/
 The observed native6 Q9 run had no reported ambiguous transport failure and retains its actual validated output/source provenance above. Its binary predates this stricter error guard; a separately rebuilt publication branch is required for exact published-source performance attribution. The synthetic finding is not presented as a live Q9 failure.
 
 After HASH-read hardening, the final standalone `./...` unit-only pass succeeded for every package (root package 28.691 seconds).
+
+Reviewable implementation: [PR #610](https://github.com/redis/redis-adbc-driver/pull/610).
