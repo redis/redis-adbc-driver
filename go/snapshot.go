@@ -42,6 +42,7 @@ const (
 type snapshotContextKey struct{}
 
 type snapshotScope struct {
+	partition           bool // read scope acquired for a partition; query-only optimizers may exclude it
 	operation           bool // explicit retained operation; durable control admission applies
 	compactionUpdates   string
 	store               *store

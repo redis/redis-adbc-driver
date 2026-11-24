@@ -82,7 +82,7 @@ func (s *store) acquirePartitionSnapshot(ctx context.Context, ref *partitionSnap
 		return ctx, nil, wrapRedis(err, "failed to acquire partition snapshot")
 	}
 	go p.heartbeat()
-	sctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: ref.Root, pin: p, store: s})
+	sctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: ref.Root, pin: p, store: s, partition: true})
 	if err := s.validateSnapshotRead(sctx); err != nil {
 		p.release()
 		return ctx, nil, err

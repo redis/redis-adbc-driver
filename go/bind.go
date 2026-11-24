@@ -117,6 +117,7 @@ type unseenRel struct {
 type execCache struct {
 	catalog       *catalogSnapshot
 	sub           map[*Subquery][][]Value
+	scalarCohorts map[*Subquery]*scalarCohort
 	inSets        map[*Subquery]*inSet
 	rowSets       map[*Subquery]*rowSet
 	inLists       map[*Binary]*inList // nil: evaluate the OR chain as written
@@ -1138,6 +1139,19 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 		}
 		return meta, err
 	}
+	// Only a single consumer may constrain this deferred relation. Shared
+	// WITH definitions retain their once-only, complete materialization.
+	if e.cteAllowsFacts(key) && containsDeferredUnion(plan) && e.deferredUnionSafe(ctx, plan) {
+		meta, err := e.retainedMemTable(ctx, name, cols, nil, rename)
+		if err == nil {
+			names := make([]string, len(meta.Columns))
+			for i, c := range meta.Columns {
+				names[i] = c.Name
+			}
+			meta.view = &lazyView{plan: plan, names: names, unionDemand: true}
+		}
+		return meta, err
+	}
 	rows, err := e.runSelect(ctx, plan, e.params)
 	if err != nil {
 		return nil, err
@@ -1382,6 +1396,14 @@ func (e *executor) subqueryRows(ctx context.Context, sq *Subquery, env *evalEnv)
 		}
 	} else if rows, ok := e.cache.sub[sq]; ok {
 		return rows, nil
+	}
+	if !sq.correlated {
+		if rows, handled, err := e.scalarCohortRows(ctx, sq); handled {
+			if err == nil {
+				e.cache.sub[sq] = rows
+			}
+			return rows, err
+		}
 	}
 	child := *e
 	child.scopes, child.pendingSq = nil, nil

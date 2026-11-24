@@ -142,7 +142,7 @@ func (e *executor) addJoinItem(ctx context.Context, jp *joinPlan, kind string, t
 	if err != nil {
 		return err
 	}
-	if rel.meta.view != nil {
+	if rel.meta.view != nil && !rel.meta.view.unionDemand {
 		// Joins read each item fully; compute the view now (unless only
 		// planning).
 		var rows []map[string]Value
@@ -508,6 +508,14 @@ func (it *joinItem) view() *tableMeta {
 		c.Name = it.prefix + c.Name
 		v.Columns[i] = c
 	}
+	if v.view != nil && v.view.unionDemand {
+		lv := *v.view
+		lv.names = make([]string, len(v.view.names))
+		for i, name := range v.view.names {
+			lv.names[i] = it.prefix + name
+		}
+		v.view = &lv
+	}
 	if it.base.isMem {
 		v.mem = nil
 	}
@@ -657,6 +665,9 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 					counts[i] += seg.Rows
 				}
 			}
+		case it.base.view != nil && it.base.view.unionDemand:
+			// Unknown deferred cardinality must not beat a selective dimension.
+			counts[i] = 1 << 60
 		case it.base.isMem:
 			counts[i] = int64(len(it.base.mem))
 		case wps[i].none:
@@ -692,7 +703,9 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 	}
 	chosen := map[int]bool{}
 	var steps []joinStep
+	dimensionProduct := int64(1)
 	for len(steps) < len(jp.items) {
+		connectedItems := make([]bool, len(jp.items))
 		best, bestConnected := -1, false
 		for i := range jp.items {
 			if chosen[i] {
@@ -710,6 +723,7 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 					connected = connected || others
 				}
 			}
+			connectedItems[i] = connected
 			better := best < 0 ||
 				(connected && !bestConnected) ||
 				(connected == bestConnected && counts[i] < counts[best])
@@ -720,6 +734,10 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 				best, bestConnected = i, connected
 			}
 		}
+		if len(steps) > 0 {
+			best = e.boundedDeferredDimension(ctx, jp, counts, chosen, connectedItems, best, dimensionProduct)
+		}
+		dimensionProduct = boundedDimensionProduct(dimensionProduct, counts[best], nativeDimensionProductRows)
 		chosen[best] = true
 		st := joinStep{item: best, kind: "INNER"}
 		if len(steps) == 0 {
@@ -743,6 +761,7 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 		}
 		steps = append(steps, st)
 	}
+	e.recordJoinOrderDiagnostics(ctx, jp, wps, counts, steps)
 	return steps, nil
 }
 
@@ -922,42 +941,23 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 			continue
 		}
 		if !first && innerLike && wp.keys == nil && !view.isMem && (!view.SnapshotOverlay || e.snapshotIndexable(ctx, view)) {
-			// Index lookup join: fetch only rows whose key matches the left.
-			for _, p := range pairs {
-				cm, ok := lookupColumn(view, p.right)
-				if !ok || !cm.Indexed || !simpleName(cm.field()) {
-					continue
-				}
-				seen := map[string]bool{}
-				var values []Value
-				for _, row := range left {
-					if err := cancelled(ctx); err != nil {
-						return nil, err
-					}
-					env.row = row
-					v, err := env.eval(p.left)
-					if err != nil {
-						return nil, invalidArg(err)
-					}
-					if key, ok := joinKey(v); ok && !seen[key] {
-						seen[key] = true
-						values = append(values, v)
-					}
-				}
-				if len(values) > maxUnionTerms {
-					continue
-				}
-				if q, ok := unionQuery(cm, values, e.zone()); ok {
-					switch {
-					case q == noMatchQuery:
-						wp.none = true // no key of the left rows can match
-					case wp.query == "*":
-						wp.query = q
-					default:
-						wp.query += " " + q
-					}
-				}
-				break
+			// Keep every independently safe source-key constraint. The real
+			// composite join still rechecks correlation and multiplicity.
+			var err error
+			wp, err = e.nativeJoinLookups(ctx, env, pairs, left, view, wp)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !first && innerLike && view.view != nil && view.view.unionDemand {
+			demand, err := e.deferredJoinDemand(ctx, env, pairs, left, view)
+			if err != nil {
+				return nil, err
+			}
+			if demand != nil {
+				// Keep the real join and the complete original residual. This
+				// predicate is only a necessary condition for a matching row.
+				wp.residual = andAll([]Expr{wp.residual, demand})
 			}
 		}
 		keys, right, err := e.scanJoinItem(ctx, it, scanRequest{meta: view, where: wp, need: itemNeed}, params)

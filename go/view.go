@@ -409,8 +409,9 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 // lazyView is a simple view evaluated at scan time, with outer predicates
 // pushed into its base table.
 type lazyView struct {
-	plan  *selectPlan // the view body, bound to its base table
-	names []string    // view column names, one per plan item
+	plan        *selectPlan // the view body, bound to its base table
+	names       []string    // view column names, one per plan item
+	unionDemand bool        // guarded single-consumer UNION ALL projection tree
 }
 
 // viewRelation plans a view referenced in FROM.
@@ -574,6 +575,14 @@ func substitute(e Expr, repl map[string]Expr) (Expr, bool) {
 // runView scans a lazy view: the view's WHERE plus every outer predicate
 // that can be rewritten over the base table run in the base table's index.
 func (e *executor) runView(ctx context.Context, lv *lazyView, outerWhere Expr, need map[string]bool, params []Value) ([]map[string]Value, error) {
+	if lv.unionDemand {
+		// Only total, typed constraints cross this materialization boundary.
+		// The caller retains the complete original residual.
+		outerWhere = deferredUnionPredicate(lv, outerWhere)
+	}
+	if lv.unionDemand && lv.plan.setop != nil {
+		return e.runDeferredUnion(ctx, lv, outerWhere, need, params)
+	}
 	base := lv.plan.meta
 	repl := make(map[string]Expr, len(lv.names))
 	for i, it := range lv.plan.items {
@@ -590,6 +599,9 @@ func (e *executor) runView(ctx context.Context, lv *lazyView, outerWhere Expr, n
 				}
 			}
 		}
+	}
+	if lv.unionDemand && e.deferredLeftJoinSafe(ctx, lv.plan) {
+		base = deferredLeftJoinDemand(base, where)
 	}
 	wp, err := e.planWhere(ctx, where, base, params)
 	if err != nil {
