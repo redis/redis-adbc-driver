@@ -156,6 +156,15 @@ def client_threads(private):
     return threads
 
 
+def duckdb_adbc_scan_threads(private):
+    profile = Path(private) / "connection.json"
+    config = json.loads(profile.read_text()) if profile.exists() else {}
+    threads = config.get("duckdb_adbc_scan_threads", 1)
+    if type(threads) is not int or not 1 <= threads <= 1024:
+        raise ValueError("duckdb_adbc_scan_threads must be an integer from 1 to 1024")
+    return threads
+
+
 def connect_engine(args):
     """Import/open only the selected engine; no local source DB in ADBC mode."""
     if args.engine == "redis":
@@ -167,6 +176,7 @@ def connect_engine(args):
         return conn, {}
 
     threads = client_threads(args.private)
+    scan_threads = duckdb_adbc_scan_threads(args.private) if args.engine == "duckdb_adbc" else 1
     import duckdb
 
     if args.engine == "duckdb":
@@ -193,14 +203,15 @@ def connect_engine(args):
         options = redis_options(config)
         extra = ", ".join(f"{identifier(k)} {literal(v)}" for k, v in options.items())
         library = Path(_driver_path())
+        scan_option = f", scan_threads {scan_threads}" if scan_threads > 1 else ""
         conn.execute(f"ATTACH {literal(config['uri'])} AS r "
-                     f"(TYPE adbc, driver {literal(library)}, READ_ONLY, query_pushdown false, {extra})")
+                     f"(TYPE adbc, driver {literal(library)}, READ_ONLY, query_pushdown false{scan_option}, {extra})")
         schema = options.get("adbc.redis.default_schema", "public")
         conn.execute(f"USE r.{identifier(schema)}")
         # Public provenance excludes library paths, attach SQL and credentials.
         extension = conn.execute("SELECT extension_version FROM duckdb_extensions() "
                                  "WHERE extension_name='adbc_scanner' AND loaded").fetchone()
-        return conn, {"client_threads": threads, "execution": "DuckDB planner over Redis ADBC attached catalog",
+        return conn, {"client_threads": threads, "requested_scan_threads": scan_threads, "execution": "DuckDB planner over Redis ADBC attached catalog",
                       "query_pushdown": False, "extension": "adbc_scanner",
                       "extension_version": extension[0] if extension else None,
                       "redis_library_sha256": hashlib.sha256(library.read_bytes()).hexdigest()}

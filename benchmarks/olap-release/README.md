@@ -37,6 +37,16 @@ The command above selects only Q19; do not invoke `supervise.py` for a focused r
 
 The signed Query.Farm repository supplies an extension for the installed DuckDB ABI. `ADBC_SCANNER_EXTENSION` can explicitly select a trusted matching local build; that opt-in allows unsigned extensions. A missing binary, unsupported option or attach failure is recorded, never replaced by native DuckDB. Driver and Query.Farm telemetry are disabled. Public records include extension version and native-library SHA-256, excluding paths/credentials. See [upstream v2.0 documentation](https://github.com/Query-farm/adbc_scanner/tree/v2.0) and [driver integration](../../docs/duckdb.md).
 
+Private `connection.json` may opt into a compatible custom scanner with
+`"duckdb_adbc_scan_threads": 16` (integer 1–1024). The default is **1** and omits
+`scan_threads` from ATTACH entirely for released-scanner compatibility. Values
+above one add that scanner option alongside `READ_ONLY` and
+`query_pushdown false`; unsupported extensions fail without a serial retry.
+This setting is independent of `client_threads` and Redis driver options such as
+`db_kwargs["adbc.redis.partition_count"]`, which are forwarded unchanged.
+Provenance records only numeric `requested_scan_threads`; effective readers and
+partition concurrency require separate verification.
+
 A live six-row smoke check on Redis Software with verified 4× QPF matched direct Redis ADBC for grouped exact decimals, duplicates and NULLs. DuckDB's plan showed an ADBC table scan, filter delivery, and local hash aggregation. It used DuckDB 2.0.1 and scanner revision `98ff0a39fc`. SF1 results are separate evidence, not inferred from this smoke test.
 
 ## Checks

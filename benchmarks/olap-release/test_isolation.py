@@ -12,7 +12,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+import types
+from unittest.mock import Mock, patch
 
 import isolation
 import report
@@ -301,6 +302,87 @@ class IsolationTests(unittest.TestCase):
             record['duckdb_adbc_status'] = 'mismatch'
             (folder / 'queries.jsonl').write_text(json.dumps(record) + '\n')
             self.assertIn('DuckDB over Redis ADBC | — | — | mismatch', report.render(folder))
+
+
+class ScannerThreadOptionTests(unittest.TestCase):
+    def mock_third(self, private):
+        library = private / 'synthetic.so'
+        library.write_bytes(b'synthetic driver, never loaded')
+        conn = Mock()
+        conn.execute.return_value = conn
+        conn.fetchone.return_value = ('synthetic-version',)
+        connect = Mock(return_value=conn)
+        modules = {'duckdb': types.SimpleNamespace(connect=connect),
+                   'adbc_driver_redis': types.SimpleNamespace(_driver_path=lambda: str(library))}
+        args = argparse.Namespace(private=private, suite='tpcds', engine='duckdb_adbc')
+        return args, conn, connect, modules
+
+    def test_default_and_one_omit_scanner_option_for_release_compatibility(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            self.assertEqual(isolation.duckdb_adbc_scan_threads(private), 1)
+            for setting in ({}, {'duckdb_adbc_scan_threads': 1}):
+                with self.subTest(setting=setting):
+                    (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', **setting}))
+                    args, conn, _, modules = self.mock_third(private)
+                    with patch.dict(sys.modules, modules), patch.dict(os.environ, {'ADBC_SCANNER_EXTENSION': '/synthetic-scanner'}):
+                        actual, provenance = isolation.connect_engine(args)
+                    attach = next(c.args[0] for c in conn.execute.call_args_list if c.args[0].startswith('ATTACH'))
+                    self.assertNotIn('scan_threads', attach)
+                    self.assertEqual(provenance['requested_scan_threads'], 1)
+                    self.assertIs(actual, conn)
+
+    def test_explicit_scan_threads_route_without_changing_driver_options_or_leaking_profile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            for count in (16, 1024):
+                with self.subTest(count=count):
+                    config = {'uri': 'rediss://test:private-secret@localhost', 'client_threads': 16,
+                              'duckdb_adbc_scan_threads': count,
+                              'db_kwargs': {'adbc.redis.partition_count': '16', 'adbc.redis.default_schema': 'public'}}
+                    (private / 'connection.json').write_text(json.dumps(config))
+                    args, conn, _, modules = self.mock_third(private)
+                    with patch.dict(sys.modules, modules), patch.dict(os.environ, {'ADBC_SCANNER_EXTENSION': '/private-scanner'}):
+                        _, provenance = isolation.connect_engine(args)
+                    attach = next(c.args[0] for c in conn.execute.call_args_list if c.args[0].startswith('ATTACH'))
+                    self.assertIn(f'READ_ONLY, query_pushdown false, scan_threads {count},', attach)
+                    self.assertIn('"adbc.redis.partition_count" \'16\'', attach)
+                    self.assertEqual(config, json.loads((private / 'connection.json').read_text()))
+                    self.assertEqual(provenance['client_threads'], 16)
+                    self.assertEqual(provenance['requested_scan_threads'], count)
+                    self.assertIs(type(provenance['requested_scan_threads']), int)
+                    for secret in ('private-secret', str(private), '/private-scanner', config['uri'], 'db_kwargs'):
+                        self.assertNotIn(secret, json.dumps(provenance))
+                    self.assertNotIn('actual_scan_threads', provenance)
+                    self.assertNotIn('partition_count', provenance)
+
+    def test_invalid_scan_threads_rejected_before_duckdb_open(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            for invalid in (True, False, 0, -1, 1025, 16.0, '16', None, [], {}):
+                with self.subTest(value=invalid):
+                    (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', 'duckdb_adbc_scan_threads': invalid}))
+                    args, _, connect, modules = self.mock_third(private)
+                    with patch.dict(sys.modules, modules), self.assertRaisesRegex(ValueError, 'integer from 1 to 1024'):
+                        isolation.connect_engine(args)
+                    connect.assert_not_called()
+
+    def test_unsupported_scanner_option_fails_without_serial_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', 'duckdb_adbc_scan_threads': 16}))
+            args, conn, connect, modules = self.mock_third(private)
+            def execute(sql):
+                if sql.startswith('ATTACH'):
+                    raise RuntimeError('unsupported scan_threads')
+                return conn
+            conn.execute.side_effect = execute
+            with patch.dict(sys.modules, modules), patch.dict(os.environ, {'ADBC_SCANNER_EXTENSION': '/synthetic-scanner'}):
+                with self.assertRaisesRegex(RuntimeError, 'unsupported scan_threads'):
+                    isolation.connect_engine(args)
+            connect.assert_called_once()
+            conn.close.assert_called_once()
+            self.assertEqual(sum(c.args[0].startswith('ATTACH') for c in conn.execute.call_args_list), 1)
 
 
 if __name__ == '__main__':
