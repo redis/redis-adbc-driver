@@ -18,13 +18,34 @@ import (
 // Keyset pages keep server work/results bounded without a mutable cursor or
 // deep OFFSET. Newer exact directories suppress old candidates even when their
 // replacement/tombstone did not match the pushed predicate.
+//
+// Search evaluates an open-ended `@__rowid:[(after +inf]` page against every
+// remaining matching document before selecting the lowest row IDs, so open
+// keyset paging costs O(rows²/page) over a whole scan (#599: at SF1 a single
+// open-ended page over 6M documents took 11.7 s, so a 1.5M-row scan through
+// adbc_scanner could not finish). Pages instead read bounded row-ID windows
+// (after, after+width] up to the table's row sequence, then one open-ended
+// tail page past it proves that no later candidate exists. A window costs
+// about the rows it spans, so width follows the observed density: a full page
+// sets it to the span that page needed, and short windows double it. Search
+// drives a selective intersection from its smaller iterator, so sparse windows
+// stay cheap while they widen.
 type snapshotCandidateSource struct {
 	segment snapshotSegment
 	ids     []string
 	at      int
 	after   int64
 	done    bool
+	// width is the current row-ID window (0: open-ended keyset pages).
+	width int64
 }
+
+// snapshotCandidateWindowPages is the initial window width in pages.
+const snapshotCandidateWindowPages = 16
+
+// snapshotCandidateMaxWindow bounds window growth below the exact-double range.
+const snapshotCandidateMaxWindow = int64(1) << 40
+
 type snapshotCandidateScan struct {
 	store        *store
 	meta         *tableMeta
@@ -33,6 +54,9 @@ type snapshotCandidateScan struct {
 	fields       []string
 	page         int
 	completeFlex bool // prefetched complete plain Search candidates; exact int64 identities
+	// bound is an upper bound of the sources' row IDs (the table's row
+	// sequence, read once). Windows end there; 0 keeps open-ended pages.
+	bound int64
 }
 
 // Numeric keyset bounds are exact only below 2^53. A nonempty private segment
@@ -57,18 +81,54 @@ func (e *executor) snapshotIndexable(ctx context.Context, m *tableMeta) bool {
 func newSnapshotCandidateScan(ctx context.Context, s *store, m *tableMeta, query string, fields []string, pageRows int) *snapshotCandidateScan {
 	cap := s.paginationCaps(ctx, snapshotSourceIndex(ctx, m))[0]
 	d := &snapshotCandidateScan{store: s, meta: m, query: query, fields: fields, page: int(min(int64(pageRows), cap))}
+	// The pinned published segments' row IDs were allocated before this read,
+	// so the current sequence bounds them. Any read failure keeps the original
+	// open-ended pages; a stale bound only costs the final tail page.
+	if d.page > 0 {
+		if last, err := s.rowSequence(ctx, m); err == nil && last > 0 && last < exactDoubleLimit {
+			d.bound = last
+		}
+	}
 	for _, seg := range m.snapshotSegments() {
-		d.sources = append(d.sources, snapshotCandidateSource{segment: seg, done: snapshotOwns(ctx, seg.Prefix)})
+		src := snapshotCandidateSource{segment: seg, done: snapshotOwns(ctx, seg.Prefix)}
+		if d.bound > 0 {
+			src.width = int64(d.page) * snapshotCandidateWindowPages
+		}
+		d.sources = append(d.sources, src)
 	}
 	return d
 }
+
+// candidateQuery is the keyset page query after src.after: a bounded row-ID
+// window below d.bound, else the open-ended tail. hi is the window's
+// inclusive end, or 0 for an open-ended page.
+func (d *snapshotCandidateScan) candidateQuery(src *snapshotCandidateSource) (query string, hi int64) {
+	rangeTerm := ""
+	if src.width > 0 && src.after < d.bound {
+		hi = min(src.after+src.width, d.bound)
+		rangeTerm = fmt.Sprintf("@%s:[(%d %d]", rowIDField, src.after, hi)
+	} else if src.after > 0 {
+		rangeTerm = fmt.Sprintf("@%s:[(%d +inf]", rowIDField, src.after)
+	}
+	switch {
+	case rangeTerm == "":
+		return d.query, 0
+	case d.query == "*":
+		return rangeTerm, hi
+	}
+	return fmt.Sprintf("(%s) %s", d.query, rangeTerm), hi
+}
+
 func (d *snapshotCandidateScan) head(ctx context.Context, i int) (string, error) {
 	src := &d.sources[i]
-	if src.at == len(src.ids) && !src.done {
-		query := d.query
-		if src.after > 0 {
-			query = fmt.Sprintf("(%s) @%s:[(%d +inf]", query, rowIDField, src.after)
+	// An exhausted window that matched nothing reads the next one, so an empty
+	// head still means the source is done for this page.
+	for src.at == len(src.ids) && !src.done {
+		if err := cancelled(ctx); err != nil {
+			return "", err
 		}
+		query, hi := d.candidateQuery(src)
+		lo := src.after
 		reply, err := d.store.searchDo(ctx, src.segment.Index, "FT.SEARCH", src.segment.Index, query, "NOCONTENT", "SORTBY", rowIDField, "ASC", "LIMIT", 0, d.page, "TIMEOUT", 0, "DIALECT", 2).Result()
 		if err != nil {
 			return "", wrapRedis(err, "failed to read snapshot index candidates")
@@ -82,15 +142,32 @@ func (d *snapshotCandidateScan) head(ctx context.Context, i int) (string, error)
 		}
 		src.ids = make([]string, len(keys))
 		src.at = 0
-		src.done = len(keys) < d.page
 		for j, key := range keys {
 			suffix, ok := strings.CutPrefix(key, src.segment.Prefix)
 			n, err := strconv.ParseInt(suffix, 10, 64)
-			if !ok || err != nil || n <= src.after || n >= exactDoubleLimit || strconv.FormatInt(n, 10) != suffix {
+			if !ok || err != nil || n <= src.after || hi > 0 && n > hi || n >= exactDoubleLimit || strconv.FormatInt(n, 10) != suffix {
 				return "", errorf(adbc.StatusIO, "snapshot candidate row order or identity is invalid")
 			}
 			src.ids[j] = fmt.Sprintf("%020d", n)
 			src.after = n
+		}
+		switch {
+		case d.page > 0 && len(keys) == d.page:
+			// More candidates may follow inside the window (or the tail). The
+			// next window spans what this full page needed.
+			if hi > 0 {
+				src.width = max(src.after-lo, int64(d.page))
+			}
+		case hi == 0:
+			// A short open-ended page completes the source.
+			src.done = true
+		default:
+			// A short window holds every candidate in (after, hi]. Continue at
+			// its end; sparse windows widen. The tail page follows at d.bound.
+			src.after = hi
+			if len(keys) < d.page/2 {
+				src.width = min(src.width*2, snapshotCandidateMaxWindow)
+			}
 		}
 	}
 	if src.at == len(src.ids) {
