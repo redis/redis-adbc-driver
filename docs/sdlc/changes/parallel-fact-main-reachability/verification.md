@@ -15,3 +15,5 @@ env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=2 GOMEMLIMIT=768MiB \
 ```
 
 All endpoint-free packages passed with the same environment and `go test -C go -p 1 -count=1 ./...` (root package29.677s). Endpoint-dependent integration skips are expected and not Software compatibility evidence. The focused actual parallel-path tests cover strict populated-reply transport uncertainty, source/reducer error precedence, cancellation/grant cleanup and a visitor panic with a gated peer worker. Formatting, diff and local SDLC link checks passed. No live queries/native builds/container actions were performed.
+
+After merging main `7af3a0fb` (PR615/616), the hook conflict was resolved as fact demand then parallel admission. Expanded endpoint-free focused race checks including `TestStarFactDemand*` and `TestMemoryAlias*` passed (7.573s); formatting and diff checks passed. The earlier all-package result above predates this main merge; a fresh all-package check is in progress.

@@ -403,6 +403,13 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 			return true, err
 		}
 	}
+	demand, err := starFactDimensionDemand(ctx, jp.items[shape.fact].view(), shape.dims)
+	if err != nil {
+		return true, err
+	}
+	if demand != nil {
+		shape.filters[shape.fact] = append(shape.filters[shape.fact], demand)
+	}
 	if handled, err := e.scanParallelStarFacts(ctx, shape, jp, params, visit); handled {
 		return true, err
 	}
@@ -441,7 +448,7 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 		}
 		return nil
 	}
-	err := scanItem(shape.fact, func(rows []map[string]Value) error {
+	err = scanItem(shape.fact, func(rows []map[string]Value) error {
 		for _, r := range rows {
 			if err := probe(0, r); err != nil {
 				return err
