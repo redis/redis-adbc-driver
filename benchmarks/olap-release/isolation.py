@@ -23,6 +23,35 @@ import time
 ENGINES = ("duckdb", "redis", "duckdb_adbc")
 
 
+def atomic_json(path, value):
+    """Publish a complete status document; a killed writer leaves the old one."""
+    fd, name = tempfile.mkstemp(prefix=f'.{path.name}.', suffix='.tmp', dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as out:
+            json.dump(value, out)
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def read_status(path):
+    """Do not turn missing/corrupt crash evidence into a coordinator failure."""
+    try:
+        value = json.loads(path.read_text())
+    except FileNotFoundError:
+        return {}, 'missing'
+    except (json.JSONDecodeError, UnicodeError):
+        return {}, 'malformed'
+    except OSError:
+        return {}, 'unreadable'
+    if not isinstance(value, dict):
+        return {}, 'invalid_json_object'
+    return value, None
+
+
 def dump_rows(path, columns, rows):
     with path.open("wb") as out:
         pickle.dump((columns, len(rows)), out)
@@ -176,16 +205,22 @@ def engine_worker(args):
     status = {f"{args.engine}_seconds": [], "phase": "setup", "pid": os.getpid()}
     path = args.artifacts / f"{args.engine}.json"
     conn = None
+    deadline_fired = None
     try:
         conn, provenance = connect_engine(args)
         status["provenance"] = provenance
         sql = (args.output / args.suite / "queries" / f"{args.query}.sql").read_text()
         for repeat in range(4):
             status["phase"] = "execute"
-            path.write_text(json.dumps(status))
+            status["repeat"] = repeat
+            atomic_json(path, status)
             timer = None
+            deadline_fired = threading.Event()
             if args.engine != "redis":
-                timer = threading.Timer(60, conn.interrupt)
+                def interrupt_statement():
+                    deadline_fired.set()
+                    conn.interrupt()
+                timer = threading.Timer(60, interrupt_statement)
                 timer.start()
             try:
                 start = time.perf_counter()
@@ -202,26 +237,36 @@ def engine_worker(args):
                 if timer:
                     timer.cancel()
                     timer.join()
+            # The timer may fire as fetchall returns. Do not admit that sample
+            # as successful just because the engine returned without raising.
+            if deadline_fired.is_set():
+                raise TimeoutError("60-second statement deadline exceeded: DuckDB interrupt timer fired")
             if repeat:
                 status[f"{args.engine}_seconds"].append(seconds)
             else:
                 status[f"{args.engine}_warmup_seconds"] = seconds
                 status["columns"], status["rows"] = columns, len(data)
             status["phase"] = "export"
-            path.write_text(json.dumps(status))
+            atomic_json(path, status)
             dump_rows(args.artifacts / f"{args.engine}-{repeat}.pickle", columns, data)
             del data
         status[f"{args.engine}_median_seconds"] = statistics.median(status[f"{args.engine}_seconds"])
         status[f"{args.engine}_status"] = "executed"
     except Exception as exc:
-        status[f"{args.engine}_status"] = "error"
-        status[f"{args.engine}_error"] = safe_error(str(exc))
+        if deadline_fired is not None and deadline_fired.is_set():
+            status[f"{args.engine}_status"] = "timeout"
+            status[f"{args.engine}_timeout_cause"] = "duckdb_interrupt_timer"
+            status[f"{args.engine}_timeout_seconds"] = 60
+            status[f"{args.engine}_error"] = safe_error(f"60-second statement deadline exceeded: {exc}")
+        else:
+            status[f"{args.engine}_status"] = "error"
+            status[f"{args.engine}_error"] = safe_error(str(exc))
     finally:
         try:
             if conn is not None:
                 conn.close()
         finally:
-            path.write_text(json.dumps(status))
+            atomic_json(path, status)
 
 
 def validation_worker(args):
@@ -234,8 +279,8 @@ def validation_worker(args):
     except Exception as exc:
         message = safe_error(str(exc))
         mismatch = "result mismatch" in message or "result shape mismatch" in message
-        (args.artifacts / f"{args.engine}-validation.json").write_text(json.dumps({
-            "status": "mismatch" if mismatch else "validation_failed", "error": message}))
+        atomic_json(args.artifacts / f"{args.engine}-validation.json", {
+            "status": "mismatch" if mismatch else "validation_failed", "error": message})
         return 1
     return 0
 
@@ -275,22 +320,29 @@ def run_query(args, runner=None):
                 "--query", args.query, "--artifacts", str(artifacts)]
         for engine in engines:
             record.update(active_engine=engine, active_phase="engine")
-            checkpoint.write_text(json.dumps(record))
+            atomic_json(checkpoint, record)
             before, started = oom_kills(), time.perf_counter()
             failure = None
+            returncode = None
             try:
                 child = runner(base + ["--phase", "engine", "--engine", engine], timeout=270,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                returncode = child.returncode
                 if child.returncode:
                     failure = f"{engine} worker exited with code {child.returncode}"
             except subprocess.TimeoutExpired:
                 failure = f"{engine} worker exceeded 270-second process limit"
             path = artifacts / f"{engine}.json"
-            status = json.loads(path.read_text()) if path.exists() else {}
+            status, status_problem = read_status(path)
             for key, value in status.items():
                 if key.startswith(engine + "_"):
                     record[key] = value
-            record[f"{engine}_worker"] = {k: status[k] for k in ["pid", "phase", "provenance"] if k in status}
+            record[f"{engine}_worker"] = {k: status[k] for k in ["pid", "phase", "repeat", "provenance"] if k in status}
+            record[f"{engine}_worker"].update(engine=engine, returncode=returncode,
+                                              status_artifact=status_problem or "ok")
+            # If the last status cannot be read, preserve the known coordinator
+            # phase without inventing a finer setup/execute/export stage.
+            record[f"{engine}_worker"].setdefault("phase", record["active_phase"])
             record[f"{engine}_worker"]["wall_seconds"] = time.perf_counter() - started
             after = oom_kills()
             if before is not None and after is not None:
@@ -298,16 +350,22 @@ def run_query(args, runner=None):
             if failure:
                 record[f"{engine}_status"] = "worker_failed"
                 record[f"{engine}_error"] = failure
+            elif status_problem:
+                record[f"{engine}_status"] = "worker_failed"
+                record[f"{engine}_error"] = f"{engine} worker returned with {status_problem} status artifact"
             elif record.get(f"{engine}_status") == "executed":
                 record["active_phase"] = "validation"
-                checkpoint.write_text(json.dumps(record))
+                atomic_json(checkpoint, record)
                 try:
                     check = runner(base + ["--phase", "validate", "--engine", engine], timeout=120,
                                    capture_output=True, text=True)
                     if check.returncode:
                         detail_path = artifacts / f"{engine}-validation.json"
-                        detail = json.loads(detail_path.read_text()) if detail_path.exists() else {
-                            "status": "validation_failed", "error": f"validator exited with code {check.returncode}"}
+                        detail, detail_problem = read_status(detail_path)
+                        if (detail_problem or detail.get("status") not in ("mismatch", "validation_failed")
+                                or not isinstance(detail.get("error"), str)):
+                            detail = {"status": "validation_failed",
+                                      "error": f"validator exited with code {check.returncode}; {detail_problem or 'invalid'} status artifact"}
                         record[f"{engine}_status"] = detail["status"]
                         record[f"{engine}_error"] = safe_error(detail["error"])
                     else:
@@ -322,7 +380,7 @@ def run_query(args, runner=None):
                 record.update({k: status[k] for k in ["columns", "rows"] if k in status})
             if record.get(f"{engine}_status") == "ok" and engine != "duckdb":
                 record[f"{engine}_over_duckdb"] = record[f"{engine}_median_seconds"] / record["duckdb_median_seconds"]
-            checkpoint.write_text(json.dumps(record))
+            atomic_json(checkpoint, record)
             # Keep only the reference warm-up after validation. Redis never
             # imports/loads it; the validator runs after the engine has exited.
             for artifact in artifacts.glob(f"{engine}-*.pickle"):
