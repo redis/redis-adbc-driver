@@ -17,6 +17,10 @@ type starDimension struct {
 	item              int
 	factCols, dimCols []string
 	buckets           map[string][]map[string]Value
+	// branch pre-joins a snowflake branch rooted at item (planSnowflakeShape);
+	// branchItems are its join items. A nil branch scans item alone.
+	branch      *joinPlan
+	branchItems []int
 }
 type starShape struct {
 	fact     int
@@ -24,6 +28,48 @@ type starShape struct {
 	need     map[string]bool
 	filters  map[int][]Expr
 	filtered bool
+	// Snowflake shapes check residual on every complete output row, with an
+	// evaluator per probing worker (newEnv), and retain up to dimensionRows
+	// dimension rows (0 means starDimensionRows).
+	snowflake     bool
+	residual      Expr
+	dimensionRows int
+	newEnv        func() *evalEnv
+	// parallelDimensions counts dimensions read by scanParallelDimension.
+	parallelDimensions int
+	// outNeed are the columns output rows must keep (the consumer's and the
+	// residual's); retained snowflake dimension rows are compacted to them.
+	outNeed map[string]bool
+}
+
+// compactDimensionRow keeps only the output columns of a retained row.
+func (s *starShape) compactDimensionRow(row map[string]Value) map[string]Value {
+	if s.outNeed == nil {
+		return row
+	}
+	kept := 0
+	for k := range row {
+		if s.outNeed[k] {
+			kept++
+		}
+	}
+	if kept == len(row) {
+		return row
+	}
+	out := make(map[string]Value, kept)
+	for k, v := range row {
+		if s.outNeed[k] {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+func (s *starShape) dimensionCap() int {
+	if s.dimensionRows > 0 {
+		return s.dimensionRows
+	}
+	return starDimensionRows
 }
 
 // Reordering input is allowed only for exact, order-insensitive reduction.
@@ -60,7 +106,8 @@ func streamingStarAggregate(plan *selectPlan, aggs []*Func) bool {
 	types := plan.meta.types()
 	for _, g := range plan.sel.GroupBy {
 		c, ok := g.(*ColumnRef)
-		if !ok || c.Outer != 0 || c.whole != nil || !starKeyType(types[c.Name]) || types[c.Name].Fixed {
+		// Equal dates are identical, so a date group's representative is too.
+		if !ok || c.Outer != 0 || c.whole != nil || !snowflakeKeyType(types[c.Name]) || types[c.Name].Fixed {
 			return false
 		}
 	}
@@ -310,16 +357,56 @@ func starRowKey(row map[string]Value, cols []string) (string, bool) {
 // The callback never sees more than starOutputPage rows. Only small dimensions
 // are retained; each complete fact page is released before fetching the next.
 func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, params []Value, visit func([]map[string]Value) error) (bool, error) {
+	return e.streamJoinPages(ctx, req.meta.join, req.need, req.where.residual, params, true, visit)
+}
+
+// snowflakeJoinRows is the materialized join of scanMem through a streamed
+// snowflake shape, when one applies. Its WHERE residual is re-checked by the
+// caller on the returned rows, as for runJoin.
+func (e *executor) snowflakeJoinRows(ctx context.Context, jp *joinPlan, need map[string]bool, params []Value) ([]map[string]Value, bool, error) {
+	var rows []map[string]Value
+	handled, err := e.streamJoinPages(ctx, jp, need, nil, params, false, func(page []map[string]Value) error {
+		if err := retainedAllocate(ctx, int64(len(page)), 256); err != nil {
+			return err
+		}
+		rows = append(rows, page...)
+		return nil
+	})
+	return rows, handled, err
+}
+
+// streamJoinPages streams an admitted star (when star is set) or snowflake
+// shape. A shape whose dimensions exceed their cap falls back before visit.
+func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed map[string]bool, residual Expr, params []Value, star bool, visit func([]map[string]Value) error) (bool, error) {
 	if ctx.Value(retainedAllocationKey{}) != nil {
 		return false, nil
 	}
-	shape, ok := e.planStarShape(ctx, req.meta.join, req.need, req.where.residual)
+	var shape *starShape
+	ok := false
+	if star {
+		shape, ok = e.planStarShape(ctx, jp, reqNeed, residual)
+	}
+	if !ok {
+		shape, ok = e.planSnowflakeShape(ctx, jp, reqNeed, residual)
+	}
 	if !ok {
 		return false, nil
 	}
-	e.diagnostics.setPhase("streaming_star_join")
-	e.diagnostics.setPlan(map[string]any{"kind": "streaming_star_join", "dimension_count": len(shape.dims), "output_page_rows": starOutputPage})
-	jp := req.meta.join
+	kind := "streaming_star_join"
+	if shape.snowflake {
+		kind = "streaming_snowflake_join"
+	}
+	e.diagnostics.setPhase(kind)
+	e.diagnostics.setPlan(map[string]any{"kind": kind, "dimension_count": len(shape.dims), "output_page_rows": starOutputPage})
+	if shape.residual != nil {
+		types := map[string]ColType{}
+		for _, it := range jp.items {
+			for k, t := range it.view().types() {
+				types[k] = t
+			}
+		}
+		shape.newEnv = func() *evalEnv { return e.newEnv(ctx, types, params) }
+	}
 	scanItem := func(i int, consume func([]map[string]Value) error) error {
 		it := jp.items[i]
 		view := it.view()
@@ -374,13 +461,15 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 		return nil
 	}
 	observed := 0
+	branchRows := make([]int, len(shape.dims))
 	for d := range shape.dims {
 		dim := &shape.dims[d]
 		dim.buckets = map[string][]map[string]Value{}
-		if err := scanItem(dim.item, func(rows []map[string]Value) error {
+		keep := func(rows []map[string]Value) error {
 			for _, row := range rows {
 				observed++
-				if observed > starDimensionRows {
+				branchRows[d]++
+				if observed > shape.dimensionCap() {
 					if shape.filtered {
 						return errStarDimensionCap
 					}
@@ -390,18 +479,48 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 					return err
 				}
 				if k, ok := starRowKey(row, dim.dimCols); ok {
-					dim.buckets[k] = append(dim.buckets[k], row)
+					dim.buckets[k] = append(dim.buckets[k], shape.compactDimensionRow(row))
 				}
 			}
 			return nil
-		}); err != nil {
+		}
+		var err error
+		if dim.branch != nil {
+			// The branch's own eager join, over just its tables and conditions.
+			need := map[string]bool{}
+			for c := range shape.need {
+				for _, i := range dim.branchItems {
+					if strings.HasPrefix(c, jp.items[i].prefix) {
+						need[c] = true
+					}
+				}
+			}
+			var rows []map[string]Value
+			if rows, err = e.runJoin(ctx, dim.branch, need, params); err == nil {
+				err = keep(rows)
+			}
+		} else {
+			var parallel bool
+			if parallel, err = e.scanParallelDimension(ctx, shape, jp, dim.item, params, keep); !parallel {
+				err = scanItem(dim.item, keep)
+			} else {
+				shape.parallelDimensions++
+			}
+		}
+		if err != nil {
 			if err == errStarDimensionCap {
 				e.diagnostics.setPhase("serial_aggregate")
-				e.diagnostics.setPlan(map[string]any{"kind": "eager_join_fallback", "reason": "filtered_dimension_cap"})
+				e.diagnostics.setPlan(map[string]any{"kind": "eager_join_fallback", "reason": "filtered_dimension_cap", "snowflake": shape.snowflake})
 				return false, nil
 			}
 			return true, err
 		}
+	}
+	if shape.snowflake {
+		e.diagnostics.setPhase(kind)
+		e.diagnostics.setPlan(map[string]any{"kind": kind, "fact": shape.fact, "dimension_rows": branchRows,
+			"dimension_cap": shape.dimensionCap(), "residual": shape.residual != nil, "output_page_rows": starOutputPage,
+			"parallel_dimensions": shape.parallelDimensions})
 	}
 	demand, err := starFactDimensionDemand(ctx, jp.items[shape.fact].view(), shape.dims)
 	if err != nil {
@@ -421,6 +540,10 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 		}
 		out = make([]map[string]Value, 0, starOutputPage)
 	}
+	var env *evalEnv
+	if shape.residual != nil {
+		env = shape.newEnv()
+	}
 	var probe func(int, map[string]Value) error
 	probe = func(d int, row map[string]Value) error {
 		if err := cancelled(ctx); err != nil {
@@ -430,6 +553,11 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 			return nil
 		}
 		if d == len(shape.dims) {
+			if env != nil {
+				if ok, err := starResidualPasses(env, shape.residual, row); err != nil || !ok {
+					return err
+				}
+			}
 			out = append(out, row)
 			if len(out) == starOutputPage {
 				flush()
@@ -464,6 +592,18 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 		return true, err
 	}
 	return true, pending
+}
+
+// starResidualPasses evaluates a snowflake residual on a complete output row.
+func starResidualPasses(env *evalEnv, residual Expr, row map[string]Value) (bool, error) {
+	env.row = row
+	v, err := env.eval(residual)
+	env.row = nil
+	if err != nil {
+		return false, invalidArg(err)
+	}
+	ok, valid := truthy(v)
+	return valid && ok, nil
 }
 
 // Pure local filters can run before an INNER join without side effects or

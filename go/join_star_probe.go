@@ -2,7 +2,11 @@
 // Licensed under the Apache License, Version 2.0.
 package redis
 
-import "context"
+import (
+	"context"
+
+	"github.com/apache/arrow-adbc/go/adbc"
+)
 
 // The shape proof permits only fact-column keys on every star edge. Resolve
 // each bucket from the original fact once; dimension selections cannot affect
@@ -11,10 +15,30 @@ type starRowProbe struct {
 	shape    *starShape
 	matches  [][]map[string]Value
 	selected []map[string]Value
+	// env evaluates a snowflake residual; it belongs to this probe's worker.
+	env *evalEnv
 }
 
 func newStarRowProbe(shape *starShape) *starRowProbe {
-	return &starRowProbe{shape: shape, matches: make([][]map[string]Value, len(shape.dims)), selected: make([]map[string]Value, len(shape.dims))}
+	p := &starRowProbe{shape: shape, matches: make([][]map[string]Value, len(shape.dims)), selected: make([]map[string]Value, len(shape.dims))}
+	if shape.residual != nil && shape.newEnv != nil {
+		p.env = shape.newEnv()
+	}
+	return p
+}
+
+// emit sends a complete output row that satisfies the shape's residual.
+func (p *starRowProbe) emitChecked(row map[string]Value, emit func(map[string]Value) error) error {
+	if p.shape.residual != nil {
+		if p.env == nil {
+			return errorf(adbc.StatusInternal, "streamed join residual has no evaluator")
+		}
+		ok, err := starResidualPasses(p.env, p.shape.residual, row)
+		if err != nil || !ok {
+			return err
+		}
+	}
+	return emit(row)
 }
 func (p *starRowProbe) lookup(ctx context.Context, fact map[string]Value) (matched, single bool, err error) {
 	single = true
@@ -65,7 +89,7 @@ func (p *starRowProbe) ownedRow(ctx context.Context, fact map[string]Value, emit
 	if err := cancelled(ctx); err != nil {
 		return err
 	}
-	return emit(fact)
+	return p.emitChecked(fact, emit)
 }
 
 func (p *starRowProbe) walk(ctx context.Context, fact map[string]Value, d, width int, emit func(map[string]Value) error) error {
@@ -74,7 +98,7 @@ func (p *starRowProbe) walk(ctx context.Context, fact map[string]Value, d, width
 	}
 	if d == len(p.matches) {
 		if d == 0 {
-			return emit(fact)
+			return p.emitChecked(fact, emit)
 		} // Preserve the internal zero-edge contract.
 		out := make(map[string]Value, width)
 		for k, v := range fact {
@@ -86,7 +110,7 @@ func (p *starRowProbe) walk(ctx context.Context, fact map[string]Value, d, width
 				out[k] = v
 			}
 		}
-		return emit(out)
+		return p.emitChecked(out, emit)
 	}
 	for _, right := range p.matches[d] {
 		p.selected[d] = right

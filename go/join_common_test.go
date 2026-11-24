@@ -80,7 +80,15 @@ func TestJoinCommonSafety(t *testing.T) {
 	}
 	expr := parseTestExpr(t, "(p_partkey=l_partkey AND p_size=1) OR p_size=2")
 	bindCommonFixture(expr)
-	if got := commonJoinFixture().pushdownConjuncts(expr); len(got) != 1 {
+	// The join equality is absent from one branch and must not be extracted.
+	// Both branches do restrict p_size to literals, which implies exactly the
+	// disjunction p_size=1 OR p_size=2 (and nothing else).
+	got := commonJoinFixture().pushdownConjuncts(expr)
+	if len(got) != 2 || got[0] != expr {
+		t.Fatalf("extracted %d conditions, want the OR and one implied list", len(got))
+	}
+	implied, ok := got[1].(*Binary)
+	if col, isList := literalDisjunctionColumn(implied); !ok || !isList || implied.Op != "OR" || !strings.HasSuffix(col, "p_size") {
 		t.Fatal("equality absent from one OR branch was extracted")
 	}
 }
