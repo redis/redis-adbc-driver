@@ -410,6 +410,9 @@ func (e *executor) scanStarJoinPages(ctx context.Context, req scanRequest, param
 	if demand != nil {
 		shape.filters[shape.fact] = append(shape.filters[shape.fact], demand)
 	}
+	if handled, err := e.scanParallelStarFacts(ctx, shape, jp, params, visit); handled {
+		return true, err
+	}
 	var pending error
 	out := make([]map[string]Value, 0, starOutputPage)
 	flush := func() {

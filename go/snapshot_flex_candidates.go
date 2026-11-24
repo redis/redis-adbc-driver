@@ -52,29 +52,17 @@ func openFlexSnapshotCandidates(ctx context.Context, s *store, m *tableMeta, que
 		if err != nil {
 			return nil, err
 		}
-		if snapshotReplyWarning(reply) {
-			return nil, errorf(adbc.StatusIO, "partial snapshot candidate count")
-		}
-		count, err := parseSearchCount(reply)
+		count, err := completeSnapshotCount(reply, seg)
 		if err != nil {
 			return nil, err
 		}
-		keys, err := parseSearchKeys(reply)
-		if err != nil {
-			return nil, err
-		}
-		if count < 0 || count > seg.Rows || len(keys) != 0 {
-			return nil, errorf(adbc.StatusIO, "invalid snapshot candidate count")
-		}
-		if count > snapshotFlexCandidateCap-total || count > int64(snapshotFlexCandidateBytes)/(int64(len(seg.Prefix))+19) {
+		var refused bool
+		total, keyBytes, refused = completeSnapshotBudget(seg.Prefix, count, total, keyBytes)
+		if refused {
 			return nil, nil
 		}
-		keyBytes += count * (int64(len(seg.Prefix)) + 19)
-		if keyBytes > snapshotFlexCandidateBytes {
-			return nil, nil
-		}
+
 		counts[i] = count
-		total += count
 	}
 	d := &snapshotCandidateScan{store: s, meta: m, query: query, fields: fields, page: snapshotDeltaPage, completeFlex: true}
 	for i, seg := range filter.segments {
