@@ -76,3 +76,5 @@ All endpoint-free packages passed on the clean public branch using
 these checks do not establish Redis Software compatibility. Formatting and
 `git diff --check` passed. The earlier integrated-source timings above are
 historical checks, separate from this public-branch verification.
+
+Published for human review as [PR612](https://github.com/redis/redis-adbc-driver/pull/612), stacked on PR607.
