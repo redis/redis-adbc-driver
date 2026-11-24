@@ -40,3 +40,20 @@ for this implementation. No SF1 speedup, Q4 timeout resolution, general join
 memory limit or spill behavior is claimed. Root-controlled live comparison on
 the preserved fixture remains required after managed Flex filter integration.
 Human review/merge approval is pending.
+
+## Combined live follow-up
+
+A later combined artifact (`c9c56f06`, also containing a managed Flex page
+filter) was tested on unchanged TPC-DS SF1 Q4 and Q5 with Redis Software Flex,
+verified 4× QPF, and a separate 8 GiB client. Both isolated Redis workers were
+killed by the client memory limit during warm-up (exit -9, one observed cgroup
+OOM kill per case). Their coordinators survived. No validated Redis latency
+was produced. This optimization is therefore a tested removal of eager alias
+copies, **not a resolution of Q4/Q5 or a complete memory bound**. The remaining
+fact scans and join intermediates need separate work. Full suites and TPC-H
+remained stopped. See issues #590 and #591 for current evidence.
+
+Independent source review checked the metadata-only view consumers, base
+cardinality/emptiness reads, owned-map lifetime, cancellation cleanup, and
+unchanged native scan dispatch; no actionable correctness finding remains.
+Human maintainer review is still pending.
