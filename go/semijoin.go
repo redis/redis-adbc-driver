@@ -35,6 +35,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync/atomic"
 )
@@ -455,6 +456,203 @@ type semiResult struct {
 	rowGroups map[string]*rowSet
 	// distinct holds the distinct values of each key, up to maxUnionTerms+1.
 	distinct [][]Value
+	// probed holds the keys whose complete inner groups a batched probe read
+	// (see probeSemiJoin) while the whole inner side remains unbuilt.
+	probed map[string]bool
+	// probeFailed stops probing: the key column is not a safe index union,
+	// a key can't be hashed or a probe failed. Per-row runs then report the
+	// original query's results and errors.
+	probeFailed bool
+}
+
+// semiProbeSubqueries returns the decorrelated EXISTS / IN subqueries directly
+// in a scan's residual. Their outer keys are columns of the scanned row
+// (walkExpr does not enter subquery bodies).
+func semiProbeSubqueries(residual Expr) []*Subquery {
+	var out []*Subquery
+	walkExpr(residual, func(x Expr) {
+		if sq, ok := x.(*Subquery); ok && sq.semi != nil {
+			if _, row := sq.X.(*RowExpr); !row {
+				out = append(out, sq)
+			}
+		}
+	})
+	return out
+}
+
+// semiRowKey is evalSemiJoin's key for an outer row: null when an outer value
+// is NULL (`inner = NULL` is never true), !ok when a value can't be hashed.
+func (sj *semiJoin) semiRowKey(lookup func(outerRef) (Value, error)) (key string, null, ok bool, err error) {
+	var buf []byte
+	for i, ref := range sj.outer {
+		v, err := lookup(ref)
+		if err != nil {
+			return "", false, false, err
+		}
+		if v.Null {
+			null = true
+			continue
+		}
+		k, ok := semiKey(v, sj.types[i])
+		if !ok {
+			return "", false, false, nil
+		}
+		buf = appendKey(buf, k)
+	}
+	return string(buf), null, true, nil
+}
+
+// semiProbeKeys bounds one probe's key union. Search re-evaluates a union for
+// each result page, so per-key cost rises past a few hundred keys (measured
+// 0.41 ms/key at 250 and 0.60 ms/key at 1,000 keys of four rows each).
+const semiProbeKeys = 256
+
+// probeSemiJoin reads the complete inner groups of a page of outer rows, in
+// batches of at most semiProbeKeys distinct first-key values. Each batch is
+// the decorrelated body with `inner = v1 OR …`, a union on the indexed inner
+// key column, so a large inner side is never scanned per outer row (TPC-H
+// Q4) nor read whole for a selective outer side. Only keys of this page are
+// recorded, so every recorded group is complete; rows the union returns for
+// other keys are ignored. The outer residual still evaluates the subquery.
+func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[string]Value, types map[string]ColType) {
+	r := e.semiJoinState(ctx, sq)
+	if r.built || r.failed || r.eager || r.probeFailed || len(rows) == 0 {
+		return
+	}
+	sj := sq.semi
+	if len(sj.plan.items) == 0 || sj.plan.meta == nil || sj.plan.meta.isMem {
+		r.probeFailed = true
+		return
+	}
+	probeExpr := sj.plan.items[0].expr
+	cm, ok := lookupColumn(sj.plan.meta, probeExpr)
+	if !ok || !cm.Indexed || !simpleName(cm.field()) {
+		r.probeFailed = true
+		return
+	}
+	if r.probed == nil {
+		r.probed = map[string]bool{}
+	}
+	if r.groups == nil {
+		r.groups = map[string]*inSet{}
+	}
+	pendingFirst := map[string]string{} // outer key -> its first-key hash
+	firstSeen := map[string]bool{}
+	var firstValues []Value
+	var firstKeys []string
+	for _, row := range rows {
+		key, null, ok, err := sj.semiRowKey(func(ref outerRef) (Value, error) {
+			if v, ok := row[ref.name]; ok {
+				return v, nil
+			}
+			if t, ok := types[ref.name]; ok {
+				return nullValue(t), nil
+			}
+			return Value{}, fmt.Errorf("unknown outer column %q", ref.name)
+		})
+		if err != nil || !ok {
+			r.probeFailed = true
+			return
+		}
+		if null || r.probed[key] {
+			continue
+		}
+		if _, seen := pendingFirst[key]; seen {
+			continue
+		}
+		v := row[sj.outer[0].name]
+		first, ok := semiKey(v, sj.types[0])
+		if !ok {
+			r.probeFailed = true
+			return
+		}
+		// Do not introduce a new proof for integer Search equality outside
+		// exact-double range; the per-row path remains authoritative.
+		if cm.Type.Kind.isInteger() {
+			if cv, err := coerceIn(v, cm.Type, e.zone()); err != nil || cv.Null || cv.I > exactDoubleLimit || cv.I < -exactDoubleLimit {
+				r.probeFailed = true
+				return
+			}
+		}
+		pendingFirst[key] = first
+		if !firstSeen[first] {
+			firstSeen[first] = true
+			firstValues = append(firstValues, v)
+			firstKeys = append(firstKeys, first)
+		}
+	}
+	n := len(sj.outer)
+	isIn := sq.Kind == SubqueryIn
+	for start := 0; start < len(firstValues); start += semiProbeKeys {
+		if err := cancelled(ctx); err != nil {
+			return // the evaluation itself reports cancellation
+		}
+		end := min(start+semiProbeKeys, len(firstValues))
+		chunk := firstValues[start:end]
+		if q, ok := unionQuery(cm, chunk, e.zone()); !ok || q == "" {
+			r.probeFailed = true
+			return
+		}
+		var cond Expr
+		inChunk := make(map[string]bool, end-start)
+		for i, v := range chunk {
+			inChunk[firstKeys[start+i]] = true
+			eq := &Binary{Op: "=", L: probeExpr, R: &Literal{V: v}}
+			if cond == nil {
+				cond = eq
+			} else {
+				cond = &Binary{Op: "OR", L: cond, R: eq}
+			}
+		}
+		plan := *sj.plan
+		sel := *plan.sel
+		sel.Where = andAll([]Expr{sel.Where, cond})
+		plan.sel = &sel
+		subqueryStats.semiJoins.Add(1)
+		inner, err := e.isolatedChild().runSelect(ctx, &plan, e.params)
+		if err != nil {
+			r.probeFailed = true
+			return
+		}
+		newly := map[string]bool{}
+		for key, first := range pendingFirst {
+			if inChunk[first] {
+				newly[key] = true
+			}
+		}
+		var buf []byte
+	next:
+		for _, row := range inner {
+			buf = buf[:0]
+			for i := 0; i < n; i++ {
+				if row[i].Null {
+					continue next
+				}
+				k, ok := semiKey(row[i], sj.types[i])
+				if !ok {
+					r.probeFailed = true
+					return
+				}
+				buf = appendKey(buf, k)
+			}
+			if !newly[string(buf)] {
+				continue
+			}
+			g, ok := r.groups[string(buf)]
+			if isIn {
+				if !ok {
+					g = &inSet{col: n, zone: e.zone()}
+					r.groups[string(buf)] = g
+				}
+				g.rows = append(g.rows, row)
+			} else if !ok {
+				r.groups[string(buf)] = nil
+			}
+		}
+		for key := range newly {
+			r.probed[key] = true
+		}
+	}
 }
 
 func appendKey(b []byte, k string) []byte {
@@ -585,34 +783,33 @@ next:
 // cheaper, the body failed, or an outer value is not of its key's class.
 func (e *executor) evalSemiJoin(env *evalEnv, sq *Subquery) (Value, bool, error) {
 	r := e.semiJoinState(env.ctx, sq)
-	if !r.built && !r.failed && (r.eager || len(e.cache.memo[sq]) >= r.after) {
+	// Page probes replace per-row runs; a failed probe resumes the original
+	// per-row and adaptive whole-build strategy.
+	if !r.built && !r.failed && (r.probed == nil || r.probeFailed) && (r.eager || len(e.cache.memo[sq]) >= r.after) {
 		e.buildSemiJoin(env.ctx, sq, r)
 	}
-	if !r.built {
+	if !r.built && r.probed == nil {
 		return Value{}, false, nil
 	}
 	sj := sq.semi
-	var buf []byte
-	null := false
-	for i, ref := range sj.outer {
-		v, err := env.lookupUp(ref.name, ref.up)
-		if err != nil {
-			return Value{}, false, err
-		}
-		if v.Null {
-			null = true // `inner = NULL` is never true
-			continue
-		}
-		k, ok := semiKey(v, sj.types[i])
-		if !ok {
+	key, null, ok, err := sj.semiRowKey(func(ref outerRef) (Value, error) { return env.lookupUp(ref.name, ref.up) })
+	if err != nil {
+		return Value{}, false, err
+	}
+	if !ok {
+		return Value{}, false, nil
+	}
+	if !r.built {
+		_, row := sq.X.(*RowExpr)
+		if row || !null && !r.probed[key] {
+			// Not read by a page probe: run it per row.
 			return Value{}, false, nil
 		}
-		buf = appendKey(buf, k)
 	}
 	var g *inSet
 	found := false
 	if !null {
-		g, found = r.groups[string(buf)]
+		g, found = r.groups[key]
 	}
 	if sq.Kind == SubqueryExists {
 		return boolValue(found), true, nil
@@ -625,7 +822,7 @@ func (e *executor) evalSemiJoin(env *evalEnv, sq *Subquery) (Value, bool, error)
 		if !found {
 			return boolValue(sq.Not), true, nil // no rows
 		}
-		return r.rowGroups[string(buf)].eval(x, sq.Not), true, nil
+		return r.rowGroups[key].eval(x, sq.Not), true, nil
 	}
 	x, err := env.eval(sq.X)
 	if err != nil {
