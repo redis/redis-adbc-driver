@@ -20,12 +20,20 @@ Three 300ms samples, benchmem:
 | Owned fact, bounded reserve | 4,216 | 49 | 2,387 |
 
 Timing is a local microbenchmark, not a full-query or native speedup claim.
-Focused race tests passed (4.278s), including singleton transfer and physical-ID
+Initial isolated-prototype race tests passed (4.278s), including singleton transfer and physical-ID
 overwrite, duplicate fanout independence, late missing match, pre-cancel source
 immutability, shared-safe default orchestration, bounded capacity compatibility,
 native 9,001-row multi-page residual/pruning and consumer failure/grant cleanup,
 and existing parallel source-error/cancel/panic tests. The native test clears each
 emitted map and checks exact ordered progress and unchanged raw/dimension maps.
 
-All tests unset both REDIS_URI and REDIS_SNAPSHOT_URI. Full endpoint-free `go test -count=1 -p 1 ./...` passed (root package 29.950s).
-Formatting and diff checks passed. No native or compatibility result is implied.
+All tests unset both REDIS_URI and REDIS_SNAPSHOT_URI. Initial isolated-prototype endpoint-free `go test -count=1 -p 1 ./...` passed
+(root package 29.950s). These checks and allocation controls predate clean-public
+extraction; they do not establish that the extracted public head passed.
+
+The clean-public change is stacked on public #620 and targets main. #620 supplies
+the coordinator ownership marker/representative optimization. Source extraction
+copies only this allocation change, its focused tests and these SDLC records;
+it introduces no private investigation ancestors. Current clean-public unit/race
+checks are pending; publication is held until they pass. No live query has tested
+this exact public delta, and no Q4 resolution or whole-query speedup is claimed.
