@@ -42,6 +42,7 @@ See [connection and ACL requirements](docs/driver-reference.md#acl-users).
 - [How tables and snapshots work](#how-tables-and-snapshots-work)
 - [Quick start](#quick-start)
 - [Data tools and integration status](#data-tools-and-integration-status)
+- [Performance benchmarks](#performance-benchmarks)
 - [Compatibility and validation](#compatibility-and-validation)
 - [Apache Arrow feature matrix](#apache-arrow-feature-matrix)
 - [Redis Software feature matrix](#redis-software-feature-matrix)
@@ -229,6 +230,13 @@ The [integration index](docs/integrations/README.md) and
 connectors, custom adapters, local validation, and unverified deployment paths.
 For Flight SQL or JDBC, see the separate
 [Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight).
+
+## Performance benchmarks
+
+The [performance report](PERFORMANCE.md) records the SSB, TPC-H and partial
+TPC-DS SF1 released-driver comparison with DuckDB, resource limits and query
+issues. Separate focused development-driver follow-ups preserve the historical
+baseline. Full benchmark suites remain stopped.
 
 ## Compatibility and validation
 
