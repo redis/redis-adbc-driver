@@ -10,3 +10,5 @@ See [intent](intent.md), [spec](spec.md), [validation](validation.md).
 5. Publish the issue and reviewable PR, retaining human review as pending. Do not run/load full benchmark suites or infer successful query timings from a process exit alone.
 
 Implementation and local validation are complete. No workflow permission changes, driver implementation changes, database operations or benchmark queries are included.
+
+Reviewable implementation: [PR #602](https://github.com/redis/redis-adbc-driver/pull/602).

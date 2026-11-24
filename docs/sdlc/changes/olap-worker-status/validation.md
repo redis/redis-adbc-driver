@@ -28,3 +28,5 @@ All 14 tests passed in 3.762 seconds. They use real child processes with control
 Agent review inspected lifecycle/cancellation boundaries, private-file publication, diagnostic handling, diff, tests and accepted scope. No actionable findings remained from those passes. This is an agent review, not human maintainer approval; human review remains pending.
 
 Separately authorized TPC-DS issue-only baseline evidence shows Q4 exhausted its client cgroup and killed the coordinator as well as a query process. Its atomic checkpoint and worker artifact survived for independent host recovery. That observation supports the recovery boundary; it does not show coordinator OOM prevention or a query-memory fix. No Redis/SQL/container runs were performed for this publication task. Full suites remain stopped.
+
+Reviewable implementation: [PR #602](https://github.com/redis/redis-adbc-driver/pull/602).

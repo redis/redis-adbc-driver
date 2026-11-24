@@ -8,3 +8,5 @@ Publish worker, validator and coordinator checkpoint JSON by writing and fsyncin
 Record an actual DuckDB timer event. A fired timer is a timeout with cause and 60-second metadata even if fetching races a successful return; unrelated/manual Interrupted errors remain errors. Redis statement deadlines, engine execution, independent result validation and ratio eligibility remain unchanged.
 
 Atomic documents do not protect the coordinator from its own cgroup OOM. An independent host supervisor/checkpoint recovery is required for that distinct failure. Atomic publication is not a guarantee against whole-machine power loss. Artifacts remain trusted, private files; no endpoint, credential, process identifier or infrastructure identity belongs in public evidence.
+
+Reviewable implementation: [PR #602](https://github.com/redis/redis-adbc-driver/pull/602).
