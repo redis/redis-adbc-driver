@@ -523,7 +523,8 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
-	streamJoin         bool // exact grouped reduction may consume a bounded star-join stream
+	streamJoin         bool  // exact grouped reduction may consume a bounded star-join stream
+	ownedRows          *bool // coordinator-only callback marker; never inherit in source requests
 	livePartition      *livePartitionScan
 	unmanagedPartition *unmanagedPartitionBucket
 	aggregateInputs    bool                 // direct scalar inputs: bounded larger unmanaged key pages
@@ -2511,6 +2512,10 @@ func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, 
 	meta := plan.meta
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
 	req.streamJoin = streamingStarAggregate(plan, aggs)
+	streamRowsOwned := false
+	if req.streamJoin {
+		req.ownedRows = &streamRowsOwned
+	}
 	if req.need == nil {
 		req.need = map[string]bool{}
 	}
@@ -2634,17 +2639,10 @@ func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, 
 					}
 				}
 				if !ok {
-					// Redis scans own their freshly decoded maps. Prune only
-					// after aggregate inputs have been consumed; shared memory
-					// relations must keep their original rows for other scans.
-					if meta.isMem {
-						g.rep = maps.Clone(vals)
-					}
-					for name := range g.rep {
-						if !repNeed[name] {
-							delete(g.rep, name)
-						}
-					}
+					// Native rows and proven stream callbacks own their maps.
+					// Prune only after all aggregate inputs; unmarked memory
+					// rows retain their original clone-before-prune behavior.
+					g.rep = aggregateRepresentativeRow(vals, repNeed, meta.isMem && !streamRowsOwned)
 				}
 			}
 			return nil

@@ -33,7 +33,7 @@ func (e *executor) scanPages(ctx context.Context, req scanRequest, params []Valu
 		return e.scanBeyondCapPages(ctx, req, params, func(_ []string, rows []map[string]Value) error { return visit(rows) })
 	}
 	if req.streamJoin && req.meta.join != nil {
-		if handled, err := e.scanStarJoinPages(ctx, req, params, visit); handled {
+		if handled, err := e.scanStarJoinPages(ctx, req, params, ownedScanVisitor(req.ownedRows, visit)); handled {
 			return err
 		}
 	}
@@ -201,4 +201,34 @@ func aggregateTopLimit(plan *selectPlan, n int) int {
 		return 0
 	}
 	return int(off + *plan.sel.Limit)
+}
+
+// Only proven star-stream leaves call this visitor. Workers and nested source
+// requests never touch the coordinator's ownership marker. Restore the marker
+// on success, error, cancellation and panic before any fallback can continue.
+func ownedScanVisitor(owned *bool, visit func([]map[string]Value) error) func([]map[string]Value) error {
+	if owned == nil {
+		return visit
+	}
+	return func(rows []map[string]Value) error {
+		previous := *owned
+		*owned = true
+		defer func() { *owned = previous }()
+		return visit(rows)
+	}
+}
+
+// Called only after every aggregate input has consumed the row. Shared memory
+// rows retain the old clone-before-prune behavior; owned leaf maps can become
+// the representative directly without aliasing a CTE, dimension or fact map.
+func aggregateRepresentativeRow(row map[string]Value, need map[string]bool, shared bool) map[string]Value {
+	if shared {
+		row = maps.Clone(row)
+	}
+	for name := range row {
+		if !need[name] {
+			delete(row, name)
+		}
+	}
+	return row
 }
