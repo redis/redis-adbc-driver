@@ -41,6 +41,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"sync/atomic"
 )
 
@@ -51,6 +52,9 @@ var subqueryStats struct {
 	semiJoins atomic.Int64 // semi-join bodies run
 	inSets    atomic.Int64 // IN hash sets built
 	inLists   atomic.Int64 // rows answered by a literal IN list's hash set
+	// parallelProbes counts probe pages whose batches ran on concurrent
+	// workers (runSemiProbes).
+	parallelProbes atomic.Int64
 }
 
 // ---- equality keys ----
@@ -695,10 +699,8 @@ func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[s
 	// IN and residual EXISTS evaluate the group's rows; plain EXISTS only
 	// needs the key.
 	keepRows := sq.Kind == SubqueryIn || len(sj.resid) > 0
+	var batches []*semiProbeBatch
 	for start := 0; start < len(firstValues); start += semiProbeKeys {
-		if err := cancelled(ctx); err != nil {
-			return // the evaluation itself reports cancellation
-		}
 		end := min(start+semiProbeKeys, len(firstValues))
 		chunk := firstValues[start:end]
 		if q, ok := unionQuery(cm, chunk, e.zone()); !ok || q == "" {
@@ -706,9 +708,7 @@ func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[s
 			return
 		}
 		var cond Expr
-		inChunk := make(map[string]bool, end-start)
-		for i, v := range chunk {
-			inChunk[firstKeys[start+i]] = true
+		for _, v := range chunk {
 			eq := &Binary{Op: "=", L: probeExpr, R: &Literal{V: v}}
 			if cond == nil {
 				cond = eq
@@ -720,11 +720,22 @@ func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[s
 		sel := *plan.sel
 		sel.Where = andAll([]Expr{sel.Where, cond})
 		plan.sel = &sel
-		subqueryStats.semiJoins.Add(1)
-		inner, err := e.isolatedChild().runSelect(ctx, &plan, e.params)
-		if err != nil {
+		batches = append(batches, &semiProbeBatch{plan: &plan, firstKeys: firstKeys[start:end]})
+	}
+	e.runSemiProbes(ctx, batches)
+	if err := cancelled(ctx); err != nil {
+		return // the evaluation itself reports cancellation
+	}
+	// Record the batches in order up to the first that failed (or did not
+	// run because one failed), as running them one after another would.
+	for _, b := range batches {
+		if !b.ran || b.err != nil {
 			r.probeFailed = true
 			return
+		}
+		inChunk := make(map[string]bool, len(b.firstKeys))
+		for _, k := range b.firstKeys {
+			inChunk[k] = true
 		}
 		newly := map[string]bool{}
 		for key, first := range pendingFirst {
@@ -734,7 +745,7 @@ func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[s
 		}
 		var buf []byte
 	next:
-		for _, row := range inner {
+		for _, row := range b.rows {
 			buf = buf[:0]
 			for i := 0; i < n; i++ {
 				if row[i].Null {
@@ -765,6 +776,112 @@ func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[s
 			r.probed[key] = true
 		}
 	}
+}
+
+// semiProbeBatch is one probe of probeSemiJoin: the body with a key union,
+// the first-key hashes of its keys and, once run, its rows or error.
+type semiProbeBatch struct {
+	plan      *selectPlan
+	firstKeys []string
+	rows      [][]Value
+	err       error
+	ran       bool
+}
+
+// runSemiProbes runs a page's probe batches, concurrently when the worker
+// budget grants more than one worker: each probe waits on its own round
+// trips (keyset Search pages and HASH fetches), so they overlap well. Each
+// worker runs on its own isolated executor and cache (the statement's cache
+// is not safe for concurrent writes) with no worker budget, so a probe nested
+// in its body runs serially rather than waiting for tokens this one holds.
+// Workers take batches in order and start none after a failure. They share
+// the statement's context and never cancel a context of their own: a
+// cancelled command context interrupts every socket of the execution
+// (executionTransport.arm), which would break the per-row fallback.
+func (e *executor) runSemiProbes(ctx context.Context, batches []*semiProbeBatch) {
+	var stop atomic.Bool
+	run := func(ex *executor, b *semiProbeBatch) bool {
+		if stop.Load() || cancelled(ctx) != nil {
+			return false
+		}
+		subqueryStats.semiJoins.Add(1)
+		b.rows, b.err = ex.runSelect(ctx, b.plan, e.params)
+		b.ran = true
+		if b.err != nil {
+			stop.Store(true)
+		}
+		return b.err == nil
+	}
+	workers := 1
+	if len(batches) > 1 && e.parallelProbes(ctx, batches[0].plan.meta) {
+		grant, err := e.workerBudget.acquireBounded(ctx, e.queryWorkers, len(batches))
+		if err != nil {
+			return // cancelled: probeSemiJoin reports nothing, the evaluation does
+		}
+		defer e.workerBudget.release(grant)
+		workers = grant
+	}
+	if workers < 2 {
+		for _, b := range batches {
+			if !run(e.isolatedChild(), b) {
+				return
+			}
+		}
+		return
+	}
+	subqueryStats.parallelProbes.Add(1)
+	var next atomic.Int64
+	var wg sync.WaitGroup
+	// A worker's panic is raised again here once every worker has stopped,
+	// as running the batches one after another would raise it.
+	var panicOnce sync.Once
+	var panicValue any
+	for range workers {
+		local := e.isolatedChild()
+		local.cache = newExecCache()
+		local.workerBudget = nil
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if p := recover(); p != nil {
+					stop.Store(true)
+					panicOnce.Do(func() { panicValue = p })
+				}
+			}()
+			for {
+				i := int(next.Add(1) - 1)
+				if i >= len(batches) {
+					return
+				}
+				if !run(local, batches[i]) {
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if panicValue != nil {
+		panic(panicValue)
+	}
+}
+
+// parallelProbes reports whether probes of meta may run on concurrent
+// workers: there is a worker budget, and nothing the workers would share is
+// written while they run (data-modifying CTE state, retained or partition
+// execution, GPU predicates, or a privately owned snapshot segment).
+func (e *executor) parallelProbes(ctx context.Context, meta *tableMeta) bool {
+	if e.workerBudget == nil || e.gpuRequested || e.gpu != nil || e.dmlSnapshots != nil || e.dmlRunning != nil ||
+		e.retained != nil || e.partitionDirectTable != nil || e.partitionForeignTable != "" ||
+		ctx.Value(retainedAllocationKey{}) != nil || meta == nil {
+		return false
+	}
+	for _, seg := range meta.snapshotSegments() {
+		if snapshotOwns(ctx, seg.Prefix) {
+			return false
+		}
+	}
+	return true
 }
 
 func appendKey(b []byte, k string) []byte {
