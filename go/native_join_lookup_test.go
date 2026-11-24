@@ -34,7 +34,7 @@ func nativeQ8OrderFixture(t *testing.T) (*executor, *selectPlan, context.Context
 	for i := 0; i < 91; i++ {
 		dates = append(dates, fmt.Sprintf("(%d,2,1998)", 78999+i))
 	}
-	for i := 1; i <= 6; i++ {
+	for i := 1; i <= 12; i++ {
 		stores = append(stores, fmt.Sprintf("(%d,'store%d','24199')", i, i))
 	}
 	// Preserve Q8's actual parsed outer graph and predicates; V1 is its already
@@ -110,10 +110,10 @@ func TestNativeDimensionOrderingRequiresLargePublishedSource(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			e, p, ctx, _ := nativeQ8OrderFixture(t)
 			jp := p.meta.join
-			counts := []int64{2880404, 91, 6, 5}
+			counts := []int64{2880404, 91, 12, 5}
 			chosen := map[int]bool{2: true, 3: true}
 			connected := []bool{true, false, false, false}
-			product := int64(6)
+			product := int64(60)
 			switch kind {
 			case "private":
 				scope := snapshotOf(ctx)
@@ -127,7 +127,7 @@ func TestNativeDimensionOrderingRequiresLargePublishedSource(t *testing.T) {
 				n := int64(500)
 				jp.items[0].base.SnapshotRows = &n
 			case "over_product":
-				product = 46
+				product = 91
 			case "unmanaged":
 				jp.items[0].base.Unmanaged = true
 			case "operation":
@@ -177,14 +177,14 @@ func TestNativeLookupPairCapsNullAndPrecisionFallback(t *testing.T) {
 	}
 }
 
-func TestNativeDimensionProduct4096BoundaryAndUnion1000Limit(t *testing.T) {
-	for _, count := range []int{4096, 4097} {
+func TestNativeDimensionProduct8192BoundaryAndUnion1000Limit(t *testing.T) {
+	for _, count := range []int{8192, 8193} {
 		e, p, ctx, _ := nativeQ8OrderFixture(t)
 		jp := p.meta.join
 		jp.items[1].base.mem = make([]map[string]Value, count)
 		counts := []int64{2880404, int64(count), 1, 1}
 		got := e.boundedDeferredDimension(ctx, jp, counts, map[int]bool{2: true, 3: true}, []bool{true, false, false, false}, 0, 1)
-		if (got == 1) != (count == 4096) {
+		if (got == 1) != (count == 8192) {
 			t.Fatalf("native product%d selected%d", count, got)
 		}
 	}
@@ -195,7 +195,7 @@ func TestNativeDimensionProduct4096BoundaryAndUnion1000Limit(t *testing.T) {
 			t.Fatalf("UNION cap changed: product%d selected%d", count, got)
 		}
 	}
-	for _, tc := range []struct{ a, b, want int64 }{{64, 64, 4096}, {1, 4097, 4097}, {9223372036854775807, 9223372036854775807, 4097}, {4096, 2, 4097}, {0, 9223372036854775807, 0}} {
+	for _, tc := range []struct{ a, b, want int64 }{{64, 128, 8192}, {1, 8193, 8193}, {9223372036854775807, 9223372036854775807, 8193}, {8192, 2, 8193}, {0, 9223372036854775807, 0}} {
 		if got := boundedDimensionProduct(tc.a, tc.b, nativeDimensionProductRows); got != tc.want {
 			t.Fatalf("planning product%d*%d=%d want%d", tc.a, tc.b, got, tc.want)
 		}

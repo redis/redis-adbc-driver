@@ -6,7 +6,7 @@ import "context"
 
 // Saturate before multiplication: counts are cardinality estimates, not an
 // admission grant. Runtime retained-memory/work limits still own actual rows.
-const nativeDimensionProductRows = int64(4096)
+const nativeDimensionProductRows = int64(8192)
 
 func deferredDimensionProduct(product, count int64) int64 {
 	return boundedDimensionProduct(product, count, int64(maxUnionTerms))
@@ -23,7 +23,7 @@ func boundedDimensionProduct(product, count, cap int64) int64 {
 }
 
 // Postpone only a connected deferred UNION or proven large published fact.
-// Planning products cap at 1000 for UNION and 4096 for native targets;
+// Planning products cap at 1000 for UNION and 8192 for native targets;
 // each independently generated key set retains its separate 1000-value cap.
 // Outer/lateral joins never reach this call.
 func (e *executor) boundedDeferredDimension(ctx context.Context, jp *joinPlan, counts []int64, chosen map[int]bool, connected []bool, best int, product int64) int {

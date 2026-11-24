@@ -761,6 +761,7 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 		}
 		steps = append(steps, st)
 	}
+	e.recordJoinOrderDiagnostics(ctx, jp, wps, counts, steps)
 	return steps, nil
 }
 

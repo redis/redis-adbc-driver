@@ -62,6 +62,9 @@ func (e *executor) nativeJoinLookups(ctx context.Context, env *evalEnv, pairs []
 }
 
 func (e *executor) publishedJoinSource(ctx context.Context, m *tableMeta) bool {
+	if ctx == nil {
+		return false
+	}
 	scope := snapshotOf(ctx)
 	if e.retained != nil || e.partitionDirectTable != nil || e.partitionForeignTable != "" || ctx.Value(retainedAllocationKey{}) != nil || ctx.Value(subBudgetKey{}) != nil || ctx.Value(snapshotDirectReadKey{}) != nil {
 		return false

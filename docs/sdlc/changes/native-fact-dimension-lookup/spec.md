@@ -8,8 +8,8 @@ stable-dimension rule may also postpone a proven published native managed fact.
 Require an active statement pin, valid immutable managed descriptors, no owned
 private segment, no live/unmanaged/opaque/cleanup source, and both physical and
 filtered estimated source counts above maxUnionTerms (1000). Keep the original
-first-input choice. Native targets use a conservative 4096-row product estimate;
-deferred UNION targets retain 1000. The planner tracks/saturates at 4096, while
+first-input choice. Native targets use a conservative 8192-row product estimate;
+deferred UNION targets retain 1000. The planner tracks/saturates at 8192, while
 every independently generated equality key set retains its 1000-value cap.
 Operation/write/maintenance/shared-pin/retained/direct/partition-executor scopes
 also refuse native admission. Small/selective, private, unpinned, unsupported or
@@ -27,3 +27,9 @@ join fallback rather than asserting a new numeric-index proof. A proven empty
 NULL-only key set still suppresses right matches through the existing join.
 No snapshotIndexable, metadata, public API, outer eligibility, full benchmark,
 DATE/CAST predicate, batching, or parallel execution changes are included.
+
+Opt-in existing execution diagnostics record sanitized lookup_join_order counts,
+input-index order, memory/overlay/filter flags and scope eligibility. Assembly
+is guarded by diagnostics != nil && !metricsOnly; physical names, IDs, URLs,
+SQL and predicate values are excluded. Local filter flags describe ordering-time
+filters; dynamic lookup constraints are compiled afterward.
