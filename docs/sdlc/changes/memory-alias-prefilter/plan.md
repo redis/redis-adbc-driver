@@ -47,3 +47,16 @@ column-role fallback. Final combined focused command above passed1.096s after
 the realistic fixture was observed red before the fix. Formatting/diff checks
 passed. This remains private/unactivated pending independent review and native
 validation; no external SQL, artifacts, containers or publication changed.
+
+## Current-main publication and remaining limitation
+
+Only 4f808ad4 and 45ac5b7e were reapplied onto public main
+f6e0bbbec1f9e1e6c973e7d7071b384ad174aaa8, excluding private ancestors.
+Independent read-only review of both revisions found no demonstrated blocker.
+The native9 combined candidate b2811f5499114d389584ff2bec0de2afd5998481
+passed full unit and focused race checks, but original SF1 Q4 still hit the
+60-second warm-up deadline without OOM or timed samples. This is a bounded
+optimization, not a Q4 resolution or demonstrated whole-query speedup.
+The active Q4 investigation is profiling rather than restarting full suites.
+
+Current-main clean branch verification: all unit-only packages passed `env -u REDIS_URI GOMAXPROCS=2 go test -count=1 -p 1 ./...` (root package 32.244s). Redis-URI integration skips do not establish live compatibility. Formatting/diff checks pass. Earlier local hold statements above record historical preparation; publication is now authorized.
