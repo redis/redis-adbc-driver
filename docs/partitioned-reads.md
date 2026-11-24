@@ -125,8 +125,16 @@ Planning/releasing descriptors does not change server configuration or table dat
 
 ## Planning and worker execution
 
-The statement option `adbc.redis.partition_count` accepts an integer or string
-from 1 to 1024 (default 8). It limits the number of ranges, rather than choosing
+`adbc.redis.partition_count` accepts an integer or string from 1 to 1024
+(default 8). A database value is copied into newly opened connections, and a
+connection value is copied into newly created statements. An explicit statement
+value overrides that copy. Later database/connection changes do not alter existing
+children, returned descriptors or statement incremental-discovery state.
+For generic consumers that forward database options (for example an ADBC catalog
+scanner), set the database default to request more splits without a Redis-specific
+statement API. The consumer still chooses actual concurrency independently.
+
+It limits the number of ranges, rather than choosing
 concurrency or guaranteeing equally sized partitions. Ranges divide allocated
 internal row IDs, not row counts; deletes and sequence gaps can leave empty or
 uneven partitions. The row sequence must be below 2^53, where Search numeric
