@@ -489,7 +489,9 @@ func (jp *joinPlan) planPushdown(where Expr) {
 }
 
 // view returns the relation's columns renamed alias.column (reading the
-// original HASH fields), for scanning it as part of a join.
+// original HASH fields), for planning a join scan. An in-memory input's rows
+// are qualified only when that item is actually scanned (see scanJoinItem),
+// rather than keeping a full copy for every alias of a shared CTE at once.
 func (it *joinItem) view() *tableMeta {
 	v := *it.base
 	if v.group != nil {
@@ -507,16 +509,35 @@ func (it *joinItem) view() *tableMeta {
 		v.Columns[i] = c
 	}
 	if it.base.isMem {
-		v.mem = make([]map[string]Value, len(it.base.mem))
-		for r, row := range it.base.mem {
-			m := make(map[string]Value, len(row))
-			for k, val := range row {
-				m[it.prefix+k] = val
-			}
-			v.mem[r] = m
-		}
+		v.mem = nil
 	}
 	return &v
+}
+
+// scanJoinItem owns the qualified row copies for just this input scan. The
+// returned matching maps stay alive independently of the full input slice;
+// dropping that slice releases unmatched copies and does not mutate the cached
+// relation, which another alias (or a later execution) may read again.
+func (e *executor) scanJoinItem(ctx context.Context, it *joinItem, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
+	if !it.base.isMem || req.where.none {
+		return e.scan(ctx, req, params)
+	}
+	if err := cancelled(ctx); err != nil {
+		return nil, nil, err
+	}
+	req.meta.mem = make([]map[string]Value, len(it.base.mem))
+	defer func() { req.meta.mem = nil }()
+	for r, row := range it.base.mem {
+		if err := cancelled(ctx); err != nil {
+			return nil, nil, err
+		}
+		m := make(map[string]Value, len(row))
+		for k, val := range row {
+			m[it.prefix+k] = val
+		}
+		req.meta.mem[r] = m
+	}
+	return e.scan(ctx, req, params)
 }
 
 // joinKey normalizes a value for hash-join equality: values that compare
@@ -939,7 +960,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 				break
 			}
 		}
-		keys, right, err := e.scan(ctx, scanRequest{meta: view, where: wp, need: itemNeed}, params)
+		keys, right, err := e.scanJoinItem(ctx, it, scanRequest{meta: view, where: wp, need: itemNeed}, params)
 		if err != nil {
 			return nil, err
 		}
