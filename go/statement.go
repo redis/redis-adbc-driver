@@ -425,9 +425,9 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		s.partitionExecution = nil
 		return nil
 	case OptionIntPartitionCount:
-		n, err := strconv.Atoi(val)
-		if err != nil || n < 1 || n > maxPartitionCount {
-			return errorf(adbc.StatusInvalidArgument, "%s must be between 1 and %d", key, maxPartitionCount)
+		n, err := parsePartitionCount(val)
+		if err != nil {
+			return err
 		}
 		s.partitionExecution = nil
 		s.partitionCount = n

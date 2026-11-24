@@ -1695,8 +1695,8 @@ Planning returns an Arrow schema and disjoint internal row-ID ranges without
 fetching result rows; workers use their own authenticated connections and stream
 Arrow batches after the planning statement and connection have closed.
 
-Set the statement option `adbc.redis.partition_count` to request up to 1–1024
-partitions (default 8). This limits splits, not worker concurrency or rows per
+Set `adbc.redis.partition_count` as a statement override or inherited
+database/connection default to request up to 1–1024 partitions (default 8). This limits splits, not worker concurrency or rows per
 partition; gaps and deletes can produce empty or uneven ranges. Supported SQL
 includes one typed bound parameter row, arithmetic, casts, CASE and allowlisted
 row-local functions. Joins, aggregates, ORDER BY, LIMIT, views, temporary tables
@@ -4525,7 +4525,7 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | `adbc.redis.ipc.format` | statement | `stream` (default) or `file`, for native IPC input/output. |
 | `adbc.redis.stream_batch_bytes` | database, statement | Optional accounted-byte ceiling per streamed batch (default 0: disabled); complements the row ceiling. One oversized row progresses; cursor-page overshoot and allocator/consumer memory are outside this budget. See streaming accounting above. Also an integer option on the statement |
 | `adbc.redis.partition_source_mode` | statement | `managed` (default), `live_hash`, or `unmanaged`. The explicit external-source modes select bounded raw-key hash buckets while source HASH values remain live and ownership is unchanged. Every worker repeats discovery. See [live HASH partitions](live-hash-tables.md#partitioned-reads-of-live-hashes) and [unmanaged partitions](unmanaged-partitions.md). Retained external-source mode combinations are rejected; Flex supports the compatible unmanaged path, while live HASH registrations remain unsupported on Flex. |
-| `adbc.redis.partition_count` | statement | Maximum partitions returned by `ExecutePartitions`: integer or string from 1 to 1024 (default 8). Splits allocated internal row-ID ranges; does not set concurrency or guarantee equal row counts. See [ADBC partitioned reads](#adbc-partitioned-reads). |
+| `adbc.redis.partition_count` | database, connection, statement | Maximum partitions returned by `ExecutePartitions`: integer or string from 1 to 1024 (default 8). Database defaults are copied into new connections; connection defaults into new statements; explicit statement overrides win. Later parent changes leave existing children/discovery/descriptors unchanged. Splits allocated internal row-ID ranges; does not set concurrency or guarantee equal row counts. See [ADBC partitioned reads](#adbc-partitioned-reads). |
 | `adbc.redis.partition_result_mode` | statement | `live` (default) or `retained`: bounded global execution and immutable final Arrow replay. See [retained results](../docs/retained-partition-results.md). |
 | `adbc.redis.partition_result_namespace` | database | Explicit tenant namespace for retained publication/replay; 1–64 ASCII letters/digits/underscores/hyphens. |
 | `adbc.redis.partition_reader_only` | database | `true` bypasses source bootstrap and refuses SQL/ingestion; requires a result namespace. Default `false`. |

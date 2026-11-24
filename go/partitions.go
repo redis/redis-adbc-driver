@@ -31,8 +31,9 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// OptionIntPartitionCount is a statement option: the maximum number of deferred
-// row-ID ranges returned by ExecutePartitions. It does not start workers.
+// OptionIntPartitionCount is a database/connection default and statement override:
+// the maximum deferred row-ID ranges returned by ExecutePartitions. It does not
+// start workers.
 const OptionIntPartitionCount = "adbc.redis.partition_count"
 
 // OptionStringPartitionSourceMode explicitly selects the source ownership contract.
@@ -75,10 +76,7 @@ func (s *statementImpl) sourcePartitionMode() string {
 }
 
 func (s *statementImpl) partitions() int {
-	if s.partitionCount == 0 {
-		return 8
-	}
-	return s.partitionCount
+	return effectivePartitionCount(s.partitionCount)
 }
 
 // partitionSelect deliberately accepts a small, row-local SQL subset. Check

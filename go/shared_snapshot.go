@@ -216,12 +216,18 @@ func (v *sharedReadView) valid(ctx context.Context) error {
 }
 
 func (c *connectionImpl) SetOptionInt(ctx context.Context, key string, value int64) error {
+	if key == OptionIntPartitionCount {
+		return c.SetOption(ctx, key, strconv.FormatInt(value, 10))
+	}
 	if key == OptionIntReadSnapshotRetention {
 		return c.setReadSnapshotOption(ctx, key, strconv.FormatInt(value, 10))
 	}
 	return c.ConnectionImplBase.SetOptionInt(ctx, key, value)
 }
 func (c *connectionImpl) GetOptionInt(ctx context.Context, key string) (int64, error) {
+	if key == OptionIntPartitionCount {
+		return int64(effectivePartitionCount(c.partitionCount)), nil
+	}
 	if key == OptionIntReadSnapshotRetention {
 		value, err := c.readSnapshotOption(ctx, key)
 		if err != nil {

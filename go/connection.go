@@ -45,6 +45,7 @@ type connectionImpl struct {
 	sess             *session
 	pushdown         string
 	queryWorkers     int
+	partitionCount   int // default copied into new statements
 	workerBudget     *workerBudget
 	workerGrant      atomic.Int64
 	aggregateMetrics atomic.Pointer[partitionMetrics]
@@ -101,6 +102,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return strconv.FormatInt(c.workerGrant.Load(), 10), nil
 	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued, OptionStringQueryWorkerTuning:
 		return c.workerBudget.option(key), nil
+	case OptionIntPartitionCount:
+		return strconv.Itoa(effectivePartitionCount(c.partitionCount)), nil
 	case OptionStringQueryWorkers:
 		return strconv.Itoa(effectiveQueryWorkers(c.queryWorkers)), nil
 	case OptionStringRenameRekey:
@@ -127,6 +130,13 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		return snapshotUnsupported()
 	}
 	switch key {
+	case OptionIntPartitionCount:
+		n, err := parsePartitionCount(value)
+		if err != nil {
+			return err
+		}
+		c.partitionCount = n
+		return nil
 	case OptionStringForeignIndexesMode:
 		if c.store.hasSharedReadView() {
 			return sharedSnapshotUnsupported()
@@ -361,6 +371,7 @@ func (c *connectionImpl) NewStatement(ctx context.Context) (adbc.StatementWithCo
 		conn:              c,
 		ingest:            driverbase.NewBulkIngestOptions(),
 		stream:            c.stream,
+		partitionCount:    c.partitionCount,
 	}
 	// Not driverbase.NewStatement(st): its wrapper embeds the StatementImpl
 	// interface, which hides Cancel from AdbcStatementCancel (it looks for

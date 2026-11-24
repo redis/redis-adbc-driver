@@ -45,6 +45,8 @@ type databaseImpl struct {
 	liveTables                  bool
 	driverbase.DatabaseImplBase
 
+	partitionCount int // default copied into newly opened connections
+
 	tlsCAFile    string
 	uri          string
 	address      string
@@ -395,6 +397,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 	conn := &connectionImpl{
 		usage:              u,
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
+		partitionCount:     d.partitionCount,
 		store:              st,
 		rbac:               d.rbac,
 		retainedNamespace:  d.retainedNamespace, retainedLimits: d.resultLimits(), readerOnly: d.readerOnly, partitionControlPersistence: d.partitionControlPersistence,
@@ -546,6 +549,8 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 		return d.pushdown, nil
 	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued, OptionStringQueryWorkerTuning:
 		return d.workerBudget.option(key), nil
+	case OptionIntPartitionCount:
+		return strconv.Itoa(effectivePartitionCount(d.partitionCount)), nil
 	case OptionStringQueryWorkers:
 		return strconv.Itoa(effectiveQueryWorkers(d.queryWorkers)), nil
 	case OptionStringTLSCAFile:
@@ -679,6 +684,12 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "%s: schema name %q is reserved for temporary tables and views", key, value)
 		}
 		d.schema = value
+	case OptionIntPartitionCount:
+		n, err := parsePartitionCount(value)
+		if err != nil {
+			return err
+		}
+		d.partitionCount = n
 	case OptionStringQueryWorkerBudget:
 		return d.workerBudget.configure(value)
 	case OptionStringQueryWorkers:
