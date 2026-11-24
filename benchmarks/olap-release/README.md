@@ -14,6 +14,12 @@ Install DuckDB, the Redis ADBC release wheel, PyArrow and ADBC driver manager. A
 
 The caller owns server topology, resource limits, source/release checksums, and provenance. `run.py` does not provision servers or verify their management API itself. Preparation/loading is separate from query timing. SQL is exported unchanged into `OUTPUT/SUITE/queries/`; the query-only path requires that export to exist. To avoid silently loading additional tables, focused debugging should preload only the referenced tables independently.
 
+## Explicit client thread profile
+
+Optional integer `client_threads` in private `connection.json` selects the native DuckDB and DuckDB-over-Redis thread setting. The default remains **4** for historical profile compatibility; explicit values from **1 through 32**, such as `16`, are accepted. Booleans, strings, fractional values and out-of-range counts are rejected before opening a DuckDB connection. A query-only/focused caller must retain the selected setting in its own preflight/provenance as well as its runtime resource allocation.
+
+Setup metadata records `client_threads` and retains legacy `client_cpus` with the configured count. DuckDB worker provenance records only the numeric thread setting, alongside existing sanitized third-path fields. These are configured values, not measurements of effective CPU quota or host cores. The caller must independently verify the Linux client's CPU allocation and Redis driver's worker budget/GOMAXPROCS profile. This option does not configure Redis workers or alter the 8 GB DuckDB memory limit, statement timeout, data, isolation or validation rules. A 16-thread run is a separate resource profile; do not relabel or directly attribute differences from historical four-CPU runs to code alone.
+
 ## Focused execution
 
 For a future authorized Q19 run, with its fixture already loaded and the unmodified SQL exported to the new output directory:

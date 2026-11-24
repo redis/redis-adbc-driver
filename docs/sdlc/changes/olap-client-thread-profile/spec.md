@@ -1,0 +1,3 @@
+# Specification
+
+Read optional `client_threads` from private connection.json; default 4, exact integer 1–32 only (reject bool). Validate before setup preparation or opening either DuckDB connection. Use the setting in both paths without changing memory limits, timeout, Redis options, SQL, isolation or validation. Retain legacy configured `client_cpus` and add explicit `client_threads` setup metadata; DuckDB worker provenance adds only this numeric field, with no profile contents/credentials/paths. Caller verification of actual CPU quota and driver workers remains independent. Historical four-CPU results retain their original labels.

@@ -131,7 +131,8 @@ def parse_args():
 
 def setup(args):
     # This process always exits before any timed worker starts.
-    from isolation import redis_options
+    from isolation import client_threads, redis_options
+    threads = client_threads(args.private)
     out = args.output / args.suite
     out.mkdir(parents=True, exist_ok=True)
     events = out / "events.jsonl"
@@ -144,7 +145,7 @@ def setup(args):
     metadata = {
         "suite": args.suite, "scale_factor": 1, "warmups": 1, "repeats": 3,
         "statement_timeout_seconds": 60, "platform": platform.platform(),
-        "architecture": platform.machine(), "client_cpus": 4,
+        "architecture": platform.machine(), "client_cpus": threads, "client_threads": threads,
         "client_memory_limit_bytes": int(Path('/sys/fs/cgroup/memory.max').read_text()),
         "duckdb_memory_limit": "8GB",
         "route": "Linux client in Redis Software server network namespace; TLS localhost",
