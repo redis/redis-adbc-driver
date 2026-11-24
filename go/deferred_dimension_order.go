@@ -17,7 +17,7 @@ func deferredDimensionProduct(product, count int64) int64 {
 	return product * count
 }
 
-// Only postpone a connected deferred UNION, and only for a small, stable
+// Only postpone a connected deferred UNION or proven large published fact, for a small, stable
 // disconnected dimension whose cross-product estimate remains within the same
 // bound as dynamic key demand. Outer/lateral joins never reach this call.
 func (e *executor) boundedDeferredDimension(ctx context.Context, jp *joinPlan, counts []int64, chosen map[int]bool, connected []bool, best int, product int64) int {
@@ -25,7 +25,16 @@ func (e *executor) boundedDeferredDimension(ctx context.Context, jp *joinPlan, c
 		return best
 	}
 	target := jp.items[best].base
-	if target.view == nil || !target.view.unionDemand {
+	deferred := target.view != nil && target.view.unionDemand
+	nativeLarge := counts[best] > maxUnionTerms && e.publishedJoinSource(ctx, target)
+	if nativeLarge {
+		rows := int64(0)
+		for _, seg := range target.snapshotSegments() {
+			rows = min(int64(maxUnionTerms+1), rows+min(seg.Rows, int64(maxUnionTerms+1)))
+		}
+		nativeLarge = rows > maxUnionTerms
+	}
+	if !deferred && !nativeLarge {
 		return best
 	}
 	selected := -1
@@ -39,8 +48,7 @@ func (e *executor) boundedDeferredDimension(ctx context.Context, jp *joinPlan, c
 		}
 		stable := m.isMem
 		if !stable {
-			scope := snapshotOf(ctx)
-			stable = e.store != nil && e.store.snapshots && scope != nil && scope.pin != nil && managedRowIDTable(m) && snapshotDataID(m.prefix()) != "" && m.SnapshotRows != nil && len(m.PendingCleanup) == 0
+			stable = e.publishedJoinSource(ctx, m)
 		}
 		if !stable {
 			continue

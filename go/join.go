@@ -940,42 +940,12 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 			continue
 		}
 		if !first && innerLike && wp.keys == nil && !view.isMem && (!view.SnapshotOverlay || e.snapshotIndexable(ctx, view)) {
-			// Index lookup join: fetch only rows whose key matches the left.
-			for _, p := range pairs {
-				cm, ok := lookupColumn(view, p.right)
-				if !ok || !cm.Indexed || !simpleName(cm.field()) {
-					continue
-				}
-				seen := map[string]bool{}
-				var values []Value
-				for _, row := range left {
-					if err := cancelled(ctx); err != nil {
-						return nil, err
-					}
-					env.row = row
-					v, err := env.eval(p.left)
-					if err != nil {
-						return nil, invalidArg(err)
-					}
-					if key, ok := joinKey(v); ok && !seen[key] {
-						seen[key] = true
-						values = append(values, v)
-					}
-				}
-				if len(values) > maxUnionTerms {
-					continue
-				}
-				if q, ok := unionQuery(cm, values, e.zone()); ok {
-					switch {
-					case q == noMatchQuery:
-						wp.none = true // no key of the left rows can match
-					case wp.query == "*":
-						wp.query = q
-					default:
-						wp.query += " " + q
-					}
-				}
-				break
+			// Keep every independently safe source-key constraint. The real
+			// composite join still rechecks correlation and multiplicity.
+			var err error
+			wp, err = e.nativeJoinLookups(ctx, env, pairs, left, view, wp)
+			if err != nil {
+				return nil, err
 			}
 		}
 		if !first && innerLike && view.view != nil && view.view.unionDemand {
