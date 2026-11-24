@@ -2225,7 +2225,7 @@ func (s *store) fetchHashCommands(ctx context.Context, keys []string, fields []s
 	}
 	pipe := s.redis(ctx).Pipeline()
 	cmds := queueHashFetchCommands(ctx, pipe, keys, fields)
-	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+	if _, err := pipe.Exec(ctx); err != nil && err != goredis.Nil {
 		return nil, wrapRedis(err, "failed to read rows")
 	}
 	return cmds, nil
