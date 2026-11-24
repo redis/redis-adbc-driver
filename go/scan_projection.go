@@ -90,8 +90,14 @@ type projectionColumn struct {
 }
 
 func newScanProjection(it *scanIter, items []planItem) *scanProjection {
+	return newScanProjectionWithManagedPredicate(it, items, false)
+}
+
+// Scalar aggregate callers may bind a pure residual against already decoded
+// managed HASH values. Fetching, visibility and decode order stay unchanged.
+func newScanProjectionWithManagedPredicate(it *scanIter, items []planItem, managedPredicate bool) *scanProjection {
 	unmanaged := unmanagedScanProjection(it)
-	if (!managedRowIDTable(it.meta) && !unmanaged) || it.residual != nil && !unmanaged || it.ties != nil || it.late != nil || len(items) == 0 {
+	if (!managedRowIDTable(it.meta) && !unmanaged) || it.residual != nil && !unmanaged && !managedPredicate || it.ties != nil || it.late != nil || len(items) == 0 {
 		return nil
 	}
 	p := &scanProjection{width: len(items), keyRows: unmanaged}
@@ -136,6 +142,11 @@ func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 			}
 			p.columns[at].predicate = i
 		}
+	}
+	// Positional consumers do not evaluate a bound residual. Keep filtered
+	// inputs on keep(), which decodes then checks the predicate before reduce.
+	if it.hashFetch && p.predicate != nil {
+		return nil
 	}
 	if it.hashFetch && !p.bindHash(it.fetch) {
 		return nil

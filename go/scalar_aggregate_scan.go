@@ -65,7 +65,7 @@ func (e *executor) scanGroupedAggregateValues(ctx context.Context, req scanReque
 
 func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest, params []Value, items []planItem, visit func([]Value) error) (bool, error) {
 	unmanaged := req.meta != nil && req.meta.Unmanaged
-	if req.need == nil || !managedRowIDTable(req.meta) && !unmanaged || len(req.meta.PendingCleanup) > 0 || req.where.residual != nil && !unmanaged || req.where.keys != nil || req.where.none || req.hashScan || req.ties != nil || req.late != nil || req.ranges != nil && !req.meta.SnapshotOverlay || req.limit != nil || len(req.sortBy) > 0 {
+	if req.need == nil || !managedRowIDTable(req.meta) && !unmanaged || len(req.meta.PendingCleanup) > 0 || req.where.residual != nil && !unmanaged && !req.aggregateInputs || req.where.keys != nil || req.where.none || req.hashScan || req.ties != nil || req.late != nil || req.ranges != nil && !req.meta.SnapshotOverlay || req.limit != nil || len(req.sortBy) > 0 {
 		return false, nil
 	}
 	started := time.Now()
@@ -83,7 +83,7 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 			e.workerBudget.release(grant)
 		}
 	}()
-	p := newScanProjection(it, items)
+	p := newScanProjectionWithManagedPredicate(it, items, req.aggregateInputs)
 	if p == nil {
 		return false, nil
 	}
@@ -109,7 +109,7 @@ func (e *executor) scanAggregateProjection(ctx context.Context, req scanRequest,
 	if e.diagnostics != nil && !e.diagnostics.metricsOnly {
 		e.diagnostics.setPlan(map[string]any{"kind": "typed_aggregate_inputs", "live_unmanaged": unmanaged, "input_slots": len(items), "bound_residual": p.predicate != nil})
 	}
-	if len(it.fetch) > 0 && p.hashFields == nil && p.bindHash(it.fetch) {
+	if len(it.fetch) > 0 && p.predicate == nil && p.hashFields == nil && p.bindHash(it.fetch) {
 		p.hashExclusive = true
 	}
 	scratch := make([]Value, len(items))
