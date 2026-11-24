@@ -786,6 +786,13 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 				it.delta.pageRows, it.delta.directoryPageRows = wideFetchChunk, wideFetchChunk
 			}
 		}
+		// An internal exact-range caller may bound directory overfetch as well
+		// as output pages. This changes only batching: visibility, identity,
+		// pin and source checks stay in the existing exact-directory iterator.
+		if req.ranges != nil && req.ranges.cap > 0 && it.delta != nil {
+			page := int(min(req.ranges.cap, int64(snapshotDeltaPage)))
+			it.delta.pageRows, it.delta.directoryPageRows = page, page
+		}
 		return it, nil
 	}
 	if req.where.keys != nil {
