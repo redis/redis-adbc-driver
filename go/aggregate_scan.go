@@ -32,6 +32,14 @@ func (e *executor) scanPages(ctx context.Context, req scanRequest, params []Valu
 	if req.hashScan || (req.meta.Live || len(req.meta.PendingCleanup) > 0) && req.where.keys == nil && !req.meta.isMem {
 		return e.scanBeyondCapPages(ctx, req, params, func(_ []string, rows []map[string]Value) error { return visit(rows) })
 	}
+	if req.streamJoin && req.meta.join != nil {
+		if handled, err := e.scanStarJoinPages(ctx, req, params, visit); handled {
+			return err
+		}
+	}
+	if handled, err := e.scanDeferredUnionPages(ctx, req, params, visit); handled {
+		return err
+	}
 	if req.meta.isMem {
 		_, rows, err := e.scanMem(ctx, req, params)
 		if err != nil {
