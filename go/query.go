@@ -1476,11 +1476,21 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 		return req.meta.sourceKeys, source, nil
 	}
 	env := e.newEnv(ctx, req.meta.types(), params)
+	// Decorrelated EXISTS / IN conjuncts read the inner groups of a page of
+	// rows at once (probeSemiJoin), as scanned pages do (scanIter.keep). A
+	// join's rows are filtered here (TPC-H Q21).
+	probes := semiProbeSubqueries(req.where.residual)
 	var keys []string
 	var rows []map[string]Value
 	for i, r := range source {
 		if err := cancelled(ctx); err != nil {
 			return nil, nil, err
+		}
+		if len(probes) > 0 && i%semiProbePage == 0 {
+			page := source[i:min(i+semiProbePage, len(source))]
+			for _, sq := range probes {
+				e.probeSemiJoin(ctx, sq, page, env.types)
+			}
 		}
 		env.row = r
 		ok, err := env.eval(req.where.residual)
