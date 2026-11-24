@@ -523,6 +523,7 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
+	streamJoin         bool // exact grouped reduction may consume a bounded star-join stream
 	livePartition      *livePartitionScan
 	unmanagedPartition *unmanagedPartitionBucket
 	aggregateInputs    bool                 // direct scalar inputs: bounded larger unmanaged key pages
@@ -2509,6 +2510,7 @@ func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, 
 	e.diagnostics.setPhase("serial_aggregate")
 	meta := plan.meta
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
+	req.streamJoin = streamingStarAggregate(plan, aggs)
 	if req.need == nil {
 		req.need = map[string]bool{}
 	}
