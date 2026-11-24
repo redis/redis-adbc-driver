@@ -184,6 +184,17 @@ func renameColumns(meta *tableMeta, alias string, cols []string) (*tableMeta, er
 			seen[c.Name] = true
 		}
 	}
+	if m.view != nil && m.view.unionDemand {
+		// Deferred UNION rows have not been materialized under their old
+		// names. Map the lazy output by position too, without mutating the
+		// cached/shared view referenced by another alias.
+		lv := *m.view
+		lv.names = make([]string, len(m.Columns))
+		for i, c := range m.Columns {
+			lv.names[i] = c.Name
+		}
+		m.view = &lv
+	}
 	if len(meta.planConstants) > 0 {
 		m.planConstants = map[string]Value{}
 		for k, v := range meta.planConstants {

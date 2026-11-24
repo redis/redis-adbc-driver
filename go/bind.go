@@ -1138,6 +1138,19 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 		}
 		return meta, err
 	}
+	// Only a single consumer may constrain this deferred relation. Shared
+	// WITH definitions retain their once-only, complete materialization.
+	if e.cteAllowsFacts(key) && containsDeferredUnion(plan) && e.deferredUnionSafe(ctx, plan) {
+		meta, err := e.retainedMemTable(ctx, name, cols, nil, rename)
+		if err == nil {
+			names := make([]string, len(meta.Columns))
+			for i, c := range meta.Columns {
+				names[i] = c.Name
+			}
+			meta.view = &lazyView{plan: plan, names: names, unionDemand: true}
+		}
+		return meta, err
+	}
 	rows, err := e.runSelect(ctx, plan, e.params)
 	if err != nil {
 		return nil, err
