@@ -1,0 +1,956 @@
+{
+  "scope": "Historical released-driver baseline only; later focused retries are separate.",
+  "provenance": {
+    "date": "2026-11-23",
+    "redis_release": "v0.0.31",
+    "redis_release_published_utc": "2026-11-22T21:19:14Z",
+    "release_wheel": "adbc_driver_redis-0.0.31-py3-none-manylinux_2_28_aarch64.whl",
+    "release_wheel_sha256": "79a7a99853597d7ecd26e90be8aef4ab6cc39b0d71c1539bf6297a0ea837ab44",
+    "checksum_verified_against_release_sidecar": true,
+    "duckdb_release": "v2.0.1",
+    "duckdb_release_published_utc": "2026-11-20T13:34:16Z",
+    "ssb_generator_revision": "219403ad7d1dd32ae1f97b5553abf92129fccd7f",
+    "ssb_queries_schema_revision": "1414741686b32bbd70c250a4056ebf38866e6a84",
+    "driver_built_from_working_tree": false,
+    "redis_software_distribution_version": "8.2.6-58",
+    "native_library_sha256": "2239e2232789f9c22d285107ac4b4fda3e3eccecd9055642a1188e2b88ed7560",
+    "host_cpu": "Apple M5 Max",
+    "host_logical_cpus": 18,
+    "host_memory_bytes": 38654705664,
+    "docker_vm_cpus": 16,
+    "docker_vm_memory_bytes": 33783865344,
+    "scale_factor": 1
+  },
+  "suites": {
+    "ssb": {
+      "expected_queries": 13,
+      "deployment": "Redis Software RAM",
+      "archive_queries_sha256": "15a530fd295ae3440fa0d3f08f1d3591be65d64eae82b342eca4df480c5aa04b",
+      "queries": [
+        {
+          "query": "1.1",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.01004170798114501,
+            0.009627833002014086,
+            0.009845959022641182
+          ],
+          "redis_seconds": [
+            1.5828029999975115,
+            1.5346379590046126,
+            1.4801811249926686
+          ],
+          "duckdb_warmup_seconds": 0.07199300001957454,
+          "redis_warmup_seconds": 3.5293025430000853,
+          "reference_rows": 1,
+          "reference_columns": 1,
+          "sql_sha256": "45d2b88f4ba850934606555ceef28f924eafab6e88c723e76b180a6ba514eca3"
+        },
+        {
+          "query": "1.2",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.007307041989406571,
+            0.005779041995992884,
+            0.017195249994983897
+          ],
+          "redis_seconds": [
+            0.7233285420225002,
+            0.7172376250091475,
+            0.7037805420113727
+          ],
+          "duckdb_warmup_seconds": 0.06116662500426173,
+          "redis_warmup_seconds": 0.7271924999949988,
+          "reference_rows": 1,
+          "reference_columns": 1,
+          "sql_sha256": "a1af155c5496482c48fda3fd06d796ed2169e1f2559ebc86d8988c7845032dde"
+        },
+        {
+          "query": "1.3",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.00464066700078547,
+            0.005168000003322959,
+            0.004489249986363575
+          ],
+          "redis_seconds": [
+            0.5315900419955142,
+            0.49570108301122673,
+            0.5287671670084819
+          ],
+          "duckdb_warmup_seconds": 0.011946916987653822,
+          "redis_warmup_seconds": 0.6167631669959519,
+          "reference_rows": 1,
+          "reference_columns": 1,
+          "sql_sha256": "aef20a7b5aa362cb60115736ac5a974a51da6bbde3a1a7b25d8ce4b1f96fcf16"
+        },
+        {
+          "query": "2.1",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.011047249980038032,
+            0.008673459000419825,
+            0.00892633301555179
+          ],
+          "redis_seconds": [
+            20.847293425991666,
+            20.713170467992313,
+            24.466315802012105
+          ],
+          "duckdb_warmup_seconds": 0.05525633299839683,
+          "redis_warmup_seconds": 22.066742551978678,
+          "reference_rows": 280,
+          "reference_columns": 3,
+          "sql_sha256": "821a6754dfcc7e56bb5a45308c62cc53ce81c673d0efda78ad491bc42719904b"
+        },
+        {
+          "query": "2.2",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.012348667019978166,
+            0.012074499973095953,
+            0.010111958021298051
+          ],
+          "redis_seconds": [
+            31.37922659801552,
+            38.04177818400785,
+            29.156645971001126
+          ],
+          "duckdb_warmup_seconds": 0.06102116600959562,
+          "redis_warmup_seconds": 22.57795425999211,
+          "reference_rows": 56,
+          "reference_columns": 3,
+          "sql_sha256": "0f5ae4f053f9c973afe83a8b29671de7eecdfe3c4c9a950d3731021e8cbcd6bd"
+        },
+        {
+          "query": "2.3",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.008150916022714227,
+            0.008320875000208616,
+            0.007618292002007365
+          ],
+          "redis_seconds": [
+            0.26246674999129027,
+            0.24010670802090317,
+            0.2501782909967005
+          ],
+          "duckdb_warmup_seconds": 0.04707570798927918,
+          "redis_warmup_seconds": 1.161464042001171,
+          "reference_rows": 7,
+          "reference_columns": 3,
+          "sql_sha256": "830f2273abe74c3122c5b746fe619b4b722677bec5b9501e95e695d675fc0ef4"
+        },
+        {
+          "query": "3.1",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.011151582992170006,
+            0.010384458990301937,
+            0.01210529200034216
+          ],
+          "redis_seconds": [
+            29.38980847102357,
+            27.791998596017947,
+            30.325212305993773
+          ],
+          "duckdb_warmup_seconds": 0.02566133299842477,
+          "redis_warmup_seconds": 22.774617176997708,
+          "reference_rows": 150,
+          "reference_columns": 4,
+          "sql_sha256": "de95c039b8bdf9a957331e3e76afabdc85c98815a1018626847e1913dc66c494"
+        },
+        {
+          "query": "3.2",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.00689079100266099,
+            0.00778316700598225,
+            0.007589417014969513
+          ],
+          "redis_seconds": [
+            1.910321124974871,
+            1.7992002090031747,
+            1.8738557089818642
+          ],
+          "duckdb_warmup_seconds": 0.036572374985553324,
+          "redis_warmup_seconds": 4.998583419015631,
+          "reference_rows": 596,
+          "reference_columns": 4,
+          "sql_sha256": "0c8db4e49a81a792a2ab1ada153fa99823aed1ba3b21e79cf79ce3c2c294bbcb"
+        },
+        {
+          "query": "3.3",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.007286167005077004,
+            0.006635833997279406,
+            0.005755582998972386
+          ],
+          "redis_seconds": [
+            0.6304789580171928,
+            0.5727219590044115,
+            0.5774684170028195
+          ],
+          "duckdb_warmup_seconds": 0.02493637500447221,
+          "redis_warmup_seconds": 0.9367048749991227,
+          "reference_rows": 24,
+          "reference_columns": 4,
+          "sql_sha256": "088db03be61b47ad6b631b054eadb9a922bd4de21a039cd0b26f22f8829781b2"
+        },
+        {
+          "query": "3.4",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.005076666013337672,
+            0.005136125022545457,
+            0.01532087498344481
+          ],
+          "redis_seconds": [
+            0.5883898340107407,
+            0.5477132090018131,
+            0.6073287920153234
+          ],
+          "duckdb_warmup_seconds": 0.008106916007818654,
+          "redis_warmup_seconds": 0.5610949590045493,
+          "reference_rows": 3,
+          "reference_columns": 4,
+          "sql_sha256": "a6792ea1215d24079a38e6454eb45b77809376b10658c3e23733badcea21cfc8"
+        },
+        {
+          "query": "4.1",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.010956665995763615,
+            0.010428875015350059,
+            0.010983999993186444
+          ],
+          "redis_seconds": [
+            30.48677126399707,
+            32.052490223024506,
+            33.3594504740031
+          ],
+          "duckdb_warmup_seconds": 0.02480654200189747,
+          "redis_warmup_seconds": 31.76299005598412,
+          "reference_rows": 35,
+          "reference_columns": 3,
+          "sql_sha256": "bc5bb020e5c0fc2c9b08ab0a65fc5644f49c88da750db64f23f377ddc98897ad"
+        },
+        {
+          "query": "4.2",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.016377041989471763,
+            0.014164041000185534,
+            0.011842042003991082
+          ],
+          "redis_seconds": [
+            25.4250384689949,
+            29.155473264021566,
+            27.662159429019084
+          ],
+          "duckdb_warmup_seconds": 0.07350254099583253,
+          "redis_warmup_seconds": 19.870036134001566,
+          "reference_rows": 100,
+          "reference_columns": 4,
+          "sql_sha256": "f85bbff201d5ebac19fe6d34e7b075fcceb4a5b4cc95ad435d9fc954925b8ed7"
+        },
+        {
+          "query": "4.3",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.020335915993200615,
+            0.04498445801436901,
+            0.01766095799393952
+          ],
+          "redis_seconds": [
+            5.593793877022108,
+            3.055898252001498,
+            2.9297782100038603
+          ],
+          "duckdb_warmup_seconds": 0.10896954202326015,
+          "redis_warmup_seconds": 6.140544128022157,
+          "reference_rows": 330,
+          "reference_columns": 4,
+          "sql_sha256": "6cff9f66fa66c8f5dac076cf87f63da33940e49814cc2b20e65ec126bbd4ed4a"
+        }
+      ],
+      "recorded_profile": {
+        "scale_factor": 1,
+        "warmups": 1,
+        "repeats": 3,
+        "statement_timeout_seconds": 60,
+        "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.36",
+        "architecture": "aarch64",
+        "client_cpus": 4,
+        "client_memory_limit_bytes": 12884901888,
+        "duckdb_memory_limit": "8GB",
+        "driver": "0.0.31",
+        "duckdb": "2.0.1",
+        "pyarrow": "26.0.1",
+        "adbc_driver_manager": "1.13.0",
+        "numeric_tolerance": {
+          "relative": 1e-07,
+          "absolute": 1e-06
+        },
+        "ordering_validation": "row multiset (duplicates preserved); output ordering not validated",
+        "server": {
+          "version": "8.8.0",
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "memory_size": 12884901888,
+          "conns": 32,
+          "sched_policy": "mnp",
+          "eviction_policy": "noeviction",
+          "shards_count": 1,
+          "bigstore": false,
+          "tls_mode": "enabled",
+          "search": {
+            "search-workers": 6,
+            "search-max-search-results": 1000000,
+            "search-max-aggregate-results": 2147483648,
+            "search-disk-memory-limit-percentage": 60,
+            "search-disk-write-buffer-min-percentage": 20,
+            "search-disk-write-buffer-per-index-mb": 3
+          }
+        }
+      }
+    },
+    "tpch": {
+      "expected_queries": 22,
+      "deployment": "Redis Software RAM",
+      "archive_queries_sha256": "71f97dd59d8e739f95a1487e05df12a73117ab1173fd98a30fcb13e0d9f72313",
+      "queries": [
+        {
+          "query": "1",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.01845733300433494,
+            0.018530750006902963,
+            0.016439875005744398
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.08334533299785107,
+          "reference_rows": 4,
+          "reference_columns": 10,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/578",
+          "sql_sha256": "8aefe77a1c97459bc69acbbcdaf3b8637d8ea22dfc3ac7be732d4446da83b69b"
+        },
+        {
+          "query": "2",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.004535332991508767,
+            0.004917042009765282,
+            0.008004791976418346
+          ],
+          "redis_seconds": [
+            12.058043047989486,
+            11.619746254000347,
+            11.2787750060088
+          ],
+          "duckdb_warmup_seconds": 0.03105520800454542,
+          "redis_warmup_seconds": 13.610075756994775,
+          "reference_rows": 100,
+          "reference_columns": 8,
+          "sql_sha256": "a2219893f952dd2a2586ab297d909ec2d440faabb5e692f24880158aa6877344"
+        },
+        {
+          "query": "3",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.009516041987808421,
+            0.010647999995853752,
+            0.009363290999317542
+          ],
+          "redis_seconds": [
+            59.67391265198239,
+            56.327994900988415
+          ],
+          "duckdb_warmup_seconds": 0.06741112499730662,
+          "redis_warmup_seconds": 56.827067110018106,
+          "reference_rows": 10,
+          "reference_columns": 4,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/579",
+          "sql_sha256": "1f120d790d4914652cbf3fbc0fa28ed6573e4adee61ae7164a8c3d99b7c6b7fe"
+        },
+        {
+          "query": "4",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.01588074999745004,
+            0.011850667011458427,
+            0.027571374987019226
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.11932683398481458,
+          "reference_rows": 5,
+          "reference_columns": 2,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/580",
+          "sql_sha256": "2a2be89752fc917bc71e1a59168ead9d00d40c40ea0bbe646206e414b372f888"
+        },
+        {
+          "query": "5",
+          "outcome": "process_failure",
+          "duckdb_seconds": [
+            0.014534582995111123,
+            0.012494499998865649,
+            0.014516750001348555
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.06774983298964798,
+          "reference_rows": 5,
+          "reference_columns": 2,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/581",
+          "sql_sha256": "495def7debb02ab1def31da07fbc88b4796813b754832ce15d54a35dcb104577"
+        },
+        {
+          "query": "6",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.007659124996280298,
+            0.0066132909851148725,
+            0.007721917005255818
+          ],
+          "redis_seconds": [
+            6.601320668996777,
+            5.0534928779816255,
+            2.3896155430120416
+          ],
+          "duckdb_warmup_seconds": 0.05844595798407681,
+          "redis_warmup_seconds": 9.04760525401798,
+          "reference_rows": 1,
+          "reference_columns": 1,
+          "sql_sha256": "3638535fb92a6026b3359a2ad9e6ed7da9ad9080152513e6fd3818d1a853c29f"
+        },
+        {
+          "query": "7",
+          "outcome": "process_failure",
+          "duckdb_seconds": [
+            0.018800250021740794,
+            0.015037790988571942,
+            0.013171750004403293
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.08664620900526643,
+          "reference_rows": 4,
+          "reference_columns": 4,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/582",
+          "sql_sha256": "5e8077121a42ca8ebf5ff54e5842a614e839da945b0331e3b63d9ccad2361201"
+        },
+        {
+          "query": "8",
+          "outcome": "process_failure",
+          "duckdb_seconds": [
+            0.017471875005867332,
+            0.01727833299082704,
+            0.017504749994259328
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.1198614579916466,
+          "reference_rows": 2,
+          "reference_columns": 2,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/583",
+          "sql_sha256": "948338f54b97a2c49aea15f8c4d609ecf244d00ad7754edcea60b4748504a1ce"
+        },
+        {
+          "query": "9",
+          "outcome": "process_failure",
+          "duckdb_seconds": [
+            0.04179241700330749,
+            0.03275050001684576,
+            0.03300662501715124
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.15254045801702887,
+          "reference_rows": 175,
+          "reference_columns": 3,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/584",
+          "sql_sha256": "af90ccbe30ece396209e6627c10c0086ed54208100357922ee404de8bb867e56"
+        },
+        {
+          "query": "10",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.03207083299639635,
+            0.06555491700419225,
+            0.04096724998089485
+          ],
+          "redis_seconds": [
+            31.320357680000598,
+            37.69119201798458,
+            43.33094476899714
+          ],
+          "duckdb_warmup_seconds": 0.08264745798078366,
+          "redis_warmup_seconds": 31.72024843201507,
+          "reference_rows": 20,
+          "reference_columns": 8,
+          "sql_sha256": "0b48b00cffa3776b32e67e9041191dea25095e2a952ee5251990b9c8585031ed"
+        },
+        {
+          "query": "11",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.00800820899894461,
+            0.007115250016795471,
+            0.008527666999725625
+          ],
+          "redis_seconds": [
+            0.925290417013457,
+            0.8823350419988856,
+            0.8296644589863718
+          ],
+          "duckdb_warmup_seconds": 0.02325470800860785,
+          "redis_warmup_seconds": 3.233261585002765,
+          "reference_rows": 1048,
+          "reference_columns": 2,
+          "sql_sha256": "f313c766fac507c1204fb6f2bacd35719a61a11c0f69601302555150dddeda78"
+        },
+        {
+          "query": "12",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.013696375011932105,
+            0.012298125016968697,
+            0.012375999998766929
+          ],
+          "redis_seconds": [
+            23.778658719995292,
+            33.07764747401234,
+            30.904746388987405
+          ],
+          "duckdb_warmup_seconds": 0.045970333012519404,
+          "redis_warmup_seconds": 25.99226492800517,
+          "reference_rows": 2,
+          "reference_columns": 3,
+          "sql_sha256": "3814c9f4b7a476ee894c477d43cedb299603b1ed0f5315790d52839c8da355bf"
+        },
+        {
+          "query": "13",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.04751345800468698,
+            0.05194520900840871,
+            0.05493437498807907
+          ],
+          "redis_seconds": [
+            30.626946055010194,
+            28.83576876297593,
+            25.20416438599932
+          ],
+          "duckdb_warmup_seconds": 0.07994587498251349,
+          "redis_warmup_seconds": 32.79356430700864,
+          "reference_rows": 42,
+          "reference_columns": 2,
+          "sql_sha256": "4a4a0b2c5646b2cad8f220a8f4b73ccb9f0acd45542353d63c18a69227bc20a3"
+        },
+        {
+          "query": "14",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.014436042023589835,
+            0.013980666000861675,
+            0.012653584009967744
+          ],
+          "redis_seconds": [
+            3.879918627004372,
+            4.015023710002424,
+            5.87884866798413
+          ],
+          "duckdb_warmup_seconds": 0.09835691700573079,
+          "redis_warmup_seconds": 9.567060795990983,
+          "reference_rows": 1,
+          "reference_columns": 1,
+          "sql_sha256": "e7ec7960a4c49219fc76dc03495a1530aeb30c796413dd1dc9d501b86934f222"
+        },
+        {
+          "query": "15",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.012606333999428898,
+            0.013240000000223517,
+            0.007272749993717298
+          ],
+          "redis_seconds": [
+            5.939035127987154,
+            6.465459002996795,
+            6.991576711006928
+          ],
+          "duckdb_warmup_seconds": 0.09158929198747501,
+          "redis_warmup_seconds": 9.435120670998003,
+          "reference_rows": 1,
+          "reference_columns": 5,
+          "sql_sha256": "1cb57383eeff60261a1b4b2a141c71d8672729d743a7dfa74d9a4bcaf69c44d4"
+        },
+        {
+          "query": "16",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.021716207993449643,
+            0.025468667008681223,
+            0.018457750004017726
+          ],
+          "redis_seconds": [
+            6.880728336022003,
+            6.45111704498413,
+            6.960598669014871
+          ],
+          "duckdb_warmup_seconds": 0.11845275000086986,
+          "redis_warmup_seconds": 10.332292545994278,
+          "reference_rows": 18314,
+          "reference_columns": 4,
+          "sql_sha256": "45085e7672cb1500e625e048156fc55369e7a9bc91fd3647c3f7735a870c3ef8"
+        },
+        {
+          "query": "17",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.011262208019616082,
+            0.02246775000821799,
+            0.011984540993580595
+          ],
+          "redis_seconds": [
+            0.6254624169960152,
+            0.7044730009802151,
+            0.8154395420278888
+          ],
+          "duckdb_warmup_seconds": 0.06177395800477825,
+          "redis_warmup_seconds": 2.575301959994249,
+          "reference_rows": 1,
+          "reference_columns": 1,
+          "sql_sha256": "dfc7f00ac8a500c2ac2735b05b41b462bbe4af9ce7cd6c37e42d1bb9df4a02e1"
+        },
+        {
+          "query": "18",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.040611666976474226,
+            0.034670624998398125,
+            0.04289700000663288
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.061076832993421704,
+          "reference_rows": 57,
+          "reference_columns": 6,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/585",
+          "sql_sha256": "8c5076061727d974f96708f0da930fc58843eac297a80c7ad658d64d152a19bb"
+        },
+        {
+          "query": "19",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.010760624980321154,
+            0.00965012499364093,
+            0.00990079197799787
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.05960599999525584,
+          "reference_rows": 1,
+          "reference_columns": 1,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/586",
+          "sql_sha256": "341f97d1f74deb30aca2a8b0ee849772a3b0e098a06cf12266c63573cb985478"
+        },
+        {
+          "query": "20",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.017745166987879202,
+            0.016134458011947572,
+            0.015529666998190805
+          ],
+          "redis_seconds": [
+            36.50924285099609,
+            39.97763381002005,
+            38.43754885098315
+          ],
+          "duckdb_warmup_seconds": 0.10607483398052864,
+          "redis_warmup_seconds": 43.489016435982194,
+          "reference_rows": 186,
+          "reference_columns": 2,
+          "sql_sha256": "fa96ad5cb897bf31ec9b96a6b2a0d1f7132e71e2f481321e6db16628bc3e5fd5"
+        },
+        {
+          "query": "21",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.024017208022996783,
+            0.022246209002332762,
+            0.02202562498860061
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.043320750002749264,
+          "reference_rows": 100,
+          "reference_columns": 2,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/587",
+          "sql_sha256": "b29463f30a64e45a795047ee6e557e6c3c1f01fc612acc997873594048e74b59"
+        },
+        {
+          "query": "22",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.012757833988871425,
+            0.012478624994400889,
+            0.012350792007055134
+          ],
+          "redis_seconds": [
+            12.607767921988852,
+            12.062821422005072,
+            12.066876839002362
+          ],
+          "duckdb_warmup_seconds": 0.020291042019380257,
+          "redis_warmup_seconds": 13.999965298018651,
+          "reference_rows": 7,
+          "reference_columns": 3,
+          "sql_sha256": "d8ed6332e75f9193391000ba071e17adcf735a2d99c5a4da0f7c13d695ccbd42"
+        }
+      ],
+      "recorded_profile": {
+        "scale_factor": 1,
+        "warmups": 1,
+        "repeats": 3,
+        "statement_timeout_seconds": 60,
+        "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.36",
+        "architecture": "aarch64",
+        "client_cpus": 4,
+        "client_memory_limit_bytes": 8589934592,
+        "duckdb_memory_limit": "8GB",
+        "driver": "0.0.31",
+        "duckdb": "2.0.1",
+        "pyarrow": "26.0.1",
+        "adbc_driver_manager": "1.13.0",
+        "numeric_tolerance": {
+          "relative": 1e-07,
+          "absolute": 1e-06
+        },
+        "ordering_validation": "row multiset (duplicates preserved); output ordering not validated",
+        "server": {
+          "version": "8.8.0",
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "memory_size": 19327352832,
+          "conns": 32,
+          "sched_policy": "mnp",
+          "eviction_policy": "noeviction",
+          "shards_count": 1,
+          "bigstore": false,
+          "tls_mode": "enabled",
+          "search": {
+            "search-workers": 6,
+            "search-max-search-results": 1000000,
+            "search-max-aggregate-results": 2147483648,
+            "search-disk-memory-limit-percentage": 60,
+            "search-disk-write-buffer-min-percentage": 20,
+            "search-disk-write-buffer-per-index-mb": 3
+          }
+        }
+      }
+    },
+    "tpcds": {
+      "expected_queries": 99,
+      "deployment": "Redis Software Flex experimental",
+      "archive_queries_sha256": "4a681e2471157c206f0dddfd2f947071d3adf25029bc2916376d008d554154f6",
+      "queries": [
+        {
+          "query": "1",
+          "outcome": "validated",
+          "duckdb_seconds": [
+            0.013725541008170694,
+            0.016888000012841076,
+            0.009918416006257758
+          ],
+          "redis_seconds": [
+            26.21544234501198,
+            9.805355338001391,
+            8.770280962984543
+          ],
+          "duckdb_warmup_seconds": 0.07260824998957105,
+          "redis_warmup_seconds": 59.00440535999951,
+          "reference_rows": 100,
+          "reference_columns": 1,
+          "sql_sha256": "4bb3e9f7f14954669ce4c685eda1caf89f112ce1bedb5c7275318fbfd73e97f2"
+        },
+        {
+          "query": "2",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.016832082998007536,
+            0.014806332997977734,
+            0.014632334001362324
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.038929833011934534,
+          "reference_rows": 2513,
+          "reference_columns": 8,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/588",
+          "sql_sha256": "20de387d99e0ea6ef34cc333d29021862887e413fb29f492d6f4d79f86817d1c"
+        },
+        {
+          "query": "3",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.011344666010700166,
+            0.010182124999118969,
+            0.006779165996704251
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.09684995899442583,
+          "reference_rows": 89,
+          "reference_columns": 4,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/589",
+          "sql_sha256": "aa90e325656bd08a5ffab30ef660c6fce06e856c2f7975562e221562f5054c36"
+        },
+        {
+          "query": "4",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.08243733301060274,
+            0.07621112500783056,
+            0.0701986660133116
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.38970174998394214,
+          "reference_rows": 8,
+          "reference_columns": 4,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/590",
+          "sql_sha256": "97c5894b2651a60ffe18177af6072bc8afd0e50a8f0000699974da771ceeffd3"
+        },
+        {
+          "query": "5",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.012863707990618423,
+            0.011706541001331061,
+            0.010768915992230177
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.060975666012382135,
+          "reference_rows": 100,
+          "reference_columns": 5,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/591",
+          "sql_sha256": "228fb8f1a69c0899ced8c696d0da63ea1ac712eba99c77d85b490dd76038e84f"
+        },
+        {
+          "query": "6",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.010034167004050687,
+            0.010962083004415035,
+            0.01494495800579898
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.04153275000862777,
+          "reference_rows": 45,
+          "reference_columns": 2,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/592",
+          "sql_sha256": "5461b610eb2c3101167f3a0f18dc05fdccdef1763b46816a2b4105f1ebc070b9"
+        },
+        {
+          "query": "7",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.022966332995565608,
+            0.020676290994742885,
+            0.021583749999990687
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.07487158401636407,
+          "reference_rows": 100,
+          "reference_columns": 5,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/593",
+          "sql_sha256": "3a43a0860a86b6f0d6ee182d05b41b1b8422d267e8c35a3fc8d8f9907d406b98"
+        },
+        {
+          "query": "8",
+          "outcome": "process_failure",
+          "duckdb_seconds": [
+            0.016723459004424512,
+            0.017051750008249655,
+            0.014575166016584262
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.056622333999257535,
+          "reference_rows": 5,
+          "reference_columns": 2,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/594",
+          "sql_sha256": "657f0e625b26009d6ec73d9d09ac32687209af63a3e9f78d2de777833216b5b9"
+        },
+        {
+          "query": "9",
+          "outcome": "timeout",
+          "duckdb_seconds": [
+            0.04483479101327248,
+            0.03339179200702347,
+            0.031292625004425645
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.12741787498816848,
+          "reference_rows": 1,
+          "reference_columns": 5,
+          "issue_url": "https://github.com/redis/redis-adbc-driver/issues/595",
+          "sql_sha256": "4ade220d4638a72b363f69a9c6b8e3ae546a8dd684f9455e79256fd37dc9a52c"
+        },
+        {
+          "query": "10",
+          "outcome": "interrupted",
+          "duckdb_seconds": [
+            0.012805332982679829,
+            0.010268749989336357,
+            0.010377124999649823
+          ],
+          "redis_seconds": [],
+          "duckdb_warmup_seconds": 0.038040999992517754,
+          "reference_rows": 5,
+          "reference_columns": 14,
+          "sql_sha256": "d4199508dbc233b3d7b877001645beeafb4699677b6efc1d7d464d653662d42b"
+        }
+      ],
+      "recorded_profile": {
+        "scale_factor": 1,
+        "warmups": 1,
+        "repeats": 3,
+        "statement_timeout_seconds": 60,
+        "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.36",
+        "architecture": "aarch64",
+        "client_cpus": 4,
+        "client_memory_limit_bytes": 8589934592,
+        "duckdb_memory_limit": "8GB",
+        "driver": "0.0.31",
+        "duckdb": "2.0.1",
+        "pyarrow": "26.0.1",
+        "adbc_driver_manager": "1.13.0",
+        "numeric_tolerance": {
+          "relative": 1e-07,
+          "absolute": 1e-06
+        },
+        "ordering_validation": "row multiset (duplicates preserved); output ordering not validated",
+        "server": {
+          "version": "8.8.0",
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "memory_size": 68719476736,
+          "conns": 32,
+          "sched_policy": "mnp",
+          "eviction_policy": "noeviction",
+          "shards_count": 1,
+          "bigstore": true,
+          "tls_mode": "enabled",
+          "bigstore_ram_size": 8589934592,
+          "search": {
+            "search-workers": 6,
+            "search-max-search-results": 1000000,
+            "search-max-aggregate-results": 2147483648,
+            "search-disk-memory-limit-percentage": 8,
+            "search-disk-write-buffer-min-percentage": 2,
+            "search-disk-write-buffer-per-index-mb": 3
+          }
+        }
+      }
+    }
+  }
+}
