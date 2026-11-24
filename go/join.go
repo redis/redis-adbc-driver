@@ -466,7 +466,7 @@ func (jp *joinPlan) planPushdown(where Expr) {
 	if where == nil {
 		return
 	}
-	for _, c := range conjuncts(where, nil) {
+	for _, c := range jp.pushdownConjuncts(where) {
 		idx, ok := jp.itemsOf(c)
 		if !ok || len(idx) == 0 {
 			continue
