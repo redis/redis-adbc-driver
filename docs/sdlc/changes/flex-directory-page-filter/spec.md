@@ -31,3 +31,5 @@ requirements. Pure mocked-transport tests cannot establish those claims.
 ## Final production route
 
 This record describes the preceding page-filter implementation and its unit-tested helpers. The production query route in this PR is superseded by [complete bounded candidates](../flex-complete-candidates/spec.md), which reuses these conservative eligibility/index-proof helpers. Broad or unsupported scans retain the original exact-directory path **without** per-page membership probes. The standalone page-filter primitive remains covered by focused tests; it is not installed as the production fallback.
+
+Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).

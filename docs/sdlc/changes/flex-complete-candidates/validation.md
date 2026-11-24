@@ -38,3 +38,5 @@ env -u REDIS_URI GOMAXPROCS=2 go test -p 1 -count=1 ./...
 ```
 
 All Go packages passed; root package test runtime was 28.355 seconds. Real Redis integration tests were not run; applicable integration skips with `REDIS_URI` unset are not compatibility evidence. `git diff --check` and local change-record links passed. The extracted Go files match the reviewed combined artifact byte for byte, and standalone compilation/tests establish that no omitted join/CTE/UNION source is a compile dependency. Publication CI results are recorded on the PR. Human maintainer review remains pending. No live SQL/container runs are performed by the publication task.
+
+Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).

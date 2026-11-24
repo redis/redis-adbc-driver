@@ -15,3 +15,5 @@ is a candidate optimization, not evidence that any benchmark issue is fixed.
 No full benchmark restart, cloud provisioning, or metadata migration is included.
 
 See [specification](spec.md), [plan and evidence](plan.md). Related issues: [TPC-DS Q3 #589](https://github.com/redis/redis-adbc-driver/issues/589), [Q2 #588](https://github.com/redis/redis-adbc-driver/issues/588), [Q4 #590](https://github.com/redis/redis-adbc-driver/issues/590), [Q5 #591](https://github.com/redis/redis-adbc-driver/issues/591), and [Q9 #595](https://github.com/redis/redis-adbc-driver/issues/595).
+
+Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).

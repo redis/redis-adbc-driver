@@ -22,3 +22,5 @@ review found no remaining actionable finding; independent review is pending.
 No SQL, real Redis, containers, pushes, external messages, benchmark timings,
 or issue status changes were performed. No live performance or correctness
 claim follows from mocked transport tests.
+
+Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).

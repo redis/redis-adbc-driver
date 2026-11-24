@@ -25,3 +25,5 @@ No Redis or SQL execution, Docker
 operations, performance measurements, publication, or issue-status changes were
 performed by this change's implementation agent. The unresolved live-validation
 and independent review requirements prevent claiming a benchmark fix today.
+
+Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).

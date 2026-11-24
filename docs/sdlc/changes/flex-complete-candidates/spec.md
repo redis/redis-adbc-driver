@@ -41,3 +41,5 @@ refusal with confirmed surrounding index proofs permits capability fallback;
 wrapped/joined errors, ACL, transport, stale identity, or partial replies fail
 closed. No native snapshotIndexable guard, metadata layout, public option, SQL
 source, or field mapping changes.
+
+Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).
