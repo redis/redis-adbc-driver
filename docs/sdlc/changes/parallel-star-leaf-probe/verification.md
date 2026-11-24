@@ -51,3 +51,5 @@ whole-query win. Q4 remains unresolved and is being profiled; no issue closure
 or full benchmark restart follows from this PR.
 
 All endpoint-free unit packages pass on this clean publication branch: `env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=2 go test -count=1 -p 1 ./...` (root package 30.414s). Redis-dependent skips are not live compatibility evidence. Formatting/diff checks pass.
+
+Focused endpoint-free race check also passed (1.864s): `env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=2 go test -race -count=1 -p 1 -run '^TestStarLeafProbe' .`.
