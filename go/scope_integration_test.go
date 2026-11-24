@@ -168,8 +168,12 @@ func TestSQLAliasScopeSubqueryPaths(t *testing.T) {
 	semi(h.expectWork(`SELECT id FROM it_sc.e WHERE (k, v) IN (SELECT x.k, x.v - 10 FROM it_sc.e x WHERE x.id - 1 = e.id)
 		ORDER BY id`, "1", "2", "4"), "row IN")
 
-	// x.v > e.v keeps it per row: once per distinct (k, v) of the outer rows.
-	w := h.expectWork(`SELECT id FROM it_sc.e WHERE EXISTS (SELECT 1 FROM it_sc.e x WHERE x.k = e.k AND x.v > e.v) ORDER BY id`,
+	// x.v > e.v compares an inner column with an outer one of the same class:
+	// the semi-join evaluates it on the group of x.k = e.k (semiResidual).
+	semi(h.expectWork(`SELECT id FROM it_sc.e WHERE EXISTS (SELECT 1 FROM it_sc.e x WHERE x.k = e.k AND x.v > e.v) ORDER BY id`,
+		"1", "2", "4"), "EXISTS with a residual comparison")
+	// x.v > e.v + 0 keeps it per row: once per distinct (k, v) of the outer rows.
+	w := h.expectWork(`SELECT id FROM it_sc.e WHERE EXISTS (SELECT 1 FROM it_sc.e x WHERE x.k = e.k AND x.v > e.v + 0) ORDER BY id`,
 		"1", "2", "4")
 	if w.semiJoins != 0 || w.runs != 5 {
 		t.Errorf("per-row EXISTS: %+v, want 5 runs and no semi-join", w)

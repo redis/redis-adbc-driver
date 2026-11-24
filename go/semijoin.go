@@ -26,10 +26,14 @@ package redis
 //     semi-join: without those conjuncts, projecting their inner sides (and,
 //     for IN, its value), grouped by those keys in a hash table that each
 //     outer row probes. NOT EXISTS and NOT IN are the negation and [NOT] IN's
-//     own logic over the matching group. A small inner side is read up front
-//     (and can then filter the outer table in its index); a large one only
-//     once running per outer row has cost about as much, so that a few outer
-//     rows don't pay for reading all of it. Anything else (other correlation,
+//     own logic over the matching group. An EXISTS body may also compare
+//     inner columns with outer columns of the same class (`l2.l_suppkey <>
+//     l1.l_suppkey`, TPC-H Q21): its group keeps those inner values, and
+//     some row of the group must make every such comparison TRUE. A small
+//     inner side is read up front (and can then filter the outer table in
+//     its index); a large one is probed a page of outer rows at a time, or
+//     read once running per outer row has cost about as much, so that a few
+//     outer rows don't pay for reading all of it. Anything else (other correlation,
 //     aggregates, LIMIT, keys of different types, …) runs per outer row,
 //     memoised.
 
@@ -287,13 +291,89 @@ func (e *executor) cachedInSet(sq *Subquery, rows [][]Value) *inSet {
 type semiJoin struct {
 	// plan is the subquery without its correlation conjuncts. Its first
 	// len(outer) items are their inner sides; for IN, the subquery's value
-	// (or values, for a row IN) follows.
+	// (or values, for a row IN) follows; for EXISTS, the inner columns of
+	// resid follow.
 	plan *selectPlan
 	// outer are the outer columns the keys are compared with, and types their
 	// types. Keys and outer values must be of the same class (and time unit),
 	// where comparing them never fails and equal keys mean equal values.
 	outer []outerRef
 	types []ColType
+	// resid are an EXISTS body's other correlation conjuncts, each comparing
+	// an inner column with an outer column (TPC-H Q21's `l2.l_suppkey <>
+	// l1.l_suppkey`). They are evaluated on the rows of the outer row's group.
+	resid []semiResidual
+}
+
+// semiResidual is a correlation conjunct `inner op outer` (or `outer op
+// inner`) of a decorrelated EXISTS. Both sides are columns of the same class,
+// so comparing them never fails; it is evaluated by binaryOp, as the per-row
+// path evaluates it.
+type semiResidual struct {
+	op        string
+	col       int // the inner column's item in plan
+	outer     outerRef
+	typ       ColType // the outer column's type
+	innerLeft bool    // the inner column is the left operand
+}
+
+// semiResidualConjunct returns a conjunct's comparison of an inner column with
+// an immediately enclosing query's column (not `=`, which is a key pair).
+func semiResidualConjunct(c Expr) (op string, inner, outer *ColumnRef, innerLeft, ok bool) {
+	b, isBinary := c.(*Binary)
+	if !isBinary || b.nested || b.Op == "=" || !isComparison(b.Op) {
+		return "", nil, nil, false, false
+	}
+	l, lok := b.L.(*ColumnRef)
+	r, rok := b.R.(*ColumnRef)
+	if !lok || !rok || l.whole != nil || r.whole != nil || l.outerAgg != nil || r.outerAgg != nil {
+		return "", nil, nil, false, false
+	}
+	switch {
+	case l.Outer == 0 && r.Outer == 1:
+		return b.Op, l, r, true, true
+	case l.Outer == 1 && r.Outer == 0:
+		return b.Op, r, l, false, true
+	}
+	return "", nil, nil, false, false
+}
+
+// residualsHold reports whether every residual conjunct is TRUE for an inner
+// row, given the outer values (NULL compares as NULL, never TRUE). ok is
+// false when a comparison fails, which same-class columns never do; the
+// per-row path then reports the original outcome.
+func (sj *semiJoin) residualsHold(row []Value, outer []Value, z tzZone) (hold, ok bool) {
+	for i, rc := range sj.resid {
+		l, r := row[rc.col], outer[i]
+		if !rc.innerLeft {
+			l, r = r, l
+		}
+		v, err := binaryOp(rc.op, l, r, z)
+		if err != nil {
+			return false, false
+		}
+		if b, valid := truthy(v); !valid || !b {
+			return false, true
+		}
+	}
+	return true, true
+}
+
+// residualOuter returns an outer row's values for the residual conjuncts; ok
+// is false when a value is not of its planned class.
+func (sj *semiJoin) residualOuter(lookup func(outerRef) (Value, error)) ([]Value, bool, error) {
+	out := make([]Value, len(sj.resid))
+	for i, rc := range sj.resid {
+		v, err := lookup(rc.outer)
+		if err != nil {
+			return nil, false, err
+		}
+		if !v.Null && !sameEqClass(v.T, rc.typ) {
+			return nil, false, nil
+		}
+		out[i] = v
+	}
+	return out, true, nil
 }
 
 // sameEqClass reports whether values of types a and b compare by their eqKey
@@ -324,7 +404,9 @@ func semiKey(v Value, t ColType) (string, bool) {
 
 // planSemiJoin plans sq (a planned, correlated subquery) as a semi-join when
 // that gives the same result: every outer reference in its body is the outer
-// side of a top-level `inner = outer` conjunct of its WHERE, the body has no
+// side of a top-level `inner = outer` conjunct of its WHERE (for EXISTS, with
+// at least one such conjunct, also of a top-level comparison of an inner
+// column with an outer column of the same class), the body has no
 // aggregates, GROUP BY, HAVING, window functions, OFFSET or (for IN) LIMIT,
 // and the inner and outer sides of each conjunct are of the same class.
 // EXISTS also requires a plain select list (columns, literals, *), which it
@@ -379,7 +461,13 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 		inner Expr
 		outer *ColumnRef
 	}
+	type residual struct {
+		op           string
+		inner, outer *ColumnRef
+		innerLeft    bool
+	}
 	var pairs []pair
+	var resid []residual
 	var rest []Expr
 	for _, c := range conjuncts(sel.Where, nil) {
 		if b, ok := c.(*Binary); ok && b.Op == "=" {
@@ -392,12 +480,18 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 				continue
 			}
 		}
+		if sq.Kind == SubqueryExists {
+			if op, inner, outer, innerLeft, ok := semiResidualConjunct(c); ok {
+				resid = append(resid, residual{op: op, inner: inner, outer: outer, innerLeft: innerLeft})
+				continue
+			}
+		}
 		rest = append(rest, c)
 	}
-	// Each pair holds one outer reference; any other (in the inner sides, the
-	// other conjuncts, the select list, ORDER BY, JOIN … ON or a nested
-	// subquery) keeps the per-row path.
-	if len(pairs) == 0 || sq.outerUses != len(pairs) {
+	// Each pair and residual holds one outer reference; any other (in the
+	// inner sides, the other conjuncts, the select list, ORDER BY, JOIN … ON
+	// or a nested subquery) keeps the per-row path.
+	if len(pairs) == 0 || sq.outerUses != len(pairs)+len(resid) {
 		return
 	}
 	dsel := &SelectStmt{With: sel.With, Joins: sel.Joins, From: sel.From, FromSelect: sel.FromSelect, FromGroup: sel.FromGroup,
@@ -407,6 +501,9 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 	}
 	if sq.Kind == SubqueryIn {
 		dsel.Items = append(dsel.Items, sel.Items...)
+	}
+	for _, rc := range resid {
+		dsel.Items = append(dsel.Items, SelectItem{Expr: rc.inner})
 	}
 	// Plan it with no enclosing scopes: it reads nothing from the outer row.
 	savedScopes, savedSq := e.scopes, e.pendingSq
@@ -423,6 +520,14 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 		}
 		sj.outer = append(sj.outer, outerRef{name: p.outer.Name})
 		sj.types = append(sj.types, p.outer.OuterType)
+	}
+	for j, rc := range resid {
+		col := len(pairs) + j
+		if !sameEqClass(dplan.items[col].typ, rc.outer.OuterType) {
+			return
+		}
+		sj.resid = append(sj.resid, semiResidual{op: rc.op, col: col, outer: outerRef{name: rc.outer.Name},
+			typ: rc.outer.OuterType, innerLeft: rc.innerLeft})
 	}
 	sq.semi = sj
 }
@@ -507,6 +612,11 @@ func (sj *semiJoin) semiRowKey(lookup func(outerRef) (Value, error)) (key string
 // 0.41 ms/key at 250 and 0.60 ms/key at 1,000 keys of four rows each).
 const semiProbeKeys = 256
 
+// semiProbePage is how many in-memory rows (a join's, see scanMem) one
+// probeSemiJoin call reads the groups of; the batches stay bounded by
+// semiProbeKeys.
+const semiProbePage = 4096
+
 // probeSemiJoin reads the complete inner groups of a page of outer rows, in
 // batches of at most semiProbeKeys distinct first-key values. Each batch is
 // the decorrelated body with `inner = v1 OR …`, a union on the indexed inner
@@ -582,7 +692,9 @@ func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[s
 		}
 	}
 	n := len(sj.outer)
-	isIn := sq.Kind == SubqueryIn
+	// IN and residual EXISTS evaluate the group's rows; plain EXISTS only
+	// needs the key.
+	keepRows := sq.Kind == SubqueryIn || len(sj.resid) > 0
 	for start := 0; start < len(firstValues); start += semiProbeKeys {
 		if err := cancelled(ctx); err != nil {
 			return // the evaluation itself reports cancellation
@@ -639,7 +751,7 @@ func (e *executor) probeSemiJoin(ctx context.Context, sq *Subquery, rows []map[s
 				continue
 			}
 			g, ok := r.groups[string(buf)]
-			if isIn {
+			if keepRows {
 				if !ok {
 					g = &inSet{col: n, zone: e.zone()}
 					r.groups[string(buf)] = g
@@ -765,7 +877,7 @@ next:
 				r.groups[string(buf)] = nil
 			}
 			rg.rows = append(rg.rows, row)
-		} else if sq.Kind == SubqueryIn {
+		} else if sq.Kind == SubqueryIn || len(sj.resid) > 0 {
 			if !ok {
 				g = &inSet{col: n, zone: e.zone()}
 				r.groups[string(buf)] = g
@@ -812,7 +924,26 @@ func (e *executor) evalSemiJoin(env *evalEnv, sq *Subquery) (Value, bool, error)
 		g, found = r.groups[key]
 	}
 	if sq.Kind == SubqueryExists {
-		return boolValue(found), true, nil
+		if !found || len(sj.resid) == 0 {
+			return boolValue(found), true, nil
+		}
+		// Some row of the group must make every residual conjunct TRUE.
+		outer, ok, err := sj.residualOuter(func(ref outerRef) (Value, error) { return env.lookupUp(ref.name, ref.up) })
+		if err != nil {
+			return Value{}, false, err
+		}
+		if !ok {
+			return Value{}, false, nil
+		}
+		exists := false
+		for _, row := range g.rows {
+			hold, ok := sj.residualsHold(row, outer, env.zone())
+			if !ok {
+				return Value{}, false, nil
+			}
+			exists = exists || hold
+		}
+		return boolValue(exists), true, nil
 	}
 	if rowX, ok := sq.X.(*RowExpr); ok {
 		x, err := env.evalItems(rowX.Items)
