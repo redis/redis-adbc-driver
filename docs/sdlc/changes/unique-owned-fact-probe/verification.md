@@ -34,6 +34,9 @@ extraction; they do not establish that the extracted public head passed.
 The clean-public change is stacked on public #620 and targets main. #620 supplies
 the coordinator ownership marker/representative optimization. Source extraction
 copies only this allocation change, its focused tests and these SDLC records;
-it introduces no private investigation ancestors. Current clean-public unit/race
-checks are pending; publication is held until they pass. No live query has tested
+it introduces no private investigation ancestors. Current clean-public focused race checks passed (4.901s); all endpoint-free unit
+packages passed (root package 30.678s), with GOMAXPROCS=2, GOMEMLIMIT=768MiB,
+-p 1 and -count=1. Formatting, diff and local SDLC link checks passed. An
+independent agent static review found no demonstrated blocker; that review is
+not human maintainer approval. No live query has tested
 this exact public delta, and no Q4 resolution or whole-query speedup is claimed.
