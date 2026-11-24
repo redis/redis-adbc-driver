@@ -10,3 +10,5 @@ See [intent](intent.md), [specification](spec.md), [validation](validation.md).
 5. Run focused and full unit-only checks, inspect source/alias/error/snapshot boundaries, and request an additional independent agent review. Publish as a **draft**, with human review and live issue-targeted verification pending.
 
 Future work is separate: a page-oriented deferred UNION scan API and immutable physical-row bounds may support aggregate consumers without retaining the full fact output. They must preserve later-source versus consumer-error order, aliases, full residuals and snapshot proofs. No streaming files or aggregate hook from that follow-up are included here. Full suites remain stopped.
+
+Draft implementation: [PR #606](https://github.com/redis/redis-adbc-driver/pull/606).

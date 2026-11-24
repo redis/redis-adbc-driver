@@ -7,3 +7,5 @@ See [specification](spec.md), [plan](plan.md), [validation and review](validatio
 Eligible derived/CTE UNION ALL sources currently materialize full branch outputs before their selective parent joins can restrict them. Defer only provably safe single-consumer sources so typed necessary join-key restrictions can reach branch reads. Allow small stable dimensions to be collected before a connected deferred UNION when a conservative product estimate fits the same key-demand bound. Retain real joins, duplicate multiplicity, the complete residual and statement snapshots.
 
 This is a separate stacked optimizer draft. It contains no Flex candidate/directory, snapshot storage, parallel aggregate or scalar residual changes. No full benchmark restart or SQL-specific names, dates or rewrites are authorized by this change. A streaming UNION/aggregate follow-up is outside this draft.
+
+Draft implementation: [PR #606](https://github.com/redis/redis-adbc-driver/pull/606).

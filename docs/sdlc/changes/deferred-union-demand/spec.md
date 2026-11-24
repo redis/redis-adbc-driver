@@ -20,3 +20,5 @@ The ordering rule runs only in the existing all-inner, non-lateral reorder path.
 Join qualification and explicit derived column aliases clone the lazy output mapping and rename by position, without mutating cached originals. Every branch and projection wrapper observes the final consumer column names. The independent alias regression exposed stale output keys when metadata had been renamed while the lazy map retained old names; `renameColumns` now clones/remaps both together.
 
 Do not push a consumer year predicate through a shared weekly aggregate. Weeks spanning years require all facts in the selected weeks; any future shared-demand optimization must combine requested week keys across consumers while preserving dimension multiplicity. This draft does not implement it. The LEFT-joined web-return UNION branch of Q5 remains ineligible. No Q2/Q5 fix claim follows from unit tests.
+
+Draft implementation: [PR #606](https://github.com/redis/redis-adbc-driver/pull/606).
