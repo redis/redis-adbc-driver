@@ -1,6 +1,6 @@
 # Specification
 
-Date: 2026-11-23. Public baseline: `760d1c8a6e91391b4ff4ceb13ec1b764fa012bd9`. Status: local candidate.
+Date: 2026-11-23. Public baseline: `760d1c8a6e91391b4ff4ceb13ec1b764fa012bd9`. Status: proposed.
 See [intent](intent.md), [plan](plan.md).
 
 In the existing all-inner/non-lateral planner only, the bounded disconnected
