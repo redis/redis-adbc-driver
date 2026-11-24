@@ -533,18 +533,12 @@ func (e *executor) scanJoinItem(ctx context.Context, it *joinItem, req scanReque
 	if err := cancelled(ctx); err != nil {
 		return nil, nil, err
 	}
-	req.meta.mem = make([]map[string]Value, len(it.base.mem))
-	defer func() { req.meta.mem = nil }()
-	for r, row := range it.base.mem {
-		if err := cancelled(ctx); err != nil {
-			return nil, nil, err
-		}
-		m := make(map[string]Value, len(row))
-		for k, val := range row {
-			m[it.prefix+k] = val
-		}
-		req.meta.mem[r] = m
+	rows, err := e.qualifyMemoryJoinRows(ctx, it, req, params)
+	if err != nil {
+		return nil, nil, err
 	}
+	req.meta.mem = rows
+	defer func() { req.meta.mem = nil }()
 	return e.scan(ctx, req, params)
 }
 
