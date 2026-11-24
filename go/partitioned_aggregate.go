@@ -67,6 +67,95 @@ type tupleAggregatePlan struct {
 	partialGroups   bool
 	functions       []*Func
 	groupKeyMask    []bool
+	// decimalSums marks SUM/AVG partial states carried as exact unscaled
+	// decimals with an explicit scale (see decimalPartial).
+	decimalSums []bool
+}
+
+// exactDecimalSumInput admits decimal SUM/AVG inputs whose exact value the
+// driver computes itself: decimal/integer columns and non-NULL literals
+// combined with +, - and *. Their evaluation errors (such as precision
+// overflow) still surface: partitioned errors rerun the serial aggregate.
+func exactDecimalSumInput(x Expr, types map[string]ColType) bool {
+	switch v := x.(type) {
+	case *ColumnRef:
+		t, ok := types[v.Name]
+		return ok && v.Outer == 0 && v.whole == nil && (t.Kind == KindDecimal || t.Kind.isInteger())
+	case *Literal:
+		return !v.Unknown && !v.V.Null && (v.V.T.Kind == KindDecimal || v.V.T.Kind.isInteger())
+	case *Binary:
+		if v.Op != "+" && v.Op != "-" && v.Op != "*" {
+			return false
+		}
+		if !exactDecimalSumInput(v.L, types) || !exactDecimalSumInput(v.R, types) {
+			return false
+		}
+		t, err := inferType(x, types, nil)
+		return err == nil && (t.Kind == KindDecimal || t.Kind.isInteger())
+	}
+	return false
+}
+
+// partialInputColumn is distinctColumn, plus decimal columns for exact
+// decimal partial sums. Those are only read by client partition scans, never
+// from rounded Search sorting vectors.
+func partialInputColumn(meta *tableMeta, x Expr, decimal bool) (columnMeta, bool) {
+	if c, ok := distinctColumn(meta, x); ok || !decimal {
+		return c, ok
+	}
+	c, ok := x.(*ColumnRef)
+	if !ok || c.Outer != 0 || isSystemColumn(c.Name) {
+		return columnMeta{}, false
+	}
+	col, ok := meta.column(c.Name)
+	if !ok || !col.Indexed || !simpleName(col.field()) || col.MissingThrough > 0 || col.Type.Kind != KindDecimal {
+		return columnMeta{}, false
+	}
+	return col, true
+}
+
+func (p *tupleAggregatePlan) decimalSum(i int) bool {
+	return i < len(p.decimalSums) && p.decimalSums[i]
+}
+
+// decimalPartial encodes an exact decimal partial sum as "unscaled:scale".
+func decimalPartial(unscaled *big.Int, scale int32) string {
+	return unscaled.String() + ":" + strconv.FormatInt(int64(scale), 10)
+}
+
+func parseDecimalPartial(s string) (*big.Int, int32, error) {
+	digits, scaleText, found := strings.Cut(s, ":")
+	scale := int64(0)
+	if found {
+		var err error
+		if scale, err = strconv.ParseInt(scaleText, 10, 32); err != nil {
+			return nil, 0, fmt.Errorf("invalid partial decimal scale")
+		}
+	}
+	n, ok := new(big.Int).SetString(digits, 10)
+	if !ok {
+		return nil, 0, fmt.Errorf("invalid partial decimal sum")
+	}
+	return n, int32(scale), nil
+}
+
+// addDecimalPartials adds two exact partial sums at the larger scale.
+func addDecimalPartials(a, b string) (string, error) {
+	x, xs, err := parseDecimalPartial(a)
+	if err != nil {
+		return "", err
+	}
+	y, ys, err := parseDecimalPartial(b)
+	if err != nil {
+		return "", err
+	}
+	if xs < ys {
+		x, xs, y, ys = y, ys, x, xs
+	}
+	if xs > ys {
+		y.Mul(y, pow10(xs-ys))
+	}
+	return decimalPartial(x.Add(x, y), xs), nil
 }
 
 func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, bool) {
@@ -163,6 +252,7 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 			}
 		}
 	}
+	decimalSums := make([]bool, len(aggs))
 	for _, f := range aggs {
 		switch f.Name {
 		case "COUNT", "SUM", "AVG", "MIN", "MAX":
@@ -179,14 +269,22 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 				return nil, false
 			}
 			x := f.Args[0]
-			if !tupleInputExpr(x, meta.types()) {
-				return nil, false
-			}
 			typ, err := inferType(x, meta.types(), nil)
-			if err != nil || ((f.Name == "SUM" || f.Name == "AVG") && !typ.Kind.isInteger()) {
+			if err != nil {
 				return nil, false
 			}
-			if c, ok := distinctColumn(meta, x); ok {
+			decimal := (f.Name == "SUM" || f.Name == "AVG") && typ.Kind == KindDecimal
+			if decimal {
+				// Exact decimal state exists only as client partial groups,
+				// which read source values through the exact row reader.
+				if !exactDecimalSumInput(x, meta.types()) {
+					return nil, false
+				}
+			} else if !tupleInputExpr(x, meta.types()) || ((f.Name == "SUM" || f.Name == "AVG") && !typ.Kind.isInteger()) {
+				return nil, false
+			}
+			decimalSums[len(p.args)] = decimal
+			if c, ok := partialInputColumn(meta, x, decimal); ok {
 				arg = add(c)
 			} else {
 				p.argExprs[len(p.args)] = x
@@ -194,7 +292,7 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 				columnRefs(x, need)
 				for _, c := range meta.Columns {
 					if need[c.Name] {
-						if _, ok := distinctColumn(meta, &ColumnRef{Name: c.Name}); !ok {
+						if _, ok := partialInputColumn(meta, &ColumnRef{Name: c.Name}, decimal); !ok {
 							return nil, false
 						}
 						add(c)
@@ -259,15 +357,24 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 	// final SQL key. Reading just their inputs avoids LOAD * and source-tuple
 	// TOLIST/existence checks on wide tables (including ClickBench Q32/Q33).
 	p.partialGroups = !p.countGroups && len(p.distinct) == 0 && len(p.groupExprs) > 0
-	for _, f := range aggs {
+	anyDecimal := false
+	for i, f := range aggs {
 		if f.Star {
 			p.partialGroups = p.partialGroups && f.Name == "COUNT"
 			continue
 		}
+		anyDecimal = anyDecimal || decimalSums[i]
 		typ, err := inferType(f.Args[0], meta.types(), nil)
 		p.partialGroups = p.partialGroups && err == nil &&
-			((f.Name == "SUM" || f.Name == "AVG") && typ.Kind.isInteger() ||
+			((f.Name == "SUM" || f.Name == "AVG") && (typ.Kind.isInteger() || decimalSums[i]) ||
 				(f.Name == "MIN" || f.Name == "MAX") && (typ.Kind.isInteger() || typ.Kind == KindString))
+	}
+	if anyDecimal {
+		if !p.partialGroups {
+			// Server tuples and weighted integer merges cannot carry decimals.
+			return nil, false
+		}
+		p.decimalSums = decimalSums
 	}
 	if p.partialGroups {
 		p.server = false
@@ -368,7 +475,15 @@ func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spi
 			n, sum := int64(0), "0"
 			if !v.Null {
 				n = count
-				if f.Name == "SUM" || f.Name == "AVG" {
+				if p.decimalSum(i) {
+					unscaled, scale := big.NewInt(v.I), int32(0)
+					if v.T.Kind == KindDecimal {
+						unscaled, scale = new(big.Int).Set(v.D), v.T.Scale
+					} else if !v.T.Kind.isInteger() {
+						return spillTuple{}, fmt.Errorf("unexpected %v decimal aggregate input", v.T.Kind)
+					}
+					sum = decimalPartial(unscaled.Mul(unscaled, big.NewInt(n)), scale)
+				} else if f.Name == "SUM" || f.Name == "AVG" {
 					sum = new(big.Int).Mul(big.NewInt(v.I), big.NewInt(n)).String()
 				} else {
 					sum = encodeStored(v)
@@ -412,7 +527,13 @@ func (p *tupleAggregatePlan) combine(dst *spillTuple, src spillTuple) error {
 			if err != nil || otherErr != nil {
 				return fmt.Errorf("invalid partial aggregate state")
 			}
-			if f.Name == "SUM" || f.Name == "AVG" {
+			if p.decimalSum(fn) {
+				sum, err := addDecimalPartials(dst.raw[i+1], src.raw[i+1])
+				if err != nil {
+					return err
+				}
+				dst.raw[i+1] = sum
+			} else if f.Name == "SUM" || f.Name == "AVG" {
 				var a, b big.Int
 				_, aok := a.SetString(dst.raw[i+1], 10)
 				_, bok := b.SetString(src.raw[i+1], 10)
@@ -1118,7 +1239,19 @@ func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tup
 					if err != nil {
 						return fmt.Errorf("invalid partial aggregate state")
 					}
-					if f.Name == "SUM" || f.Name == "AVG" {
+					if p.decimalSum(i) {
+						unscaled, scale, err := parseDecimalPartial(row.raw[offset+1])
+						if err != nil {
+							return err
+						}
+						accs[i].count += n
+						if n > 0 {
+							// One exact decimal value carries the partial sum
+							// through the serial accumulator's own rounding.
+							accs[i].sum.add(decimalValue(unscaled, 0, scale))
+							accs[i].sum.n += n - 1
+						}
+					} else if f.Name == "SUM" || f.Name == "AVG" {
 						var sum big.Int
 						if _, ok := sum.SetString(row.raw[offset+1], 10); !ok {
 							return fmt.Errorf("invalid partial sum")
