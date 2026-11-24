@@ -636,8 +636,11 @@ type scanIter struct {
 	meta          *tableMeta
 	need          map[string]bool
 	residual      Expr
-	env           *evalEnv
-	cur           *aggCursor
+	// semiProbes are the residual's decorrelated subqueries (probeSemiJoin).
+	semiProbes      []*Subquery
+	semiProbesReady bool
+	env             *evalEnv
+	cur             *aggCursor
 
 	// fetch holds fields LOAD cannot return exactly. Managed rows can read
 	// these from their HASHes in bounded pipelines after each cursor page.
@@ -1282,6 +1285,32 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 	if it.ties != nil {
 		it.raw, it.kept = fetched, it.kept[:0]
 	}
+	// Decorrelated EXISTS / IN conjuncts of the residual read the inner
+	// groups of the whole page at once (probeSemiJoin) before rows are kept.
+	var decoded []map[string]Value
+	if it.residual != nil && it.projection == nil && it.env.exec != nil {
+		if !it.semiProbesReady {
+			it.semiProbes, it.semiProbesReady = semiProbeSubqueries(it.residual), true
+		}
+		if len(it.semiProbes) > 0 {
+			decoded = make([]map[string]Value, len(fetched))
+			page := make([]map[string]Value, 0, len(fetched))
+			for i, raw := range fetched {
+				if raw == nil {
+					continue
+				}
+				vals, err := decodeRowCapacity(it.meta, raw, it.need, it.rowCapacity)
+				if err != nil {
+					return nil, nil, err
+				}
+				decoded[i] = vals
+				page = append(page, vals)
+			}
+			for _, sq := range it.semiProbes {
+				it.env.exec.probeSemiJoin(it.env.ctx, sq, page, it.env.types)
+			}
+		}
+	}
 	for i, raw := range fetched {
 		if raw == nil {
 			if !it.meta.Unmanaged && !it.meta.Live && snapshotOf(it.env.ctx) != nil && it.cur != nil {
@@ -1338,9 +1367,14 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 				return nil, nil, err
 			}
 		}
-		vals, err := decodeRowCapacity(it.meta, raw, it.need, it.rowCapacity)
-		if err != nil {
-			return nil, nil, err
+		var vals map[string]Value
+		if decoded != nil {
+			vals = decoded[i]
+		} else {
+			var err error
+			if vals, err = decodeRowCapacity(it.meta, raw, it.need, it.rowCapacity); err != nil {
+				return nil, nil, err
+			}
 		}
 		if it.residual != nil {
 			it.env.row = vals

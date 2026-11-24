@@ -691,15 +691,58 @@ func TestSQLSemiJoins(t *testing.T) {
 		mo = append(mo, fmt.Sprintf("(%d, %d)", id, id*25))
 	}
 	h.exec("INSERT INTO it_sj_mo VALUES " + strings.Join(mo, ", "))
+	// Scanned outer pages instead probe the large inner side once per page
+	// (probeSemiJoin): one body run with a key union, never per outer row
+	// and never the whole inner side (TPC-H Q4).
 	if w := h.expectWork(`SELECT COUNT(*) FROM it_sj_mo o WHERE EXISTS (SELECT 1 FROM it_sj_big b WHERE b.k = o.k)`,
-		"80"); w.runs != 2000/rowsPerRun || w.semiJoins != 1 {
-		t.Errorf("large inner side: %+v, want %d per-row runs, then 1 semi-join", w, 2000/rowsPerRun)
+		"80"); w.runs != 0 || w.semiJoins != 1 {
+		t.Errorf("large inner side: %+v, want 1 page probe and no per-row runs", w)
 	}
 	h.expectRows(`SELECT COUNT(*) FROM it_sj_mo o WHERE NOT EXISTS (SELECT 1 FROM it_sj_big b WHERE b.k = o.k)`, "20")
 	if w := h.expectWork(`SELECT COUNT(*) FROM it_sj_mo o WHERE o.id <= 5 AND EXISTS (SELECT 1 FROM it_sj_big b WHERE b.k = o.k)`,
-		"5"); w.runs != 5 || w.semiJoins != 0 {
-		t.Errorf("large inner side, 5 outer rows: %+v, want 5 per-row runs", w)
+		"5"); w.runs != 0 || w.semiJoins != 1 {
+		t.Errorf("large inner side, 5 outer rows: %+v, want 1 page probe", w)
 	}
+	// More distinct outer keys than one union: several bounded probes, NULL
+	// keys and keys without inner rows, and IN / NOT IN three-valued logic.
+	var many []string
+	for id := 1; id <= 2500; id++ {
+		k := fmt.Sprint(id)
+		switch {
+		case id%250 == 0:
+			k = "NULL"
+		case id%7 == 0:
+			k = fmt.Sprint(5000 + id) // no inner row
+		}
+		many = append(many, fmt.Sprintf("(%d, %s)", id, k))
+	}
+	h.exec("DROP TABLE IF EXISTS it_sj_many")
+	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS it_sj_many") })
+	h.exec("CREATE TABLE it_sj_many (id INTEGER, k BIGINT)")
+	h.exec("INSERT INTO it_sj_many VALUES " + strings.Join(many, ", "))
+	// ids ≤ 2000 with a non-NULL key that is not a multiple of 7.
+	want := 0
+	for id := 1; id <= 2500; id++ {
+		if id <= 2000 && id%250 != 0 && id%7 != 0 {
+			want++
+		}
+	}
+	if w := h.expectWork(`SELECT COUNT(*) FROM it_sj_many o WHERE EXISTS (SELECT 1 FROM it_sj_big b WHERE b.k = o.k)`,
+		fmt.Sprint(want)); w.runs != 0 || w.semiJoins < 3 {
+		t.Errorf("probes over 2,500 outer keys: %+v, want bounded page probes and no per-row runs", w)
+	}
+	h.expectRows(`SELECT COUNT(*) FROM it_sj_many o WHERE NOT EXISTS (SELECT 1 FROM it_sj_big b WHERE b.k = o.k)`,
+		fmt.Sprint(2500-want))
+	h.expectRows(`SELECT COUNT(*) FROM it_sj_many o WHERE o.k IN (SELECT b.k FROM it_sj_big b WHERE b.k = o.k AND b.k % 2 = 0)`,
+		fmt.Sprint(func() int {
+			n := 0
+			for id := 2; id <= 2000; id += 2 {
+				if id%250 != 0 && id%7 != 0 {
+					n++
+				}
+			}
+			return n
+		}()))
 
 	// UPDATE and DELETE.
 	if n := h.exec(`UPDATE it_sj_o SET x = 0 WHERE EXISTS (SELECT 1 FROM it_sj_i i WHERE i.k = it_sj_o.k AND i.g = it_sj_o.g)`); n != 2 {
