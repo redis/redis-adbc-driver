@@ -1,8 +1,8 @@
 # Focused TPC-DS SF1 follow-up
 
-Evidence snapshot: 2026-11-24 (updated through Candidate 11 Q4). This focused development-driver follow-up is separate from the [historical released-driver baseline](../../PERFORMANCE.md). Full suites remain stopped.
+Evidence snapshot: 2026-11-24 (updated through Candidate 12 Q4). This focused development-driver follow-up is separate from the [historical released-driver baseline](../../PERFORMANCE.md). Full suites remain stopped.
 
-Seven of the eight targeted queries (Q2, Q3, Q5, Q6, Q7, Q8 and Q9) have fully fetched, independently validated results under the recorded artifacts below. Only Q4 remains unresolved: its latest saved attempt timed out during warm-up without an OOM-kill counter increase. These selected per-query observations span different builds; they are not a completed full-suite score, a single-build pass rate or isolated attribution to individual optimizer PRs. Full benchmark suites remain stopped.
+All eight targeted queries (Q2–Q9) now have fully fetched, independently validated results under the recorded artifacts below. Q4 completed under Candidate 12 after earlier failed attempts. This does not mean all eight passed on one build or that all 99 TPC-DS queries ran. These selected per-query observations span different builds; they are not a completed full-suite score, a single-build pass rate or isolated attribution to individual optimizer PRs. Full benchmark suites remain stopped.
 
 ## Latest recorded focused observations
 
@@ -12,7 +12,7 @@ Native DuckDB medians come from the same per-query attempt as the Redis observat
 |---|---|---|---:|---:|---:|---:|---:|
 | [Q2 / #588](https://github.com/redis/redis-adbc-driver/issues/588) | Validated | Candidate 6 | 2513 × 8 | 54.661473 | 25.844439 | 13.198 | 1958.16× |
 | [Q3 / #589](https://github.com/redis/redis-adbc-driver/issues/589) | Validated | Candidate 2 | 89 × 4 | 4.614877 | 3.162769 | 6.819 | 463.81× |
-| [Q4 / #590](https://github.com/redis/redis-adbc-driver/issues/590) | 60 s warm-up timeout; OOM delta 0 | Candidate 11, separate 16-CPU profile | — | — | — | 58.322 | — |
+| [Q4 / #590](https://github.com/redis/redis-adbc-driver/issues/590) | Validated | Candidate 12, separate 16-CPU profile | 8 × 4 | 38.604606 | 43.873090 | 41.624 | 1054.04× |
 | [Q5 / #591](https://github.com/redis/redis-adbc-driver/issues/591) | Validated | Candidate 6 | 100 × 5 | 8.051566 | 3.183503 | 15.494 | 205.46× |
 | [Q6 / #592](https://github.com/redis/redis-adbc-driver/issues/592) | Validated † | Baseline | 45 × 2 | 60.908683 † | 36.146640 | 10.832 | 3336.99× |
 | [Q7 / #593](https://github.com/redis/redis-adbc-driver/issues/593) | Validated | Candidate 7 | 100 × 5 | 27.582920 | 22.732101 | 22.592 | 1006.21× |
@@ -27,6 +27,7 @@ Native DuckDB medians come from the same per-query attempt as the Redis observat
 |---|---|
 | Q2 | 27.849848513 / 25.844439345 / 22.281323718 |
 | Q3 | 3.211921584 / 3.162769252 / 3.103696251 |
+| Q4 | 43.049607144 / 43.873090352 / 45.976894605 |
 | Q5 | 3.463930335 / 2.881045418 / 3.183502876 |
 | Q6 | 36.146640475 / 55.873529150 / 27.527829138 |
 | Q7 | 22.649948093 / 22.770575885 / 22.732100928 |
@@ -35,7 +36,7 @@ Native DuckDB medians come from the same per-query attempt as the Redis observat
 
 ## Recorded native identities
 
-These are development/main artifacts, not relabeled release-driver measurements. Candidates 1–11 are combined investigation builds. Preserve these identities when carrying values into the final report.
+These are development/main artifacts, not relabeled release-driver measurements. Candidates 1–12 are combined investigation builds. Preserve these identities when carrying values into the final report.
 
 - **Baseline — `v0.0.31-main.07b24edb`**: source `07b24edb3c782037f48670f6cc499d66256a59e0`; native-library SHA-256 `b87d295b6a84079a01bafc9f2c6f66f8db0a238fdb30cd449eb3e8eba0db98e0`.
 - **Candidate 1 — `v0.0.31-dsfix1`**: source `c9c56f0678541ceeb321c81df27c46eb531f289a`; native-library SHA-256 `41d783c7812c4b4e8d720eeea293f06e5179f244aa745e08e8083dcc7c52f66d`.
@@ -54,9 +55,11 @@ These are development/main artifacts, not relabeled release-driver measurements.
 
 - **Candidate 11 — `v0.0.31-dsfix11`**: source `23c453abf89235bfdfe2de3d343a7e8b43cf364c`; native-library SHA-256 `8f2729f76873b79dae160fff51413e92b8de5ec54688887b90b5745ae08f8b3a`.
 
-The selected Q4 row uses the separately labeled 16-CPU-allocation profile below; all successful selected rows retain their historical four-CPU profiles.
+- **Candidate 12 — `v0.0.31-dsfix12`**: source `a494bdc6909bdc0935fa0db2fbfb8406a44c929c`; native-library SHA-256 `074647dd11c4b5ee2405d54e82ab1cd3e27d1b362dec3f2a7ce305a02694188f`.
 
-The newer observations were read from saved artifacts `ds-fix7-q8-q7-q4-pilot` (Q7 validated, Q4 timeout and earlier Q8 worker OOM) and `ds-fix8-q8-pilot` (Q8 validated). Candidate 9 Q4, saved separately as `ds-fix9-q4-pilot`, still timed out during warm-up (SQLSTATE 57014, read-rows context deadline exceeded), with client OOM-kill delta zero, no Redis samples and no validated Redis output. Its native DuckDB control passed, median 0.046661375 seconds. Candidate 10 Q4 (`ds-fix10-q4-pilot`) also timed out during warm-up at the configured 60-second deadline (SQLSTATE 57014), with OOM-kill delta zero, no Redis timed samples and no validated Redis output; native DuckDB passed with median 0.048251417 seconds. A separate 16-CPU-allocation retry of the same native10 binary also failed as detailed below. Neither attempt establishes whole-query speedup or query resolution. Build identities match the separately retained build proofs; SQL SHA-256 values and all successful medians were independently checked from the saved outputs. The runner/isolation fingerprints and original source database hash match the earlier sequence. These are read-only evidence checks, not new executions.
+The selected Q4 row uses the separately labeled 16-CPU-allocation profile below; the other seven successful selected rows retain their historical four-CPU profiles.
+
+The newer observations were read from saved artifacts `ds-fix7-q8-q7-q4-pilot` (Q7 validated, Q4 timeout and earlier Q8 worker OOM) and `ds-fix8-q8-pilot` (Q8 validated). Candidate 9 Q4, saved separately as `ds-fix9-q4-pilot`, still timed out during warm-up (SQLSTATE 57014, read-rows context deadline exceeded), with client OOM-kill delta zero, no Redis samples and no validated Redis output. Its native DuckDB control passed, median 0.046661375 seconds. Candidate 10 Q4 (`ds-fix10-q4-pilot`) also timed out during warm-up at the configured 60-second deadline (SQLSTATE 57014), with OOM-kill delta zero, no Redis timed samples and no validated Redis output; native DuckDB passed with median 0.048251417 seconds. A separate 16-CPU-allocation retry of the same native10 binary also failed as detailed below. Neither failed attempt establishes whole-query speedup or query resolution; the later Candidate 12 success is recorded separately below. Build identities match the separately retained build proofs; SQL SHA-256 values and all successful medians were independently checked from the saved outputs. The runner/isolation fingerprints and original source database hash match the earlier sequence. These are read-only evidence checks, not new executions.
 
 The original source database SHA-256 was `508d4f5af490a4fb7645a9c682b507f8628b390960e5e9bd6f872b97a7d5760d`. SQL and source data were retained. Operational paths, runtime identifiers, endpoints, credentials and raw worker diagnostics are excluded.
 
@@ -81,6 +84,25 @@ returned eight rows/four columns, with timed samples 0.071238332981 / 0.05832170
 does not establish 16-core utilization or scaling. These values do not replace
 earlier profiles or establish Q4 resolution.
 
+### Candidate 12: bounded chunk scheduling follow-up
+
+The original SF1 Q4 completed under Candidate 12 with the separate 16-CPU
+allocation: `GOMAXPROCS=16`, query workers/budget 32/32, native DuckDB threads 16,
+client 8 GiB, server 20 GiB, 60-second statement deadline, Software Flex, verified
+active 4× QPF and authenticated TLS. The Linux ARM64 client shared the server's
+network namespace. The retained, backed-up data was used; no load was timed.
+
+Redis warm-up was **38.604606184 s**. Timed runs were **43.049607144 /
+43.873090352 / 45.976894605 s**, median **43.873090352 s**; all complete outputs
+were independently validated at **eight rows/four columns**. The matched native
+DuckDB median was **0.041623833 s**, so the within-attempt ratio is **1054.04×**.
+This observation belongs to the exact combined source/artifact above, including
+bounded chunk scheduling and earlier optimizer/allocation work. It does not
+isolate any one PR, establish 16-core utilization or convert prior timeouts into
+latency samples. Successful Q2/Q3/Q5/Q6/Q7/Q8/Q9 rows retain their historical
+four-CPU profiles. All eight selected issue cases passed across multiple builds;
+there was no single-build all-eight rerun or full 99-query benchmark.
+
 ## Common recorded profile and validation
 
 Redis Software (Redis engine 8.8.0), Flex experimental stopgap with active, verified 4× QPF, six Search workers, mnp routing and 32 connections. Logical database capacity 64 GiB; Flex RAM cache 8 GiB. Linux ARM64 query client in the server network namespace, four client CPUs with an 8 GiB client ceiling for the original sequence (the latest Q4 16-CPU allocation is labeled separately above); Software container ceiling 20 GiB. The complete retained SF1 fixture was count-verified (24 tables, 19,557,375 rows) and backed up before this focused sequence. No loading-performance result is implied.
@@ -102,4 +124,4 @@ These are explicitly **after-run provenance checks**, not a claim that the field
 - Earlier shared-worker historical OOM observations and the later isolated attempts have different process/resource conditions. A change in failure category or latency cannot be assigned solely to driver code, a single PR, memory reduction or cache state.
 - The native6 combined source included cohort, LEFT-join, fact-demand, Flex-cap and streaming work. The successful observations do not isolate those changes. [PR #610](https://github.com/redis/redis-adbc-driver/pull/610) additionally hardens the separately discovered synthetic HASH pipeline uncertainty in [#609](https://github.com/redis/redis-adbc-driver/issues/609); that stricter guard postdates the recorded native6 binary. There was no reported ambiguous transport failure in the validated Q9 attempt.
 - Candidate 7 additionally combined bounded parallel fact reading with fact-demand HASH-list fixes, native join ordering and cohort work; Candidate 8 added further native join-order/key-constraint corrections. The validated Q7/Q8 observations belong to those exact combined artifacts and do not establish isolated performance for [PR #612](https://github.com/redis/redis-adbc-driver/pull/612), its public head or any individual optimizer change.
-- The report requests no automatic query-issue closures. The selected observations span combined artifacts and do not establish that every query passes on one current public build.
+- The report requests no automatic query-issue closures. All eight targeted cases have a validated observation across combined artifacts; this does not establish that every query passes on one current public build, or that the unrun suite remainder passes.

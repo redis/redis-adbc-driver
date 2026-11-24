@@ -324,6 +324,6 @@ Redis ADBC and DuckDB-over-Redis-ADBC paths. Those later observations do not
 replace the released-driver baseline above; no full TPC-H rerun was completed.
 
 The [TPC-DS focused follow-up](docs/performance/tpcds-focused-followup-2026-11-23.md)
-records seven of eight originally failed targeted cases validated across multiple
-combined development artifacts. Q4 remains unresolved. This is neither a
+records all eight originally failed targeted cases (Q2–Q9) validated across multiple
+combined development artifacts, with Q4 passing under Candidate 12. This is neither a
 single-build pass rate nor a full 99-query result; full suites remain stopped.

@@ -16,7 +16,8 @@ candidate directories. Existing runner semantics changed after the historical
 run and cannot be described as an identical reproduction of it.
 
 The focused DS follow-up is a separate document with per-candidate identities,
-seven selected validated cases spanning multiple builds, Q4 unresolved and no
+eight selected validated cases spanning multiple builds, Q4 passing only under
+the separately labeled Candidate 12 profile, and no
 full-suite/single-build pass claim. Targeted new Q4 outcomes are explicitly
 labeled; historical numbers never get replaced. Scope README edits to the report
 entry and section; preserve unrelated workspace changes by using a clean branch.
