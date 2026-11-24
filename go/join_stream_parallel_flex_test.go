@@ -1,0 +1,136 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+package redis
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	goredis "github.com/redis/go-redis/v9"
+	"strings"
+	"sync/atomic"
+	"testing"
+)
+
+type overBudgetParallelReplies struct {
+	*parallelNativeReplies
+	count    int64
+	searches atomic.Int64
+	failure  error
+}
+
+func (h *overBudgetParallelReplies) replyProof(c goredis.Cmder) error {
+	switch c.Name() {
+	case "ft.info":
+		seg, ok := h.segments[fmt.Sprint(c.Args()[1])]
+		if !ok {
+			return errors.New("unknown proof source")
+		}
+		c.(onceCmd).SetVal(pageReadyInfo(seg))
+		return nil
+	case "ft.search":
+		h.searches.Add(1)
+		if c.Args()[6].(int) != 0 {
+			return errors.New("parallel fallback repeated candidate fetch")
+		}
+		if strings.Contains(fmt.Sprint(c.Args()[2]), rowIDField) {
+			return errors.New("parallel fallback introduced numeric row-ID filter")
+		}
+		if h.failure != nil {
+			return h.failure
+		}
+		c.(onceCmd).SetVal([]any{h.count})
+		return nil
+	}
+	return h.replyParallel(c)
+}
+func (h *overBudgetParallelReplies) ProcessHook(_ goredis.ProcessHook) goredis.ProcessHook {
+	return func(_ context.Context, c goredis.Cmder) error {
+		err := h.replyProof(c)
+		if err != nil {
+			c.SetErr(err)
+		}
+		return err
+	}
+}
+func (h *overBudgetParallelReplies) ProcessPipelineHook(_ goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(_ context.Context, cs []goredis.Cmder) error {
+		var es []error
+		for _, c := range cs {
+			if err := h.replyProof(c); err != nil {
+				c.SetErr(err)
+				es = append(es, err)
+			}
+		}
+		if len(es) == 1 {
+			return es[0]
+		}
+		return errors.Join(es...)
+	}
+}
+
+func overBudgetParallelFixture(t *testing.T, n int64) (*executor, context.Context, scanRequest, *overBudgetParallelReplies) {
+	t.Helper()
+	e, ctx, req, base := parallelNativeStarFixture(t)
+	fact := req.meta.join.items[1].base
+	fact.SnapshotRows = &n
+	fact.PlainIndex = true
+	fact.SnapshotOverlay = false
+	fact.Columns[0].Indexed = true
+	base.n = n
+	seg := fact.snapshotSegments()[0]
+	base.segments[seg.Index] = seg
+	for i := int64(4098); i <= n; i++ {
+		base.rows[seg.Prefix+fmt.Sprint(i)] = aggRow{rowIDField: fmt.Sprint(i), "id": "1", "v": fmt.Sprint(i)}
+	}
+	e.store.flex = true
+	hook := &overBudgetParallelReplies{parallelNativeReplies: base, count: n}
+	c := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1"})
+	t.Cleanup(func() { _ = c.Close() })
+	c.AddHook(hook)
+	e.store.client = c
+	pred := &Binary{Op: "=", L: &ColumnRef{Name: "f.id"}, R: &Literal{V: intValue(typeInt64, 1)}}
+	req.meta.join.items[1].pushed = []Expr{pred}
+	req.where.residual = &Binary{Op: "AND", L: req.where.residual, R: pred}
+	return e, ctx, req, hook
+}
+
+func TestParallelStarProvenOverBudgetFlexUsesOnlyCountThenRanges(t *testing.T) {
+	n := int64(snapshotFlexCandidateCap + 1)
+	e, ctx, req, h := overBudgetParallelFixture(t, n)
+	count := 0
+	handled, err := e.scanStarJoinPages(ctx, req, nil, func(rows []map[string]Value) error {
+		for _, row := range rows {
+			if row["f.id"].I != 1 {
+				t.Error("complete predicate lost")
+			}
+		}
+		count += len(rows)
+		return nil
+	})
+	if !handled || err != nil || count != int(n)*2 || e.workerGrant.Load() != 2 || h.searches.Load() != 1 || e.workerBudget.option(OptionIntQueryWorkersActive) != "0" {
+		t.Fatalf("proof/ranges: handled%v err%v count%d grant%d searches%d", handled, err, count, e.workerGrant.Load(), h.searches.Load())
+	}
+}
+
+func TestParallelStarAdmittedFlexStillKeepsSelectivePath(t *testing.T) {
+	e, ctx, req, h := overBudgetParallelFixture(t, 4097)
+	shape, ok := e.planStarShape(ctx, req.meta.join, req.need, req.where.residual)
+	if !ok {
+		t.Fatal("fixture shape refused")
+	}
+	handled, err := e.scanParallelStarFacts(ctx, shape, req.meta.join, nil, func([]map[string]Value) error { t.Error("admitted selective source consumed"); return nil })
+	if handled || err != nil || e.workerGrant.Load() != 0 || h.searches.Load() != 1 || h.rangeReads != 0 {
+		t.Fatalf("admitted query changed execution: %v %v grant%d searches%d", handled, err, e.workerGrant.Load(), h.searches.Load())
+	}
+}
+
+func TestParallelStarAmbiguousFlexCountNeverFallsBack(t *testing.T) {
+	e, ctx, req, h := overBudgetParallelFixture(t, 4097)
+	h.failure = errors.Join(goredis.Nil, errors.New("candidate count reply lost"))
+	count := 0
+	handled, err := e.scanStarJoinPages(ctx, req, nil, func([]map[string]Value) error { count++; return nil })
+	if !handled || err == nil || !strings.Contains(err.Error(), "reply lost") || count != 0 || e.workerGrant.Load() != 0 || h.rangeReads != 0 {
+		t.Fatalf("ambiguous proof retried source: %v %v count%d grant%d", handled, err, count, e.workerGrant.Load())
+	}
+}
