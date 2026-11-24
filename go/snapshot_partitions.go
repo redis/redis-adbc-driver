@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/apache/arrow-go/v18/arrow/array"
 )
@@ -38,11 +39,20 @@ func (e *executor) snapshotPartitionReader(ctx context.Context, plan *selectPlan
 	meta.SnapshotOverlay = true
 	sc.req.meta = &meta
 	sc.req.ranges = &rowIDRangeScan{lo: d.Lo, hi: d.Hi}
-	// Exact directory seeking enforces the descriptor bounds. Keep only the
-	// caller's predicate as a residual; adding the proven bounds here would
-	// unnecessarily disable simple positional HASH/Arrow projections.
-	sc.req.where.query, sc.req.where.keys = "*", nil
-	sc.req.where.original, sc.req.where.residual = predicate, predicate
+	if e.snapshotPartitionFiltered(ctx, &meta, sc.req.where, bound, params) {
+		// The planned query holds the caller's index terms and the exact span
+		// terms, so Search candidates read only matching rows, with the same
+		// visibility and identity checks as an unpartitioned filtered scan. If
+		// the index is unusable when the scan opens, it falls back to exact
+		// directories seeking these ranges, with the caller's predicate.
+		sc.req.where.original = predicate
+	} else {
+		// Exact directory seeking enforces the descriptor bounds. Keep only the
+		// caller's predicate as a residual; adding the proven bounds here would
+		// unnecessarily disable simple positional HASH/Arrow projections.
+		sc.req.where.query, sc.req.where.keys = "*", nil
+		sc.req.where.original, sc.req.where.residual = predicate, predicate
+	}
 	sc.req.sortBy, sc.req.ties, sc.req.limit, sc.req.late = nil, nil, nil, nil
 	r, err := e.newScanReader(ctx, plan, sc.req, params, &streamOpts{mem: c.Alloc, batchRows: c.stream.rows(), batchBytes: c.stream.batchBytes})
 	if err != nil {
@@ -50,6 +60,34 @@ func (e *executor) snapshotPartitionReader(ctx context.Context, plan *selectPlan
 	}
 	r.attachOwners([]*streams{&c.streams})
 	return r, nil
+}
+
+// snapshotPartitionFiltered reports whether a partition should read Search
+// candidates: the caller's predicate added index terms in front of the span's
+// exact row-ID terms, and the snapshot index is usable. The span bound alone
+// also plans as a Search range, but a pure row-ID range reads faster from
+// exact directories. Inexact (>= 2^53) or missing span terms keep directories,
+// because candidate reads ignore the request's ranges.
+func (e *executor) snapshotPartitionFiltered(ctx context.Context, meta *tableMeta, wp wherePlan, bound Expr, params []Value) bool {
+	if wp.keys != nil || wp.none || wp.query == "" || wp.query == "*" {
+		return false
+	}
+	env := e.newEnv(ctx, nil, params)
+	var terms []string
+	for _, c := range conjuncts(bound, nil) {
+		term, recheck, ok, err := e.comparisonTerm(c, meta, env)
+		if err != nil || !ok || recheck {
+			return false
+		}
+		terms = append(terms, term)
+	}
+	span := strings.Join(terms, " ")
+	// planWhere joins conjunct terms in order, and the bound is the last
+	// conjunct: the query must end with exactly these span terms.
+	if !strings.HasSuffix(wp.query, " "+span) {
+		return false
+	}
+	return e.snapshotIndexable(ctx, meta)
 }
 
 func (c *retainedCapture) snapshotTable(ctx context.Context, meta *tableMeta) (*tableMeta, error) {

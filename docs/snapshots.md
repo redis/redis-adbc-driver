@@ -462,8 +462,11 @@ Eligible simple Arrow projections over snapshot directories/candidates fetch
 positional HASH fields at every projection width, only after
 resolving the newest physical versions. They validate row identity and deletion
 markers before projection and reject missing referenced HASHes. Ascending row-ID
-merges preserve order without a separate ordered reduction. Live partition
-directory bounds are enforced exactly; the caller's predicate remains active.
+merges preserve order without a separate ordered reduction. A live partition
+whose predicate adds index terms reads Search candidates restricted to its exact
+row-ID span, with the same visibility checks as an unpartitioned filtered scan.
+Other partitions, and inexact spans or unusable indexes, read exact directories
+with enforced bounds. The caller's predicate remains active either way.
 Residual predicates, inexact boundaries, pushed LIMIT and descending order retain
 their existing fallbacks.
 Contiguous directory runs use exact immutable cardinality and endpoint proofs,
