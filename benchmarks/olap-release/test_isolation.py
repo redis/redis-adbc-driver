@@ -1,7 +1,7 @@
 """Harness regressions: synthetic engine adapters only, no Redis or SF1 queries."""
 
 import argparse
-from contextlib import redirect_stdout
+from contextlib import nullcontext, redirect_stdout
 from decimal import Decimal
 import io
 import json
@@ -80,7 +80,8 @@ class IsolationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'truncated'):
                 isolation.validate_files(root / 'ref', root / 'actual', root)
 
-    def exercise_workers(self, failure=None, mismatch=None, validator_timeout=False):
+    def exercise_workers(self, failure=None, mismatch=None, validator_timeout=False,
+                         worker_artifact=None, validator_artifact=False, oom_counts=None):
         with tempfile.TemporaryDirectory() as tmp:
             private = Path(tmp)
             fake = private / 'modules'
@@ -109,16 +110,32 @@ class IsolationTests(unittest.TestCase):
             def runner(cmd, **kwargs):
                 if validator_timeout and cmd[cmd.index('--phase') + 1] == 'validate' and cmd[-1] == 'redis':
                     raise subprocess.TimeoutExpired(cmd, kwargs['timeout'])
-                return subprocess.run(cmd, **kwargs)
+                child = subprocess.run(cmd, **kwargs)
+                artifacts = Path(cmd[cmd.index('--artifacts') + 1])
+                if cmd[-1] == 'redis':
+                    if cmd[cmd.index('--phase') + 1] == 'engine' and worker_artifact:
+                        path = artifacts / 'redis.json'
+                        if worker_artifact == 'missing':
+                            path.unlink()
+                        else:
+                            path.write_text(worker_artifact)
+                    elif cmd[cmd.index('--phase') + 1] == 'validate' and validator_artifact:
+                        (artifacts / 'redis-validation.json').write_text('{')
+                return child
 
-            with patch.dict(os.environ, env), redirect_stdout(io.StringIO()):
+            oom = patch('isolation.oom_kills', side_effect=oom_counts) if oom_counts else nullcontext()
+            with patch.dict(os.environ, env), redirect_stdout(io.StringIO()), oom:
                 record = isolation.run_query(args, runner=runner)
             calls = [json.loads(x) for x in (private / 'calls.jsonl').read_text().splitlines()]
             connections = [json.loads(x) for x in (private / 'connections.jsonl').read_text().splitlines()]
-            pids = [record[f'{e}_worker']['pid'] for e in isolation.ENGINES]
+            pids = [item['pid'] for item in connections]
             self.assertEqual(len(set(pids)), 3)
             self.assertNotIn(os.getpid(), pids)
             self.assertEqual([x['engine'] for x in connections], list(isolation.ENGINES))
+            for connection in connections:
+                engine = connection['engine']
+                if engine != 'redis' or not worker_artifact:
+                    self.assertEqual(record[f'{engine}_worker']['pid'], connection['pid'])
             self.assertEqual(connections[2]['args'], [])  # no source DB in third engine
             self.assertEqual(connections[0]['kwargs'], {'read_only': True})
             attach = next(x['sql'] for x in calls if x['sql'].startswith('ATTACH'))
@@ -160,6 +177,89 @@ class IsolationTests(unittest.TestCase):
         self.assertEqual(record['redis_status'], 'validation_failed')
         self.assertNotIn('redis_over_duckdb', record)
         self.assertEqual(record['duckdb_adbc_status'], 'ok')
+
+    def test_malformed_crash_status_keeps_engine_code_and_oom(self):
+        record = self.exercise_workers(failure='redis', worker_artifact='{',
+                                       oom_counts=[10, 10, 10, 11, 11, 11])
+        self.assertEqual(record['redis_status'], 'worker_failed')
+        self.assertIn('code 42', record['redis_error'])
+        self.assertEqual(record['redis_worker']['engine'], 'redis')
+        self.assertEqual(record['redis_worker']['phase'], 'engine')
+        self.assertEqual(record['redis_worker']['status_artifact'], 'malformed')
+        self.assertEqual(record['redis_worker']['returncode'], 42)
+        self.assertEqual(record['redis_worker']['oom_kills_delta'], 1)
+        self.assertNotIn('redis_over_duckdb', record)
+        self.assertEqual(record['duckdb_adbc_status'], 'ok')
+
+    def test_missing_or_non_object_success_status_never_passes(self):
+        for value, problem in [('missing', 'missing'), ('[]', 'invalid_json_object')]:
+            with self.subTest(artifact=value):
+                record = self.exercise_workers(worker_artifact=value)
+                self.assertEqual(record['redis_status'], 'worker_failed')
+                self.assertEqual(record['redis_worker']['status_artifact'], problem)
+                self.assertEqual(record['redis_worker']['returncode'], 0)
+                self.assertNotIn('redis_over_duckdb', record)
+                self.assertEqual(record['duckdb_adbc_status'], 'ok')
+
+    def test_malformed_validator_status_never_becomes_a_pass(self):
+        record = self.exercise_workers(mismatch='redis', validator_artifact=True)
+        self.assertEqual(record['redis_status'], 'validation_failed')
+        self.assertIn('malformed status artifact', record['redis_error'])
+        self.assertNotIn('redis_over_duckdb', record)
+        self.assertEqual(record['duckdb_adbc_status'], 'ok')
+
+    def test_atomic_json_failure_preserves_previous_checkpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'checkpoint.json'
+            isolation.atomic_json(path, {'active_engine': 'redis', 'active_phase': 'engine'})
+            with patch('isolation.os.replace', side_effect=OSError('synthetic publish failure')):
+                with self.assertRaisesRegex(OSError, 'synthetic publish failure'):
+                    isolation.atomic_json(path, {'active_engine': 'duckdb_adbc'})
+            self.assertEqual(json.loads(path.read_text()), {'active_engine': 'redis', 'active_phase': 'engine'})
+            self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_duckdb_timeout_requires_actual_timer_fire(self):
+        class Connection:
+            def interrupt(self):
+                pass
+            def close(self):
+                pass
+            def execute(self, sql):
+                raise RuntimeError('INTERRUPT Error: Interrupted!')
+
+        class Timer:
+            fire = False
+            def __init__(self, seconds, callback):
+                self.callback = callback
+            def start(self):
+                if self.fire:
+                    self.callback()
+            def cancel(self):
+                pass
+            def join(self):
+                pass
+
+        for fired in [False, True]:
+            with self.subTest(timer_fired=fired), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                queries = root / 'tpch' / 'queries'
+                queries.mkdir(parents=True)
+                (queries / '19.sql').write_text('SELECT synthetic')
+                args = argparse.Namespace(engine='duckdb_adbc', suite='tpch', query='19',
+                                          output=root, artifacts=root)
+                Timer.fire = fired
+                with patch('isolation.connect_engine', return_value=(Connection(), {})), patch('isolation.threading.Timer', Timer):
+                    isolation.engine_worker(args)
+                status = json.loads((root / 'duckdb_adbc.json').read_text())
+                self.assertEqual(status['phase'], 'execute')
+                self.assertEqual(status['duckdb_adbc_status'], 'timeout' if fired else 'error')
+                if fired:
+                    self.assertEqual(status['duckdb_adbc_timeout_cause'], 'duckdb_interrupt_timer')
+                    self.assertEqual(status['duckdb_adbc_timeout_seconds'], 60)
+                    self.assertIn('deadline exceeded', status['duckdb_adbc_error'])
+                else:
+                    self.assertNotIn('duckdb_adbc_timeout_cause', status)
+                self.assertEqual(status['duckdb_adbc_seconds'], [])
 
     def test_failed_reference_skips_all_redis_engines(self):
         with tempfile.TemporaryDirectory() as tmp:
