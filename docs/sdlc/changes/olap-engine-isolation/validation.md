@@ -1,0 +1,7 @@
+# Validation
+
+2026-11-23; see [intent](intent.md), [spec](spec.md), [plan](plan.md). Nine synthetic-adapter tests passed with real engine/validation subprocesses and no SQL. Coverage includes process/import isolation, third-route option parity/provenance, crashes, missing reference, result mismatch, validator timeout, cleanup, historical/duplicate output refusal, redaction, bounded sort/truncation and scope-limited third-path reporting.
+
+Live smoke: DuckDB 2.0.1, signed adbc_scanner revision 98ff0a39fc, Redis Software/Redis 8.8.0 with verified active 4× QPF (six Search workers, mnp routing, 32 connections), TLS and a separate Linux ARM64 client. A six-row table covered exact decimals, duplicates, NULL groups and NULL aggregate inputs; grouped results matched direct Redis ADBC. EXPLAIN showed Adbc Scan Table with an id filter and DuckDB Hash Group By. Whole-query pushdown was explicitly disabled. The initial smoke assertion expected the older uppercase/underscore plan spelling; normalization corrected that test assertion, and result rows already matched. No upstream defect was found.
+
+The independently authorized SF1 Q19-only follow-up is in progress. Full suites and the original benchmark client remain stopped. No SF1 performance claim is made here. Historical timings retain the shared-worker caveat. Review considered timing boundaries, cleanup/cancellation, reference privacy/ownership, failure attribution, credentials, extension fallback and report scope. Human review pending.
