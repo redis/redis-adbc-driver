@@ -6,8 +6,13 @@ import "context"
 
 // Saturate before multiplication: counts are cardinality estimates, not an
 // admission grant. Runtime retained-memory/work limits still own actual rows.
+const nativeDimensionProductRows = int64(8192)
+
 func deferredDimensionProduct(product, count int64) int64 {
-	const cap = int64(maxUnionTerms)
+	return boundedDimensionProduct(product, count, int64(maxUnionTerms))
+}
+
+func boundedDimensionProduct(product, count, cap int64) int64 {
 	if product == 0 || count == 0 {
 		return 0
 	}
@@ -17,20 +22,37 @@ func deferredDimensionProduct(product, count int64) int64 {
 	return product * count
 }
 
-// Only postpone a connected deferred UNION, and only for a small, stable
-// disconnected dimension whose cross-product estimate remains within the same
-// bound as dynamic key demand. Outer/lateral joins never reach this call.
+// Postpone only a connected deferred UNION or proven large published fact.
+// Planning products cap at 1000 for UNION and 8192 for native targets;
+// each independently generated key set retains its separate 1000-value cap.
+// Outer/lateral joins never reach this call.
 func (e *executor) boundedDeferredDimension(ctx context.Context, jp *joinPlan, counts []int64, chosen map[int]bool, connected []bool, best int, product int64) int {
-	if best < 0 || !connected[best] || product <= 0 || product > maxUnionTerms {
+	if best < 0 || !connected[best] || product <= 0 || product > nativeDimensionProductRows {
 		return best
 	}
 	target := jp.items[best].base
-	if target.view == nil || !target.view.unionDemand {
+	deferred := target.view != nil && target.view.unionDemand
+	nativeLarge := counts[best] > maxUnionTerms && e.publishedJoinSource(ctx, target)
+	if nativeLarge {
+		rows := int64(0)
+		for _, seg := range target.snapshotSegments() {
+			rows = min(int64(maxUnionTerms+1), rows+min(seg.Rows, int64(maxUnionTerms+1)))
+		}
+		nativeLarge = rows > maxUnionTerms
+	}
+	if !deferred && !nativeLarge {
+		return best
+	}
+	limit := int64(maxUnionTerms)
+	if nativeLarge {
+		limit = nativeDimensionProductRows
+	}
+	if product > limit {
 		return best
 	}
 	selected := -1
 	for i, it := range jp.items {
-		if chosen[i] || connected[i] || i == best || counts[i] < 0 || deferredDimensionProduct(product, counts[i]) > maxUnionTerms {
+		if chosen[i] || connected[i] || i == best || counts[i] < 0 || boundedDimensionProduct(product, counts[i], limit) > limit {
 			continue
 		}
 		m := it.base
@@ -39,8 +61,7 @@ func (e *executor) boundedDeferredDimension(ctx context.Context, jp *joinPlan, c
 		}
 		stable := m.isMem
 		if !stable {
-			scope := snapshotOf(ctx)
-			stable = e.store != nil && e.store.snapshots && scope != nil && scope.pin != nil && managedRowIDTable(m) && snapshotDataID(m.prefix()) != "" && m.SnapshotRows != nil && len(m.PendingCleanup) == 0
+			stable = e.publishedJoinSource(ctx, m)
 		}
 		if !stable {
 			continue
