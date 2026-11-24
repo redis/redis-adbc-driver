@@ -327,3 +327,9 @@ The [TPC-DS focused follow-up](docs/performance/tpcds-focused-followup-2026-11-2
 records all eight originally failed targeted cases (Q2–Q9) validated across multiple
 combined development artifacts, with Q4 passing under Candidate 12. This is neither a
 single-build pass rate nor a full 99-query result; full suites remain stopped.
+
+A separate [Source 13 three-path Q4 observation](docs/performance/tpcds-focused-followup-2026-11-23.md#source-13-separate-three-path-q4-observation)
+validated direct Redis ADBC at a 40.448783 s median. The experimental
+DuckDB-over-Redis frontend fetched its warm-up in 59.509124 s but did not reach
+independent validation; its first timed run was interrupted at 60 s. It has no
+validated frontend output, timed median or ratio. See [frontend issue #627](https://github.com/redis/redis-adbc-driver/issues/627).

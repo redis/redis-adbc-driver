@@ -1,10 +1,10 @@
 # Focused TPC-DS SF1 follow-up
 
-Evidence snapshot: 2026-11-24 (updated through Candidate 12 Q4). This focused development-driver follow-up is separate from the [historical released-driver baseline](../../PERFORMANCE.md). Full suites remain stopped.
+Evidence snapshot: 2026-11-24 (updated through the separate Source 13 three-path Q4 attempt). This focused development-driver follow-up is separate from the [historical released-driver baseline](../../PERFORMANCE.md). Full suites remain stopped.
 
 All eight targeted queries (Q2–Q9) now have fully fetched, independently validated results under the recorded artifacts below. Q4 completed under Candidate 12 after earlier failed attempts. This does not mean all eight passed on one build or that all 99 TPC-DS queries ran. These selected per-query observations span different builds; they are not a completed full-suite score, a single-build pass rate or isolated attribution to individual optimizer PRs. Full benchmark suites remain stopped.
 
-## Latest recorded focused observations
+## Selected validated focused observations
 
 Native DuckDB medians come from the same per-query attempt as the Redis observation. Ratios are Redis median divided by that native control median; greater than 1 means Redis took longer. Failed Redis cases have no Redis median or ratio. Failed-case result dimensions belong only to the reference and are not shown as Redis output.
 
@@ -102,6 +102,65 @@ isolate any one PR, establish 16-core utilization or convert prior timeouts into
 latency samples. Successful Q2/Q3/Q5/Q6/Q7/Q8/Q9 rows retain their historical
 four-CPU profiles. All eight selected issue cases passed across multiple builds;
 there was no single-build all-eight rerun or full 99-query benchmark.
+
+## Source 13: separate three-path Q4 observation
+
+This additional Q4 attempt preserves the Candidate 12 first-success row above;
+it does not replace historical results or rerun all eight targeted queries on
+one build. The same original SF1 SQL ran in sequential fresh processes with
+separate disk-backed validation. The native DuckDB control and direct Redis
+completed; the experimental DuckDB-over-Redis frontend did not reach validation.
+See [frontend issue #627](https://github.com/redis/redis-adbc-driver/issues/627),
+[allowlisted samples/provenance](tpcds-q4-three-path-2026-11-24.json) and
+[upstream parallel-scanner PR #22](https://github.com/Query-farm/adbc_scanner/pull/22).
+
+| Path | Warm-up (s) | Completed timed samples (s) | Median (s) | Outcome |
+|---|---:|---|---:|---|
+| Native DuckDB | 0.143135209 | 0.051986834 / 0.041131459 / 0.050459084 | 0.050459084 | Complete reference: 8 rows × 4 columns |
+| Direct Redis ADBC | 39.169623976 | 40.448782644 / 39.139256434 / 48.450983522 | 40.448782644 | Warm-up and all timed outputs validated: 8 × 4 |
+| DuckDB over Redis ADBC | 59.509124361 | None | — | Warm-up full fetch/export only; first timed repetition interrupted at 60 s |
+
+**Frontend validation was not reached.** The worker fetches and exports each
+repetition; independent validation starts only after all four repetitions finish.
+The frontend's first timed repetition hit the actual DuckDB interrupt timer, with
+`60-second statement deadline exceeded: INTERRUPT Error: Interrupted!`. Its
+warm-up is a full-fetch observation only, not a correctness result. Temporary
+result files were cleaned after failure, so no independent warm-up comparison is
+claimed. There are **zero valid timed frontend samples, no median, no latency
+ratio and no validated frontend row shape**. The record's eight-row/four-column
+shape belongs to the native reference. Direct Redis was fully validated; its
+within-attempt ratio to the matched native control is 801.62×. No frontend ratio
+is inferred from its warm-up.
+
+Source 13 driver: `v0.0.31-dsfix13`, source
+`cc32226c3c37fc2b7f6c0fe188fc1b3d318ad69f`, library SHA-256
+`22d7aac800fd653e2e94e35842b2612c818ce7a96299c230f0662182ed60e168`.
+The experimental scanner executed local source
+`12a2857ded755ed9f0fe3d88b7dcd96ea8012903`; public fork head
+`c29122e13b4eec8db12b7dbd44bff845582c722e` has the identical whole-tree identity
+`fdec3b2031b358f47eadb420320a85d923f1054f`. Scanner binary SHA-256:
+`0764fe5e3f0d356b3a6d049e778fff577ec519d99912271fb5fb4bcf73ec025c`.
+This is an experimental source build, not a released-scanner comparison or a
+claim that the public commit itself was rebuilt for this run.
+
+The separate profile allocated 16 client CPUs, `GOMAXPROCS=16`, Redis query
+workers/budget 32/32, database `adbc.redis.partition_count=16`, DuckDB threads 16,
+requested scanner `scan_threads=16`, client memory 8 GiB and Software server
+ceiling 20 GiB, with a 60-second statement deadline. Redis Software Flex,
+verified active 4× QPF and authenticated TLS were retained; the Linux ARM64
+client shared the server's network namespace. Whole-query remote pushdown was
+disabled, so DuckDB planned joins/aggregates over Redis-backed table scans.
+[Driver PR #625](https://github.com/redis/redis-adbc-driver/pull/625) supplies the
+database/connection partition-count default. Configured settings alone do not
+establish CPU utilization or actual concurrency of each Q4 source scan.
+
+A separate live API correctness probe returned 16 partitions, opened 16 readers
+simultaneously, and verified all 100,000 exact customer IDs. It is **not** a Q4
+concurrency trace, CPU-scaling measurement or query performance result. No new
+loading was timed. The retained compatible SF1 data and SQL were unchanged.
+The frontend timeout is tracked separately from direct-path #590; this report
+requests no issue closure and assigns no bottleneck to one layer without further
+evidence. Full benchmark suites remain stopped.
 
 ## Common recorded profile and validation
 

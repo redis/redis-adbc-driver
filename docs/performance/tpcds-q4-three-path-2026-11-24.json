@@ -1,0 +1,104 @@
+{
+  "scope": "Focused original SF1 TPC-DS Q4 only; separate from historical suites and Candidate12 first pass",
+  "query": {
+    "suite": "tpcds",
+    "scale_factor": 1,
+    "id": "4",
+    "sql_sha256": "97c5894b2651a60ffe18177af6072bc8afd0e50a8f0000699974da771ceeffd3"
+  },
+  "issue": "https://github.com/redis/redis-adbc-driver/issues/627",
+  "artifacts": {
+    "redis": {
+      "version": "v0.0.31-dsfix13",
+      "source_commit": "cc32226c3c37fc2b7f6c0fe188fc1b3d318ad69f",
+      "library_sha256": "22d7aac800fd653e2e94e35842b2612c818ce7a96299c230f0662182ed60e168"
+    },
+    "scanner": {
+      "executed_source_commit": "12a2857ded755ed9f0fe3d88b7dcd96ea8012903",
+      "public_fork_head": "c29122e13b4eec8db12b7dbd44bff845582c722e",
+      "identical_whole_tree": "fdec3b2031b358f47eadb420320a85d923f1054f",
+      "binary_sha256": "0764fe5e3f0d356b3a6d049e778fff577ec519d99912271fb5fb4bcf73ec025c",
+      "upstream_pr": "https://github.com/Query-farm/adbc_scanner/pull/22",
+      "duckdb_version": "2.0.1",
+      "abi_guards_enabled": true
+    }
+  },
+  "profile": {
+    "platform": "Linux ARM64",
+    "route": "Client sharing the Redis Software server network namespace over authenticated TLS",
+    "redis_mode": "Software Flex experimental",
+    "verified_active_qpf": 4,
+    "client_cpu_allocation": 16,
+    "gomaxprocs": 16,
+    "redis_query_workers": 32,
+    "redis_worker_budget": 32,
+    "database_partition_count": 16,
+    "duckdb_threads": 16,
+    "requested_scanner_threads": 16,
+    "query_pushdown": false,
+    "client_memory_bytes": 8589934592,
+    "server_memory_ceiling_bytes": 21474836480,
+    "statement_deadline_seconds": 60,
+    "warmups": 1,
+    "requested_timed_repetitions": 3,
+    "numeric_relative_tolerance": 1e-07,
+    "numeric_absolute_tolerance": 1e-06,
+    "core_utilization_proven": false,
+    "q4_per_scan_concurrency_proven": false
+  },
+  "results": {
+    "native_duckdb": {
+      "status": "ok",
+      "validation_role": "complete reference output",
+      "reference_rows": 8,
+      "reference_columns": 4,
+      "warmup_seconds": 0.1431352090148721,
+      "timed_seconds": [
+        0.05198683400521986,
+        0.04113145900191739,
+        0.05045908398460597
+      ],
+      "median_seconds": 0.05045908398460597
+    },
+    "direct_redis_adbc": {
+      "status": "ok",
+      "validation": "complete multiset matches reference for warmup and all three timed outputs",
+      "validated_rows": 8,
+      "validated_columns": 4,
+      "warmup_seconds": 39.16962397599127,
+      "timed_seconds": [
+        40.44878264400177,
+        39.13925643402035,
+        48.45098352202331
+      ],
+      "median_seconds": 40.44878264400177,
+      "over_native_duckdb": 801.6154763400355
+    },
+    "duckdb_over_redis_adbc": {
+      "status": "timeout",
+      "warmup_seconds": 59.50912436100771,
+      "warmup_scope": "complete fetch/export observation only; not independently validated",
+      "timed_seconds": [],
+      "failed_timed_repetition": 1,
+      "timeout_cause": "duckdb_interrupt_timer",
+      "timeout_seconds": 60,
+      "validation": "not reached; requires all repetitions to finish",
+      "validated_output_shape": null,
+      "median_seconds": null,
+      "over_native_duckdb": null
+    }
+  },
+  "separate_partition_api_probe": {
+    "database_partition_count": 16,
+    "returned_partitions": 16,
+    "simultaneously_open_readers": 16,
+    "rows": 100000,
+    "exact_ids_1_through_100000": true
+  },
+  "probe_scope": "Separate customer-table API correctness check; not Q4-specific concurrency, utilization or performance evidence",
+  "summary": {
+    "direct_path_validated": true,
+    "all_requested_engines_validated": false,
+    "frontend_output_validated": false
+  }
+}
