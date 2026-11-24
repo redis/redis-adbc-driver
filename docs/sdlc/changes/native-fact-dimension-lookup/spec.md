@@ -8,8 +8,12 @@ stable-dimension rule may also postpone a proven published native managed fact.
 Require an active statement pin, valid immutable managed descriptors, no owned
 private segment, no live/unmanaged/opaque/cleanup source, and both physical and
 filtered estimated source counts above maxUnionTerms (1000). Keep the original
-first-input choice and cumulative saturating disconnected product cap of1000.
-Small/selective, private, unpinned, unsupported or over-product targets preserve
+first-input choice. Native targets use a conservative 4096-row product estimate;
+deferred UNION targets retain 1000. The planner tracks/saturates at 4096, while
+every independently generated equality key set retains its 1000-value cap.
+Operation/write/maintenance/shared-pin/retained/direct/partition-executor scopes
+also refuse native admission. Small/selective, private, unpinned, unsupported or
+over-product targets preserve
 the existing order. Tighten native dimension stability to the same published
 source proof. Larger selected cohorts can conservatively prevent postponement;
 this is not an unconditional Q8 execution claim.

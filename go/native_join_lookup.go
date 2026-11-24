@@ -63,7 +63,10 @@ func (e *executor) nativeJoinLookups(ctx context.Context, env *evalEnv, pairs []
 
 func (e *executor) publishedJoinSource(ctx context.Context, m *tableMeta) bool {
 	scope := snapshotOf(ctx)
-	if m == nil || m.isMem || m.view != nil || m.lazy != nil || m.group != nil || m.join != nil || m.Live || m.Unmanaged || e.store == nil || !e.store.snapshots || scope == nil || scope.pin == nil || !managedRowIDTable(m) || m.SnapshotRows == nil || len(m.PendingCleanup) != 0 || validateSnapshotDescriptor(ctx, m) != nil {
+	if e.retained != nil || e.partitionDirectTable != nil || e.partitionForeignTable != "" || ctx.Value(retainedAllocationKey{}) != nil || ctx.Value(subBudgetKey{}) != nil || ctx.Value(snapshotDirectReadKey{}) != nil {
+		return false
+	}
+	if m == nil || m.isMem || m.view != nil || m.lazy != nil || m.group != nil || m.join != nil || m.Live || m.Unmanaged || e.store == nil || !e.store.snapshots || scope == nil || scope.pin == nil || scope.store != e.store || scope.operation || scope.write || scope.maintenance || scope.pin.shared != nil || m.retainedSource || m.MaterializedSQL != "" || m.matviewRead != nil || !managedRowIDTable(m) || m.SnapshotRows == nil || len(m.PendingCleanup) != 0 || validateSnapshotDescriptor(ctx, m) != nil {
 		return false
 	}
 	for _, seg := range m.snapshotSegments() {

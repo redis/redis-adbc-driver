@@ -39,7 +39,7 @@ func nativeQ8OrderFixture(t *testing.T) (*executor, *selectPlan, context.Context
 	}
 	// Preserve Q8's actual parsed outer graph and predicates; V1 is its already
 	// materialized ZIP cohort. This cost fixture does not execute external SQL.
-	q := `WITH store_sales(ss_store_sk,ss_sold_date_sk,ss_net_profit) AS (VALUES (1,78999,CAST(1.25 AS DECIMAL(7,2)))), date_dim(d_date_sk,d_qoy,d_year) AS (VALUES ` + strings.Join(dates, ",") + `), store(s_store_sk,s_store_name,s_zip) AS (VALUES ` + strings.Join(stores, ",") + `), v1(ca_zip) AS (VALUES ('24128')) SELECT s_store_name,SUM(ss_net_profit) FROM store_sales,date_dim,store,v1 WHERE ss_store_sk=s_store_sk AND ss_sold_date_sk=d_date_sk AND d_qoy=2 AND d_year=1998 AND SUBSTRING(s_zip,1,2)=SUBSTRING(v1.ca_zip,1,2) GROUP BY s_store_name ORDER BY s_store_name LIMIT 100`
+	q := `WITH store_sales(ss_store_sk,ss_sold_date_sk,ss_net_profit) AS (VALUES (1,78999,CAST(1.25 AS DECIMAL(7,2)))), date_dim(d_date_sk,d_qoy,d_year) AS (VALUES ` + strings.Join(dates, ",") + `), store(s_store_sk,s_store_name,s_zip) AS (VALUES ` + strings.Join(stores, ",") + `), v1(ca_zip) AS (VALUES ('24128'),('24129'),('24130'),('24131'),('24132')) SELECT s_store_name,SUM(ss_net_profit) FROM store_sales,date_dim,store,v1 WHERE ss_store_sk=s_store_sk AND ss_sold_date_sk=d_date_sk AND d_qoy=2 AND d_year=1998 AND SUBSTRING(s_zip,1,2)=SUBSTRING(v1.ca_zip,1,2) GROUP BY s_store_name ORDER BY s_store_name LIMIT 100`
 	e, p := deferredTestPlan(t, q)
 	native, ctx, base := snapshotPageFixture(t)
 	n := int64(2880404)
@@ -90,7 +90,7 @@ func TestNativeQ8ParsedSelectionAndAllLookupPairs(t *testing.T) {
 		need[c.Name] = true
 	}
 	rows, err := e.runJoin(ctx, jp, need, nil)
-	if err != nil || len(rows) != 1 {
+	if err != nil || len(rows) != 5 {
 		t.Fatalf("native outer shape rows%d err%v", len(rows), err)
 	}
 	found := false
@@ -106,11 +106,11 @@ func TestNativeQ8ParsedSelectionAndAllLookupPairs(t *testing.T) {
 }
 
 func TestNativeDimensionOrderingRequiresLargePublishedSource(t *testing.T) {
-	for _, kind := range []string{"private", "unpinned", "small_filtered", "small_physical", "over_product", "unmanaged"} {
+	for _, kind := range []string{"private", "unpinned", "small_filtered", "small_physical", "over_product", "unmanaged", "operation", "write", "retained_context"} {
 		t.Run(kind, func(t *testing.T) {
 			e, p, ctx, _ := nativeQ8OrderFixture(t)
 			jp := p.meta.join
-			counts := []int64{2880404, 91, 6, 1}
+			counts := []int64{2880404, 91, 6, 5}
 			chosen := map[int]bool{2: true, 3: true}
 			connected := []bool{true, false, false, false}
 			product := int64(6)
@@ -127,9 +127,15 @@ func TestNativeDimensionOrderingRequiresLargePublishedSource(t *testing.T) {
 				n := int64(500)
 				jp.items[0].base.SnapshotRows = &n
 			case "over_product":
-				product = 12
+				product = 46
 			case "unmanaged":
 				jp.items[0].base.Unmanaged = true
+			case "operation":
+				snapshotOf(ctx).operation = true
+			case "write":
+				snapshotOf(ctx).write = true
+			case "retained_context":
+				ctx = context.WithValue(ctx, retainedAllocationKey{}, newRetainedBudget(1<<20))
 			}
 			if got := e.boundedDeferredDimension(ctx, jp, counts, chosen, connected, 0, product); got != 0 {
 				t.Fatalf("unsafe native postponement: %d", got)
@@ -168,5 +174,30 @@ func TestNativeLookupPairCapsNullAndPrecisionFallback(t *testing.T) {
 	got, err = e.nativeJoinLookups(ctx, env, pairs, left, view, wherePlan{query: "*"})
 	if err != nil || !got.none {
 		t.Fatal("proven NULL equality set did not suppress right matches")
+	}
+}
+
+func TestNativeDimensionProduct4096BoundaryAndUnion1000Limit(t *testing.T) {
+	for _, count := range []int{4096, 4097} {
+		e, p, ctx, _ := nativeQ8OrderFixture(t)
+		jp := p.meta.join
+		jp.items[1].base.mem = make([]map[string]Value, count)
+		counts := []int64{2880404, int64(count), 1, 1}
+		got := e.boundedDeferredDimension(ctx, jp, counts, map[int]bool{2: true, 3: true}, []bool{true, false, false, false}, 0, 1)
+		if (got == 1) != (count == 4096) {
+			t.Fatalf("native product%d selected%d", count, got)
+		}
+	}
+	for _, count := range []int{1000, 1001} {
+		e, jp, _ := deferredOrderFixture(t, count, 1)
+		got := e.boundedDeferredDimension(context.Background(), jp, []int64{1 << 60, int64(count), 1}, map[int]bool{2: true}, []bool{true, false, false}, 0, 1)
+		if (got == 1) != (count == 1000) {
+			t.Fatalf("UNION cap changed: product%d selected%d", count, got)
+		}
+	}
+	for _, tc := range []struct{ a, b, want int64 }{{64, 64, 4096}, {1, 4097, 4097}, {9223372036854775807, 9223372036854775807, 4097}, {4096, 2, 4097}, {0, 9223372036854775807, 0}} {
+		if got := boundedDimensionProduct(tc.a, tc.b, nativeDimensionProductRows); got != tc.want {
+			t.Fatalf("planning product%d*%d=%d want%d", tc.a, tc.b, got, tc.want)
+		}
 	}
 }

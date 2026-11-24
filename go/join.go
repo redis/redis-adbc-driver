@@ -737,7 +737,7 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 		if len(steps) > 0 {
 			best = e.boundedDeferredDimension(ctx, jp, counts, chosen, connectedItems, best, dimensionProduct)
 		}
-		dimensionProduct = deferredDimensionProduct(dimensionProduct, counts[best])
+		dimensionProduct = boundedDimensionProduct(dimensionProduct, counts[best], nativeDimensionProductRows)
 		chosen[best] = true
 		st := joinStep{item: best, kind: "INNER"}
 		if len(steps) == 0 {
