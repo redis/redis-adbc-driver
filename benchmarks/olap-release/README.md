@@ -44,8 +44,13 @@ above one add that scanner option alongside `READ_ONLY` and
 `query_pushdown false`; unsupported extensions fail without a serial retry.
 This setting is independent of `client_threads` and Redis driver options such as
 `db_kwargs["adbc.redis.partition_count"]`, which are forwarded unchanged.
-Provenance records only numeric `requested_scan_threads`; effective readers and
-partition concurrency require separate verification.
+Provenance records numeric `requested_scan_threads`; effective readers and
+partition concurrency require separate verification. A matching custom build
+that needs the already imported DuckDB runtime's symbols may separately opt into
+`"duckdb_adbc_global_symbols": true` (default false). It requires
+`ADBC_SCANNER_EXTENSION`, promotes only the loaded `_duckdb` module before LOAD,
+and records only boolean `custom_scanner_global_symbols`, never library paths.
+The official released-scanner profile and direct Redis worker are unaffected.
 
 A live six-row smoke check on Redis Software with verified 4× QPF matched direct Redis ADBC for grouped exact decimals, duplicates and NULLs. DuckDB's plan showed an ADBC table scan, filter delivery, and local hash aggregation. It used DuckDB 2.0.1 and scanner revision `98ff0a39fc`. SF1 results are separate evidence, not inferred from this smoke test.
 

@@ -385,5 +385,62 @@ class ScannerThreadOptionTests(unittest.TestCase):
             self.assertEqual(sum(c.args[0].startswith('ATTACH') for c in conn.execute.call_args_list), 1)
 
 
+    def test_custom_global_symbols_promotes_only_loaded_duckdb_before_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', 'duckdb_adbc_global_symbols': True}))
+            args, conn, _, modules = self.mock_third(private)
+            events = []
+            promote = Mock(side_effect=lambda *a, **k: events.append('promote'))
+            modules.update({'_duckdb': types.SimpleNamespace(__file__='/private-loaded-duckdb.so'),
+                            'ctypes': types.SimpleNamespace(CDLL=promote, RTLD_GLOBAL=123)})
+            def execute(sql):
+                events.append('load' if sql.startswith('LOAD ') else 'other')
+                return conn
+            conn.execute.side_effect = execute
+            with patch.dict(sys.modules, modules), patch.dict(os.environ, {'ADBC_SCANNER_EXTENSION': '/custom-scanner'}):
+                _, provenance = isolation.connect_engine(args)
+            promote.assert_called_once_with('/private-loaded-duckdb.so', mode=123)
+            self.assertLess(events.index('promote'), events.index('load'))
+            self.assertIs(provenance['custom_scanner_global_symbols'], True)
+            self.assertNotIn('/private-loaded-duckdb.so', json.dumps(provenance))
+            self.assertNotIn('/custom-scanner', json.dumps(provenance))
+
+    def test_global_symbols_default_and_native_duckdb_never_promote(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            self.assertIs(isolation.duckdb_adbc_global_symbols(private), False)
+            for engine, setting in (('duckdb_adbc', {}), ('duckdb_adbc', {'duckdb_adbc_global_symbols': False}),
+                                    ('duckdb', {'duckdb_adbc_global_symbols': True})):
+                with self.subTest(engine=engine, setting=setting):
+                    (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', **setting}))
+                    args, _, _, modules = self.mock_third(private)
+                    args.engine = engine
+                    promote = Mock()
+                    modules.update({'ctypes': types.SimpleNamespace(CDLL=promote, RTLD_GLOBAL=123)})
+                    with patch.dict(sys.modules, modules), patch.dict(os.environ, {'ADBC_SCANNER_EXTENSION': '/custom-scanner'}):
+                        _, provenance = isolation.connect_engine(args)
+                    promote.assert_not_called()
+                    if engine == 'duckdb_adbc':
+                        self.assertIs(provenance['custom_scanner_global_symbols'], False)
+
+    def test_global_symbols_rejects_non_bool_or_missing_custom_scanner_before_open(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            for invalid in (0, 1, 'true', 1.0, None, [], {}):
+                with self.subTest(value=invalid):
+                    (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', 'duckdb_adbc_global_symbols': invalid}))
+                    args, _, connect, modules = self.mock_third(private)
+                    with patch.dict(sys.modules, modules), self.assertRaisesRegex(ValueError, 'must be a boolean'):
+                        isolation.connect_engine(args)
+                    connect.assert_not_called()
+            (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', 'duckdb_adbc_global_symbols': True}))
+            args, _, connect, modules = self.mock_third(private)
+            with patch.dict(sys.modules, modules), patch.dict(os.environ, {}, clear=True):
+                with self.assertRaisesRegex(ValueError, 'requires ADBC_SCANNER_EXTENSION'):
+                    isolation.connect_engine(args)
+            connect.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()

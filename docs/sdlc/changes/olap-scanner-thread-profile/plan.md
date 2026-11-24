@@ -16,3 +16,12 @@ passed: `python3 -m unittest discover -s benchmarks/olap-release -p
 adapters and child processes; no native SQL, Redis, container action, driver
 build or benchmark occurred. Root review is required before publication/runtime
 application. A live reader-concurrency claim is outside these mocked checks.
+
+
+Explicit custom-runtime promotion follow-up: three additional mocks cover
+boolean validation/custom-extension requirement before open, default/native
+no-op, promotion of exactly the imported _duckdb binary before custom LOAD, and
+path-free boolean provenance. Final test_isolation.py passed21 tests4.568s;
+existing client-thread regressions passed3 tests0.010s. Real-child import-isolation
+checks still assert Redis workers never import DuckDB. This does not claim an
+extension runtime or live-query result; root owns the separate custom ABI proof.

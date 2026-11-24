@@ -165,6 +165,15 @@ def duckdb_adbc_scan_threads(private):
     return threads
 
 
+def duckdb_adbc_global_symbols(private):
+    profile = Path(private) / "connection.json"
+    config = json.loads(profile.read_text()) if profile.exists() else {}
+    enabled = config.get("duckdb_adbc_global_symbols", False)
+    if type(enabled) is not bool:
+        raise ValueError("duckdb_adbc_global_symbols must be a boolean")
+    return enabled
+
+
 def connect_engine(args):
     """Import/open only the selected engine; no local source DB in ADBC mode."""
     if args.engine == "redis":
@@ -177,6 +186,10 @@ def connect_engine(args):
 
     threads = client_threads(args.private)
     scan_threads = duckdb_adbc_scan_threads(args.private) if args.engine == "duckdb_adbc" else 1
+    global_symbols = duckdb_adbc_global_symbols(args.private) if args.engine == "duckdb_adbc" else False
+    scanner = os.environ.get("ADBC_SCANNER_EXTENSION") if args.engine == "duckdb_adbc" else None
+    if global_symbols and not scanner:
+        raise ValueError("duckdb_adbc_global_symbols requires ADBC_SCANNER_EXTENSION")
     import duckdb
 
     if args.engine == "duckdb":
@@ -188,10 +201,14 @@ def connect_engine(args):
     from adbc_driver_redis import _driver_path
     os.environ["QUERY_FARM_TELEMETRY_OPT_OUT"] = "1"
     config = json.loads((args.private / "connection.json").read_text())
-    scanner = os.environ.get("ADBC_SCANNER_EXTENSION")
     conn = duckdb.connect(config={"allow_unsigned_extensions": bool(scanner)})
     try:
         conn.execute(f"SET threads={threads}; SET memory_limit='8GB'")
+        if global_symbols:
+            # Promote the already imported DuckDB runtime, never an arbitrary library.
+            import ctypes
+            import _duckdb
+            ctypes.CDLL(_duckdb.__file__, mode=ctypes.RTLD_GLOBAL)
         if scanner:
             conn.execute(f"LOAD {literal(scanner)}")
         else:
@@ -211,7 +228,7 @@ def connect_engine(args):
         # Public provenance excludes library paths, attach SQL and credentials.
         extension = conn.execute("SELECT extension_version FROM duckdb_extensions() "
                                  "WHERE extension_name='adbc_scanner' AND loaded").fetchone()
-        return conn, {"client_threads": threads, "requested_scan_threads": scan_threads, "execution": "DuckDB planner over Redis ADBC attached catalog",
+        return conn, {"client_threads": threads, "requested_scan_threads": scan_threads, "custom_scanner_global_symbols": global_symbols, "execution": "DuckDB planner over Redis ADBC attached catalog",
                       "query_pushdown": False, "extension": "adbc_scanner",
                       "extension_version": extension[0] if extension else None,
                       "redis_library_sha256": hashlib.sha256(library.read_bytes()).hexdigest()}
