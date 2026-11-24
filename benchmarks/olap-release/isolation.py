@@ -147,6 +147,15 @@ def redis_options(config):
             "adbc.redis.telemetry.enabled": "false"}
 
 
+def client_threads(private):
+    profile = Path(private) / "connection.json"
+    config = json.loads(profile.read_text()) if profile.exists() else {}
+    threads = config.get("client_threads", 4)
+    if type(threads) is not int or not 1 <= threads <= 32:
+        raise ValueError("client_threads must be an integer from 1 to 32")
+    return threads
+
+
 def connect_engine(args):
     """Import/open only the selected engine; no local source DB in ADBC mode."""
     if args.engine == "redis":
@@ -157,12 +166,13 @@ def connect_engine(args):
             cur.execute("SET statement_timeout = '60s'")
         return conn, {}
 
+    threads = client_threads(args.private)
     import duckdb
 
     if args.engine == "duckdb":
         conn = duckdb.connect(str(args.private / f"{args.suite}-sf1.duckdb"), read_only=True)
-        conn.execute("SET threads=4; SET memory_limit='8GB'")
-        return conn, {}
+        conn.execute(f"SET threads={threads}; SET memory_limit='8GB'")
+        return conn, {"client_threads": threads}
 
     # Use the exact same installed native Redis library as the direct route.
     from adbc_driver_redis import _driver_path
@@ -171,7 +181,7 @@ def connect_engine(args):
     scanner = os.environ.get("ADBC_SCANNER_EXTENSION")
     conn = duckdb.connect(config={"allow_unsigned_extensions": bool(scanner)})
     try:
-        conn.execute("SET threads=4; SET memory_limit='8GB'")
+        conn.execute(f"SET threads={threads}; SET memory_limit='8GB'")
         if scanner:
             conn.execute(f"LOAD {literal(scanner)}")
         else:
@@ -190,7 +200,7 @@ def connect_engine(args):
         # Public provenance excludes library paths, attach SQL and credentials.
         extension = conn.execute("SELECT extension_version FROM duckdb_extensions() "
                                  "WHERE extension_name='adbc_scanner' AND loaded").fetchone()
-        return conn, {"execution": "DuckDB planner over Redis ADBC attached catalog",
+        return conn, {"client_threads": threads, "execution": "DuckDB planner over Redis ADBC attached catalog",
                       "query_pushdown": False, "extension": "adbc_scanner",
                       "extension_version": extension[0] if extension else None,
                       "redis_library_sha256": hashlib.sha256(library.read_bytes()).hexdigest()}
