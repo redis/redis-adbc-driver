@@ -15,27 +15,7 @@ import (
 // Probe immutable prepared buckets with worker-owned maps. No evaluator/cache,
 // accumulator, AST or source row is shared for mutation.
 func probeStarRow(ctx context.Context, shape *starShape, row map[string]Value, emit func(map[string]Value) error) error {
-	var probe func(int, map[string]Value) error
-	probe = func(d int, row map[string]Value) error {
-		if err := cancelled(ctx); err != nil {
-			return err
-		}
-		if d == len(shape.dims) {
-			return emit(row)
-		}
-		dim := &shape.dims[d]
-		key, ok := starRowKey(row, dim.factCols)
-		if !ok {
-			return nil
-		}
-		for _, right := range dim.buckets[key] {
-			if err := probe(d+1, mergeRows(row, right)); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	return probe(0, row)
+	return newStarRowProbe(shape).row(ctx, row, emit)
 }
 
 var errStarProbeStopped = errors.New("star probing stopped after consumer failure")
@@ -62,6 +42,7 @@ func parallelStarJoinPages(ctx context.Context, shape *starShape, workers int, s
 		go func(w int) {
 			defer wg.Done()
 			defer close(results[w].rows)
+			probe := newStarRowProbe(shape)
 			out := make([]map[string]Value, 0, starOutputPage)
 			flush := func() error {
 				if len(out) == 0 {
@@ -95,7 +76,7 @@ func parallelStarJoinPages(ctx context.Context, shape *starShape, workers int, s
 						return err
 					}
 					if !stopProbing.Load() {
-						if err := probeStarRow(child, shape, row, emit); err != nil && err != errStarProbeStopped {
+						if err := probe.row(child, row, emit); err != nil && err != errStarProbeStopped {
 							return err
 						}
 					}
