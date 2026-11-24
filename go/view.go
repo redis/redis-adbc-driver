@@ -600,6 +600,9 @@ func (e *executor) runView(ctx context.Context, lv *lazyView, outerWhere Expr, n
 			}
 		}
 	}
+	if lv.unionDemand && e.deferredLeftJoinSafe(ctx, lv.plan) {
+		base = deferredLeftJoinDemand(base, where)
+	}
 	wp, err := e.planWhere(ctx, where, base, params)
 	if err != nil {
 		return nil, err

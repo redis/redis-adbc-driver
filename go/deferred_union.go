@@ -25,7 +25,8 @@ func (e *executor) deferredUnionSafe(ctx context.Context, p *selectPlan) bool {
 		return false
 	}
 	s := p.sel
-	if len(s.With) != 0 || len(s.Joins) != 0 || len(s.OrderBy) != 0 || len(s.GroupBy) != 0 || s.GroupingSets != nil || len(s.Windows) != 0 || s.Distinct || s.Having != nil || s.Where != nil || s.Limit != nil || s.Offset != nil || s.LimitExpr != nil || s.OffsetExpr != nil {
+	leftLeaf := e.deferredLeftJoinSafe(ctx, p)
+	if len(s.With) != 0 || len(s.Joins) != 0 && !leftLeaf || len(s.OrderBy) != 0 || len(s.GroupBy) != 0 || s.GroupingSets != nil || len(s.Windows) != 0 || s.Distinct || s.Having != nil || s.Where != nil || s.Limit != nil || s.Offset != nil || s.LimitExpr != nil || s.OffsetExpr != nil {
 		return false
 	}
 	if sp := p.setop; sp != nil {
@@ -39,7 +40,7 @@ func (e *executor) deferredUnionSafe(ctx context.Context, p *selectPlan) bool {
 		}
 		return true
 	}
-	if p.meta == nil || p.meta.lazy != nil || p.meta.join != nil || p.meta.group != nil {
+	if p.meta == nil || p.meta.lazy != nil || p.meta.join != nil && !leftLeaf || p.meta.group != nil {
 		return false
 	}
 	if p.meta.view != nil && (!p.meta.view.unionDemand || !e.deferredUnionSafe(ctx, p.meta.view.plan)) {

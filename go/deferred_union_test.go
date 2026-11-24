@@ -164,10 +164,10 @@ func TestDeferredUnionTypedConstantsAndRollup(t *testing.T) {
 	if got := memQuery(q); got != "0|NULL|60\n0|1|40\n0|2|40\n1|NULL|140" {
 		t.Fatal(got)
 	}
-	// A LEFT-joined UNION branch is intentionally outside this optimization.
+	// Pure exact LEFT leaves may defer; arbitrary outer-joined branches remain outside.
 	_, p = deferredTestPlan(t, `WITH a(d,v) AS (VALUES (1,10),(2,20)) SELECT * FROM (SELECT d,v FROM a UNION ALL SELECT x.d,x.v FROM a x LEFT JOIN a y ON x.d=y.d) u`)
-	if p.meta.view != nil && p.meta.view.unionDemand {
-		t.Fatal("outer-joined branch was deferred")
+	if p.meta.view == nil || !p.meta.view.unionDemand {
+		t.Fatal("safe exact LEFT branch was not deferred")
 	}
 }
 
