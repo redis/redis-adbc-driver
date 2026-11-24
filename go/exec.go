@@ -1359,6 +1359,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 			return nil, err
 		}
 	}
+	e.registerScalarCohorts(ctx, plan)
 	return plan, nil
 }
 

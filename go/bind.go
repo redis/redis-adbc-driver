@@ -117,6 +117,7 @@ type unseenRel struct {
 type execCache struct {
 	catalog       *catalogSnapshot
 	sub           map[*Subquery][][]Value
+	scalarCohorts map[*Subquery]*scalarCohort
 	inSets        map[*Subquery]*inSet
 	rowSets       map[*Subquery]*rowSet
 	inLists       map[*Binary]*inList // nil: evaluate the OR chain as written
@@ -1395,6 +1396,14 @@ func (e *executor) subqueryRows(ctx context.Context, sq *Subquery, env *evalEnv)
 		}
 	} else if rows, ok := e.cache.sub[sq]; ok {
 		return rows, nil
+	}
+	if !sq.correlated {
+		if rows, handled, err := e.scalarCohortRows(ctx, sq); handled {
+			if err == nil {
+				e.cache.sub[sq] = rows
+			}
+			return rows, err
+		}
 	}
 	child := *e
 	child.scopes, child.pendingSq = nil, nil
