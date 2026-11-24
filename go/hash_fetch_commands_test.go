@@ -164,6 +164,87 @@ func TestHashFetchCommandsPipelineHookError(t *testing.T) {
 	}
 }
 
+// Populate successful replies independently of the pipeline outcome, as hooks
+// can do even when the batch's transport outcome is uncertain.
+type hashFetchPopulatedRepliesHook struct {
+	hashFetchErrorHook
+	execErr error
+}
+
+func (h hashFetchPopulatedRepliesHook) ProcessPipelineHook(goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(_ context.Context, cmds []goredis.Cmder) error {
+		for _, cmd := range cmds {
+			values := make([]any, len(cmd.Args())-2)
+			for i := range values {
+				values[i] = "1"
+			}
+			cmd.(*goredis.SliceCmd).SetVal(values)
+			cmd.SetErr(h.err)
+		}
+		return h.execErr
+	}
+}
+
+func TestHashFetchPopulatedRepliesPreserveUncertainErrors(t *testing.T) {
+	lost := errors.New("synthetic HMGET reply loss")
+	for _, tc := range []struct {
+		name    string
+		execErr error
+		cmdErr  error
+		wantErr bool
+	}{
+		{name: "success"},
+		{name: "direct_nil", execErr: goredis.Nil},
+		{name: "wrapped_nil", execErr: fmt.Errorf("uncertain pipeline: %w", goredis.Nil), wantErr: true},
+		{name: "joined_nil_transport", execErr: errors.Join(goredis.Nil, lost), wantErr: true},
+		{name: "transport", execErr: lost, wantErr: true},
+		{name: "individual_error", cmdErr: lost, wantErr: true},
+		{name: "direct_nil_with_individual_error", execErr: goredis.Nil, cmdErr: lost, wantErr: true},
+	} {
+		for _, positional := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/positional_%t", tc.name, positional), func(t *testing.T) {
+				client := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1"})
+				t.Cleanup(func() { _ = client.Close() })
+				client.AddHook(hashFetchPopulatedRepliesHook{hashFetchErrorHook{tc.cmdErr}, tc.execErr})
+				s := &store{client: client}
+				keys, fields := []string{"row"}, []string{"field"}
+				var err error
+				if positional {
+					var rows [][]any
+					rows, err = s.fetchRowSlices(context.Background(), keys, fields, 1)
+					if err != nil && rows != nil {
+						t.Fatal("failed fetch returned rows", rows)
+					}
+					if !tc.wantErr && (len(rows) != 1 || !reflect.DeepEqual(rows[0], []any{"1", "1"})) {
+						t.Fatal("successful positional replies changed", rows, err)
+					}
+				} else {
+					var rows []aggRow
+					rows, err = s.fetchRows(context.Background(), keys, fields)
+					if err != nil && rows != nil {
+						t.Fatal("failed fetch returned rows", rows)
+					}
+					if !tc.wantErr && (len(rows) != 1 || rows[0]["field"] != "1") {
+						t.Fatal("successful map replies changed", rows, err)
+					}
+				}
+				if (err != nil) != tc.wantErr {
+					t.Fatalf("populated replies hid pipeline/command failure: err=%v wantErr=%t", err, tc.wantErr)
+				}
+				if tc.wantErr {
+					want := tc.execErr
+					if tc.cmdErr != nil {
+						want = tc.cmdErr
+					}
+					if !strings.Contains(fmt.Sprint(err), want.Error()) {
+						t.Fatalf("failure detail lost: %v want %v", err, want)
+					}
+				}
+			})
+		}
+	}
+}
+
 func BenchmarkHashFetchCommandConstruction(b *testing.B) {
 	for _, preboxed := range []bool{false, true} {
 		b.Run(fmt.Sprintf("preboxed_%t", preboxed), func(b *testing.B) {
