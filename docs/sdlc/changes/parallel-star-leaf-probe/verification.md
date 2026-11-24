@@ -39,3 +39,15 @@ All endpoint-free unit packages passed `go test -count=1 -p 1 ./...` with the
 same environment flags (root package 29.751s). Applicable endpoint integration
 skips are not live compatibility evidence. Formatting, diff and local SDLC-link
 checks passed. The stable earlier parallel/count-proof revisions were unchanged.
+
+## Clean public follow-up
+
+Only ede8bec81acbd9d948121feea17c126df7c9e0d0 was extracted onto the clean
+parallel-reader main follow-up ecd7a50e, excluding private integration ancestors.
+The combined native9 source b2811f5499114d389584ff2bec0de2afd5998481
+still hit the original SF1 Q4 60-second warm-up deadline, without OOM or timed
+samples. The synthetic allocation reduction is not a demonstrated native
+whole-query win. Q4 remains unresolved and is being profiled; no issue closure
+or full benchmark restart follows from this PR.
+
+All endpoint-free unit packages pass on this clean publication branch: `env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=2 go test -count=1 -p 1 ./...` (root package 30.414s). Redis-dependent skips are not live compatibility evidence. Formatting/diff checks pass.
