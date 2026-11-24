@@ -48,9 +48,55 @@ func impliedJoinConjuncts(expr Expr) []Expr {
 				}
 			}
 		}
+		// Both branches restricting one column to literals imply it is one of
+		// their values: TPC-H Q7's (n1 = 'FRANCE' AND n2 = 'GERMANY') OR
+		// (n1 = 'GERMANY' AND n2 = 'FRANCE') implies each nation is one of
+		// the two. The new OR only references the original operands.
+		for _, l := range left {
+			lc, ok := literalDisjunctionColumn(l)
+			if !ok {
+				continue
+			}
+			for _, r := range right {
+				if rc, ok := literalDisjunctionColumn(r); ok && rc == lc && !exprEqual(l, r) {
+					common = append(common, &Binary{Op: "OR", L: l, R: r})
+					break
+				}
+			}
+		}
 		return common
 	}
 	return []Expr{expr}
+}
+
+// literalDisjunctionColumn is the column of `col = literal`, or of an OR of
+// such equalities on that one column (an IN list).
+func literalDisjunctionColumn(expr Expr) (string, bool) {
+	b, ok := expr.(*Binary)
+	if !ok {
+		return "", false
+	}
+	switch b.Op {
+	case "OR":
+		l, lok := literalDisjunctionColumn(b.L)
+		r, rok := literalDisjunctionColumn(b.R)
+		return l, lok && rok && l == r
+	case "=":
+		if b.nested {
+			return "", false
+		}
+		c, lit := b.L, b.R
+		if _, ok := c.(*ColumnRef); !ok {
+			c, lit = b.R, b.L
+		}
+		col, ok := c.(*ColumnRef)
+		l, isLit := lit.(*Literal)
+		if !ok || !isLit || col.Outer != 0 || col.whole != nil || l.V.Null {
+			return "", false
+		}
+		return col.Name, true
+	}
+	return "", false
 }
 
 // Restrict the entire OR, not just extracted atoms: filtering rows early must

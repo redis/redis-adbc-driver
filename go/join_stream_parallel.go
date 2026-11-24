@@ -53,6 +53,10 @@ func (e *executor) scanParallelStarFacts(ctx context.Context, shape *starShape, 
 		}
 	}
 	predicate := andAll(shape.filters[shape.fact])
+	if shape.snowflake && !snowflakeParallelPredicate(predicate) {
+		// Snowflake facts keep arbitrary pushed filters (see the predicate).
+		return false, nil
+	}
 	wp, err := e.planWhere(ctx, predicate, view, params)
 	if err != nil {
 		return true, err
@@ -67,6 +71,14 @@ func (e *executor) scanParallelStarFacts(ctx context.Context, shape *starShape, 
 		over, err := e.store.completeFlexOverBudget(ctx, view, wp.query)
 		if err != nil {
 			return true, err
+		}
+		if !over && shape.snowflake {
+			// A snowflake fact whose filter keeps a large share of its rows
+			// (TPC-H Q3's ship date) reads exact directories in parallel and
+			// checks the complete predicate on each row, as broad facts do.
+			if over, err = e.broadSnowflakeFact(ctx, base, view, wp.query); err != nil {
+				return true, err
+			}
 		}
 		if !over {
 			return false, nil
@@ -114,7 +126,11 @@ func (e *executor) scanParallelStarFacts(ctx context.Context, shape *starShape, 
 		locals[w] = *e
 		locals[w].cache = newExecCache()
 	}
-	e.diagnostics.setPlan(map[string]any{"kind": "parallel_streaming_star_join", "workers": grant, "dimension_count": len(shape.dims), "output_page_rows": starOutputPage, "exact_directory_ranges": true, "chunk_count": chunks, "chunk_row_target": starChunkRows, "source_cache_per_worker": true})
+	marker := map[string]any{"kind": "parallel_streaming_star_join", "workers": grant, "dimension_count": len(shape.dims), "output_page_rows": starOutputPage, "exact_directory_ranges": true, "chunk_count": chunks, "chunk_row_target": starChunkRows, "source_cache_per_worker": true}
+	if shape.snowflake {
+		marker["snowflake"], marker["parallel_dimensions"] = true, shape.parallelDimensions
+	}
+	e.diagnostics.setPlan(marker)
 	sourceErr, consumerErr := parallelStarJoinChunksMode(ctx, shape, grant, chunks, ownedFacts, func(workerCtx context.Context, chunk int, consume func([]map[string]Value) error) error {
 		bounds := starFactRange(last, chunks, chunk)
 		if ownedFacts {

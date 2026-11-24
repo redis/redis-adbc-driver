@@ -1466,9 +1466,17 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 		if req.where.residual != nil {
 			columnRefs(req.where.residual, need)
 		}
-		joined, err := e.runJoin(ctx, req.meta.join, need, params)
+		// A large snowflake streams its fact instead of materializing every
+		// intermediate join (TPC-H Q7/Q8/Q9 derived tables). The residual
+		// below is re-checked on its rows as on runJoin's.
+		joined, streamed, err := e.snowflakeJoinRows(ctx, req.meta.join, need, params)
 		if err != nil {
 			return nil, nil, err
+		}
+		if !streamed {
+			if joined, err = e.runJoin(ctx, req.meta.join, need, params); err != nil {
+				return nil, nil, err
+			}
 		}
 		source = joined
 	}
