@@ -15,15 +15,18 @@ const scalarCohortMembers = 32
 const scalarCohortFields = 8
 
 type scalarCohortLane struct {
-	sq        *Subquery
-	fn        *Func
-	typ       ColType
-	need      map[string]bool
-	predicate *scanPredicate
-	input     string
-	acc       *accumulator
-	finalized bool
-	err       error
+	sq             *Subquery
+	fn             *Func
+	typ            ColType
+	need           map[string]bool
+	predicate      *scanPredicate
+	input          string
+	acc            *accumulator
+	finalized      bool
+	columns        []int // metadata-order decoded column slots
+	predicateSlots []int
+	inputSlot      int
+	err            error
 }
 type scalarCohort struct {
 	scope         *snapshotScope
@@ -197,6 +200,9 @@ func (e *executor) registerScalarCohorts(ctx context.Context, p *selectPlan) {
 				c.fields = append(c.fields, nullMarker(cm.field()))
 			}
 		}
+		if !c.bindLanes() {
+			continue
+		}
 		e.ensureCache()
 		if e.cache.scalarCohorts == nil {
 			e.cache.scalarCohorts = map[*Subquery]*scalarCohort{}
@@ -205,6 +211,63 @@ func (e *executor) registerScalarCohorts(ctx context.Context, p *selectPlan) {
 			e.cache.scalarCohorts[lane.sq] = c
 		}
 	}
+}
+
+// Complete every binding before publishing any lane. Failure keeps the whole
+// candidate cohort on the established subquery execution path. Work here is
+// bounded by the existing registration limits and never examines source rows.
+func (c *scalarCohort) bindLanes() bool {
+	slots := make(map[string]int, len(c.columns))
+	for i, cm := range c.columns {
+		if _, exists := slots[cm.Name]; exists {
+			return false
+		}
+		slots[cm.Name] = i
+	}
+	type binding struct {
+		columns, predicate []int
+		input              int
+	}
+	bindings := make([]binding, len(c.lanes))
+	for i, lane := range c.lanes {
+		if lane == nil || lane.fn == nil {
+			return false
+		}
+		b := &bindings[i]
+		b.input = -1
+		for at, cm := range c.columns {
+			if lane.need[cm.Name] {
+				b.columns = append(b.columns, at)
+			}
+		}
+		if len(b.columns) != len(lane.need) {
+			return false
+		}
+		if lane.predicate != nil {
+			for _, name := range lane.predicate.fields {
+				at, ok := slots[name]
+				if !ok || !lane.need[name] {
+					return false
+				}
+				b.predicate = append(b.predicate, at)
+			}
+		}
+		if lane.fn.Name == "AVG" && !lane.fn.Star {
+			at, ok := slots[lane.input]
+			if !ok || !lane.need[lane.input] {
+				return false
+			}
+			b.input = at
+		} else if lane.fn.Name != "COUNT" || !lane.fn.Star || lane.input != "" {
+			return false
+		}
+	}
+	for i, lane := range c.lanes {
+		lane.columns = bindings[i].columns
+		lane.predicateSlots = bindings[i].predicate
+		lane.inputSlot = bindings[i].input
+	}
+	return true
 }
 
 func (e *executor) scalarCohortRows(ctx context.Context, sq *Subquery) ([][]Value, bool, error) {
@@ -275,10 +338,8 @@ type scalarCohortDecoded struct {
 // Preserve each lane's metadata decode order, including fields of rejected
 // rows. A row's shared decode cache is ephemeral and never retains input rows.
 func (c *scalarCohort) input(raw aggRow, lane *scalarCohortLane, decoded []scalarCohortDecoded) error {
-	for i, cm := range c.columns {
-		if !lane.need[cm.Name] {
-			continue
-		}
+	for _, i := range lane.columns {
+		cm := c.columns[i]
 		slot := &decoded[i]
 		if !slot.set {
 			slot.set = true
@@ -296,13 +357,8 @@ func (c *scalarCohort) input(raw aggRow, lane *scalarCohortLane, decoded []scala
 		}
 	}
 	if lane.predicate != nil {
-		for i, name := range lane.predicate.fields {
-			for j, cm := range c.columns {
-				if cm.Name == name {
-					lane.predicate.values[i] = decoded[j].value
-					break
-				}
-			}
+		for i, slot := range lane.predicateSlots {
+			lane.predicate.values[i] = decoded[slot].value
 		}
 		match, err := lane.predicate.matches()
 		if err != nil {
@@ -316,12 +372,7 @@ func (c *scalarCohort) input(raw aggRow, lane *scalarCohortLane, decoded []scala
 		lane.acc.add(Value{})
 		return nil
 	}
-	for i, cm := range c.columns {
-		if cm.Name == lane.input {
-			lane.acc.add(decoded[i].value)
-			break
-		}
-	}
+	lane.acc.add(decoded[lane.inputSlot].value)
 	return nil
 }
 
