@@ -16,23 +16,58 @@ type starRowProbe struct {
 func newStarRowProbe(shape *starShape) *starRowProbe {
 	return &starRowProbe{shape: shape, matches: make([][]map[string]Value, len(shape.dims)), selected: make([]map[string]Value, len(shape.dims))}
 }
-func (p *starRowProbe) row(ctx context.Context, fact map[string]Value, emit func(map[string]Value) error) error {
+func (p *starRowProbe) lookup(ctx context.Context, fact map[string]Value) (matched, single bool, err error) {
+	single = true
 	for i := range p.shape.dims {
 		if err := cancelled(ctx); err != nil {
-			return err
+			return false, false, err
 		}
 		dim := &p.shape.dims[i]
 		key, ok := starRowKey(fact, dim.factCols)
 		if !ok {
-			return nil
+			return false, false, nil
 		}
 		p.matches[i] = dim.buckets[key]
 		if len(p.matches[i]) == 0 {
-			return nil
+			return false, false, nil
 		}
+		single = single && len(p.matches[i]) == 1
+	}
+	return true, single, nil
+}
+func (p *starRowProbe) row(ctx context.Context, fact map[string]Value, emit func(map[string]Value) error) error {
+	matched, _, err := p.lookup(ctx, fact)
+	if err != nil || !matched {
+		return err
 	}
 	return p.walk(ctx, fact, 0, len(fact), emit)
 }
+
+// ownedRow is opt-in only for freshly decoded, single-use native fact maps.
+// Resolve every key first. Any fanout retains independent fresh leaf maps;
+// only an exactly one-leaf result can safely extend/transfer the fact itself.
+func (p *starRowProbe) ownedRow(ctx context.Context, fact map[string]Value, emit func(map[string]Value) error) error {
+	matched, single, err := p.lookup(ctx, fact)
+	if err != nil || !matched {
+		return err
+	}
+	if !single {
+		return p.walk(ctx, fact, 0, len(fact), emit)
+	}
+	for _, bucket := range p.matches {
+		if err := cancelled(ctx); err != nil {
+			return err
+		}
+		for k, v := range bucket[0] {
+			fact[k] = v
+		}
+	}
+	if err := cancelled(ctx); err != nil {
+		return err
+	}
+	return emit(fact)
+}
+
 func (p *starRowProbe) walk(ctx context.Context, fact map[string]Value, d, width int, emit func(map[string]Value) error) error {
 	if err := cancelled(ctx); err != nil {
 		return err

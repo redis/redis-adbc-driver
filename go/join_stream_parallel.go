@@ -29,7 +29,13 @@ type starParallelResult struct {
 // finishes first. The coordinator visits ranges in order, so one reducer and
 // group discovery order remain unchanged. A consumer error stops callbacks and
 // probing, but source scans finish so later source errors keep their precedence.
-func parallelStarJoinPages(ctx context.Context, shape *starShape, workers int, scan func(context.Context, int, func([]map[string]Value) error) error, visit func([]map[string]Value) error) (sourceErr, consumerErr error) {
+func parallelStarJoinPages(ctx context.Context, shape *starShape, workers int, scan func(context.Context, int, func([]map[string]Value) error) error, visit func([]map[string]Value) error) (error, error) {
+	return parallelStarJoinPagesMode(ctx, shape, workers, false, scan, visit)
+}
+func parallelOwnedStarJoinPages(ctx context.Context, shape *starShape, workers int, scan func(context.Context, int, func([]map[string]Value) error) error, visit func([]map[string]Value) error) (error, error) {
+	return parallelStarJoinPagesMode(ctx, shape, workers, true, scan, visit)
+}
+func parallelStarJoinPagesMode(ctx context.Context, shape *starShape, workers int, ownedFacts bool, scan func(context.Context, int, func([]map[string]Value) error) error, visit func([]map[string]Value) error) (sourceErr, consumerErr error) {
 	child, cancel := context.WithCancel(ctx)
 	results := make([]starParallelResult, workers)
 	var stopProbing atomic.Bool
@@ -43,6 +49,10 @@ func parallelStarJoinPages(ctx context.Context, shape *starShape, workers int, s
 			defer wg.Done()
 			defer close(results[w].rows)
 			probe := newStarRowProbe(shape)
+			probeRow := probe.row
+			if ownedFacts {
+				probeRow = probe.ownedRow
+			}
 			out := make([]map[string]Value, 0, starOutputPage)
 			flush := func() error {
 				if len(out) == 0 {
@@ -76,7 +86,7 @@ func parallelStarJoinPages(ctx context.Context, shape *starShape, workers int, s
 						return err
 					}
 					if !stopProbing.Load() {
-						if err := probe.row(child, row, emit); err != nil && err != errStarProbeStopped {
+						if err := probeRow(child, row, emit); err != nil && err != errStarProbeStopped {
 							return err
 						}
 					}
@@ -189,11 +199,20 @@ func (e *executor) scanParallelStarFacts(ctx context.Context, shape *starShape, 
 	copy.SnapshotOverlay = true
 	view = &copy
 	wp.query, wp.residual, wp.original = "*", predicate, predicate
-	sourceErr, consumerErr := parallelStarJoinPages(ctx, shape, grant, func(workerCtx context.Context, w int, consume func([]map[string]Value) error) error {
+	// This CPU-only direct request has no projection/ties/late/keys and keep()
+	// allocates each typed map via decodeRow. No downstream cursor/progress path
+	// reads the map again; native row IDs and residuals are consumed beforehand.
+	run := parallelStarJoinPages
+	factCapacity := 0
+	if e.gpu == nil {
+		factCapacity = ownedFactRowCapacity(len(shape.need))
+		run = parallelOwnedStarJoinPages
+	}
+	sourceErr, consumerErr := run(ctx, shape, grant, func(workerCtx context.Context, w int, consume func([]map[string]Value) error) error {
 		bounds := starFactRange(last, grant, w)
 		local := *e
 		local.cache = newExecCache()
-		req := scanRequest{meta: view, where: wp, need: need, ranges: &bounds}
+		req := scanRequest{meta: view, where: wp, need: need, ranges: &bounds, rowCapacity: factCapacity}
 		return local.scanPages(workerCtx, req, params, consume)
 	}, visit)
 	// All worker iterators are closed/joined before final lease validation and
@@ -214,4 +233,11 @@ func starFactRange(last int64, workers, w int) rowIDRangeScan {
 		r.hi = math.MaxInt64
 	}
 	return r
+}
+
+func ownedFactRowCapacity(needed int) int {
+	if needed > 0 && needed < maxOwnedFactRowCapacity {
+		return needed + 1
+	}
+	return 0
 }
