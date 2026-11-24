@@ -26,12 +26,13 @@ type snapshotCandidateSource struct {
 	done    bool
 }
 type snapshotCandidateScan struct {
-	store   *store
-	meta    *tableMeta
-	sources []snapshotCandidateSource
-	query   string
-	fields  []string
-	page    int
+	store        *store
+	meta         *tableMeta
+	sources      []snapshotCandidateSource
+	query        string
+	fields       []string
+	page         int
+	completeFlex bool // prefetched complete plain Search candidates; exact int64 identities
 }
 
 // Numeric keyset bounds are exact only below 2^53. A nonempty private segment
@@ -111,6 +112,9 @@ func (d *snapshotCandidateScan) verify(ctx context.Context) error {
 	j := 0
 	for _, src := range d.sources {
 		if !snapshotOwns(ctx, src.segment.Prefix) {
+			if d.completeFlex && cmds[j].Err() != nil {
+				return wrapRedis(cmds[j].Err(), "failed snapshot directory verification")
+			}
 			if cmds[j].Val() != src.segment.Rows {
 				return errorf(adbc.StatusIO, "published snapshot row directory changed")
 			}
@@ -120,6 +124,11 @@ func (d *snapshotCandidateScan) verify(ctx context.Context) error {
 	return nil
 }
 func (d *snapshotCandidateScan) nextKeys(ctx context.Context) ([]string, []string, error) {
+	if d.completeFlex {
+		if err := d.store.checkKeys(ctx, d.meta, false); err != nil {
+			return nil, nil, err
+		}
+	}
 	var ids []string
 	var winners []int
 	// Reuse merge scratch for the whole page, rather than allocating per row.
@@ -185,6 +194,9 @@ func (d *snapshotCandidateScan) nextKeys(ctx context.Context) ([]string, []strin
 			return nil, nil, errorf(adbc.StatusIO, "invalid snapshot visibility reply")
 		}
 		for i, score := range scores {
+			if d.completeFlex && score != nil && !snapshotDirectoryZero(score) {
+				return nil, nil, errorf(adbc.StatusIO, "invalid snapshot directory membership score")
+			}
 			if score != nil && seg > actual[i] {
 				actual[i] = seg
 			}
@@ -215,6 +227,9 @@ func (d *snapshotCandidateScan) nextKeys(ctx context.Context) ([]string, []strin
 			return nil, nil, wrapRedis(err, "newest snapshot candidate row is unavailable")
 		}
 		for i, cmd := range headers {
+			if cmd.Err() != nil {
+				return nil, nil, wrapRedis(cmd.Err(), "newest snapshot candidate row is unavailable")
+			}
 			if cmd.Val() != expected[i] {
 				return nil, nil, errorf(adbc.StatusIO, "newest snapshot candidate row identity changed")
 			}

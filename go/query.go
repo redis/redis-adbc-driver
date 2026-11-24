@@ -740,10 +740,17 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 			}
 			it.candidates = newSnapshotCandidateScan(ctx, e.store, req.meta, req.where.query, fields, page)
 		} else {
-			it.delta = newSnapshotDeltaScan(e.store, req.meta, fields)
-			if req.ranges != nil {
-				if err := it.delta.seek(ctx, req.ranges.lo, req.ranges.hi); err != nil {
-					return nil, err
+			candidates, err := openFlexSnapshotCandidates(ctx, e.store, req.meta, req.where.query, fields, req.ranges)
+			if err != nil {
+				return nil, err
+			}
+			it.candidates = candidates
+			if candidates == nil {
+				it.delta = newSnapshotDeltaScan(e.store, req.meta, fields)
+				if req.ranges != nil {
+					if err := it.delta.seek(ctx, req.ranges.lo, req.ranges.hi); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}

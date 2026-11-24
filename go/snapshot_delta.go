@@ -69,7 +69,8 @@ type snapshotDeltaScan struct {
 	pageRows          int
 	directoryPageRows int // bounded ordinary single-generation reads; zero uses the merge default
 	through           string
-	keepDeleted       bool // partial compaction must shadow preserved older segments
+	keepDeleted       bool                // partial compaction must shadow preserved older segments
+	pageFilter        *snapshotPageFilter // query-only; never used by compaction or publication
 }
 
 func newSnapshotDeltaScan(s *store, m *tableMeta, fields []string) *snapshotDeltaScan {
@@ -128,6 +129,21 @@ func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 	return id, nil
 }
 func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, error) {
+	for {
+		logical, physical, err := d.nextDirectoryKeys(ctx)
+		if err != nil || d.pageFilter == nil {
+			return logical, physical, err
+		}
+		// The merge has already advanced every source, including a filtered
+		// winner's older versions. An empty candidate page is not EOF.
+		logical, physical, err = d.pageFilter.filter(ctx, logical, physical)
+		if err != nil || len(logical) != 0 {
+			return logical, physical, err
+		}
+	}
+}
+
+func (d *snapshotDeltaScan) nextDirectoryKeys(ctx context.Context) ([]string, []string, error) {
 	var logical, physical []string
 	limit := d.pageRows
 	if limit == 0 {
