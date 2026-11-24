@@ -25,3 +25,11 @@ path-free boolean provenance. Final test_isolation.py passed21 tests4.568s;
 existing client-thread regressions passed3 tests0.010s. Real-child import-isolation
 checks still assert Redis workers never import DuckDB. This does not claim an
 extension runtime or live-query result; root owns the separate custom ABI proof.
+
+Root independently reviewed dc08f9e3 runtime changes and approved publication.
+A compatible custom upstream scanner is required for scan_threads above one;
+Redis16-token profiles additionally require [#625](https://github.com/redis/redis-adbc-driver/pull/625)
+so database-level adbc.redis.partition_count is inherited by the producer
+statement. The harness does not choose or claim actual token/reader counts.
+Root retains custom-extension commit/SHA proof privately; mocked tests deliberately
+use synthetic scanner paths. No extra hash or live-result claim was introduced.
