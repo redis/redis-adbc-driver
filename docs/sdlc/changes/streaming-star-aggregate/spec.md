@@ -1,5 +1,7 @@
 # Specification
 
+Draft implementation: [PR607](https://github.com/redis/redis-adbc-driver/pull/607).
+
 Date: 2026-11-23. Status: local candidate.
 See [intent](intent.md), [plan](plan.md), [verification](verification.md).
 

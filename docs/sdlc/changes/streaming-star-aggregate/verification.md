@@ -1,5 +1,7 @@
 # Verification
 
+Draft implementation: [PR607](https://github.com/redis/redis-adbc-driver/pull/607).
+
 Date: 2026-11-23. Status: standalone checks passed; live evidence pending.
 See [intent](intent.md), [specification](spec.md), [plan](plan.md).
 

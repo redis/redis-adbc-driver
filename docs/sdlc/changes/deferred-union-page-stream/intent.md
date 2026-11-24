@@ -1,5 +1,7 @@
 # Intent: stream guarded UNION inputs into aggregate visitors
 
+Draft implementation: [PR607](https://github.com/redis/redis-adbc-driver/pull/607).
+
 Date: 2026-11-23. Origin: follow-up to [PR606](https://github.com/redis/redis-adbc-driver/pull/606). Status: local candidate, unreleased.
 Requestor: repository user; author: Codex.
 

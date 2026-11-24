@@ -1,5 +1,7 @@
 # Plan and evidence
 
+Draft implementation: [PR607](https://github.com/redis/redis-adbc-driver/pull/607).
+
 Date: 2026-11-23. Origin: follow-up to [PR606](https://github.com/redis/redis-adbc-driver/pull/606).
 See [intent](intent.md), [specification](spec.md), [integration](integration.md).
 
