@@ -18,7 +18,7 @@ import (
 // Bound the complete, transient candidate materialization independently of the
 // table size. Canonical managed keys are short; this conservative count cap
 // avoids an unbudgeted million-key reply/map/sort allocation per scan/worker.
-const snapshotFlexCandidateCap = 65536
+const snapshotFlexCandidateCap = 131072
 const snapshotFlexCandidateBytes = 16 << 20
 
 var errCompleteSnapshotLimit = errors.New("native complete Search result limit")

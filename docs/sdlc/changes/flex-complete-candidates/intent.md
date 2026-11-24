@@ -17,3 +17,12 @@ See [specification](spec.md) and [plan/evidence](plan.md).
 Publication is reconstructed directly on public main baseline `07b24edb`, containing only Flex scan/candidate code and supporting records. CTE/join/view/UNION changes from the separately tested combined artifact are excluded. Related: [Q3 #589](https://github.com/redis/redis-adbc-driver/issues/589), [Q2 #588](https://github.com/redis/redis-adbc-driver/issues/588), [Q4 #590](https://github.com/redis/redis-adbc-driver/issues/590), [Q5 #591](https://github.com/redis/redis-adbc-driver/issues/591), [Q9 #595](https://github.com/redis/redis-adbc-driver/issues/595). No issue closure or pure-Flex SF1 performance claim follows. See [validation and evidence](validation.md).
 
 Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).
+## Bounded cap follow-up
+
+A read-only native Q8 demand probe measured with 91 date keys,
+78,999 matching fact rows and a 97-byte source prefix: 9,163,884 estimated key
+bytes, below the existing 16 MiB budget. The old 65,536 count cap alone rejects
+that complete candidate set. Increase only the count ceiling to 131,072; retain
+the independent 16 MiB budget, exact completeness/visibility proofs, and native
+LIMIT refusal fallback. This is admission evidence, not a successful query or
+performance measurement. Full benchmark suites remain stopped.

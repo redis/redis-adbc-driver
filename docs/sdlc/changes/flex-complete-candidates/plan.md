@@ -24,3 +24,23 @@ or issue status changes were performed. No live performance or correctness
 claim follows from mocked transport tests.
 
 Reviewable Flex-only implementation: [PR #604](https://github.com/redis/redis-adbc-driver/pull/604).
+## Cap follow-up verification
+
+The new mocked `78,999` complete-candidate regression failed on the old count
+cap (nil candidates, nil error), reproducing the unwanted broad-scan fallback.
+The follow-up raises only the constant to 131,072. Tests exercise a complete
+78,999-key fetch, exact count-cap admission, existing one-above-count-cap refusal,
+and both sides of the independent key-byte boundary. The focused candidate,
+page, directory-merge, exact-integer-ordering and validation suite passed
+(1.012s) with `GOMAXPROCS=2`, `GOMEMLIMIT=768MiB`, `-count=1 -p 1` and both
+Redis endpoint variables unset. Formatting, diff and SDLC local-link checks
+passed.
+No live query, container operation, benchmark, or external publication is part
+of this isolated cap change.
+
+A later combined artifact with this cap change, deferred UNION and streaming
+join work still timed out on SF1 Q8 at the unchanged 60-second warm-up deadline,
+without a client OOM kill. No Redis timed samples or validated result were
+produced. This cap adjustment admits the measured set but does not resolve
+issue #594. Native join ordering and delivered key constraints are being
+investigated separately. Full suites and TPC-H remain stopped.
