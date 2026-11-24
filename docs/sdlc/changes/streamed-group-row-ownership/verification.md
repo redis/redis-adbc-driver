@@ -1,6 +1,6 @@
 # Verification
 
-Date: 2026-11-24. Status: prototype race, allocation and full unit checks passed; clean publication checks pending.
+Date: 2026-11-24. Status: prototype race, allocation and full unit checks passed; clean publication race and unit checks passed.
 See [intent](intent.md), [specification](spec.md), [plan](plan.md).
 
 The actual parallel callback panic regression failed before the cleanup fix:
@@ -54,4 +54,16 @@ This publication applies only the reviewed ownership delta onto public [PR619](h
 
 An independent read-through found no demonstrated blocker: actual star streams have at least one dimension and emit fresh qualified leaf maps; the ownership marker is coordinator/request-local and callback-scoped, restored with defer; worker/nested source requests do not inherit it. All aggregate inputs consume each row before first-group representative pruning. Unsupported/private/retained/shared memory sources retain their clone-before-prune behavior. This is agent review evidence, not human maintainer approval.
 
-The prototype timings and allocation samples above are historical checks of the reviewed delta, not a claim they were rerun on this clean public head. New host-CPU checks are intentionally held until the separate root-owned targeted Q4 timing terminates. No successful Q4 result or live performance attribution is claimed.
+The prototype timings and allocation samples above are historical checks of the reviewed delta, not a claim they were rerun on this clean public head. New host-CPU checks were held until the separate root-owned targeted Q4 timing terminated. No successful Q4 result or live performance attribution is claimed.
+
+The subsequent combined native10 artifact (`v0.0.31-dsfix10`, source `99e1aa16ec04d432e4e06ff394df1bd781a381c5`, native SHA-256 `ae254d24b90faa694f0b710f57620b55290def6235e72a3b94bd0e5ff1f44fc0`) still timed out on original SF1 Q4 during warm-up at the configured 60-second deadline, SQLSTATE 57014, with client OOM-kill delta zero. No Redis timed samples or validated Redis output exist for that attempt. Native DuckDB control passed (median 0.048251417 s). This is combined-artifact failure evidence, not a whole-query speedup or isolated attribution to ownership/leaf changes. Full suites remain stopped.
+
+Clean-public focused race checks passed (4.557s), after refreshing onto main with merged PR618/619:
+
+```
+env -u REDIS_URI -u REDIS_SNAPSHOT_URI GOMAXPROCS=2 GOMEMLIMIT=768MiB \
+ go test -C go -p 1 -race -count=1 \
+ -run '^(TestOwned|TestAggregateRepresentative|TestSerialAggregateShared|TestParallelStar|TestStarRowProbe|TestStarProbe|TestUnionStar|TestDeferredUnionStream)' .
+```
+
+All clean-public endpoint-free packages passed with the same environment and `go test -C go -p 1 -count=1 ./...` (root package 31.631 s). Endpoint-dependent integration skips are expected and do not establish Software compatibility. Formatting, diff and local SDLC links passed; no SQL/native build/container operation occurred for publication.
