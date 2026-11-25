@@ -43,6 +43,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // subqueryStats counts subquery work; tests read it to tell which path a
@@ -55,6 +56,8 @@ var subqueryStats struct {
 	// parallelProbes counts probe pages whose batches ran on concurrent
 	// workers (runSemiProbes).
 	parallelProbes atomic.Int64
+	// costBuilds counts inner sides built once by wholeBuildByCost.
+	costBuilds atomic.Int64
 }
 
 // ---- equality keys ----
@@ -572,6 +575,11 @@ type semiResult struct {
 	// a key can't be hashed or a probe failed. Per-row runs then report the
 	// original query's results and errors.
 	probeFailed bool
+	// inner is the inner side's planning count (an upper bound of its rows)
+	// when semiJoinState sized it, else 0.
+	inner int64
+	// costChecked is set once wholeBuildByCost has compared the strategies.
+	costChecked bool
 }
 
 // semiProbeSubqueries returns the decorrelated EXISTS / IN subqueries directly
@@ -933,7 +941,92 @@ func (e *executor) semiJoinState(ctx context.Context, sq *Subquery) *semiResult 
 	}
 	r.eager = n <= semiJoinEagerRows
 	r.after = int(n / rowsPerRun)
+	r.inner = n
 	return r
+}
+
+// testSkipSemiCostBuild is a test seam: tests of the page probes themselves
+// keep probing small inner sides that wholeBuildByCost would build once.
+var testSkipSemiCostBuild bool
+
+// Costs of the two ways to read a semi-join's inner groups for many outer
+// keys, measured on the 10% TPC-H subset (#662, see
+// docs/sdlc/changes/semijoin-whole-build-cost): the whole decorrelated build
+// reads each inner row once, and a page probe reads the groups of 256
+// distinct keys in one Search union, on parallel workers.
+//
+// Serially, the whole body read took 8.6–9.1 µs per inner row (600,093 rows),
+// about 11 µs with grouping, and probing 0.27–0.35 ms per distinct key; with
+// 4 / 8 workers probing took 0.085 / 0.067 ms per key at 73,252 keys. The
+// model divides the per-key cost by the workers, which overstates 8-worker
+// scaling a little and so errs towards probing, the earlier behavior.
+const (
+	semiWholeBuildRowCost = 11 * time.Microsecond
+	semiProbeKeyCost      = 350 * time.Microsecond
+)
+
+// wholeBuildByCost builds a semi-join's inner side once, before an
+// in-memory outer side (a join's rows, see scanMem) is probed, when probing
+// all of its distinct keys would cost more: distinct × semiProbeKeyCost /
+// workers > inner × semiWholeBuildRowCost, with workers the probes would be
+// granted at most. A failed build leaves the state as it was, so the page
+// probes (and their per-row fallback) run unchanged.
+func (e *executor) wholeBuildByCost(ctx context.Context, sq *Subquery, rows []map[string]Value, types map[string]ColType) {
+	if testSkipSemiCostBuild {
+		return
+	}
+	r := e.semiJoinState(ctx, sq)
+	if r.costChecked || r.built || r.failed || r.eager || r.probeFailed || r.probed != nil || r.inner <= 0 || len(rows) == 0 {
+		return
+	}
+	r.costChecked = true
+	sj := sq.semi
+	if len(sj.plan.items) == 0 || sj.plan.meta == nil || sj.plan.meta.isMem {
+		return
+	}
+	build := time.Duration(r.inner) * semiWholeBuildRowCost
+	workers := 1
+	if e.parallelProbes(ctx, sj.plan.meta) {
+		workers = e.workerBudget.capacity()
+		if e.queryWorkers > 0 {
+			workers = min(workers, e.queryWorkers)
+		}
+		workers = max(workers, 1)
+	}
+	// Probe batches are keyed by the first outer key (see probeSemiJoin).
+	first := sj.outer[0].name
+	seen := map[string]bool{}
+	for i, row := range rows {
+		if i%semiProbePage == 0 && cancelled(ctx) != nil {
+			return // the evaluation reports cancellation
+		}
+		v, ok := row[first]
+		if !ok {
+			if _, known := types[first]; !known {
+				return
+			}
+			continue // NULL: never probed
+		}
+		if v.Null {
+			continue
+		}
+		k, ok := semiKey(v, sj.types[0])
+		if !ok {
+			return
+		}
+		seen[k] = true
+		batches := (len(seen) + semiProbeKeys - 1) / semiProbeKeys
+		if time.Duration(len(seen))*semiProbeKeyCost/time.Duration(min(workers, batches)) > build {
+			tmp := &semiResult{}
+			e.buildSemiJoin(ctx, sq, tmp)
+			if tmp.failed || !tmp.built {
+				return
+			}
+			r.built, r.rows, r.groups, r.rowGroups, r.distinct = true, tmp.rows, tmp.groups, tmp.rowGroups, tmp.distinct
+			subqueryStats.costBuilds.Add(1)
+			return
+		}
+	}
 }
 
 // isolatedChild returns an executor for a query that reads nothing from the

@@ -1494,6 +1494,11 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 	// rows at once (probeSemiJoin), as scanned pages do (scanIter.keep). A
 	// join's rows are filtered here (TPC-H Q21).
 	probes := semiProbeSubqueries(req.where.residual)
+	// Every outer key is known here, so a semi-join with more distinct keys
+	// than probing pays for is built once instead (#662).
+	for _, sq := range probes {
+		e.wholeBuildByCost(ctx, sq, source, env.types)
+	}
 	var keys []string
 	var rows []map[string]Value
 	for i, r := range source {
