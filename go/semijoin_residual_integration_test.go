@@ -28,6 +28,8 @@ import (
 // must be those of running it per outer row. Before, it ran per outer row,
 // which timed out Q21 (issue #587).
 func TestSQLSemiJoinResiduals(t *testing.T) {
+	// Probe mechanics: keep probing inner sides wholeBuildByCost would build (#662).
+	keepSemiProbes(t)
 	h := newSQLHarness(t)
 	tables := []string{"it_sjr_l", "it_sjr_big", "it_sjr_s", "it_sjr_ord"}
 	drop := func() {

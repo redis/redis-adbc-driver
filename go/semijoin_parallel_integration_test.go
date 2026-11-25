@@ -62,6 +62,8 @@ func newSQLHarnessWithOptions(t *testing.T, extra map[string]string) *sqlHarness
 // worker budget grants them, with the results, per-row fallbacks and errors
 // of running them one after another.
 func TestSQLSemiJoinParallelProbes(t *testing.T) {
+	// Probe mechanics: keep probing inner sides wholeBuildByCost would build (#662).
+	keepSemiProbes(t)
 	serial := newSQLHarnessWithOptions(t, map[string]string{OptionStringQueryWorkerBudget: "1"})
 	parallel := newSQLHarnessWithOptions(t, map[string]string{OptionStringQueryWorkerBudget: "4", OptionStringQueryWorkers: "4"})
 	h := serial
