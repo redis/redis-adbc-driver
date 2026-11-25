@@ -33,13 +33,17 @@ package redis
 //     inner side is read up front (and can then filter the outer table in
 //     its index); a large one is probed a page of outer rows at a time, or
 //     read once running per outer row has cost about as much, so that a few
-//     outer rows don't pay for reading all of it. Anything else (other correlation,
+//     outer rows don't pay for reading all of it. A body that joins tables
+//     (TPC-DS Q35's fact and date_dim) is never probed: it is read up front
+//     when estimated small, or once its per-row runs have taken about as long
+//     as reading it is estimated to. Anything else (other correlation,
 //     aggregates, LIMIT, keys of different types, …) runs per outer row,
 //     memoised.
 
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -310,6 +314,8 @@ type semiJoin struct {
 	// an inner column with an outer column (TPC-H Q21's `l2.l_suppkey <>
 	// l1.l_suppkey`). They are evaluated on the rows of the outer row's group.
 	resid []semiResidual
+	// joined is set for a body that joins tables.
+	joined bool
 }
 
 // semiResidual is a correlation conjunct `inner op outer` (or `outer op
@@ -427,9 +433,13 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 		plan.windowed() || len(sel.Windows) > 0 {
 		return
 	}
-	if len(sel.Joins) > 0 || plan.meta.view != nil || plan.meta.join != nil || plan.meta.lazy != nil {
+	if plan.meta.view != nil || plan.meta.lazy != nil {
 		return
 	}
+	// A body that joins tables (TPC-DS Q10/Q35/Q69: a fact and date_dim) is
+	// decorrelated the same way; it is never probed by key page, so it is
+	// built once its per-row runs cost about as much (see semiJoinState).
+	joined := len(sel.Joins) > 0 || plan.meta.join != nil
 	// DISTINCT ON keeps one row per key after the correlation filter; the
 	// semi-join body (which drops it) would see every row.
 	if len(sel.DistinctOn) > 0 {
@@ -520,7 +530,7 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 	if err != nil || len(dplan.items) != len(dsel.Items) {
 		return
 	}
-	sj := &semiJoin{plan: dplan}
+	sj := &semiJoin{plan: dplan, joined: joined}
 	for i, p := range pairs {
 		if !sameEqClass(dplan.items[i].typ, p.outer.OuterType) {
 			return
@@ -580,6 +590,11 @@ type semiResult struct {
 	inner int64
 	// costChecked is set once wholeBuildByCost has compared the strategies.
 	costChecked bool
+	// For a joined body, buildCost is the estimated cost of building it and
+	// runTime the time its per-row runs have taken: it is built once
+	// runTime reaches buildCost, so either strategy costs at most about
+	// twice the better one.
+	buildCost, runTime time.Duration
 }
 
 // semiProbeSubqueries returns the decorrelated EXISTS / IN subqueries directly
@@ -916,6 +931,18 @@ func (e *executor) semiJoinState(ctx context.Context, sq *Subquery) *semiResult 
 	// run nor a page probe's key union narrows the inner side: each would
 	// rescan it whole (#639). Build it once instead.
 	flex := e.store != nil && e.store.flexEnabled()
+	if sq.semi.joined && !flex {
+		r.after = math.MaxInt // runTime decides instead
+		n, ok := e.semiJoinedRows(ctx, plan.meta.join)
+		if !ok {
+			r.buildCost = math.MaxInt64 // unknown size: keep running per row
+			return r
+		}
+		r.eager = n <= semiJoinEagerRows
+		r.inner = n
+		r.buildCost = time.Duration(min(n, math.MaxInt64/int64(semiWholeBuildRowCost))) * semiWholeBuildRowCost
+		return r
+	}
 	if plan.meta.isMem || flex || plan.meta.SnapshotOverlay && !e.snapshotIndexable(ctx, plan.meta) {
 		// Each per-row run filters the whole relation anyway.
 		r.eager = true
@@ -943,6 +970,74 @@ func (e *executor) semiJoinState(ctx context.Context, sq *Subquery) *semiResult 
 	r.after = int(n / rowsPerRun)
 	r.inner = n
 	return r
+}
+
+// semiJoinedRows estimates the rows of a joined semi-join body: its largest
+// input's candidates, scaled by the fraction of rows each other input's own
+// filters keep. That is exact for a star body whose dimensions join the
+// largest input by key with uniform keys, and an upper bound when they are
+// unfiltered. ok is false for an input whose rows can't be counted.
+func (e *executor) semiJoinedRows(ctx context.Context, jp *joinPlan) (int64, bool) {
+	if jp == nil || len(jp.items) == 0 {
+		return 0, false
+	}
+	child := e.isolatedChild()
+	counts := make([]int64, len(jp.items))
+	totals := make([]int64, len(jp.items))
+	largest := 0
+	for i, it := range jp.items {
+		view := it.view()
+		wp, err := child.planWhere(ctx, andAll(it.pushed), view, e.params)
+		if err != nil {
+			return 0, false
+		}
+		var ok bool
+		if counts[i], ok = e.semiInputRows(ctx, it.base, wp); !ok {
+			return 0, false
+		}
+		if totals[i], ok = e.semiInputRows(ctx, it.base, wherePlan{query: "*"}); !ok {
+			return 0, false
+		}
+		if counts[i] > counts[largest] {
+			largest = i
+		}
+	}
+	n := float64(counts[largest])
+	for i := range jp.items {
+		if i != largest && totals[i] > 0 {
+			n *= min(1, float64(counts[i])/float64(totals[i]))
+		}
+	}
+	if n >= math.MaxInt64 {
+		return math.MaxInt64, true
+	}
+	return int64(math.Ceil(n)), true
+}
+
+// semiInputRows counts the candidates of one input of a joined semi-join
+// body as joinOrder does; ok is false for a view, lazy or deferred input.
+func (e *executor) semiInputRows(ctx context.Context, m *tableMeta, wp wherePlan) (int64, bool) {
+	switch {
+	case m.view != nil || m.lazy != nil || m.group != nil || m.join != nil:
+		return 0, false
+	case m.isMem:
+		return int64(len(m.mem)), true
+	case wp.none:
+		return 0, true
+	case wp.keys != nil:
+		return int64(len(wp.keys)), true
+	case m.SnapshotOverlay && !e.snapshotIndexable(ctx, m):
+		var n int64
+		for _, seg := range m.snapshotSegments() {
+			n += seg.Rows
+		}
+		return n, true
+	case m.SnapshotOverlay:
+		n, err := e.store.countSnapshotCandidates(ctx, m, wp.query)
+		return n, err == nil
+	}
+	n, err := e.store.countMatches(ctx, m.index(), wp.query)
+	return n, err == nil
 }
 
 // testSkipSemiCostBuild is a test seam: tests of the page probes themselves
@@ -1115,7 +1210,8 @@ func (e *executor) evalSemiJoin(env *evalEnv, sq *Subquery) (Value, bool, error)
 	r := e.semiJoinState(env.ctx, sq)
 	// Page probes replace per-row runs; a failed probe resumes the original
 	// per-row and adaptive whole-build strategy.
-	if !r.built && !r.failed && (r.probed == nil || r.probeFailed) && (r.eager || len(e.cache.memo[sq]) >= r.after) {
+	if !r.built && !r.failed && (r.probed == nil || r.probeFailed) &&
+		(r.eager || len(e.cache.memo[sq]) >= r.after || sq.semi.joined && r.runTime >= r.buildCost) {
 		e.buildSemiJoin(env.ctx, sq, r)
 	}
 	if !r.built && r.probed == nil {
