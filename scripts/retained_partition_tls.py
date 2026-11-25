@@ -65,7 +65,7 @@ def check_retained_tls(principals, control, schema, planner_uri, worker_name,
     worker_options = {'adbc.redis.partition_reader_only': 'true',
                       'adbc.redis.partition_result_namespace': namespace,
                       'adbc.redis.stream_batch_rows': '1'}
-    routing = ['+cluster|slots', '+command', '+asking'] if cluster_mode == 'true' else []
+    routing = ['+cluster|shards', '+cluster|slots', '+command', '+asking'] if cluster_mode == 'true' else []
     principals.create(worker, password, ['%R~' + prefixes[0] + '*', '+ping', '+fcall', '+time', '+getrange', *routing])
     router = (redis.RedisCluster.from_url(admin_uri, ssl_ca_certs=str(ca),
               decode_responses=True, protocol=3) if cluster_mode == 'true' else control)

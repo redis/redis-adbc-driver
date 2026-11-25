@@ -206,3 +206,42 @@ func TestSQLCompactTupleProbeOwnership(t *testing.T) {
 		t.Fatal("cancelled probe selected HASH source")
 	}
 }
+
+// go-redis v9.24.0 clients returned by WithTimeout keep their parent's hooks.
+// The RTT probes stay outside the statement's command diagnostics and
+// execution accounting, as with v9.23.0: a probe that times out keeps the
+// established source without discarding the execution pool.
+func TestCompactTupleProbeOutsideExecution(t *testing.T) {
+	for _, cluster := range []bool{false, true} {
+		t.Run(fmt.Sprintf("cluster=%v", cluster), func(t *testing.T) {
+			c, server := executionPoolFixture(t, cluster)
+			d := &executionDiagnostics{}
+			ctx, transport := c.executionContext(context.WithValue(context.Background(), diagnosticsContextKey{}, d))
+			defer transport.finish()
+			// Selection depends on loopback latency (2ms); the PINGs do not.
+			(&executor{store: c.store}).compactIntegerTupleRTT(ctx)
+			if server.count("PING") == 0 {
+				t.Fatal("probe PINGs not sent")
+			}
+			if n := d.commands.Load(); n != 0 {
+				t.Fatalf("planner probes counted as %d statement commands", n)
+			}
+			if err := c.store.redis(ctx).Ping(ctx).Err(); err != nil || d.commands.Load() != 1 {
+				t.Fatal("statement PING not counted", err, d.commands.Load())
+			}
+		})
+		t.Run(fmt.Sprintf("cluster=%v/timeout", cluster), func(t *testing.T) {
+			c, _ := executionPoolFixture(t, cluster, "PING")
+			ctx, transport := c.executionContext(context.Background())
+			if selected, _ := (&executor{store: c.store}).compactIntegerTupleRTT(ctx); selected {
+				t.Fatal("timed-out probe selected HASH source")
+			}
+			transport.finish()
+			_, next := c.executionContext(context.Background())
+			defer next.finish()
+			if next.pool != transport.pool {
+				t.Fatal("timed-out planner probe discarded the execution pool")
+			}
+		})
+	}
+}

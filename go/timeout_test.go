@@ -160,6 +160,9 @@ func TestClientURIOptions(t *testing.T) {
 		"pool_fifo=true", "pool_size=7", "pool_timeout=9s", "min_idle_conns=1", "max_idle_conns=4",
 		"max_active_conns=8", "max_concurrent_dials=3",
 		"conn_max_idle_time=1m", "conn_max_lifetime=1h", "conn_max_lifetime_jitter=5m", "skip_verify=true",
+		// go-redis v9.24.0 parses these too; the driver overrides the last two.
+		"conn_max_lifetime_reap_interval=10m", "pipeline_min_idle_conns=2", "auth_empty_password=true",
+		"context_timeout_enabled=false", "disable_identity=false",
 	}, "&")}
 	cfg, err := d.clientConfig()
 	if err != nil {
@@ -172,6 +175,7 @@ func TestClientURIOptions(t *testing.T) {
 		"PoolFIFO": true, "PoolSize": 7, "PoolTimeout": 9 * time.Second, "MinIdleConns": 1, "MaxIdleConns": 4,
 		"MaxActiveConns": 8, "MaxConcurrentDials": 3,
 		"ConnMaxIdleTime": time.Minute, "ConnMaxLifetime": time.Hour, "ConnMaxLifetimeJitter": 5 * time.Minute,
+		"ConnMaxLifetimeReapInterval": 10 * time.Minute, "PipelineMinIdleConns": 2, "AuthEmptyPassword": true,
 	}
 	fields(t, "single", cfg.single, want)
 	fields(t, "cluster", cfg.cluster, want)
@@ -187,6 +191,7 @@ func TestClientURIOptions(t *testing.T) {
 	c := newClient(cfg, true, timeouts{read: time.Minute, write: 0, dial: 3 * time.Second}).(*goredis.ClusterClient)
 	defer c.Close()
 	want["ReadTimeout"], want["WriteTimeout"] = time.Minute, time.Duration(0)
+	want["ContextTimeoutEnabled"] = true
 	fields(t, "cluster client", c.Options(), want)
 	if got := c.Options().Addrs; !slices.Equal(got, []string{"h1:7000"}) {
 		t.Errorf("cluster client seeds %v", got)
@@ -291,6 +296,8 @@ func TestClusterOptionsCopiesEverySetting(t *testing.T) {
 			f.SetBool(true)
 		case reflect.Int, reflect.Int64:
 			f.SetInt(int64(i + 1))
+		case reflect.Uint8, reflect.Uint, reflect.Uint32, reflect.Uint64:
+			f.SetUint(uint64(i + 1))
 		case reflect.String:
 			f.SetString(src.Type().Field(i).Name)
 		case reflect.Pointer:
@@ -313,7 +320,7 @@ func TestClusterOptionsCopiesEverySetting(t *testing.T) {
 		switch got.Kind() {
 		case reflect.Interface:
 			// Nothing to set them to here; clusterOptions copies these.
-			if name != "StreamingCredentialsProvider" && name != "PushNotificationProcessor" {
+			if name != "StreamingCredentialsProvider" && name != "PushNotificationProcessor" && name != "OTelRecorder" {
 				t.Errorf("%s: not checked", name)
 			}
 		case reflect.Func:

@@ -569,7 +569,7 @@ func TestRetainedPartitionIndependentACL(t *testing.T) {
 	user := "it_retained_" + s.namespace[3:15]
 	rules := []string{"+ping", "+time", "+getrange", "%R~" + s.prefix + "*"}
 	if a.cluster {
-		rules = append(rules, "+cluster|slots", "+command", "+asking")
+		rules = append(rules, "+cluster|shards", "+cluster|slots", "+command", "+asking")
 	}
 	a.user(user, rules...)
 	var client goredis.UniversalClient

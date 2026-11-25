@@ -55,7 +55,7 @@ var (
 		"+hlen", "+hstrlen", "+hscan", "+scard", "+memory|usage",
 		"+zadd", "+zrem", "+zcard", "+zrange", "+zrangebylex", "+zrangebyscore", "+zremrangebyscore", "+zscore", "+zmscore", "+zlexcount",
 	}
-	aclClusterCommands = []string{"+cluster|slots", "+command"}
+	aclClusterCommands = []string{"+cluster|shards", "+cluster|slots", "+command"}
 	aclReadOnly        = []string{
 		"+ping", "+info",
 		"+ft._list", "+ft.info", "+ft.aggregate", "+ft.cursor", "+ft.search", "+ft.profile",

@@ -230,6 +230,7 @@ func clusterOptions(o *goredis.Options) *goredis.ClusterOptions {
 		CredentialsProvider:          o.CredentialsProvider,
 		CredentialsProviderContext:   o.CredentialsProviderContext,
 		StreamingCredentialsProvider: o.StreamingCredentialsProvider,
+		AuthEmptyPassword:            o.AuthEmptyPassword,
 
 		MaxRetries:      o.MaxRetries,
 		MinRetryBackoff: o.MinRetryBackoff,
@@ -243,22 +244,24 @@ func clusterOptions(o *goredis.Options) *goredis.ClusterOptions {
 		WriteTimeout:          o.WriteTimeout,
 		ContextTimeoutEnabled: o.ContextTimeoutEnabled,
 
-		MaxConcurrentDials:    o.MaxConcurrentDials,
-		PoolFIFO:              o.PoolFIFO,
-		PoolSize:              o.PoolSize,
-		PoolTimeout:           o.PoolTimeout,
-		MinIdleConns:          o.MinIdleConns,
-		MaxIdleConns:          o.MaxIdleConns,
-		MaxActiveConns:        o.MaxActiveConns,
-		ConnMaxIdleTime:       o.ConnMaxIdleTime,
-		ConnMaxLifetime:       o.ConnMaxLifetime,
-		ConnMaxLifetimeJitter: o.ConnMaxLifetimeJitter,
+		MaxConcurrentDials:          o.MaxConcurrentDials,
+		PoolFIFO:                    o.PoolFIFO,
+		PoolSize:                    o.PoolSize,
+		PoolTimeout:                 o.PoolTimeout,
+		MinIdleConns:                o.MinIdleConns,
+		MaxIdleConns:                o.MaxIdleConns,
+		MaxActiveConns:              o.MaxActiveConns,
+		ConnMaxIdleTime:             o.ConnMaxIdleTime,
+		ConnMaxLifetime:             o.ConnMaxLifetime,
+		ConnMaxLifetimeJitter:       o.ConnMaxLifetimeJitter,
+		ConnMaxLifetimeReapInterval: o.ConnMaxLifetimeReapInterval,
 
 		ReadBufferSize:          o.ReadBufferSize,
 		WriteBufferSize:         o.WriteBufferSize,
 		PipelineReadBufferSize:  o.PipelineReadBufferSize,
 		PipelineWriteBufferSize: o.PipelineWriteBufferSize,
 		PipelinePoolSize:        o.PipelinePoolSize,
+		PipelineMinIdleConns:    o.PipelineMinIdleConns,
 		AutoPipelineOptions:     o.AutoPipelineOptions,
 
 		TLSConfig: o.TLSConfig,
@@ -270,6 +273,18 @@ func clusterOptions(o *goredis.Options) *goredis.ClusterOptions {
 		PushNotificationProcessor: o.PushNotificationProcessor,
 		FailingTimeoutSeconds:     o.FailingTimeoutSeconds,
 		MaintNotificationsConfig:  o.MaintNotificationsConfig,
+
+		// The driver sets none of these (no client-side caching, metadata
+		// routing or per-client recorder); copied so the two clients match.
+		ClientSideCacheConfig:                  o.ClientSideCacheConfig,
+		ClientSideCacheTrackingMode:            o.ClientSideCacheTrackingMode,
+		ClientSideCacheable:                    o.ClientSideCacheable,
+		ClientSideCacheStrategy:                o.ClientSideCacheStrategy,
+		ClientSideCacheRefreshOnInvalidate:     o.ClientSideCacheRefreshOnInvalidate,
+		ClientSideCacheCoalesceMisses:          o.ClientSideCacheCoalesceMisses,
+		ClientSideCacheInvalidationBatchWindow: o.ClientSideCacheInvalidationBatchWindow,
+		CommandMetadata:                        o.CommandMetadata,
+		OTelRecorder:                           o.OTelRecorder,
 	}
 }
 

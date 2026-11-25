@@ -43,13 +43,17 @@ func compactIntegerTupleShape(meta *tableMeta, p *tupleAggregatePlan, wp wherePl
 // slower links. This is a conservative planner heuristic, not a latency SLA;
 // failed/slow probes retain the established server source without retrying SQL.
 func (e *executor) compactIntegerTupleRTT(ctx context.Context) (bool, time.Duration) {
-	probeCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	// WithTimeout shares the owned pool and, since go-redis v9.24.0, its hooks.
+	// These read-only PINGs are planner probes, outside query command
+	// diagnostics and the execution's command accounting, so a failed probe
+	// never discards the execution pool; server INFO includes them.
+	outside := context.WithValue(ctx, diagnosticsContextKey{}, (*executionDiagnostics)(nil))
+	outside = context.WithValue(outside, transportContextKey{}, (*executionTransport)(nil))
+	probeCtx, cancel := context.WithTimeout(outside, 500*time.Millisecond)
 	defer cancel()
 	var slowest atomic.Int64
 	probe := func(client *goredis.Client) error {
-		// WithTimeout shares the owned pool but resets hooks. These read-only PINGs
-		// are planner probes, outside query command diagnostics; server INFO includes
-		// them. Never Close the clone or mutate the real statement client options.
+		// Never Close the clone or mutate the real statement client options.
 		client = client.WithTimeout(100 * time.Millisecond)
 		elapsed, err := sampleCompactTupleRTT(probeCtx, func(ctx context.Context) error { return client.Ping(ctx).Err() })
 		for old := slowest.Load(); int64(elapsed) > old; old = slowest.Load() {
