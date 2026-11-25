@@ -27,6 +27,25 @@
 | main `b1efe706` | 6.12 GB | 8.39 s | 2.54 s |
 | this change | 5.39 GB (−12%) | 7.02 s (−16%) | 1.98 s |
 
+## Request bytes
+
+Warm SF1 Q1 wrote about 290 bytes per row to read about 116. Each HMGET carries the full row key (about 110 bytes) and 9 field names. Shorter key or field encodings would change the storage format. The row-ID and tombstone fields are needed for exactness.
+
+The remaining option was a read-only Redis Function taking a batch of row keys with the field list once. It was measured on a dedicated Redis Software 8.8.0 database: 1 shard, API-verified active 4x QPF, mnp, 32 connections. The data was 300,000 synthetic lineitem-shaped HASHes in one `{meta}` slot, 9 fields read per row, 256 rows per pipeline or call, read from a 4-CPU Linux client in the server's network namespace. The function was a scratch `no-writes` FCALL_RO library, not part of this change.
+
+| Connections | Pipelined HMGET rows/s | Batched FCALL_RO rows/s |
+|---|---|---|
+| 1 | 475,856 | 291,536 |
+| 4 | 863,552 | 514,742 |
+| 8 | 1,061,151 | 467,348 |
+| 32 | 1,124,843 | 496,121 |
+
+- **Bytes:** the function cuts request bytes from 271 to 85 per row.
+- **Speed:** it reads at roughly half the rate. Each call runs single-threaded on the shard for its whole batch.
+- **Flex:** a script additionally needs its keys in RAM before running.
+
+So it is not adopted, and it was not run on Flex: loading a function would be a write to that database.
+
 ## Tests
 
 - **Combiner:** `TestPartialGroupCombinerMatchesSequentialCombine`. Every group equals the sequential combine, with fewer tuples handed on than rows. This is a performance change with unchanged results, so the existing exactness tests also pin its behavior.
