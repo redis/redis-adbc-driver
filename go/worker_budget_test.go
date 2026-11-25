@@ -18,11 +18,13 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
@@ -254,5 +256,41 @@ func TestWorkerBudgetDeadline(t *testing.T) {
 	b.release(n)
 	if b.option(OptionIntQueryWorkersQueued) != "0" || b.option(OptionIntQueryWorkersActive) != "0" {
 		t.Fatal("deadline leaked capacity")
+	}
+}
+
+// With Flex, worker options left unset take flexQueryWorkers: readers wait on
+// server replies, so a CPU-sized pool would leave the shard idle. Explicit
+// options, including auto, keep their values, and other databases keep auto.
+func TestFlexQueryWorkerDefaults(t *testing.T) {
+	ctx := context.Background()
+	open := func(opts map[string]string) *databaseImpl {
+		t.Helper()
+		opts[adbc.OptionKeyURI] = "redis://default:unused@unused.invalid:1/0"
+		d, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d.applyFlexWorkers() // as openConnection does before dialing
+		return d
+	}
+	auto := strconv.Itoa(effectiveQueryWorkers(0))
+	for _, tc := range []struct {
+		name           string
+		opts           map[string]string
+		workers, limit string
+	}{
+		{"flex", map[string]string{OptionStringFlex: "true"}, "32", "32"},
+		{"flex explicit workers", map[string]string{OptionStringFlex: "true", OptionStringQueryWorkers: "4"}, "4", "32"},
+		{"flex explicit auto", map[string]string{OptionStringFlex: "true", OptionStringQueryWorkers: "auto", OptionStringQueryWorkerBudget: "auto"}, auto, (&workerBudget{}).option(OptionStringQueryWorkerBudget)},
+		{"flex explicit budget", map[string]string{OptionStringFlex: "true", OptionStringQueryWorkerBudget: "3"}, "32", "3"},
+		{"ram", map[string]string{}, auto, (&workerBudget{}).option(OptionStringQueryWorkerBudget)},
+	} {
+		d := open(tc.opts)
+		workers, _ := d.GetOption(ctx, OptionStringQueryWorkers)
+		limit, _ := d.GetOption(ctx, OptionStringQueryWorkerBudget)
+		if workers != tc.workers || limit != tc.limit {
+			t.Errorf("%s: query_workers %s budget %s, want %s and %s", tc.name, workers, limit, tc.workers, tc.limit)
+		}
 	}
 }

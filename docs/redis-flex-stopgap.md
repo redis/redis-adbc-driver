@@ -38,6 +38,15 @@ cursor or SORTABLE field. Unsupported aggregate shapes retain their established
 fallback, and no general throughput parity is implied. See the
 [focused evidence](sdlc/changes/issue-551-directory-aggregates/validation.md).
 
+With `adbc.redis.flex=true`, `adbc.redis.query_workers` and
+`adbc.redis.query_worker_budget` default to 32 (the driver maximum) when they are not set
+explicitly. Each parallel directory reader mostly waits on server replies here,
+so the CPU-sized automatic start (one worker per client CPU) leaves the shard
+underused. An explicit value, including `auto`, keeps its usual meaning.
+Streamed snowflake joins read their fact and large dimensions, including
+the largest table of a multi-table branch, through these exact-directory
+readers. See the [change record](sdlc/changes/tpch-flex-read-path/validation.md).
+
 Final plain indexes retain `SKIPINITIALSCAN`. After private row images are
 complete, bounded guarded row-ID HSET notifications populate the fresh index.
 Publication requires readiness, no indexing failures, exact prefix/cardinality
