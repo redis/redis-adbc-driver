@@ -268,8 +268,11 @@ measured 8 MiB Arrow budget reduced client heap but is not a total-query memory
 limit. A streamed single-table `ORDER BY` that Search cannot sort spills sorted
 runs to query-local files above an estimated 256 MiB of buffered rows and streams
 their merge ([sort spill](sdlc/changes/sort-spill/spec.md), #654). Other sorts
-(subqueries, joins, set operations, windows, DISTINCT) still materialize, and
-joins have no spill path.
+(subqueries, joins, set operations, windows, DISTINCT) still materialize. A
+streamed snowflake join whose retained dimension rows exceed its cap spills the
+dimension that crosses it, and the fact, to hash partitions joined one at a time
+([join spill](sdlc/changes/join-spill/spec.md), #654); other joins keep their
+in-memory paths.
 
 - [#325](https://github.com/redis/redis-adbc-driver/issues/325) and
   [#326](https://github.com/redis/redis-adbc-driver/issues/326) remain open and

@@ -23,8 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
-
-	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 // sortSpillBytes is the estimated retained size of buffered input rows above
@@ -113,16 +111,13 @@ type sortRecord struct {
 // sortSpill holds a spilling sort's runs and the field-name and type tables
 // its run records index.
 type sortSpill struct {
-	exec    *executor
-	order   []planOrder
-	dir     string
-	runs    []string
-	serial  int
-	names   []string
-	nameIdx map[string]uint16
-	types   []ColType
-	typeIdx map[ColType]uint16
-	fanIn   int
+	spillRowCodec
+	exec   *executor
+	order  []planOrder
+	dir    string
+	runs   []string
+	serial int
+	fanIn  int
 }
 
 func (s *sortSpill) less(a, b *sortRecord) bool {
@@ -145,28 +140,6 @@ func (s *sortSpill) maxFanIn() int {
 func (s *sortSpill) path() string {
 	s.serial++
 	return filepath.Join(s.dir, fmt.Sprintf("run-%08d", s.serial))
-}
-
-func (s *sortSpill) intern(name string, t ColType) (uint16, uint16, error) {
-	n, ok := s.nameIdx[name]
-	if !ok {
-		if len(s.names) >= 1<<16 {
-			return 0, 0, errorf(adbc.StatusInternal, "sort spill field table is full")
-		}
-		n = uint16(len(s.names))
-		s.names = append(s.names, name)
-		s.nameIdx[name] = n
-	}
-	i, ok := s.typeIdx[t]
-	if !ok {
-		if len(s.types) >= 1<<16 {
-			return 0, 0, errorf(adbc.StatusInternal, "sort spill type table is full")
-		}
-		i = uint16(len(s.types))
-		s.types = append(s.types, t)
-		s.typeIdx[t] = i
-	}
-	return n, i, nil
 }
 
 // writeRun sorts records and writes them as one run.
@@ -210,32 +183,7 @@ func (s *sortSpill) writeRecord(w io.Writer, rec *sortRecord) error {
 	if err := binary.Write(w, binary.LittleEndian, rec.seq); err != nil {
 		return err
 	}
-	if err := binary.Write(w, binary.LittleEndian, uint32(len(rec.row))); err != nil {
-		return err
-	}
-	for name, v := range rec.row {
-		n, t, err := s.intern(name, v.T)
-		if err != nil {
-			return err
-		}
-		flag := byte(0)
-		text := ""
-		if v.Null {
-			flag = 1
-		} else {
-			text = encodeStored(v)
-		}
-		if err := binary.Write(w, binary.LittleEndian, [2]uint16{n, t}); err != nil {
-			return err
-		}
-		if _, err := w.Write([]byte{flag}); err != nil {
-			return err
-		}
-		if err := writeSpillString(w, text); err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.writeFields(w, rec.row)
 }
 
 // readRecord decodes the next record of a run and recomputes its keys with
@@ -245,36 +193,11 @@ func (s *sortSpill) readRecord(r io.Reader, env *evalEnv) (sortRecord, error) {
 	if err := binary.Read(r, binary.LittleEndian, &rec.seq); err != nil {
 		return rec, err
 	}
-	var n uint32
-	if err := binary.Read(r, binary.LittleEndian, &n); err != nil {
-		return rec, spillRecordError(err)
+	row, err := s.readFields(r)
+	if err != nil {
+		return rec, err
 	}
-	rec.row = make(map[string]Value, n)
-	for range n {
-		var idx [2]uint16
-		if err := binary.Read(r, binary.LittleEndian, &idx); err != nil {
-			return rec, spillRecordError(err)
-		}
-		var flag [1]byte
-		if _, err := io.ReadFull(r, flag[:]); err != nil {
-			return rec, spillRecordError(err)
-		}
-		text, err := readSpillString(r)
-		if err != nil {
-			return rec, spillRecordError(err)
-		}
-		if int(idx[0]) >= len(s.names) || int(idx[1]) >= len(s.types) {
-			return rec, errorf(adbc.StatusInternal, "invalid sort spill record")
-		}
-		t := s.types[idx[1]]
-		v := nullValue(t)
-		if flag[0] == 0 {
-			if v, err = decodeStored(text, t); err != nil {
-				return rec, errorf(adbc.StatusInternal, "sort spill field %q: %v", s.names[idx[0]], err)
-			}
-		}
-		rec.row[s.names[idx[0]]] = v
-	}
+	rec.row = row
 	keys, err := sortKeys(env, s.order, rec.row)
 	rec.keys = keys
 	return rec, err
@@ -536,7 +459,7 @@ func (e *executor) sortSpillSelect(ctx context.Context, plan *selectPlan, sc sel
 	}
 	defer it.close(ctx)
 	env := e.newEnv(ctx, plan.meta.types(), params)
-	spill := &sortSpill{exec: e, order: plan.order, nameIdx: map[string]uint16{}, typeIdx: map[ColType]uint16{}}
+	spill := &sortSpill{spillRowCodec: newSpillRowCodec(), exec: e, order: plan.order}
 	defer func() {
 		if stream == nil && spill.dir != "" {
 			_ = os.RemoveAll(spill.dir)

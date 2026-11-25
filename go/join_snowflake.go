@@ -569,6 +569,11 @@ func (e *executor) parallelTableRows(ctx context.Context, base, view *tableMeta,
 	capacity := ownedFactRowCapacity(len(need))
 	results := make([][]map[string]Value, chunks)
 	var total, next atomic.Int64
+	// capped stops the workers at the row limit. Cancelling their shared
+	// context instead would interrupt in-flight commands and close the
+	// execution's connections, which the caller's fallback (the eager join, or
+	// a spilled re-read) still needs (#654).
+	var capped atomic.Bool
 	var wg sync.WaitGroup
 	var panicMu sync.Mutex
 	var panicValue any
@@ -592,7 +597,7 @@ func (e *executor) parallelTableRows(ctx context.Context, base, view *tableMeta,
 			}()
 			for {
 				chunk := int(next.Add(1) - 1)
-				if chunk >= chunks || child.Err() != nil {
+				if chunk >= chunks || child.Err() != nil || capped.Load() {
 					return
 				}
 				req := scanRequest{meta: view, where: wp, need: need, rowCapacity: capacity}
@@ -604,12 +609,16 @@ func (e *executor) parallelTableRows(ctx context.Context, base, view *tableMeta,
 					req.ranges = &bounds
 				}
 				err := local.scanPages(child, req, params, func(rows []map[string]Value) error {
-					if total.Add(int64(len(rows))) > limit {
+					if capped.Load() || total.Add(int64(len(rows))) > limit {
+						capped.Store(true)
 						return errStarDimensionCap
 					}
 					results[chunk] = append(results[chunk], rows...)
 					return nil
 				})
+				if err == errStarDimensionCap {
+					return
+				}
 				if err != nil {
 					cancel(err)
 					return
@@ -620,6 +629,9 @@ func (e *executor) parallelTableRows(ctx context.Context, base, view *tableMeta,
 	wg.Wait()
 	if panicValue != nil {
 		panic(panicValue)
+	}
+	if capped.Load() && child.Err() == nil {
+		return true, errStarDimensionCap
 	}
 	if child.Err() != nil {
 		if cause := context.Cause(child); cause != nil && cause != context.Canceled {

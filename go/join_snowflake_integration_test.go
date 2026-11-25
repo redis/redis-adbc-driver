@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -167,6 +168,56 @@ func TestSQLSnowflakeJoinsManaged(t *testing.T) {
 			}
 		})
 	}
+	// #654: under a lowered branch cap the dimension that crosses it spills to
+	// partitions (the parallel dimension reader re-reads it a page at a time),
+	// and each query returns the eager join's rows.
+	// Without spilling, a cap the parallel dimension reader reaches falls back
+	// to the eager join, which must still be able to read: the reader stops
+	// its workers without interrupting the execution's connections.
+	t.Run("cap fallback", func(t *testing.T) {
+		oldCap := snowflakeBranchRows
+		t.Cleanup(func() { snowflakeBranchRows, testNoJoinSpill = oldCap, false })
+		snowflakeBranchRows = oldCap
+		want, _ := run(queries["dims"], false)
+		sort.Strings(want)
+		snowflakeBranchRows, testNoJoinSpill = 64, true
+		got, kind := run(queries["dims"], true)
+		sort.Strings(got)
+		// The eager join records its own plan once the stream falls back.
+		if strings.Contains(kind, "streaming") || !reflect.DeepEqual(got, want) {
+			t.Fatalf("plan %q; got %d rows, want %d", kind, len(got), len(want))
+		}
+	})
+	t.Run("spilled", func(t *testing.T) {
+		oldCap, oldParts := snowflakeBranchRows, joinSpillPartitions
+		t.Cleanup(func() { snowflakeBranchRows, joinSpillPartitions = oldCap, oldParts })
+		joined := map[string]bool{}
+		for name, sql := range queries {
+			snowflakeBranchRows = oldCap
+			want, _ := run(sql, false)
+			for _, limit := range []int{64, 400, 1500} {
+				snowflakeBranchRows, joinSpillPartitions = limit, 8
+				before := joinSpillStats.joined.Load()
+				got, _ := run(sql, true)
+				if joinSpillStats.joined.Load() != before {
+					joined[name] = true
+				}
+				g, w := slices.Clone(got), slices.Clone(want)
+				if name == "rows" || name == "dims" {
+					sort.Strings(g)
+					sort.Strings(w)
+				}
+				if !reflect.DeepEqual(g, w) {
+					t.Fatalf("%s, cap %d: got %v\nwant %v", name, limit, g, w)
+				}
+			}
+		}
+		for _, name := range []string{"dims", "rows", "q7"} {
+			if !joined[name] {
+				t.Errorf("%s never joined a spilled dimension (%v)", name, joined)
+			}
+		}
+	})
 }
 
 // snowflakeReaderRows renders rows as sqlHarness.query does, plus each
