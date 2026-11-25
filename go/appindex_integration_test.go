@@ -33,7 +33,9 @@ func (f *hashFixture) appIndex(name string, def ...any) {
 	if err := st.searchDo(f.h.ctx, name, args...).Err(); err != nil {
 		f.h.t.Fatal(err)
 	}
-	for deadline := time.Now().Add(10 * time.Second); ; {
+	// The initial scan visits every key in the database, not only the
+	// prefix's, so the wait scales with the keyspace (#653).
+	for deadline := time.Now().Add(keyspaceWait(f.h.ctx, f.raw, 10*time.Second)); ; {
 		reply, err := st.searchDo(f.h.ctx, name, "FT.INFO", name).Result()
 		if err != nil {
 			f.h.t.Fatal(err)

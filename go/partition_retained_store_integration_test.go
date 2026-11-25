@@ -53,26 +53,9 @@ func retainedFixture(t *testing.T, cleanupClient goredis.UniversalClient, limits
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		clear := func(ctx context.Context, client *goredis.Client) error {
-			iter := client.Scan(ctx, 0, s.prefix+"*", 100).Iterator()
-			for iter.Next(ctx) {
-				if err := client.Del(ctx, iter.Val()).Err(); err != nil {
-					return err
-				}
-			}
-			return iter.Err()
-		}
-		if cc, ok := cleanupClient.(*goredis.ClusterClient); ok {
-			if err := cc.ForEachMaster(ctx, clear); err != nil {
-				t.Error(err)
-			}
-		} else if err := clear(ctx, cleanupClient.(*goredis.Client)); err != nil {
-			t.Error(err)
-		}
-	})
+	// The SCAN visits every key in the database, so its deadline scales with
+	// the keyspace rather than this store's keys (#653).
+	t.Cleanup(func() { clearPrefix(t, cleanupClient, s.prefix) })
 	return s
 }
 
