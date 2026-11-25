@@ -130,6 +130,8 @@ def layout_inventory_inputs():
         pa.array([2, 3, 5], pa.int16()), pa.array([[1, None], None, []], pa.list_(i64)))
     inputs["list_of_run_end"] = pa.ListArray.from_arrays(
         pa.array([0, 2, 5, 7], pa.int32()), inputs["run_end_16"])
+    # C Data run-end parents have no buffers, also when nested (#647).
+    inputs["struct_of_run_end"] = pa.StructArray.from_arrays([inputs["run_end_16"]], names=["r"])
     inputs["map"] = pa.array([[('duplicate', 1), ('duplicate', None)], None, []], pa.map_(pa.string(), i64))
     ids = pa.array([3, 7, 3], pa.int8())
     inputs["dense_union"] = pa.UnionArray.from_dense(
@@ -143,7 +145,7 @@ def layout_inventory_inputs():
 
 @pytest.mark.parametrize("name", [
     "fixed", "nested_fixed", "view", "large_view", "run_end_16", "run_end_32", "run_end_64", "run_end_list",
-    "list_of_run_end", "map", "dense_union", "sparse_union",
+    "list_of_run_end", "struct_of_run_end", "map", "dense_union", "sparse_union",
 ])
 def test_layout_inventory_c_bindings(conn, name):
     source = layout_inventory_inputs()[name]
@@ -152,6 +154,8 @@ def test_layout_inventory_c_bindings(conn, name):
         canonical_type = pa.list_(pa.list_(pa.int64()))
     elif name == "list_of_run_end":
         canonical_type = pa.list_(pa.string())
+    elif name == "struct_of_run_end":
+        canonical_type = pa.struct([("r", pa.string())])
     elif name == "map":
         canonical_type = source.type
     elif name in {"dense_union", "sparse_union"}:
