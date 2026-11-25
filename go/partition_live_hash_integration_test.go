@@ -529,7 +529,8 @@ func TestLiveHashPartitionIndexDefinitionChanged(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		deadline := time.Now().Add(5 * time.Second)
+		// Recreating the index rescans the whole keyspace (#653).
+		deadline := time.Now().Add(keyspaceWait(context.Background(), f.raw, 5*time.Second))
 		for {
 			if err := store.validateLiveIndex(context.Background(), meta); err == nil {
 				return

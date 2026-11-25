@@ -16,6 +16,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"slices"
@@ -40,8 +41,30 @@ func newHashFixture(t *testing.T, prefix string) *hashFixture {
 	h := newSQLHarness(t)
 	f := &hashFixture{h: h, raw: h.rawClient(), opts: retainedTestDatabaseOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")}), prefix: prefix}
 	f.clear()
+	f.dropStaleLive()
 	t.Cleanup(f.clear)
 	return f
+}
+
+// dropStaleLive unregisters live tables left on the fixture's own prefix by
+// an interrupted earlier run (a test timeout skips t.Cleanup), so that the
+// test's fixed table name can be registered again (#653). Registrations on
+// other prefixes are left alone.
+func (f *hashFixture) dropStaleLive() {
+	f.h.t.Helper()
+	records, err := f.raw.HGetAll(f.h.ctx, liveRegistry).Result()
+	if err != nil {
+		f.h.t.Fatal(err)
+	}
+	for name, raw := range records {
+		var r liveRecord
+		if json.Unmarshal([]byte(raw), &r) != nil || r.Meta == nil || r.Meta.KeyPrefix != f.prefix {
+			continue
+		}
+		if err := UnregisterLiveHashes(f.h.ctx, f.opts, name); err != nil && !isStatus(err, adbc.StatusNotFound) {
+			f.h.t.Fatalf("stale live registration %q on this fixture's prefix %q could not be removed (%v); use a dedicated database", name, f.prefix, err)
+		}
+	}
 }
 
 // clear deletes the fixture's keys, on every primary of a cluster.
