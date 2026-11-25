@@ -1,6 +1,7 @@
 """Harness regressions: synthetic engine adapters only, no Redis or SF1 queries."""
 
 import argparse
+import hashlib
 from contextlib import nullcontext, redirect_stdout
 from decimal import Decimal
 import io
@@ -67,7 +68,8 @@ class IsolationTests(unittest.TestCase):
             # Force multiple merge generations rather than only one pass.
             scratch = root / 'sort'
             scratch.mkdir()
-            got = list(isolation.sorted_rows(root / 'ref', scratch, chunk_size=500, fan_in=3))
+            header, *got = isolation.sorted_rows(root / 'ref', scratch, chunk_size=500, fan_in=3)
+            self.assertEqual(header, (2, len(rows)))
             self.assertEqual(got, sorted(tuple(run.cell(v) for v in row) for row in rows))
 
     def test_corrupt_shape_and_tolerance(self):
@@ -82,7 +84,8 @@ class IsolationTests(unittest.TestCase):
                 isolation.validate_files(root / 'ref', root / 'actual', root)
 
     def exercise_workers(self, failure=None, mismatch=None, validator_timeout=False,
-                         worker_artifact=None, validator_artifact=False, oom_counts=None):
+                         worker_artifact=None, validator_artifact=False, oom_counts=None,
+                         corrupt=None, inspect=None, engines_run=3):
         with tempfile.TemporaryDirectory() as tmp:
             private = Path(tmp)
             fake = private / 'modules'
@@ -113,6 +116,8 @@ class IsolationTests(unittest.TestCase):
                     raise subprocess.TimeoutExpired(cmd, kwargs['timeout'])
                 child = subprocess.run(cmd, **kwargs)
                 artifacts = Path(cmd[cmd.index('--artifacts') + 1])
+                if corrupt and cmd[cmd.index('--phase') + 1] == 'engine':
+                    corrupt(artifacts, cmd[-1])
                 if cmd[-1] == 'redis':
                     if cmd[cmd.index('--phase') + 1] == 'engine' and worker_artifact:
                         path = artifacts / 'redis.json'
@@ -130,22 +135,26 @@ class IsolationTests(unittest.TestCase):
             calls = [json.loads(x) for x in (private / 'calls.jsonl').read_text().splitlines()]
             connections = [json.loads(x) for x in (private / 'connections.jsonl').read_text().splitlines()]
             pids = [item['pid'] for item in connections]
-            self.assertEqual(len(set(pids)), 3)
+            self.assertEqual(len(set(pids)), engines_run)
             self.assertNotIn(os.getpid(), pids)
-            self.assertEqual([x['engine'] for x in connections], list(isolation.ENGINES))
+            self.assertEqual([x['engine'] for x in connections], list(isolation.ENGINES)[:engines_run])
             for connection in connections:
                 engine = connection['engine']
                 if engine != 'redis' or not worker_artifact:
                     self.assertEqual(record[f'{engine}_worker']['pid'], connection['pid'])
-            self.assertEqual(connections[2]['args'], [])  # no source DB in third engine
             self.assertEqual(connections[0]['kwargs'], {'read_only': True})
-            attach = next(x['sql'] for x in calls if x['sql'].startswith('ATTACH'))
-            self.assertIn('query_pushdown false', attach)
-            self.assertIn('"adbc.redis.flex" \'true\'', attach)
-            self.assertIn(str(library), attach)
+            if engines_run == 3:
+                self.assertEqual(connections[2]['args'], [])  # no source DB in third engine
+                attach = next(x['sql'] for x in calls if x['sql'].startswith('ATTACH'))
+                self.assertIn('query_pushdown false', attach)
+                self.assertIn('"adbc.redis.flex" \'true\'', attach)
+                self.assertIn(str(library), attach)
             self.assertEqual(len(list(private.glob('query-*'))), 0)
             self.assertNotIn('private-secret', json.dumps(record))
             self.assertNotIn(str(library), json.dumps(record))
+            self.assertNotIn(str(private), json.dumps(record))
+            if inspect:
+                inspect(private, record)
             with self.assertRaisesRegex(ValueError, 'already recorded'):
                 isolation.run_query(args)
             historical = output / 'tpch' / 'queries.jsonl'
@@ -155,7 +164,11 @@ class IsolationTests(unittest.TestCase):
             return record
 
     def test_real_child_process_isolation_and_third_engine(self):
-        record = self.exercise_workers()
+        def nothing_retained(private, record):
+            self.assertFalse((private / 'failed-artifacts').exists())
+            self.assertFalse(any(k.endswith('_retained_artifacts') for k in record))
+
+        record = self.exercise_workers(inspect=nothing_retained)
         for engine in isolation.ENGINES:
             self.assertEqual(record[f'{engine}_status'], 'ok')
             self.assertEqual(len(record[f'{engine}_seconds']), 3)
@@ -169,15 +182,139 @@ class IsolationTests(unittest.TestCase):
         self.assertNotIn('redis_over_duckdb', record)
 
     def test_mismatch_has_no_ratio(self):
-        record = self.exercise_workers(mismatch='redis')
+        def retained(private, record):
+            folder = private / record['redis_retained_artifacts']
+            self.assertEqual(sorted(p.name for p in folder.iterdir()),
+                             ['duckdb-0.pickle', 'duckdb.json', 'redis-0.pickle', 'redis-1.pickle',
+                              'redis-2.pickle', 'redis-3.pickle', 'redis-validation.json', 'redis.json'])
+
+        record = self.exercise_workers(mismatch='redis', inspect=retained)
         self.assertEqual(record['redis_status'], 'mismatch')
         self.assertNotIn('redis_over_duckdb', record)
+        # The shared reference is copied, so the third engine still validates.
+        self.assertEqual(record['duckdb_adbc_status'], 'ok')
+        self.assertNotIn('duckdb_adbc_retained_artifacts', record)
 
     def test_validator_timeout_is_not_engine_oom(self):
         record = self.exercise_workers(validator_timeout=True)
         self.assertEqual(record['redis_status'], 'validation_failed')
         self.assertNotIn('redis_over_duckdb', record)
         self.assertEqual(record['duckdb_adbc_status'], 'ok')
+        self.assertTrue(record['redis_retained_artifacts'].startswith('failed-artifacts/tpch-q19-redis-'))
+
+    def test_zero_filled_result_artifact_is_located_and_retained(self):
+        # Issue #641: SF1 Flex Q11 reported only "invalid load key, '\x00'." and
+        # its result files were deleted. Zero bytes after the last record are
+        # what a reader sees when a file grows without its data being written.
+        written = {}
+
+        def corrupt(artifacts, engine):
+            if engine == 'duckdb_adbc':
+                path = artifacts / 'duckdb_adbc-2.pickle'
+                written['bytes'] = path.stat().st_size
+                with path.open('ab') as out:
+                    out.write(bytes(4096))
+                self.assertIn(b'\x00' * 4096, path.read_bytes())
+
+        def retained(private, record):
+            folder = private / record['duckdb_adbc_retained_artifacts']
+            self.assertEqual(folder.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(sorted(p.name for p in folder.iterdir()),
+                             ['duckdb-0.pickle', 'duckdb.json', 'duckdb_adbc-0.pickle', 'duckdb_adbc-1.pickle',
+                              'duckdb_adbc-2.pickle', 'duckdb_adbc-3.pickle', 'duckdb_adbc-validation.json',
+                              'duckdb_adbc.json'])
+            # The retained file is the one that failed, zeros included.
+            self.assertEqual((folder / 'duckdb_adbc-2.pickle').stat().st_size, written['bytes'] + 4096)
+
+        record = self.exercise_workers(corrupt=corrupt, inspect=retained)
+        self.assertEqual(record['duckdb_status'], 'ok')
+        self.assertEqual(record['redis_status'], 'ok')
+        self.assertEqual(record['duckdb_adbc_status'], 'validation_failed')
+        self.assertNotIn('duckdb_adbc_over_duckdb', record)
+        error = record['duckdb_adbc_error']
+        self.assertIn('result duckdb_adbc-2.pickle did not read back as written', error)
+        self.assertIn(f"decode failed at byte {written['bytes']} after 5 objects", error)
+        self.assertIn("invalid load key, '\\x00'", error)
+        self.assertIn(f"4096 zero bytes start at byte {written['bytes']}", error)
+        self.assertIn(f"recorded {written['bytes']} bytes", error)
+        self.assertIn(f"read back {written['bytes'] + 4096} bytes", error)
+        problem = record['duckdb_adbc_artifact_problem']
+        self.assertEqual(problem['file'], 'duckdb_adbc-2.pickle')
+        self.assertEqual(problem['role'], 'result')
+        self.assertEqual(problem['decode_offset'], written['bytes'])
+        self.assertEqual(problem['zero_bytes_at_offset'], 4096)
+        self.assertEqual(problem['bytes_recorded'], written['bytes'])
+        self.assertEqual(problem['bytes_read_back'], written['bytes'] + 4096)
+
+    def test_changed_but_decodable_artifact_is_not_a_result_mismatch(self):
+        # A rewritten file can decode cleanly; it is still not what the engine returned.
+        def corrupt(artifacts, engine):
+            if engine == 'duckdb_adbc':
+                isolation.dump_rows(artifacts / 'duckdb_adbc-1.pickle', 1, [(99,), (1,), (1,), (None,)])
+
+        record = self.exercise_workers(corrupt=corrupt)
+        self.assertEqual(record['duckdb_adbc_status'], 'validation_failed')
+        self.assertIn('result duckdb_adbc-1.pickle did not read back as written', record['duckdb_adbc_error'])
+        self.assertIn('sha256', record['duckdb_adbc_error'])
+        self.assertNotIn('decode_offset', record['duckdb_adbc_artifact_problem'])
+        self.assertIn('duckdb_adbc_retained_artifacts', record)
+
+    def test_zeroed_reference_fails_its_own_validation(self):
+        def corrupt(artifacts, engine):
+            if engine == 'duckdb':
+                path = artifacts / 'duckdb-0.pickle'
+                path.write_bytes(bytes(path.stat().st_size))
+
+        record = self.exercise_workers(corrupt=corrupt, engines_run=1)
+        self.assertEqual(record['duckdb_status'], 'validation_failed')
+        self.assertIn('reference duckdb-0.pickle did not read back as written', record['duckdb_error'])
+        self.assertEqual(record['duckdb_artifact_problem']['decode_offset'], 0)
+        self.assertEqual(record['redis_status'], 'not_run_no_reference')
+
+    def test_missing_artifact_digest_never_passes(self):
+        def corrupt(artifacts, engine):
+            if engine == 'duckdb_adbc':
+                path = artifacts / 'duckdb_adbc.json'
+                status = json.loads(path.read_text())
+                del status['artifacts']['3']
+                path.write_text(json.dumps(status))
+
+        record = self.exercise_workers(corrupt=corrupt)
+        self.assertEqual(record['duckdb_adbc_status'], 'validation_failed')
+        self.assertIn('no recorded digest for repeat 3', record['duckdb_adbc_error'])
+
+    def test_artifact_digest_matches_written_bytes_and_is_synced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'artifact'
+            rows = [(Decimal('1.5'), 'x' * 200000), (None, 'a' + chr(0) + 'b'), (2, b'\x00\x01')]
+            with patch('isolation.os.fsync', wraps=os.fsync) as fsync:
+                recorded = isolation.dump_rows(path, 2, rows)
+            data = path.read_bytes()
+            self.assertEqual(recorded, {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()})
+            fsync.assert_called_once()
+            self.assertEqual(list(isolation.sorted_rows(path, Path(tmp), expected=recorded))[0], (2, 3))
+
+    def test_validator_scratch_runs_are_verified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rows = [(i % 7, str(i)) for i in range(2000)]
+            recorded = isolation.dump_rows(root / 'ref', 2, rows)
+            scratch = root / 'sort'
+            scratch.mkdir()
+            real = isolation.dump_objects
+
+            def damaged(path, values, sync=True):
+                result = real(path, values, sync)
+                if path.name.startswith('merge-0-'):
+                    with path.open('r+b') as out:
+                        out.write(bytes(8))
+                return result
+
+            with patch('isolation.dump_objects', damaged):
+                with self.assertRaisesRegex(isolation.ArtifactError,
+                                            r'validator scratch merge-0-\d+ did not read back as written'):
+                    list(isolation.sorted_rows(root / 'ref', scratch, chunk_size=100, fan_in=3,
+                                               expected=recorded))
 
     def test_malformed_crash_status_keeps_engine_code_and_oom(self):
         record = self.exercise_workers(failure='redis', worker_artifact='{',

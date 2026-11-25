@@ -4,7 +4,6 @@ Pickle files are created only by our own child processes in a mode-0700 temporar
 directory. Never point this module at untrusted result files.
 """
 
-from contextlib import ExitStack
 import hashlib
 import heapq
 import itertools
@@ -12,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import pickle
+import shutil
 import statistics
 import subprocess
 import sys
@@ -52,78 +52,198 @@ def read_status(path):
     return value, None
 
 
+class ArtifactError(ValueError):
+    """A private result file did not read back as its writer recorded it.
+
+    This is a failure of the file exchange between processes, never evidence
+    about the query result itself, so it is reported as validation_failed and
+    never as a mismatch.
+    """
+
+    def __init__(self, message, detail):
+        super().__init__(message)
+        self.detail = detail
+
+
+class _DigestWriter:
+    """Count and hash the exact bytes handed to an artifact file."""
+
+    def __init__(self, out):
+        self.out, self.size, self.sha256 = out, 0, hashlib.sha256()
+
+    def write(self, data):
+        view = memoryview(data)
+        self.sha256.update(view)
+        self.size += view.nbytes
+        return self.out.write(view)
+
+
+class _DigestReader:
+    """Hash exactly the bytes the unpickler consumes (no read-ahead), so the
+    stream position is the start of the next record."""
+
+    def __init__(self, raw):
+        self.raw, self.size, self.sha256 = raw, 0, hashlib.sha256()
+
+    def _seen(self, data):
+        self.sha256.update(data)
+        self.size += memoryview(data).nbytes
+        return data
+
+    def read(self, n=-1):
+        return self._seen(self.raw.read(n))
+
+    def readline(self, n=-1):
+        return self._seen(self.raw.readline(n))
+
+    def readinto(self, buffer):
+        count = self.raw.readinto(buffer)
+        self._seen(memoryview(buffer).cast("B")[:count])
+        return count
+
+
+def dump_objects(path, values, sync=True):
+    """Write one pickle per value and return the size/SHA-256 a reader must see."""
+    with path.open("wb") as raw:
+        out = _DigestWriter(raw)
+        for value in values:
+            pickle.dump(value, out)
+        if sync:
+            # The validator is another process; publish the data, not only the size.
+            raw.flush()
+            os.fsync(raw.fileno())
+    return {"bytes": out.size, "sha256": out.sha256.hexdigest()}
+
+
 def dump_rows(path, columns, rows):
-    with path.open("wb") as out:
-        pickle.dump((columns, len(rows)), out)
-        for row in rows:
-            pickle.dump(row, out)
+    return dump_objects(path, itertools.chain([(columns, len(rows))], rows))
 
 
-def objects(stream):
-    while True:
-        try:
-            yield pickle.load(stream)
-        except EOFError:
-            return
+def _inspect_artifact(path, offset=None):
+    """Size, digest, first all-zero 4 KiB page and the zero run at offset."""
+    digest, size, zero_page, zeros = hashlib.sha256(), 0, None, None
+    with path.open("rb") as source:
+        while page := source.read(4096):
+            digest.update(page)
+            if zero_page is None and page.count(0) == len(page):
+                zero_page = size
+            size += len(page)
+        if offset is not None:
+            source.seek(offset)
+            zeros = 0
+            while chunk := source.read(1 << 16):
+                rest = chunk.lstrip(b"\x00")
+                zeros += len(chunk) - len(rest)
+                if rest:
+                    break
+    return size, digest.hexdigest(), zero_page, zeros
 
 
-def merge_runs(paths, target):
-    with ExitStack() as stack, target.open("wb") as out:
-        streams = [stack.enter_context(p.open("rb")) for p in paths]
-        for row in heapq.merge(*(objects(s) for s in streams)):
-            pickle.dump(row, out)
+def _artifact_error(path, role, expected, objects, offset=None, cause=None):
+    size, digest, zero_page, zeros = _inspect_artifact(path, offset)
+    detail = {"role": role, "file": path.name, "objects_decoded": objects,
+              "bytes_read_back": size, "sha256_read_back": digest[:16]}
+    parts = []
+    if offset is not None:
+        detail["decode_offset"] = offset
+        detail["decode_error"] = f"{type(cause).__name__}: {cause}"
+        parts.append(f"decode failed at byte {offset} after {objects} objects ({detail['decode_error']})")
+        detail["zero_bytes_at_offset"] = zeros
+        if zeros:
+            parts.append(f"{zeros} zero bytes start at byte {offset}")
+    else:
+        parts.append(f"bytes differ from the writer's record after {objects} objects")
+    if zero_page is not None:
+        detail["first_zero_page_offset"] = zero_page
+        parts.append(f"first all-zero 4 KiB page at byte {zero_page}")
+    if expected is not None:
+        detail.update(bytes_recorded=expected["bytes"], sha256_recorded=expected["sha256"][:16])
+        parts.append(f"recorded {expected['bytes']} bytes sha256 {expected['sha256'][:16]}")
+    parts.append(f"read back {size} bytes sha256 {digest[:16]}")
+    return ArtifactError(f"{role} {path.name} did not read back as written: " + "; ".join(parts), detail)
 
 
-def sorted_rows(path, scratch, chunk_size=4096, fan_in=32):
+def verified_objects(path, expected, role):
+    """Yield each pickle in path, then prove the bytes match the writer's record.
+
+    expected=None only skips the final digest comparison (unit fixtures); decode
+    failures still report their location."""
+    count = 0
+    with path.open("rb") as raw:
+        stream = _DigestReader(raw)
+        while True:
+            offset = stream.size
+            try:
+                value = pickle.load(stream)
+            except EOFError as cause:
+                if stream.size == offset:
+                    break
+                raise _artifact_error(path, role, expected, count, offset, cause) from cause
+            except MemoryError:
+                raise
+            except Exception as cause:
+                raise _artifact_error(path, role, expected, count, offset, cause) from cause
+            count += 1
+            yield value
+    if expected is not None and (stream.size, stream.sha256.hexdigest()) != (expected["bytes"], expected["sha256"]):
+        raise _artifact_error(path, role, expected, count)
+
+
+def merge_runs(runs, target):
+    """Merge sorted (path, digest) runs into target; return target's digest."""
+    return dump_objects(target, heapq.merge(*(verified_objects(p, d, "validator scratch") for p, d in runs)),
+                        sync=False)
+
+
+def sorted_rows(path, scratch, chunk_size=4096, fan_in=32, expected=None, role="result"):
     # Sort normalized rows externally: bounded chunks and bounded open files.
     # This retains the old comparator's multiset/tolerance semantics, duplicates
     # included, without loading both complete reference/result sets in memory.
+    # Yields the (columns, count) header first, after the whole source has been
+    # read and verified, then the sorted rows.
     from run import cell
 
     runs = []
-    with path.open("rb") as source:
-        columns, count = pickle.load(source)
-        rows = objects(source)
-        observed = 0
-        while chunk := list(itertools.islice(rows, chunk_size)):
-            if any(len(row) != columns for row in chunk):
-                raise ValueError("result row width does not match header")
-            observed += len(chunk)
-            normalized = sorted(tuple(cell(v) for v in row) for row in chunk)
-            target = scratch / f"sort-{len(runs)}"
-            with target.open("wb") as out:
-                for row in normalized:
-                    pickle.dump(row, out)
-            runs.append(target)
-        if observed != count:
-            raise ValueError("truncated result artifact")
+    source = verified_objects(path, expected, role)
+    header = next(source, None)
+    if not (isinstance(header, tuple) and len(header) == 2):
+        raise ValueError("result artifact has no header")
+    columns, count = header
+    observed = 0
+    while chunk := list(itertools.islice(source, chunk_size)):
+        if any(len(row) != columns for row in chunk):
+            raise ValueError("result row width does not match header")
+        observed += len(chunk)
+        normalized = sorted(tuple(cell(v) for v in row) for row in chunk)
+        target = scratch / f"sort-{len(runs)}"
+        runs.append((target, dump_objects(target, normalized, sync=False)))
+    if observed != count:
+        raise ValueError("truncated result artifact")
     generation = 0
     while len(runs) > 1:
         merged = []
         for offset in range(0, len(runs), fan_in):
             group = runs[offset:offset + fan_in]
             target = scratch / f"merge-{generation}-{offset}"
-            merge_runs(group, target)
-            for old in group:
+            merged.append((target, merge_runs(group, target)))
+            for old, _ in group:
                 old.unlink()
-            merged.append(target)
         runs = merged
         generation += 1
+    yield header
     if runs:
-        with runs[0].open("rb") as source:
-            yield from objects(source)
+        yield from verified_objects(*runs[0], "validator scratch")
 
 
-def validate_files(reference, actual, scratch):
+def validate_files(reference, actual, scratch, digests=(None, None)):
     from run import equal_cells
 
-    with reference.open("rb") as left, actual.open("rb") as right:
-        if pickle.load(left) != pickle.load(right):
-            raise ValueError("result shape mismatch against DuckDB warm-up")
     with tempfile.TemporaryDirectory(dir=scratch) as a, tempfile.TemporaryDirectory(dir=scratch) as b:
-        left = sorted_rows(reference, Path(a))
-        right = sorted_rows(actual, Path(b))
+        left = sorted_rows(reference, Path(a), expected=digests[0], role="reference")
+        right = sorted_rows(actual, Path(b), expected=digests[1], role="result")
         try:
+            if next(left) != next(right):
+                raise ValueError("result shape mismatch against DuckDB warm-up")
             sentinel = object()
             for x, y in itertools.zip_longest(left, right, fillvalue=sentinel):
                 if x is sentinel or y is sentinel or not equal_cells(x, y):
@@ -286,7 +406,9 @@ def engine_worker(args):
                 status["columns"], status["rows"] = columns, len(data)
             status["phase"] = "export"
             atomic_json(path, status)
-            dump_rows(args.artifacts / f"{args.engine}-{repeat}.pickle", columns, data)
+            # Published with the next status write; the validator requires it.
+            status.setdefault("artifacts", {})[str(repeat)] = dump_rows(
+                args.artifacts / f"{args.engine}-{repeat}.pickle", columns, data)
             del data
         status[f"{args.engine}_median_seconds"] = statistics.median(status[f"{args.engine}_seconds"])
         status[f"{args.engine}_status"] = "executed"
@@ -307,20 +429,79 @@ def engine_worker(args):
             atomic_json(path, status)
 
 
+def recorded_digest(artifacts, engine, repeat, role="result"):
+    """The size/SHA-256 the engine worker recorded while writing one artifact."""
+    status, problem = read_status(artifacts / f"{engine}.json")
+    entry = status.get("artifacts", {}).get(str(repeat)) if isinstance(status.get("artifacts"), dict) else None
+    if (problem or not isinstance(entry, dict) or type(entry.get("bytes")) is not int
+            or not isinstance(entry.get("sha256"), str) or len(entry["sha256"]) != 64):
+        raise ArtifactError(f"{engine} worker status has no recorded digest for repeat {repeat}",
+                            {"role": role, "file": f"{engine}-{repeat}.pickle"})
+    return entry
+
+
 def validation_worker(args):
     from run import safe_error
 
     try:
+        reference = recorded_digest(args.artifacts, "duckdb", 0, role="reference")
         for repeat in range(4):
             validate_files(args.artifacts / "duckdb-0.pickle",
-                           args.artifacts / f"{args.engine}-{repeat}.pickle", args.artifacts)
+                           args.artifacts / f"{args.engine}-{repeat}.pickle", args.artifacts,
+                           digests=(reference, recorded_digest(args.artifacts, args.engine, repeat)))
     except Exception as exc:
         message = safe_error(str(exc))
-        mismatch = "result mismatch" in message or "result shape mismatch" in message
-        atomic_json(args.artifacts / f"{args.engine}-validation.json", {
-            "status": "mismatch" if mismatch else "validation_failed", "error": message})
+        artifact = isinstance(exc, ArtifactError)
+        mismatch = not artifact and ("result mismatch" in message or "result shape mismatch" in message)
+        detail = {"status": "mismatch" if mismatch else "validation_failed", "error": message}
+        if artifact:
+            detail["artifact"] = exc.detail
+        atomic_json(args.artifacts / f"{args.engine}-validation.json", detail)
         return 1
     return 0
+
+
+ARTIFACT_PROBLEM_FIELDS = ("role", "file", "objects_decoded", "decode_offset", "decode_error",
+                           "zero_bytes_at_offset", "first_zero_page_offset", "bytes_recorded",
+                           "sha256_recorded", "bytes_read_back", "sha256_read_back")
+
+
+def artifact_problem(detail):
+    """Public, bounded copy of a validator's artifact diagnosis."""
+    from run import safe_error
+
+    value = detail.get("artifact")
+    if not isinstance(value, dict):
+        return None
+    problem = {}
+    for key in ARTIFACT_PROBLEM_FIELDS:
+        item = value.get(key)
+        if type(item) is int:
+            problem[key] = item
+        elif isinstance(item, str):
+            problem[key] = safe_error(item)[:200]
+    return problem
+
+
+def retain_artifacts(private, artifacts, suite, query, engine):
+    """Keep a failed validation's inputs; the per-query directory is removed.
+
+    Engine files move; the shared DuckDB reference is copied because later
+    engines still validate against it. The result stays in the private profile
+    (mode 0700) and is named relative to it, never by absolute path."""
+    root = private / "failed-artifacts"
+    root.mkdir(mode=0o700, exist_ok=True)
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    target = Path(tempfile.mkdtemp(prefix=f"{suite}-q{query}-{engine}-{stamp}-", dir=root))
+    for name in ("duckdb.json", "duckdb-0.pickle"):
+        if (artifacts / name).exists():
+            shutil.copy2(artifacts / name, target / name)
+    moved = [f"{engine}.json", f"{engine}-validation.json"]
+    moved += sorted(p.name for p in artifacts.glob(f"{engine}-*.pickle") if p.name != "duckdb-0.pickle")
+    for name in moved:
+        if (artifacts / name).exists():
+            os.replace(artifacts / name, target / name)
+    return f"failed-artifacts/{target.name}"
 
 
 def oom_kills():
@@ -406,11 +587,20 @@ def run_query(args, runner=None):
                                       "error": f"validator exited with code {check.returncode}; {detail_problem or 'invalid'} status artifact"}
                         record[f"{engine}_status"] = detail["status"]
                         record[f"{engine}_error"] = safe_error(detail["error"])
+                        problem = artifact_problem(detail)
+                        if problem:
+                            record[f"{engine}_artifact_problem"] = problem
                     else:
                         record[f"{engine}_status"] = "ok"
                 except subprocess.TimeoutExpired:
                     record[f"{engine}_status"] = "validation_failed"
                     record[f"{engine}_error"] = "validator exceeded 120-second process limit"
+                if record[f"{engine}_status"] != "ok":
+                    try:
+                        record[f"{engine}_retained_artifacts"] = retain_artifacts(
+                            args.private, artifacts, args.suite, args.query, engine)
+                    except OSError as exc:
+                        record[f"{engine}_retention_error"] = f"{type(exc).__name__}: {exc.strerror or 'retention failed'}"
             elif f"{engine}_status" not in record:
                 record[f"{engine}_status"] = "worker_failed"
                 record[f"{engine}_error"] = "worker returned without a status artifact"
