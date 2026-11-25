@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"github.com/apache/arrow-adbc/go/adbc"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -491,19 +492,60 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 	}
 	observed := 0
 	branchRows := make([]int, len(shape.dims))
+	retained := make([]int, len(shape.dims)) // rows of each dimension counted in observed
+	// A snowflake dimension that takes the retained rows past the cap spills
+	// to partition files instead (join_spill.go); spill.remove runs on every exit.
+	var spill *joinSpill
+	defer func() { spill.remove() }()
+	spillable := shape.snowflake && !testNoJoinSpill
 	for d := range shape.dims {
 		dim := &shape.dims[d]
 		dim.buckets = map[string][]map[string]Value{}
 		fresh := dim.branch == nil && freshDimensionRows(jp.items[dim.item].base)
 		keep := func(rows []map[string]Value) error {
 			for _, row := range rows {
-				observed++
 				branchRows[d]++
-				if observed > shape.dimensionCap() {
-					if shape.filtered {
-						return errStarDimensionCap
+				if spill != nil && spill.dim == d {
+					if err := cancelled(ctx); err != nil {
+						return err
 					}
-					return errorf(adbc.StatusIO, "streamed join dimension exceeds admitted row bound")
+					if k, ok := starRowKey(row, dim.dimCols); ok {
+						if err := spill.write(k, shape.compactDimensionRow(row, fresh)); err != nil {
+							return err
+						}
+					}
+					continue
+				}
+				observed++
+				retained[d]++
+				if observed > shape.dimensionCap() {
+					if spill != nil || !spillable {
+						if shape.filtered {
+							return errStarDimensionCap
+						}
+						return errorf(adbc.StatusIO, "streamed join dimension exceeds admitted row bound")
+					}
+					// Spill this dimension: move its retained rows to partitions.
+					var err error
+					if spill, err = e.newJoinSpill(d); err != nil {
+						return err
+					}
+					for k, bucket := range dim.buckets {
+						for _, r := range bucket {
+							if err := spill.write(k, r); err != nil {
+								return err
+							}
+						}
+					}
+					dim.buckets = nil
+					observed -= retained[d]
+					retained[d] = 0
+					if k, ok := starRowKey(row, dim.dimCols); ok {
+						if err := spill.write(k, shape.compactDimensionRow(row, fresh)); err != nil {
+							return err
+						}
+					}
+					continue
 				}
 				if err := cancelled(ctx); err != nil {
 					return err
@@ -540,6 +582,13 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 			var parallel bool
 			if parallel, err = e.scanParallelDimension(ctx, shape, jp, dim.item, params, keep); !parallel {
 				err = scanItem(dim.item, keep)
+			} else if err == errStarDimensionCap && spill == nil && spillable {
+				// The parallel reader holds a whole dimension before keep sees it
+				// and stopped at the cap: read it again a page at a time, spilling.
+				dim.buckets = map[string][]map[string]Value{}
+				observed -= retained[d]
+				retained[d], branchRows[d] = 0, 0
+				err = scanItem(dim.item, keep)
 			} else {
 				shape.parallelDimensions++
 			}
@@ -553,11 +602,31 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 			return true, err
 		}
 	}
+	var spillDimRows []int64
+	if spill != nil {
+		var err error
+		if spillDimRows, err = spill.close(); err != nil {
+			return true, err
+		}
+		// Each partition is joined with the other dimensions in memory.
+		if slices.Max(spillDimRows)+int64(observed) > int64(shape.dimensionCap()) {
+			e.diagnostics.setPhase("serial_aggregate")
+			e.diagnostics.setPlan(map[string]any{"kind": "eager_join_fallback", "reason": "spilled_partition_cap", "snowflake": shape.snowflake})
+			return false, nil
+		}
+		for _, n := range spillDimRows {
+			joinSpillStats.dimRows.Add(n)
+		}
+	}
 	if shape.snowflake {
 		e.diagnostics.setPhase(kind)
-		e.diagnostics.setPlan(map[string]any{"kind": kind, "fact": shape.fact, "dimension_rows": branchRows,
+		plan := map[string]any{"kind": kind, "fact": shape.fact, "dimension_rows": branchRows,
 			"dimension_cap": shape.dimensionCap(), "residual": shape.residual != nil, "output_page_rows": starOutputPage,
-			"parallel_dimensions": shape.parallelDimensions})
+			"parallel_dimensions": shape.parallelDimensions}
+		if spill != nil {
+			plan["spilled_dimension"], plan["spill_partitions"] = spill.dim, len(spillDimRows)
+		}
+		e.diagnostics.setPlan(plan)
 	}
 	demand, err := starFactDimensionDemand(ctx, jp.items[shape.fact].view(), shape.dims, e.demandTermLimit())
 	if err != nil {
@@ -566,8 +635,10 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 	if demand != nil {
 		shape.filters[shape.fact] = append(shape.filters[shape.fact], demand)
 	}
-	if handled, err := e.scanParallelStarFacts(ctx, shape, jp, params, visit); handled {
-		return true, err
+	if spill == nil {
+		if handled, err := e.scanParallelStarFacts(ctx, shape, jp, params, visit); handled {
+			return true, err
+		}
 	}
 	var pending error
 	out := make([]map[string]Value, 0, starOutputPage)
@@ -613,14 +684,18 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 		}
 		return nil
 	}
-	err = scanItem(shape.fact, func(rows []map[string]Value) error {
-		for _, r := range rows {
-			if err := probe(0, r); err != nil {
-				return err
+	if spill == nil {
+		err = scanItem(shape.fact, func(rows []map[string]Value) error {
+			for _, r := range rows {
+				if err := probe(0, r); err != nil {
+					return err
+				}
 			}
-		}
-		return nil
-	})
+			return nil
+		})
+	} else {
+		err = e.joinSpilledFacts(ctx, shape, spill, scanItem, probe, func() bool { return pending != nil })
+	}
 	if err != nil {
 		return true, err
 	}
