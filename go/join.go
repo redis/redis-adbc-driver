@@ -643,17 +643,30 @@ type joinStep struct {
 }
 
 // joinOrder returns the steps of the join. Outer joins keep the written
-// order. Inner joins (INNER, CROSS, comma) start from the table whose pushed
-// filters match the fewest rows (counted by its index), then repeatedly add
-// the smallest table connected to the ones already joined, preferring one an
-// equality joins as a hash key over one only another condition reaches; each
-// condition is applied at the first step where all its tables are available.
+// order, except that the inner joins before trailing LEFT JOINs are ordered
+// like a join of only inner joins. Inner joins (INNER, CROSS, comma) start
+// from the table whose pushed filters match the fewest rows (counted by its
+// index), then repeatedly add the smallest table connected to the ones
+// already joined, preferring one an equality joins as a hash key over one
+// only another condition reaches; each condition is applied at the first
+// step where all its tables are available.
 func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan) ([]joinStep, error) {
-	inner := true
-	for _, it := range jp.items {
-		// LATERAL items and table functions keep the written order too.
+	// The first n items are inner joins that may be reordered: all of them,
+	// or those before LEFT JOINs that end the FROM item (TPC-DS Q72). Each
+	// such LEFT JOIN reads every row the inner joins produce, whatever their
+	// order, so only it keeps its written place. Other outer joins, LATERAL
+	// items and table functions keep the written order.
+	n := len(jp.items)
+	for i, it := range jp.items {
 		if (it.kind != "" && it.kind != "INNER" && it.kind != "CROSS") || it.lateral != nil {
-			inner = false
+			n = i
+			break
+		}
+	}
+	for _, it := range jp.items[n:] {
+		if it.kind != "LEFT" || it.lateral != nil || it.isolated {
+			n = 0
+			break
 		}
 	}
 	condsOf := func(it *joinItem) []Expr {
@@ -663,15 +676,46 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 		}
 		return append(c, it.extra...)
 	}
-	if !inner {
+	written := func() []joinStep {
 		steps := make([]joinStep, len(jp.items))
 		for i, it := range jp.items {
 			steps[i] = joinStep{item: i, kind: it.kind, conds: condsOf(it)}
 		}
-		return steps, nil
+		return steps
+	}
+	if n == 0 || (n < len(jp.items) && n < 2) {
+		return written(), nil
+	}
+	type poolCond struct {
+		expr  Expr
+		items []int
+		used  bool
+	}
+	var pool []*poolCond
+	for i, it := range jp.items[:n] {
+		for _, c := range condsOf(it) {
+			idx, movable := jp.itemsOf(c)
+			if !movable {
+				// The columns its subqueries read aren't in idx: it waits
+				// for every item its ON may read (see bindJoin).
+				idx = nil
+				for j := jp.start(i); j <= i; j++ {
+					idx = append(idx, j)
+				}
+			}
+			if slices.ContainsFunc(idx, func(x int) bool { return x >= n }) {
+				// Never ready among the reordered items: keep every
+				// condition where it was written.
+				return written(), nil
+			}
+			pool = append(pool, &poolCond{expr: c, items: idx})
+		}
 	}
 	counts := make([]int64, len(jp.items))
-	for i, it := range jp.items {
+	for i := n; i < len(jp.items); i++ {
+		counts[i] = -1 // joined in written order, never a candidate
+	}
+	for i, it := range jp.items[:n] {
 		switch {
 		case it.base.SnapshotOverlay:
 			if wps[i].none {
@@ -708,36 +752,16 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 			counts[i] = n
 		}
 	}
-	type poolCond struct {
-		expr  Expr
-		items []int
-		used  bool
-	}
-	var pool []*poolCond
-	for i, it := range jp.items {
-		for _, c := range condsOf(it) {
-			idx, movable := jp.itemsOf(c)
-			if !movable {
-				// The columns its subqueries read aren't in idx: it waits
-				// for every item its ON may read (see bindJoin).
-				idx = nil
-				for j := jp.start(i); j <= i; j++ {
-					idx = append(idx, j)
-				}
-			}
-			pool = append(pool, &poolCond{expr: c, items: idx})
-		}
-	}
 	chosen := map[int]bool{}
 	var steps []joinStep
 	dimensionProduct := int64(1)
-	for len(steps) < len(jp.items) {
+	for len(steps) < n {
 		connectedItems := make([]bool, len(jp.items))
 		// An equality runJoin can hash on beats any other condition reading
 		// the joined tables, which only filters every pair (an OR or <> across
 		// tables, as in TPC-DS Q15/Q19/Q45), which beats no condition.
 		best, bestTier := -1, -1
-		for i := range jp.items {
+		for i := range jp.items[:n] {
 			if chosen[i] {
 				continue
 			}
@@ -794,6 +818,9 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 			}
 		}
 		steps = append(steps, st)
+	}
+	for i, it := range jp.items[n:] {
+		steps = append(steps, joinStep{item: n + i, kind: it.kind, conds: condsOf(it)})
 	}
 	e.recordJoinOrderDiagnostics(ctx, jp, wps, counts, steps)
 	return steps, nil
