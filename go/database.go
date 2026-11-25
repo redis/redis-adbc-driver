@@ -21,6 +21,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -57,8 +58,12 @@ type databaseImpl struct {
 	pushdown     string
 	queryWorkers int
 	workerBudget *workerBudget
-	cluster      string
-	rekey        bool
+	// queryWorkersSet and workerBudgetSet record explicit worker options. With
+	// Flex, flexQueryWorkers replaces whichever was left unset (flexWorkers).
+	queryWorkersSet, workerBudgetSet bool
+	flexWorkers                      sync.Once
+	cluster                          string
+	rekey                            bool
 	// stream is adbc.redis.stream_results and adbc.redis.stream_batch_rows.
 	stream streamSettings
 	// timeouts are adbc.redis.read_timeout and write_timeout (see
@@ -326,6 +331,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 	if d.readerOnly && d.retainedNamespace == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "reader-only partitions require an explicit result namespace")
 	}
+	d.applyFlexWorkers()
 	client, cfg, t, writeFollows, err := d.dial(ctx)
 	if err != nil {
 		return nil, err
@@ -403,7 +409,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 		retainedNamespace:  d.retainedNamespace, retainedLimits: d.resultLimits(), readerOnly: d.readerOnly, partitionControlPersistence: d.partitionControlPersistence,
 		sess:         d.newSession(),
 		pushdown:     d.pushdown,
-		queryWorkers: d.queryWorkers,
+		queryWorkers: d.connectionQueryWorkers(),
 		workerBudget: d.workerBudget,
 		rekey:        d.rekey,
 		stream:       d.stream,
@@ -552,7 +558,7 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 	case OptionIntPartitionCount:
 		return strconv.Itoa(effectivePartitionCount(d.partitionCount)), nil
 	case OptionStringQueryWorkers:
-		return strconv.Itoa(effectiveQueryWorkers(d.queryWorkers)), nil
+		return strconv.Itoa(effectiveQueryWorkers(d.connectionQueryWorkers())), nil
 	case OptionStringTLSCAFile:
 		return d.tlsCAFile, nil
 	case OptionStringCluster:
@@ -691,17 +697,20 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		}
 		d.partitionCount = n
 	case OptionStringQueryWorkerBudget:
-		return d.workerBudget.configure(value)
+		if err := d.workerBudget.configure(value); err != nil {
+			return err
+		}
+		d.workerBudgetSet = true
 	case OptionStringQueryWorkers:
 		if value == "auto" {
-			d.queryWorkers = 0
+			d.queryWorkers, d.queryWorkersSet = 0, true
 			return nil
 		}
 		n, err := strconv.Atoi(value)
 		if err != nil || n < 1 || n > 32 {
 			return errorf(adbc.StatusInvalidArgument, "invalid %s %q (want auto or 1 through 32)", key, value)
 		}
-		d.queryWorkers = n
+		d.queryWorkers, d.queryWorkersSet = n, true
 	case OptionStringAggregatePushdown:
 		if err := validatePushdown(value); err != nil {
 			return err
@@ -769,4 +778,30 @@ func (d *databaseImpl) SetOptions(ctx context.Context, options map[string]string
 		}
 	}
 	return nil
+}
+
+// flexQueryWorkers is the parallel reader count with adbc.redis.flex. Flex
+// reads every row HASH from the server, so its readers mostly wait on
+// replies, and a pool sized to the client's CPUs leaves the shard idle.
+const flexQueryWorkers = 32
+
+// connectionQueryWorkers is the query_workers value new connections start
+// with: an explicit option, else flexQueryWorkers with Flex, else auto.
+func (d *databaseImpl) connectionQueryWorkers() int {
+	if d.flex && !d.queryWorkersSet {
+		return flexQueryWorkers
+	}
+	return d.queryWorkers
+}
+
+// applyFlexWorkers sizes the shared worker budget for Flex on the first
+// connection, unless query_worker_budget was set explicitly. It uses the
+// same fixed budget as an explicit option, so no CPU-based tuning applies.
+func (d *databaseImpl) applyFlexWorkers() {
+	if !d.flex || d.workerBudgetSet {
+		return
+	}
+	d.flexWorkers.Do(func() {
+		_ = d.workerBudget.configure(strconv.Itoa(flexQueryWorkers))
+	})
 }

@@ -495,8 +495,15 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 					}
 				}
 			}
-			var rows []map[string]Value
-			if rows, err = e.runJoin(ctx, dim.branch, need, params); err == nil {
+			// A large branch is itself a snowflake: its largest table streams
+			// through the parallel readers and its children are dimensions
+			// (orders⋈customer in TPC-H Q3/Q5/Q7/Q8, which Flex must otherwise
+			// read whole and serially). Small branches keep the eager join.
+			rows, streamed, branchErr := e.snowflakeJoinRows(ctx, dim.branch, need, params)
+			if err = branchErr; err == nil && !streamed {
+				rows, err = e.runJoin(ctx, dim.branch, need, params)
+			}
+			if err == nil {
 				err = keep(rows)
 			}
 		} else {

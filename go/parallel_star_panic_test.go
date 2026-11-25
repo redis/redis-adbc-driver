@@ -5,6 +5,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 	goredis "github.com/redis/go-redis/v9"
 	"sync"
 	"sync/atomic"
@@ -21,35 +22,60 @@ type panicStarReplies struct {
 	peerExited                           atomic.Bool
 }
 
-func (h *panicStarReplies) ProcessHook(_ goredis.ProcessHook) goredis.ProcessHook {
-	return func(ctx context.Context, c goredis.Cmder) error {
-		if c.Name() != "zrange" {
-			err := h.replyParallel(c)
-			if err != nil {
-				c.SetErr(err)
-			}
-			return err
-		}
-		if c.Args()[2].(int64) > 0 {
-			h.startOnce.Do(func() { close(h.peerStarted) })
-			<-ctx.Done()
-			h.cancelOnce.Do(func() { close(h.peerCanceled) })
-			<-h.allowExit
-			h.peerExited.Store(true)
-			c.SetErr(ctx.Err())
-			return ctx.Err()
-		}
-		select {
-		case <-h.peerStarted:
-		case <-ctx.Done():
-			c.SetErr(ctx.Err())
-			return ctx.Err()
-		}
+func (h *panicStarReplies) command(ctx context.Context, c goredis.Cmder) error {
+	if c.Name() != "zrange" {
 		err := h.replyParallel(c)
 		if err != nil {
 			c.SetErr(err)
 		}
 		return err
+	}
+	// A seek's first page reads by value; any page past the first row ID
+	// belongs to the peer chunk.
+	later := false
+	if from, _, ok := mockDirectorySeek(c.Args()); ok {
+		later = from > fmt.Sprintf("%020d", 1)
+	} else {
+		later = c.Args()[2].(int64) > 0
+	}
+	if later {
+		h.startOnce.Do(func() { close(h.peerStarted) })
+		<-ctx.Done()
+		h.cancelOnce.Do(func() { close(h.peerCanceled) })
+		<-h.allowExit
+		h.peerExited.Store(true)
+		c.SetErr(ctx.Err())
+		return ctx.Err()
+	}
+	select {
+	case <-h.peerStarted:
+	case <-ctx.Done():
+		c.SetErr(ctx.Err())
+		return ctx.Err()
+	}
+	err := h.replyParallel(c)
+	if err != nil {
+		c.SetErr(err)
+	}
+	return err
+}
+
+func (h *panicStarReplies) ProcessHook(_ goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, c goredis.Cmder) error { return h.command(ctx, c) }
+}
+
+func (h *panicStarReplies) ProcessPipelineHook(_ goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cs []goredis.Cmder) error {
+		var errs []error
+		for _, c := range cs {
+			if err := h.command(ctx, c); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) == 1 {
+			return errs[0]
+		}
+		return errors.Join(errs...)
 	}
 }
 

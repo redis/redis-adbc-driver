@@ -429,3 +429,56 @@ func TestSnowflakeParallelPredicate(t *testing.T) {
 		}
 	}
 }
+
+// A large multi-table branch is itself a snowflake: Q5's orders⋈customer
+// branch streams orders through the parallel readers with customer as its
+// dimension, instead of the eager join scanning both serially (which Flex
+// does over every row of the whole directory).
+func TestSnowflakeLargeBranchStreamsRecursively(t *testing.T) {
+	e, p, jp := snowflakeTestShape(t, snowflakeQueries["q5"])
+	s, ok := e.planSnowflakeShape(context.Background(), jp, map[string]bool{}, p.sel.Where)
+	if !ok {
+		t.Fatal("snowflake rejected")
+	}
+	var orders *starDimension
+	for i := range s.dims {
+		if jp.items[s.dims[i].item].prefix == "orders." {
+			orders = &s.dims[i]
+		}
+	}
+	if orders == nil || orders.branch == nil {
+		t.Fatal("orders is not a multi-table branch")
+	}
+	need := map[string]bool{"orders.o_orderkey": true, "customer.c_nationkey": true}
+	sub, ok := e.planSnowflakeShape(context.Background(), orders.branch, need, nil)
+	if !ok {
+		t.Fatal("the orders branch was not admitted as its own snowflake")
+	}
+	if got := orders.branch.items[sub.fact].prefix; got != "orders." {
+		t.Fatalf("branch fact %s, want orders.", got)
+	}
+	rows, streamed, err := e.snowflakeJoinRows(context.Background(), orders.branch, need, nil)
+	if err != nil || !streamed {
+		t.Fatalf("streamed=%v err=%v", streamed, err)
+	}
+	eager, err := e.runJoin(context.Background(), orders.branch, need, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := func(rows []map[string]Value) []string {
+		var out []string
+		for _, r := range rows {
+			out = append(out, partitionValueString(r["orders.o_orderkey"])+"|"+partitionValueString(r["customer.c_nationkey"]))
+		}
+		sort.Strings(out)
+		return out
+	}
+	if a, b := text(rows), text(eager); len(a) == 0 || !reflect.DeepEqual(a, b) {
+		t.Fatalf("streamed branch %d rows, eager %d rows, equal=%v", len(a), len(b), reflect.DeepEqual(a, b))
+	}
+	// Below the minimum fact size the branch keeps the eager join.
+	snowflakeMinFactRows = math.MaxInt64
+	if _, streamed, err := e.snowflakeJoinRows(context.Background(), orders.branch, need, nil); err != nil || streamed {
+		t.Fatalf("small branch streamed=%v err=%v", streamed, err)
+	}
+}

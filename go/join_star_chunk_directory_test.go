@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	goredis "github.com/redis/go-redis/v9"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -21,6 +22,8 @@ type chunkDirectoryReplies struct {
 	failKey  string
 	failure  error
 	maxReply int
+	// Directory commands by name, for round-trip accounting.
+	zranges, zlexcounts int
 }
 
 func (h *chunkDirectoryReplies) replyChunk(c goredis.Cmder) error {
@@ -28,13 +31,21 @@ func (h *chunkDirectoryReplies) replyChunk(c goredis.Cmder) error {
 	defer h.mu.Unlock()
 	switch c.Name() {
 	case "zlexcount":
+		h.zlexcounts++
 		ids := h.dirs[fmt.Sprint(c.Args()[1])]
 		lo := strings.TrimPrefix(fmt.Sprint(c.Args()[3]), "(")
 		c.(*goredis.IntCmd).SetVal(int64(sort.SearchStrings(ids, lo)))
 		return nil
 	case "zrange":
+		h.zranges++
 		ids := h.dirs[fmt.Sprint(c.Args()[1])]
-		lo, hi := c.Args()[2].(int64), c.Args()[3].(int64)
+		var lo, hi int64
+		if from, count, ok := mockDirectorySeek(c.Args()); ok {
+			lo = int64(sort.SearchStrings(ids, from))
+			hi = lo + count - 1
+		} else {
+			lo, hi = c.Args()[2].(int64), c.Args()[3].(int64)
+		}
 		h.maxReply = max(h.maxReply, int(hi-lo+1))
 		lo = min(lo, int64(len(ids)))
 		hi = min(hi+1, int64(len(ids)))
@@ -144,5 +155,58 @@ func TestStarChunkSparseOverlayPageHintAndSourceErrors(t *testing.T) {
 				t.Fatal("directory overfetch hint ignored", h.maxReply)
 			}
 		})
+	}
+}
+
+// A parallel chunk's range reads its directory with one combined seek page:
+// the count below the bound and the first page share one round trip, and a
+// page ending at the range bound reads no further page. Rows match a scan of
+// the whole directory restricted to the range.
+func TestStarChunkRangeSeekReadsOneDirectoryPage(t *testing.T) {
+	d, ctx, base := streamNativeFixture(t)
+	n := int64(1000)
+	d.meta.SnapshotRows = &n
+	d.meta.Columns = []columnMeta{{Name: "id", Type: typeInt64}}
+	seg := d.meta.snapshotSegments()[0]
+	base.segments[seg.Index] = seg
+	h := &chunkDirectoryReplies{streamNativeReplies: base, dirs: map[string][]string{}}
+	dir := snapshotMembers(snapshotDataID(seg.Prefix))
+	for id := int64(1); id <= n; id++ {
+		h.dirs[dir] = append(h.dirs[dir], fmt.Sprintf("%020d", id))
+		base.rows[seg.Prefix+fmt.Sprint(id)] = aggRow{rowIDField: fmt.Sprint(id), "id": fmt.Sprint(id)}
+	}
+	c := goredis.NewClient(&goredis.Options{Addr: "unused.invalid:1"})
+	t.Cleanup(func() { _ = c.Close() })
+	c.AddHook(h)
+	d.store.client = c
+	e := &executor{store: d.store, cache: newExecCache()}
+	for _, tc := range []struct {
+		lo, hi, cap, zranges int64
+	}{
+		{lo: 1, hi: 256, cap: 256, zranges: 1},             // full first range: no trailing page
+		{lo: 257, hi: 512, cap: 256, zranges: 1},           // later range: seek by value
+		{lo: 513, hi: 700, cap: 256, zranges: 1},           // short range: page passes the bound
+		{lo: 701, hi: 1000, cap: 256, zranges: 2},          // two pages
+		{lo: 990, hi: math.MaxInt64, cap: 256, zranges: 1}, // tail chunk ends at directory end
+	} {
+		h.zranges, h.zlexcounts = 0, 0
+		bounds := rowIDRangeScan{lo: tc.lo, hi: tc.hi, cap: tc.cap}
+		var got []int64
+		err := e.scanPages(ctx, scanRequest{meta: d.meta, where: wherePlan{query: "*"}, need: map[string]bool{"id": true}, ranges: &bounds}, nil, func(rows []map[string]Value) error {
+			for _, row := range rows {
+				got = append(got, row["id"].I)
+			}
+			return nil
+		})
+		var want []int64
+		for id := tc.lo; id <= min(tc.hi, n); id++ {
+			want = append(want, id)
+		}
+		if err != nil || !reflect.DeepEqual(got, want) {
+			t.Fatalf("range %d..%d: err %v, %d rows (want %d)", tc.lo, tc.hi, err, len(got), len(want))
+		}
+		if h.zlexcounts != 1 || int64(h.zranges) != tc.zranges {
+			t.Fatalf("range %d..%d: %d zlexcount and %d zrange, want 1 and %d", tc.lo, tc.hi, h.zlexcounts, h.zranges, tc.zranges)
+		}
 	}
 }
