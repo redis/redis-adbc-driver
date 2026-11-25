@@ -4,6 +4,8 @@ Pickle files are created only by our own child processes in a mode-0700 temporar
 directory. Never point this module at untrusted result files.
 """
 
+from contextlib import contextmanager
+import errno
 import hashlib
 import heapq
 import itertools
@@ -12,6 +14,7 @@ import os
 from pathlib import Path
 import pickle
 import shutil
+import signal
 import statistics
 import subprocess
 import sys
@@ -21,6 +24,14 @@ import time
 
 
 ENGINES = ("duckdb", "redis", "duckdb_adbc")
+
+CGROUP_ROOT = Path("/sys/fs/cgroup")
+HARNESS_LEAF = "olap-harness"
+WORKER_PREFIX = "olap-worker-"
+# The coordinator, the supervisor and any reference artifact must fit above
+# the worker limit, or a client-level OOM can still choose them (#660).
+COORDINATOR_HEADROOM_BYTES = 256 << 20
+MIN_WORKER_MEMORY_BYTES = 16 << 20
 
 
 def atomic_json(path, value):
@@ -285,6 +296,183 @@ def duckdb_adbc_scan_threads(private):
     return threads
 
 
+def worker_memory_limit(private):
+    """Per-child memory limit from the private profile; None keeps the shared cgroup."""
+    profile = Path(private) / "connection.json"
+    config = json.loads(profile.read_text()) if profile.exists() else {}
+    limit = config.get("worker_memory_limit_bytes")
+    if limit is None:
+        return None
+    if type(limit) is not int or limit < MIN_WORKER_MEMORY_BYTES:
+        raise ValueError("worker_memory_limit_bytes must be an integer of at least 16 MiB")
+    return limit
+
+
+def cgroup_limit(path):
+    """A cgroup v2 memory.max value: bytes, or None for "max"."""
+    value = path.read_text().strip()
+    return None if value == "max" else int(value)
+
+
+def _cgroup_events(path):
+    try:
+        return {key: int(value) for key, value in
+                (line.split() for line in path.read_text().splitlines())}
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+class _SharedLeaf:
+    """Legacy profile: the child shares the client cgroup with the coordinator."""
+
+    def __init__(self):
+        self.detail = {"isolation": "shared"}
+
+    def wrap(self, cmd):
+        return cmd
+
+
+class _WorkerLeaf:
+    def __init__(self, path, detail):
+        self.path, self.detail = path, detail
+
+    def wrap(self, cmd):
+        # The child joins its leaf before exec, so the engine never allocates
+        # inside the coordinator's cgroup. Same PID, so runner timeouts and
+        # return codes are unchanged.
+        return ["/bin/sh", "-c", 'echo $$ > "$0" && exec "$@"',
+                str(self.path / "cgroup.procs"), *cmd]
+
+
+class WorkerCgroups:
+    """Run every child in its own cgroup v2 leaf capped at the worker limit.
+
+    A memory-cgroup OOM only selects tasks inside the cgroup that exceeded its
+    limit. With each worker in a leaf, and the coordinator, supervisor and other
+    client processes in a sibling HARNESS_LEAF, a worker's OOM can kill only
+    that worker (#660). The client cgroup needs headroom above the worker limit
+    so the client-level limit is never reached first. This rearranges the
+    client cgroup: use only a disposable, dedicated client container whose
+    cgroup v2 mount is writable.
+    """
+
+    def __init__(self, limit, root=CGROUP_ROOT, self_cgroup=Path("/proc/self/cgroup")):
+        try:
+            lines = self_cgroup.read_text().splitlines()
+        except FileNotFoundError:
+            lines = []
+        unified = [line[3:] for line in lines if line.startswith("0::")]
+        if len(unified) != 1 or not unified[0].startswith("/") or "/.." in unified[0]:
+            raise RuntimeError("worker_memory_limit_bytes requires Linux cgroup v2 inside the client's cgroup namespace")
+        own = root / unified[0].lstrip("/")
+        self.client = own.parent if own.name == HARNESS_LEAF else own
+        self.limit = limit
+        if not (self.client / "memory.max").is_file():
+            # The real root cgroup has no memory.max; never rearrange a host.
+            raise RuntimeError("worker_memory_limit_bytes requires a memory-limited client cgroup, "
+                               "not the host's root cgroup")
+        # The tightest visible ancestor bounds coordinator and workers together.
+        limits = [cgroup_limit(p / "memory.max") for p in (self.client, *self.client.parents)
+                  if p.is_relative_to(root) and (p / "memory.max").is_file()]
+        client_limit = min((x for x in limits if x is not None), default=None)
+        if client_limit is not None and client_limit < limit + COORDINATOR_HEADROOM_BYTES:
+            raise ValueError(f"client memory limit {client_limit} must be at least worker_memory_limit_bytes "
+                             f"plus {COORDINATOR_HEADROOM_BYTES} bytes of coordinator headroom")
+        self.client_limit = client_limit
+        try:
+            self._delegate()
+        except OSError as exc:
+            raise RuntimeError(f"cannot create worker cgroups ({errno.errorcode.get(exc.errno, exc.errno)}); "
+                               "the client's /sys/fs/cgroup must be writable") from exc
+        # A supervisor that kills a coordinator's process group leaves its
+        # empty leaf behind. Children run one at a time, so none is in use.
+        for stale in self.client.glob(WORKER_PREFIX + "*"):
+            if not _cgroup_events(stale / "cgroup.events").get("populated"):
+                try:
+                    stale.rmdir()
+                except OSError:
+                    pass
+
+    def _delegate(self):
+        control = self.client / "cgroup.subtree_control"
+        if "memory" in control.read_text().split():
+            return
+        # cgroup v2 forbids enabling a controller for children while the
+        # parent still has processes, so move them all to a sibling leaf.
+        leaf = self.client / HARNESS_LEAF
+        leaf.mkdir(exist_ok=True)
+        for _ in range(100):
+            pids = (self.client / "cgroup.procs").read_text().split()
+            for pid in pids:
+                try:
+                    (leaf / "cgroup.procs").write_text(pid)
+                except ProcessLookupError:
+                    pass
+            if not pids:
+                try:
+                    control.write_text("+memory")
+                    return
+                except OSError as exc:
+                    if exc.errno != errno.EBUSY:
+                        raise
+        raise RuntimeError("client processes kept appearing; cannot enable worker memory limits")
+
+    @contextmanager
+    def leaf(self, label):
+        path = Path(tempfile.mkdtemp(prefix=f"{WORKER_PREFIX}{label}-", dir=self.client))
+        detail = {"isolation": "cgroup", "limit_bytes": self.limit}
+        try:
+            (path / "memory.max").write_text(str(self.limit))
+            # Kill the worker's whole process tree together, never part of it.
+            (path / "memory.oom.group").write_text("1")
+            yield _WorkerLeaf(path, detail)
+        finally:
+            self._close(path, detail)
+
+    @staticmethod
+    def _close(path, detail):
+        events = _cgroup_events(path / "memory.events")
+        detail["oom_kills"] = events.get("oom_kill")
+        if "oom_group_kill" in events:
+            detail["oom_group_kills"] = events["oom_group_kill"]
+        try:
+            detail["peak_bytes"] = int((path / "memory.peak").read_text())
+        except (FileNotFoundError, ValueError):
+            pass
+        deadline = time.monotonic() + 10
+        while _cgroup_events(path / "cgroup.events").get("populated"):
+            # A timed-out runner killed its child; stop anything it left behind.
+            try:
+                (path / "cgroup.kill").write_text("1")
+            except FileNotFoundError:
+                for pid in (path / "cgroup.procs").read_text().split():
+                    try:
+                        os.kill(int(pid), signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.05)
+        try:
+            path.rmdir()
+        except OSError as exc:
+            detail["cleanup_error"] = errno.errorcode.get(exc.errno, str(exc.errno))
+
+
+def worker_memory(private):
+    limit = worker_memory_limit(private)
+    return WorkerCgroups(limit) if limit else None
+
+
+@contextmanager
+def worker_leaf(memory, label):
+    if memory is None:
+        yield _SharedLeaf()
+    else:
+        with memory.leaf(label) as leaf:
+            yield leaf
+
+
 def duckdb_adbc_global_symbols(private):
     profile = Path(private) / "connection.json"
     config = json.loads(profile.read_text()) if profile.exists() else {}
@@ -512,6 +700,10 @@ def oom_kills():
         return None
 
 
+def leaf_label(*parts):
+    return "-".join("".join(c if c.isalnum() else "_" for c in str(part)) for part in parts)
+
+
 def run_query(args, runner=None):
     """The parent imports neither engine; waiting for exit releases native caches."""
     from run import emit, safe_error
@@ -532,6 +724,7 @@ def run_query(args, runner=None):
     engines = ["duckdb"] if args.duckdb_only else ["duckdb", "redis"]
     if args.include_duckdb_adbc:
         engines.append("duckdb_adbc")
+    memory = worker_memory(args.private)
     with tempfile.TemporaryDirectory(prefix="query-", dir=args.private) as tmp:
         artifacts = Path(tmp)
         base = [sys.executable, "-u", str(Path(__file__).with_name("run.py")), args.suite,
@@ -543,14 +736,15 @@ def run_query(args, runner=None):
             before, started = oom_kills(), time.perf_counter()
             failure = None
             returncode = None
-            try:
-                child = runner(base + ["--phase", "engine", "--engine", engine], timeout=270,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                returncode = child.returncode
-                if child.returncode:
-                    failure = f"{engine} worker exited with code {child.returncode}"
-            except subprocess.TimeoutExpired:
-                failure = f"{engine} worker exceeded 270-second process limit"
+            with worker_leaf(memory, leaf_label(args.query, engine)) as leaf:
+                try:
+                    child = runner(leaf.wrap(base + ["--phase", "engine", "--engine", engine]), timeout=270,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    returncode = child.returncode
+                    if child.returncode:
+                        failure = f"{engine} worker exited with code {child.returncode}"
+                except subprocess.TimeoutExpired:
+                    failure = f"{engine} worker exceeded 270-second process limit"
             path = artifacts / f"{engine}.json"
             status, status_problem = read_status(path)
             for key, value in status.items():
@@ -566,6 +760,7 @@ def run_query(args, runner=None):
             after = oom_kills()
             if before is not None and after is not None:
                 record[f"{engine}_worker"]["oom_kills_delta"] = after - before
+            record[f"{engine}_worker"]["memory"] = leaf.detail
             if failure:
                 record[f"{engine}_status"] = "worker_failed"
                 record[f"{engine}_error"] = failure
@@ -576,8 +771,11 @@ def run_query(args, runner=None):
                 record["active_phase"] = "validation"
                 atomic_json(checkpoint, record)
                 try:
-                    check = runner(base + ["--phase", "validate", "--engine", engine], timeout=120,
-                                   capture_output=True, text=True)
+                    with worker_leaf(memory, leaf_label(args.query, engine, "validate")) as check_leaf:
+                        if memory is not None:
+                            record[f"{engine}_validation_memory"] = check_leaf.detail
+                        check = runner(check_leaf.wrap(base + ["--phase", "validate", "--engine", engine]),
+                                       timeout=120, capture_output=True, text=True)
                     if check.returncode:
                         detail_path = artifacts / f"{engine}-validation.json"
                         detail, detail_problem = read_status(detail_path)

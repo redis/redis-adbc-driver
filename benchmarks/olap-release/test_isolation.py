@@ -37,6 +37,18 @@ class Connection:
             os._exit(42)
         return self
     def fetchall(self):
+        if os.environ.get('HOG_ENGINE') == engine:
+            # Allocate past the worker limit. 'tmpfs' charges the cgroup with
+            # file pages outside the worker's RSS, like results on a tmpfs.
+            hog = []
+            if os.environ.get('HOG_MODE') == 'tmpfs':
+                artifacts = Path(sys.argv[sys.argv.index('--artifacts') + 1])
+                with (artifacts / f'{engine}-hog.pickle').open('wb') as f:
+                    while True:
+                        f.write(b'x' * (1 << 20))
+                        f.flush()
+            while True:
+                hog.append(b'x' * (1 << 20))
         if os.environ.get('MISMATCH_ENGINE') == engine:
             return [(99,)]
         return [(2,), (1,), (1,), (None,)]
@@ -52,6 +64,29 @@ def connect(*args, **kwargs):
         f.write(json.dumps({'engine': engine, 'args': args, 'kwargs': kwargs, 'pid': os.getpid()}) + '\\n')
     return Connection()
 '''
+
+
+def synthetic_profile(private, **profile):
+    """Fake engine modules, a private profile and one exported query."""
+    fake = private / 'modules'
+    fake.mkdir()
+    (fake / 'duckdb.py').write_text(FAKE + "\nassert engine != 'redis', 'Redis worker imported DuckDB'\n")
+    package = fake / 'adbc_driver_redis'
+    package.mkdir()
+    (package / '__init__.py').write_text("import os\ndef _driver_path(): return os.environ['FAKE_LIBRARY']\n")
+    (package / 'dbapi.py').write_text(FAKE + "\nassert 'duckdb' not in sys.modules, 'Redis worker retained DuckDB'\n")
+    library = private / 'driver.so'
+    library.write_bytes(b'synthetic library, never loaded')
+    (private / 'connection.json').write_text(json.dumps({
+        'uri': 'rediss://test:private-secret@localhost',
+        'db_kwargs': {'adbc.redis.flex': 'true', 'adbc.redis.default_schema': 'public'}, **profile}))
+    output = private / 'results'
+    queries = output / 'tpch' / 'queries'
+    queries.mkdir(parents=True)
+    (queries / '19.sql').write_text('SELECT synthetic')
+    args = argparse.Namespace(private=private, output=output, suite='tpch', query='19',
+                              duckdb_only=False, include_duckdb_adbc=True)
+    return args, {'PYTHONPATH': str(fake), 'FAKE_LIBRARY': str(library)}
 
 
 class IsolationTests(unittest.TestCase):
@@ -88,25 +123,8 @@ class IsolationTests(unittest.TestCase):
                          corrupt=None, inspect=None, engines_run=3):
         with tempfile.TemporaryDirectory() as tmp:
             private = Path(tmp)
-            fake = private / 'modules'
-            fake.mkdir()
-            (fake / 'duckdb.py').write_text(FAKE + "\nassert engine != 'redis', 'Redis worker imported DuckDB'\n")
-            package = fake / 'adbc_driver_redis'
-            package.mkdir()
-            (package / '__init__.py').write_text("import os\ndef _driver_path(): return os.environ['FAKE_LIBRARY']\n")
-            (package / 'dbapi.py').write_text(FAKE + "\nassert 'duckdb' not in sys.modules, 'Redis worker retained DuckDB'\n")
-            library = private / 'driver.so'
-            library.write_bytes(b'synthetic library, never loaded')
-            (private / 'connection.json').write_text(json.dumps({
-                'uri': 'rediss://test:private-secret@localhost',
-                'db_kwargs': {'adbc.redis.flex': 'true', 'adbc.redis.default_schema': 'public'}}))
-            output = private / 'results'
-            queries = output / 'tpch' / 'queries'
-            queries.mkdir(parents=True)
-            (queries / '19.sql').write_text('SELECT synthetic')
-            args = argparse.Namespace(private=private, output=output, suite='tpch', query='19',
-                                      duckdb_only=False, include_duckdb_adbc=True)
-            env = {'PYTHONPATH': str(fake), 'FAKE_LIBRARY': str(library)}
+            args, env = synthetic_profile(private)
+            output, library = args.output, Path(env['FAKE_LIBRARY'])
             if failure:
                 env['FAIL_ENGINE'] = failure
             if mismatch:
@@ -172,6 +190,9 @@ class IsolationTests(unittest.TestCase):
         for engine in isolation.ENGINES:
             self.assertEqual(record[f'{engine}_status'], 'ok')
             self.assertEqual(len(record[f'{engine}_seconds']), 3)
+            # Without worker_memory_limit_bytes the legacy shared cgroup is recorded.
+            self.assertEqual(record[f'{engine}_worker']['memory'], {'isolation': 'shared'})
+            self.assertNotIn(f'{engine}_validation_memory', record)
         self.assertIn('duckdb_adbc_over_duckdb', record)
 
     def test_crash_attributed_to_engine_and_third_still_runs(self):
@@ -577,6 +598,122 @@ class ScannerThreadOptionTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'requires ADBC_SCANNER_EXTENSION'):
                     isolation.connect_engine(args)
             connect.assert_not_called()
+
+
+class WorkerMemoryProfileTests(unittest.TestCase):
+    """Profile and cgroup preconditions; checked before any cgroup is written."""
+
+    def test_worker_memory_limit_is_optional_and_validated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp)
+            self.assertIsNone(isolation.worker_memory_limit(private))
+            self.assertIsNone(isolation.worker_memory(private))
+            (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', 'worker_memory_limit_bytes': 8 << 30}))
+            self.assertEqual(isolation.worker_memory_limit(private), 8 << 30)
+            for invalid in (True, '8589934592', 8.0, 0, -1, (16 << 20) - 1, [], {}):
+                with self.subTest(value=invalid):
+                    (private / 'connection.json').write_text(json.dumps({'uri': 'synthetic', 'worker_memory_limit_bytes': invalid}))
+                    with self.assertRaisesRegex(ValueError, 'at least 16 MiB'):
+                        isolation.worker_memory_limit(private)
+
+    def fake_cgroup(self, root, own, limits):
+        (root / own.lstrip('/')).mkdir(parents=True, exist_ok=True)
+        for path, value in limits.items():
+            (root / path.lstrip('/') / 'memory.max').write_text(value + '\n')
+        proc = root / 'self-cgroup'
+        proc.write_text(f'0::{own}\n')
+        return proc
+
+    def test_refuses_without_cgroup_v2_namespace_or_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            v1 = root / 'v1'
+            v1.write_text('12:memory:/docker/abc\n1:name=systemd:/docker/abc\n')
+            with self.assertRaisesRegex(RuntimeError, 'requires Linux cgroup v2'):
+                isolation.WorkerCgroups(64 << 20, root=root, self_cgroup=v1)
+            with self.assertRaisesRegex(RuntimeError, 'requires Linux cgroup v2'):
+                isolation.WorkerCgroups(64 << 20, root=root, self_cgroup=root / 'missing')
+            # A process moved outside its cgroup namespace sees an escaping path.
+            outside = root / 'outside'
+            outside.write_text('0::/../../system.slice\n')
+            with self.assertRaisesRegex(RuntimeError, 'requires Linux cgroup v2'):
+                isolation.WorkerCgroups(64 << 20, root=root, self_cgroup=outside)
+            # The host's real root cgroup has no memory.max: never rearrange it.
+            host = self.fake_cgroup(root, '/', {})
+            with self.assertRaisesRegex(RuntimeError, "not the host's root cgroup"):
+                isolation.WorkerCgroups(64 << 20, root=root, self_cgroup=host)
+
+    def test_requires_coordinator_headroom_at_the_tightest_ancestor(self):
+        limit, headroom = 64 << 20, isolation.COORDINATOR_HEADROOM_BYTES
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # The client container sets the limit; a nested "max" cgroup does not lift it.
+            proc = self.fake_cgroup(root, '/client', {'/': str(limit + headroom - 1), '/client': 'max'})
+            with self.assertRaisesRegex(ValueError, 'coordinator headroom'):
+                isolation.WorkerCgroups(limit, root=root, self_cgroup=proc)
+            proc = self.fake_cgroup(root, '/', {'/': str(limit)})
+            with self.assertRaisesRegex(ValueError, 'coordinator headroom'):
+                isolation.WorkerCgroups(limit, root=root, self_cgroup=proc)
+            # Enough headroom, but no writable cgroup interface files.
+            proc = self.fake_cgroup(root, '/', {'/': str(limit + headroom)})
+            with self.assertRaisesRegex(RuntimeError, 'must be writable'):
+                isolation.WorkerCgroups(limit, root=root, self_cgroup=proc)
+
+
+COORDINATOR = """
+import argparse, json, sys
+from pathlib import Path
+import isolation
+args = argparse.Namespace(private=Path(sys.argv[1]), output=Path(sys.argv[1]) / 'results', suite='tpch',
+                          query='19', duckdb_only=False, include_duckdb_adbc=True)
+print('RECORD ' + json.dumps(isolation.run_query(args)), flush=True)
+"""
+
+
+@unittest.skipUnless(os.environ.get('OLAP_HARNESS_CGROUP_TESTS') == '1',
+                     'set OLAP_HARNESS_CGROUP_TESTS=1 only inside a disposable Linux container with a writable '
+                     'cgroup v2 mount; the test moves every process in its cgroup into a harness leaf')
+class WorkerMemoryCgroupTests(unittest.TestCase):
+    """Issue #660: a worker OOM must not take the coordinator with it."""
+
+    LIMIT = 64 << 20
+
+    def test_worker_oom_is_contained_and_recorded(self):
+        harness = Path(__file__).resolve().parent
+        shm = os.statvfs('/dev/shm')
+        self.assertGreater(shm.f_bavail * shm.f_frsize, 2 * self.LIMIT, 'run the container with --shm-size 256m')
+        for mode in ('anonymous', 'tmpfs'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory(dir='/dev/shm' if mode == 'tmpfs' else None) as tmp:
+                private = Path(tmp)
+                _, env = synthetic_profile(private, worker_memory_limit_bytes=self.LIMIT)
+                env['PYTHONPATH'] += os.pathsep + str(harness)
+                coordinator = subprocess.run([sys.executable, '-c', COORDINATOR, str(private)],
+                                             env={**os.environ, **env, 'HOG_ENGINE': 'redis', 'HOG_MODE': mode},
+                                             capture_output=True, text=True, timeout=240)
+                self.assertEqual(coordinator.returncode, 0, f'coordinator died: {coordinator.stderr[-2000:]}')
+                line = next(x for x in coordinator.stdout.splitlines() if x.startswith('RECORD '))
+                record = json.loads(line[len('RECORD '):])
+                worker = record['redis_worker']
+                self.assertEqual(record['redis_status'], 'worker_failed')
+                self.assertEqual(record['redis_error'], 'redis worker exited with code -9')
+                self.assertEqual(worker['returncode'], -9)
+                self.assertGreaterEqual(worker['oom_kills_delta'], 1)
+                self.assertEqual(worker['memory']['isolation'], 'cgroup')
+                self.assertEqual(worker['memory']['limit_bytes'], self.LIMIT)
+                self.assertGreaterEqual(worker['memory']['oom_kills'], 1)
+                self.assertLessEqual(worker['memory'].get('peak_bytes', 0), self.LIMIT)
+                self.assertNotIn('cleanup_error', worker['memory'])
+                # Engines before and after the OOM still run and validate in their own leaves.
+                for engine in ('duckdb', 'duckdb_adbc'):
+                    self.assertEqual(record[f'{engine}_status'], 'ok')
+                    self.assertEqual(record[f'{engine}_worker']['memory']['oom_kills'], 0)
+                    self.assertEqual(record[f'{engine}_validation_memory']['oom_kills'], 0)
+                self.assertNotIn(str(private), json.dumps(record))
+        own = Path('/proc/self/cgroup').read_text().strip()
+        self.assertTrue(own.endswith('/' + isolation.HARNESS_LEAF), own)
+        client = isolation.CGROUP_ROOT / own[3:].lstrip('/')
+        self.assertEqual([p.name for p in client.parent.iterdir()
+                          if p.name.startswith(isolation.WORKER_PREFIX)], [])
 
 
 if __name__ == '__main__':
