@@ -1,7 +1,9 @@
 # Plan and evidence
 
-Date: 2026-11-24. Source: `ea16062c`. See [intent](intent.md), [spec](spec.md)
-and [#650](https://github.com/redis/redis-adbc-driver/issues/650).
+Date: 2026-11-24. Source: `ea16062c`, rebased on `6d0692c5`. See
+[intent](intent.md), [spec](spec.md),
+[#650](https://github.com/redis/redis-adbc-driver/issues/650) and PR
+[#671](https://github.com/redis/redis-adbc-driver/pull/671).
 
 1. `go get github.com/redis/go-redis/v9@v9.24.0` and `go mod tidy` in `go/`.
 2. Review the v9.24.0 behaviour changes against the driver's use
