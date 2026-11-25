@@ -68,9 +68,12 @@ func (e *executor) scanParallelStarFacts(ctx context.Context, shape *starShape, 
 		if predicate == nil {
 			return false, nil
 		}
-		over, err := e.store.completeFlexOverBudget(ctx, view, wp.query)
+		cands, bounds, over, err := e.flexReaderPlan(ctx, view, wp.query)
 		if err != nil {
 			return true, err
+		}
+		if cands != nil {
+			return e.scanParallelStarCandidates(ctx, shape, view, wp, predicate, need, params, cands, bounds, visit)
 		}
 		if !over && shape.snowflake {
 			// A snowflake fact whose filter keeps a large share of its rows

@@ -21,6 +21,11 @@ import (
 const snapshotFlexCandidateCap = 131072
 const snapshotFlexCandidateBytes = 16 << 20
 
+// A parallel reader's shared materialization (flexSharedCandidates) holds one
+// complete set for all its workers, so it may be larger; still bounded.
+const snapshotFlexSharedCandidateCap = 1 << 19
+const snapshotFlexSharedCandidateBytes = 64 << 20
+
 var errCompleteSnapshotLimit = errors.New("native complete Search result limit")
 
 func completeSnapshotLimit(err error) bool {
@@ -34,6 +39,12 @@ func completeSnapshotLimit(err error) bool {
 // Search supplies a COMPLETE bounded candidate set, never visibility. Broad
 // sources retain exact-directory scanning without candidate1's per-page probes.
 func openFlexSnapshotCandidates(ctx context.Context, s *store, m *tableMeta, query string, fields []string, bounds *rowIDRangeScan) (*snapshotCandidateScan, error) {
+	return openFlexSnapshotCandidatesWithin(ctx, s, m, query, fields, bounds, flexScanCandidates)
+}
+
+// openFlexSnapshotCandidatesWithin is openFlexSnapshotCandidates under an
+// explicit materialization budget.
+func openFlexSnapshotCandidatesWithin(ctx context.Context, s *store, m *tableMeta, query string, fields []string, bounds *rowIDRangeScan, budget flexCandidateBudget) (*snapshotCandidateScan, error) {
 	filter := newSnapshotPageFilter(ctx, s, m, query)
 	if filter == nil {
 		return nil, nil
@@ -57,7 +68,7 @@ func openFlexSnapshotCandidates(ctx context.Context, s *store, m *tableMeta, que
 			return nil, err
 		}
 		var refused bool
-		total, keyBytes, refused = completeSnapshotBudget(seg.Prefix, count, total, keyBytes)
+		total, keyBytes, refused = budget.add(seg.Prefix, count, total, keyBytes)
 		if refused {
 			return nil, nil
 		}
@@ -75,7 +86,7 @@ func openFlexSnapshotCandidates(ctx context.Context, s *store, m *tableMeta, que
 			if err != nil {
 				return nil, err
 			}
-			ids, err := completeSnapshotIDs(reply, seg, counts[i])
+			ids, err := completeSnapshotIDsWithin(reply, seg, counts[i], budget.rows)
 			if err != nil {
 				return nil, err
 			}
@@ -155,6 +166,10 @@ func completeSnapshotSearch(ctx context.Context, s *store, seg snapshotSegment, 
 }
 
 func completeSnapshotIDs(reply any, seg snapshotSegment, expected int64) ([]string, error) {
+	return completeSnapshotIDsWithin(reply, seg, expected, snapshotFlexCandidateCap)
+}
+
+func completeSnapshotIDsWithin(reply any, seg snapshotSegment, expected, limit int64) ([]string, error) {
 	if snapshotReplyWarning(reply) {
 		return nil, errorf(adbc.StatusIO, "partial complete snapshot candidate reply")
 	}
@@ -166,7 +181,7 @@ func completeSnapshotIDs(reply any, seg snapshotSegment, expected int64) ([]stri
 	if err != nil {
 		return nil, err
 	}
-	if expected < 0 || expected > snapshotFlexCandidateCap || count != expected || count != int64(len(keys)) {
+	if expected < 0 || expected > limit || count != expected || count != int64(len(keys)) {
 		return nil, errorf(adbc.StatusIO, "incomplete snapshot candidate materialization")
 	}
 	ids := make([]string, len(keys))

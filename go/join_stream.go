@@ -529,7 +529,7 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 			"dimension_cap": shape.dimensionCap(), "residual": shape.residual != nil, "output_page_rows": starOutputPage,
 			"parallel_dimensions": shape.parallelDimensions})
 	}
-	demand, err := starFactDimensionDemand(ctx, jp.items[shape.fact].view(), shape.dims)
+	demand, err := starFactDimensionDemand(ctx, jp.items[shape.fact].view(), shape.dims, e.demandTermLimit())
 	if err != nil {
 		return true, err
 	}

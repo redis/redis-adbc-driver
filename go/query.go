@@ -539,6 +539,10 @@ func decodeRowCapacity(meta *tableMeta, row aggRow, only map[string]bool, hint i
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
+	// flexCandidates is a coordinator's complete Flex candidate scan, already
+	// discovered once and split to this worker's row IDs (split); its fields
+	// are this request's. Coordinator-only; never inherit.
+	flexCandidates     *snapshotCandidateScan
 	rowCapacity        int   // source-only bounded owned-fact allocation hint; never inherit
 	streamJoin         bool  // exact grouped reduction may consume a bounded star-join stream
 	ownedRows          *bool // coordinator-only callback marker; never inherit in source requests
@@ -762,6 +766,8 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 				page = wideFetchChunk
 			}
 			it.candidates = newSnapshotCandidateScan(ctx, e.store, req.meta, req.where.query, fields, page)
+		} else if req.flexCandidates != nil {
+			it.candidates = req.flexCandidates.split("", "~", fields)
 		} else {
 			candidates, err := openFlexSnapshotCandidates(ctx, e.store, req.meta, req.where.query, fields, req.ranges)
 			if err != nil {
@@ -2780,6 +2786,22 @@ func (e *executor) matchRows(ctx context.Context, meta *tableMeta, alias string,
 // maxUnionTerms caps the number of values pushed down as an index union.
 const maxUnionTerms = 1000
 
+// flexDemandTerms caps a streamed join's fact key demand with Flex. There a
+// fact that Search cannot narrow is read whole from flash, which costs far
+// more than a larger union's per-term Search cost (#631), so the demand of
+// a selective dimension (TPC-H Q8's 1,333 parts) may still be pushed down.
+// Other unions, and every union without Flex, keep maxUnionTerms.
+const flexDemandTerms = 4096
+
+// demandTermLimit is the largest fact key demand starFactDimensionDemand
+// builds and unionTerm pushes down.
+func (e *executor) demandTermLimit() int {
+	if e.store != nil && e.store.flexEnabled() {
+		return flexDemandTerms
+	}
+	return maxUnionTerms
+}
+
 // unionTerm turns a membership predicate on an indexed column into a
 // RediSearch union query: numeric `(@c:[v v] | @c:[w w])` or TAG `@c:{a | b}`.
 // A semi-join (correlated EXISTS / IN) becomes one on its outer column, and
@@ -2831,7 +2853,11 @@ func (e *executor) unionTerm(ctx context.Context, c Expr, meta *tableMeta, env *
 			leaves = append(leaves, n)
 		}
 		flatten(x)
-		if len(leaves) > maxUnionTerms {
+		limit := maxUnionTerms
+		if x.keyDemand {
+			limit = e.demandTermLimit()
+		}
+		if len(leaves) > limit {
 			return "", false, nil
 		}
 		return e.orUnionTerms(leaves, meta, env)
