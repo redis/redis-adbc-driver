@@ -918,7 +918,8 @@ func adminURI() string {
 }
 
 // rawClient connects to adminURI directly (cluster-aware) so tests can
-// inspect row HASHes.
+// inspect row HASHes. The given hooks see every command once, before the
+// snapshot hook, on a single endpoint and on a cluster alike.
 func (h *sqlHarness) rawClient(hooks ...goredis.Hook) goredis.UniversalClient {
 	h.t.Helper()
 	opts, err := goredis.ParseURL(adminURI())
@@ -931,20 +932,79 @@ func (h *sqlHarness) rawClient(hooks ...goredis.Hook) goredis.UniversalClient {
 	// Inspection and driver connections both use RESP3. Search replies are
 	// normalized by the same map/list-aware helpers as ordinary execution.
 	opts.Protocol = 3
+	testHooks := append([]goredis.Hook{pinOriginHook(h.t, "inspection")}, hooks...)
 	var c goredis.UniversalClient = goredis.NewClient(opts)
 	if info, err := c.Info(h.ctx, "cluster").Result(); err == nil && strings.Contains(info, "cluster_enabled:1") {
 		_ = c.Close()
-		c = goredis.NewClusterClient(&goredis.ClusterOptions{Addrs: []string{opts.Addr}, Password: opts.Password,
+		cluster := goredis.NewClusterClient(&goredis.ClusterOptions{Addrs: []string{opts.Addr}, Password: opts.Password,
 			Username: opts.Username, TLSConfig: opts.TLSConfig, Protocol: 3,
 			ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout})
+		// Search commands and WATCH … EXEC go to a node's client directly,
+		// past the cluster client's hooks (see newClient), so the nodes have
+		// the test hooks too. Added before addSnapshotHooks adds its own, they
+		// run before the snapshot hook on a node as on the cluster client.
+		cluster.OnNewNode(func(node *goredis.Client) {
+			for _, hook := range testHooks {
+				node.AddHook(nodeTestHook{hook})
+			}
+		})
+		cluster.AddHook(clusterHooked{})
+		c = cluster
 	}
-	c.AddHook(pinOriginHook(h.t, "inspection"))
-	for _, hook := range hooks {
+	for _, hook := range testHooks {
 		c.AddHook(hook)
 	}
 	addSnapshotHooks(c)
 	h.t.Cleanup(func() { _ = c.Close() })
 	return c
+}
+
+// clusterHookedKey marks the context of a command that went through the
+// cluster client's hooks.
+type clusterHookedKey struct{}
+
+// clusterHooked is a cluster client's first hook. It marks each command, so
+// that nodeTestHook doesn't run a test hook on it a second time when the
+// cluster client sends it on to a node.
+type clusterHooked struct{}
+
+func (clusterHooked) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+
+func (clusterHooked) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		return next(context.WithValue(ctx, clusterHookedKey{}, true), cmd)
+	}
+}
+
+func (clusterHooked) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		return next(context.WithValue(ctx, clusterHookedKey{}, true), cmds)
+	}
+}
+
+// nodeTestHook runs a test hook on a cluster node's client for the commands
+// that don't go through the cluster client's hooks (see clusterHooked). It
+// keeps the hook's DialHook: a cluster client doesn't dial, its nodes do.
+type nodeTestHook struct{ goredis.Hook }
+
+func (h nodeTestHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	hooked := h.Hook.ProcessHook(next)
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if ctx.Value(clusterHookedKey{}) != nil {
+			return next(ctx, cmd)
+		}
+		return hooked(ctx, cmd)
+	}
+}
+
+func (h nodeTestHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	hooked := h.Hook.ProcessPipelineHook(next)
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		if ctx.Value(clusterHookedKey{}) != nil {
+			return next(ctx, cmds)
+		}
+		return hooked(ctx, cmds)
+	}
 }
 
 // rowFields counts physical fields in the newest visible HASH images, retaining
