@@ -146,6 +146,10 @@ type Binary struct {
 	// rows themselves (compareExpr): their records are compared, and rows of
 	// different lengths are an error only when evaluated, as in Postgres.
 	nested bool
+	// keyDemand marks the root OR of a streamed join's fact key demand
+	// (starFactDimensionDemand). With Flex its union may exceed
+	// maxUnionTerms, up to flexDemandTerms (unionTerm).
+	keyDemand bool
 }
 type IsNull struct {
 	X   Expr

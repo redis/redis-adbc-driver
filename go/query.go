@@ -2780,6 +2780,22 @@ func (e *executor) matchRows(ctx context.Context, meta *tableMeta, alias string,
 // maxUnionTerms caps the number of values pushed down as an index union.
 const maxUnionTerms = 1000
 
+// flexDemandTerms caps a streamed join's fact key demand with Flex. There a
+// fact that Search cannot narrow is read whole from flash, which costs far
+// more than a larger union's per-term Search cost (#631), so the demand of
+// a selective dimension (TPC-H Q8's 1,333 parts) may still be pushed down.
+// Other unions, and every union without Flex, keep maxUnionTerms.
+const flexDemandTerms = 4096
+
+// demandTermLimit is the largest fact key demand starFactDimensionDemand
+// builds and unionTerm pushes down.
+func (e *executor) demandTermLimit() int {
+	if e.store != nil && e.store.flexEnabled() {
+		return flexDemandTerms
+	}
+	return maxUnionTerms
+}
+
 // unionTerm turns a membership predicate on an indexed column into a
 // RediSearch union query: numeric `(@c:[v v] | @c:[w w])` or TAG `@c:{a | b}`.
 // A semi-join (correlated EXISTS / IN) becomes one on its outer column, and
@@ -2831,7 +2847,11 @@ func (e *executor) unionTerm(ctx context.Context, c Expr, meta *tableMeta, env *
 			leaves = append(leaves, n)
 		}
 		flatten(x)
-		if len(leaves) > maxUnionTerms {
+		limit := maxUnionTerms
+		if x.keyDemand {
+			limit = e.demandTermLimit()
+		}
+		if len(leaves) > limit {
 			return "", false, nil
 		}
 		return e.orUnionTerms(leaves, meta, env)

@@ -10,7 +10,7 @@ import (
 // Each prepared dimension supplies necessary independent key sets, not a join
 // result. Cross-combinations may pass these filters; the original compound
 // bucket probes still enforce correlation and duplicate multiplicity.
-func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDimension) (Expr, error) {
+func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDimension, limit int) (Expr, error) {
 	var combined Expr
 	for _, dim := range dims {
 		if dim.buckets == nil {
@@ -49,7 +49,7 @@ func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDi
 						break collect
 					}
 					values[key] = v
-					if len(values) > maxUnionTerms {
+					if len(values) > limit {
 						safe = false
 						break collect
 					}
@@ -78,6 +78,9 @@ func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDi
 				} else {
 					demand = &Binary{Op: "OR", L: demand, R: term}
 				}
+			}
+			if or, ok := demand.(*Binary); ok && or.Op == "OR" {
+				or.keyDemand = true
 			}
 			combined = andAll([]Expr{combined, demand})
 		}
