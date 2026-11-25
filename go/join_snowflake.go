@@ -484,40 +484,63 @@ func (e *executor) scanParallelDimension(ctx context.Context, shape *starShape, 
 	if wp.keys != nil {
 		return false, nil
 	}
+	// With Flex, a filter's shared complete candidates are split across the
+	// workers (sharedFlexCandidates); otherwise workers read exact directories.
+	var cands *snapshotCandidateScan
+	var candBounds [][2]string
 	if wp.query != "*" {
 		if predicate == nil {
 			return false, nil
 		}
-		broad, err := e.broadSnowflakeFact(ctx, base, view, wp.query)
-		if err != nil || !broad {
-			return err != nil, err
+		var over bool
+		if cands, candBounds, over, err = e.flexReaderPlan(ctx, view, wp.query); err != nil {
+			return true, err
+		}
+		if cands == nil && !over {
+			// Flex refusing the complete candidates proves a large set;
+			// otherwise ask the same index count the join order uses.
+			broad, err := e.broadSnowflakeFact(ctx, base, view, wp.query)
+			if err != nil || !broad {
+				return err != nil, err
+			}
 		}
 	}
-	last, err := e.store.rowSequence(ctx, base)
-	if err == goredis.Nil {
-		return false, nil
+	var grant, chunks int
+	var last int64
+	if cands != nil {
+		if grant, err = e.workerBudget.acquireBounded(ctx, e.queryWorkers, min(len(candBounds), 32)); err != nil {
+			return true, cancelled(ctx)
+		}
+		defer e.workerBudget.release(grant)
+		chunks = len(candBounds)
+		// The Search query only selected the candidates; every row is
+		// checked against the complete predicate.
+		wp.residual, wp.original = predicate, predicate
+	} else {
+		last, err = e.store.rowSequence(ctx, base)
+		if err == goredis.Nil {
+			return false, nil
+		}
+		if err != nil {
+			return true, wrapRedis(err, "reading snowflake dimension row sequence failed")
+		}
+		if last < 2048 {
+			return false, nil
+		}
+		if grant, err = e.workerBudget.acquireBounded(ctx, e.queryWorkers, int(min(last/1024, 32))); err != nil {
+			return true, cancelled(ctx)
+		}
+		defer e.workerBudget.release(grant)
+		if chunks = starFactChunkCount(last, grant); chunks == 0 {
+			return false, nil
+		}
+		// Exact directories, as the parallel fact reader: the complete filter
+		// is checked on every row, never only its Search form.
+		copy := *view
+		copy.SnapshotOverlay = true
+		view = &copy
+		wp.query, wp.residual, wp.original = "*", predicate, predicate
 	}
-	if err != nil {
-		return true, wrapRedis(err, "reading snowflake dimension row sequence failed")
-	}
-	if last < 2048 {
-		return false, nil
-	}
-	grant, err := e.workerBudget.acquireBounded(ctx, e.queryWorkers, int(min(last/1024, 32)))
-	if err != nil {
-		return true, cancelled(ctx)
-	}
-	defer e.workerBudget.release(grant)
-	chunks := starFactChunkCount(last, grant)
-	if chunks == 0 {
-		return false, nil
-	}
-	// Exact directories, as the parallel fact reader: the complete filter is
-	// checked on every row, never only its Search form.
-	copy := *view
-	copy.SnapshotOverlay = true
-	view = &copy
-	wp.query, wp.residual, wp.original = "*", predicate, predicate
 	capacity := ownedFactRowCapacity(len(need))
 	results := make([][]map[string]Value, chunks)
 	limit := int64(shape.dimensionCap())
@@ -548,9 +571,14 @@ func (e *executor) scanParallelDimension(ctx context.Context, shape *starShape, 
 				if chunk >= chunks || child.Err() != nil {
 					return
 				}
-				bounds := starFactChunkRange(last, chunks, chunk)
-				bounds.cap = starChunkRows
-				req := scanRequest{meta: view, where: wp, need: need, ranges: &bounds, rowCapacity: capacity}
+				req := scanRequest{meta: view, where: wp, need: need, rowCapacity: capacity}
+				if cands != nil {
+					req.flexCandidates = cands.split(candBounds[chunk][0], candBounds[chunk][1], nil)
+				} else {
+					bounds := starFactChunkRange(last, chunks, chunk)
+					bounds.cap = starChunkRows
+					req.ranges = &bounds
+				}
 				err := local.scanPages(child, req, params, func(rows []map[string]Value) error {
 					if total.Add(int64(len(rows))) > limit {
 						return errStarDimensionCap

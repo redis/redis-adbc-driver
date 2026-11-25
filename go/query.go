@@ -539,6 +539,10 @@ func decodeRowCapacity(meta *tableMeta, row aggRow, only map[string]bool, hint i
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
+	// flexCandidates is a coordinator's complete Flex candidate scan, already
+	// discovered once and split to this worker's row IDs (split); its fields
+	// are this request's. Coordinator-only; never inherit.
+	flexCandidates     *snapshotCandidateScan
 	rowCapacity        int   // source-only bounded owned-fact allocation hint; never inherit
 	streamJoin         bool  // exact grouped reduction may consume a bounded star-join stream
 	ownedRows          *bool // coordinator-only callback marker; never inherit in source requests
@@ -762,6 +766,8 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 				page = wideFetchChunk
 			}
 			it.candidates = newSnapshotCandidateScan(ctx, e.store, req.meta, req.where.query, fields, page)
+		} else if req.flexCandidates != nil {
+			it.candidates = req.flexCandidates.split("", "~", fields)
 		} else {
 			candidates, err := openFlexSnapshotCandidates(ctx, e.store, req.meta, req.where.query, fields, req.ranges)
 			if err != nil {

@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -175,6 +177,41 @@ func (d *snapshotCandidateScan) head(ctx context.Context, i int) (string, error)
 	}
 	return src.ids[src.at], nil
 }
+
+// split is a copy of a complete Flex candidate scan restricted to row IDs in
+// [lo, hi] (zero-padded), for one parallel worker. Discovery and directory
+// proofs stay the coordinator's; each copy owns its source positions and
+// still resolves visibility, fetches rows and verifies directories itself.
+func (d *snapshotCandidateScan) split(lo, hi string, fields []string) *snapshotCandidateScan {
+	c := *d
+	c.fields = fields
+	c.sources = make([]snapshotCandidateSource, len(d.sources))
+	for i, src := range d.sources {
+		a := sort.SearchStrings(src.ids, lo)
+		b := sort.Search(len(src.ids), func(j int) bool { return src.ids[j] > hi })
+		src.ids, src.at = src.ids[a:b:b], 0
+		c.sources[i] = src
+	}
+	return &c
+}
+
+// chunkBounds divides a complete Flex candidate scan's distinct row IDs, across
+// every source, into ranges of at most rows IDs each.
+func (d *snapshotCandidateScan) chunkBounds(rows int) [][2]string {
+	var merged []string
+	for _, src := range d.sources {
+		merged = append(merged, src.ids...)
+	}
+	sort.Strings(merged)
+	merged = slices.Compact(merged)
+	var out [][2]string
+	for start := 0; start < len(merged); start += rows {
+		end := min(start+rows, len(merged))
+		out = append(out, [2]string{merged[start], merged[end-1]})
+	}
+	return out
+}
+
 func (d *snapshotCandidateScan) verify(ctx context.Context) error {
 	pipe := d.store.redis(ctx).Pipeline()
 	var cmds []*goredis.IntCmd
