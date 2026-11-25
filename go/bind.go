@@ -45,6 +45,7 @@ import (
 	"slices"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 )
@@ -1411,7 +1412,12 @@ func (e *executor) subqueryRows(ctx context.Context, sq *Subquery, env *evalEnv)
 		child.outer = env
 	}
 	subqueryStats.runs.Add(1)
+	start := time.Now()
 	rows, err := child.runSelect(ctx, sq.plan, e.params)
+	if sq.semi != nil && sq.semi.joined {
+		// A joined body is built once its per-row runs cost about as much.
+		e.semiJoinState(ctx, sq).runTime += time.Since(start)
+	}
 	if err != nil {
 		return nil, err
 	}

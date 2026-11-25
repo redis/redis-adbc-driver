@@ -646,7 +646,7 @@ func TestSQLSemiJoins(t *testing.T) {
 	// Shapes that keep running per outer row, with the same results as ever:
 	// non-equality or OR correlation, an aggregate, LIMIT in IN, an outer
 	// column in the select list or in a nested subquery, keys of different
-	// types, a join in the subquery, RANDOM().
+	// types, RANDOM().
 	perRow(h.expectWork(`SELECT id FROM it_sj_o o WHERE EXISTS (SELECT 1 FROM it_sj_i i WHERE i.k > o.k) ORDER BY id`,
 		"1", "2", "3", "4", "6", "7"), "non-equality")
 	perRow(h.expectWork(`SELECT COUNT(*) FROM it_sj_o o WHERE EXISTS (SELECT 1 FROM it_sj_i i WHERE i.k = o.k OR i.v = o.x)`,
@@ -662,9 +662,10 @@ func TestSQLSemiJoins(t *testing.T) {
 		"1", "2", "6"), "nested correlation")
 	perRow(h.expectWork(`SELECT id FROM it_sj_o o WHERE EXISTS (SELECT 1 FROM it_sj_i i WHERE CAST(i.k AS DOUBLE) = o.k) ORDER BY id`,
 		"1", "2", "3", "4", "6"), "double = integer")
-	perRow(h.expectWork(`SELECT id FROM it_sj_o o
+	// A join in the subquery is decorrelated as well (#649), with the same rows.
+	semi(h.expectWork(`SELECT id FROM it_sj_o o
 			WHERE EXISTS (SELECT 1 FROM it_sj_i i JOIN it_sj_i j ON j.k = i.k WHERE j.v IS NULL AND i.k = o.k) ORDER BY id`,
-		"2", "3"), "join in the subquery")
+		"2", "3"), "join in the subquery", 1)
 	perRow(h.expectWork(`SELECT id FROM it_sj_o o WHERE EXISTS (SELECT 1 FROM it_sj_i i WHERE i.k = o.k AND RANDOM() >= 0) ORDER BY id`,
 		"1", "2", "3", "4", "6"), "volatile function")
 	// The inner query fails on a row (10 / 0) that no outer row matches:
