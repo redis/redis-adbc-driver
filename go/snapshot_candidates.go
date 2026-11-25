@@ -427,8 +427,8 @@ func (d *snapshotCandidateScan) nextKeys(ctx context.Context) ([]string, []strin
 			expected = append(expected, id)
 			continue
 		}
-		logical = append(logical, d.meta.prefix()+id)
-		physical = append(physical, d.sources[winner].segment.Prefix+id)
+		l, p := snapshotKeyPair(d.meta.prefix(), d.sources[winner].segment.Prefix, id)
+		logical, physical = append(logical, l), append(physical, p)
 	}
 	if len(headers) > 0 {
 		if _, err := check.Exec(ctx); err != nil {

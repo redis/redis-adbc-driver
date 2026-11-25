@@ -34,6 +34,18 @@ func (m *tableMeta) snapshotSegments() []snapshotSegment {
 	}
 	return append(out, snapshotSegment{Prefix: m.prefix(), Index: m.index(), Rows: n})
 }
+
+// snapshotKeyPair returns a row's logical key and its key in a source. A
+// table's newest segment uses the table's own prefix, so both are one string
+// there, saving an allocation per row read (#652).
+func snapshotKeyPair(logicalPrefix, physicalPrefix, id string) (logical, physical string) {
+	logical = logicalPrefix + id
+	if physicalPrefix == logicalPrefix {
+		return logical, logical
+	}
+	return logical, physicalPrefix + id
+}
+
 func snapshotDirectoryMember(key string) string {
 	id := snapshotDataID(key)
 	if id == "" {
@@ -222,8 +234,8 @@ func (d *snapshotDeltaScan) nextDirectoryKeys(ctx context.Context) ([]string, []
 		// digits, so leading zero plus successful ParseInt proves canonical
 		// zero padding; no formatting allocation is needed to recheck it.
 		id := strings.TrimLeft(smallest, "0")
-		logical = append(logical, d.meta.prefix()+id)
-		physical = append(physical, d.sources[winner].segment.Prefix+id)
+		l, p := snapshotKeyPair(d.meta.prefix(), d.sources[winner].segment.Prefix, id)
+		logical, physical = append(logical, l), append(physical, p)
 	}
 	if len(logical) == 0 {
 		return nil, nil, io.EOF
