@@ -1,13 +1,14 @@
 # Proposed PostgreSQL 18 query compatibility profile
 
 Date: 2026-11-10. Status: proposal; no complete profile is published or passed.
-Parent: [#118](https://github.com/redis/redis-adbc-driver/issues/118).
+Parent: [#118](https://github.com/redis/redis-adbc-driver/issues/118) (closed 2026-11-10).
 
 “PostgreSQL 18 Query Profile v1” is a working name for a project-defined,
 versioned contract for selected query behavior through ADBC. It is not an
 official PostgreSQL certification. This proposal records the next milestone;
 it does not declare its candidate constructs supported or create a test suite.
-The broader PostgreSQL 18 dialect objective remains open in #118.
+#118 closed on 2026-11-10. The remaining PostgreSQL 18 dialect work is in open
+feature issues #93, #98, #107, #110, #113, #114, #116, #360, #362 and #363.
 
 ## What the profile must define
 
@@ -72,7 +73,8 @@ measured **589/651 passes (90.48%)**, **62 failures**, two allowed extensions,
 two explicit exclusions and zero infrastructure errors on Redis Software with
 verified 4x QPF. Its source-content manifest accompanies the result; this is a
 working-tree measurement, not a release claim. It fixes fourteen #361 cases and
-one existing `row_to_json` case from #98. Five #361 cases remain open.
+one existing `row_to_json` case from #98. Five #361 cases still failed at that
+point; the final #361 batch below passes all nineteen, and #361 is closed.
 
 The [#98 JSON follow-up](sdlc/changes/postgresql18-json/validation.md) measured
 **597/651 passes (91.71%)**, **54 failures**, two allowed extensions, two explicit

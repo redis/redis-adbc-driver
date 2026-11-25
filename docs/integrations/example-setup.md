@@ -84,9 +84,11 @@ reserved for that helper's internal ordering column.
 
 The guide examples use this finite-data sink for predictions, transformed rows,
 chart data and workflow summaries. They do not store model binaries or turn the
-tool into a native Redis backend. Distributed readers such as Dask still need a
-separately designed worker-local sink for outputs too large for caller memory;
-[#273](https://github.com/redis/redis-adbc-driver/issues/273) tracks that gap.
+tool into a native Redis backend. For Dask outputs too large for caller memory,
+use the worker-local `write_dataframe` sink in the
+[moved Dask guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/dask.md#write-computed-results);
+it closed [#273](https://github.com/redis/redis-adbc-driver/issues/273) through
+PR #477.
 All writes autocommit. Partial failure and retries need an application policy;
 these examples make no transaction or exactly-once guarantee.
 

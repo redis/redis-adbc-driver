@@ -109,10 +109,7 @@ MOVED_GUIDES = {
     "superset": "https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md",
 }
 
-UNSUPPORTED_GUIDES = {
-    **{name: f"{name} moved to {url}" for name, url in MOVED_GUIDES.items()},
-    "superset": "Superset 6.1 is unsupported on Python 3.14+; upstream dependency blocker: https://github.com/redis/redis-adbc-driver/issues/471",
-}
+UNSUPPORTED_GUIDES = {name: f"{name} moved to {url}" for name, url in MOVED_GUIDES.items()}
 
 
 def main():

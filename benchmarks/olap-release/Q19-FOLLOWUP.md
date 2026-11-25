@@ -27,6 +27,10 @@ The third path attaches a read-only Redis catalog using the same native library/
 - [Original direct Q19 issue #586](https://github.com/redis/redis-adbc-driver/issues/586); [optimizer PR #597](https://github.com/redis/redis-adbc-driver/pull/597).
 - [Isolation issue #596](https://github.com/redis/redis-adbc-driver/issues/596); [harness PR #598](https://github.com/redis/redis-adbc-driver/pull/598).
 - [Third-path Q19 performance issue #599](https://github.com/redis/redis-adbc-driver/issues/599).
+  Note added 2026-11-24: #599 closed that day on 10% subset results after
+  [PR #637](https://github.com/redis/redis-adbc-driver/pull/637). No SF1
+  third-path rerun is recorded here; [#648](https://github.com/redis/redis-adbc-driver/issues/648)
+  tracks it. The measurements below are unchanged.
 
 No other benchmark queries were run. Operational identifiers, credentials, runtime logs and generated datasets remain private.
 

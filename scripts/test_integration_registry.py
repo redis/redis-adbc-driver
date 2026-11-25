@@ -76,10 +76,11 @@ class InventoryTests(unittest.TestCase):
         self.assertIn("airflow", registry.MOVED_GUIDES)
         self.assertEqual(registry.PROFILES["dbt"].python, "3.14")
         self.assertNotIn("superset", registry.PROFILES)
-        self.assertIn("unsupported", registry.UNSUPPORTED_GUIDES["superset"])
+        self.assertEqual(registry.UNSUPPORTED_GUIDES["superset"],
+                         f"superset moved to {registry.MOVED_GUIDES['superset']}")
         self.assertTrue(all(p.python == "3.14" for p in registry.PROFILES.values()))
 
-    def test_unsupported_superset_reports_blocker_before_running(self):
+    def test_moved_superset_reports_destination_before_running(self):
         for script, args in (
             ("integration_registry.py", ["profile", "superset"]),
             ("check_integration_guide.py", ["superset"]),
@@ -88,8 +89,8 @@ class InventoryTests(unittest.TestCase):
             with self.subTest(script=script):
                 result = subprocess.run([sys.executable, str(SCRIPTS / script), *args], text=True, capture_output=True)
                 self.assertEqual(result.returncode, 2)
-                self.assertIn("Superset 6.1 is unsupported", result.stderr)
-                self.assertIn("issues/471", result.stderr)
+                self.assertIn(f"superset moved to {registry.MOVED_GUIDES['superset']}", result.stderr)
+                self.assertNotIn("issues/471", result.stderr)
 
     def test_help_and_cli_selection_use_registry(self):
         result = subprocess.run([str(SCRIPTS / "run-candidate-tests.sh"), "--help"],

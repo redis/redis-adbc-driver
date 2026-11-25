@@ -1,7 +1,8 @@
 # PostgreSQL 18 SQL dialect compatibility through ADBC
 
 Target selected on 2026-11-09; tracked in
-[#118](https://github.com/redis/redis-adbc-driver/issues/118). This is a working
+[#118](https://github.com/redis/redis-adbc-driver/issues/118) until it closed on
+2026-11-10. This is a working
 inventory at source revision `08d75d50888374b805a5c89f5bb94a46cf6fe8a9`, not a
 claim of complete compatibility. It replaces the proposed SQL:2023 Core audit
 as the objective for this change. Standards extensions #356–#358 remain separate.
@@ -14,7 +15,17 @@ smaller, versioned query-compatibility claim through ADBC. It also groups all
 77 measured failures by category and owner, separately from their standards
 classification. No complete profile has yet been published or passed. The
 current mixed 655-case corpus and #359's closed triage do not establish that
-milestone. The broader #118 objective and deferred feature issues remain open.
+milestone. #118 closed on 2026-11-10; the deferred feature issues that remain
+open are [#93](https://github.com/redis/redis-adbc-driver/issues/93),
+[#98](https://github.com/redis/redis-adbc-driver/issues/98),
+[#107](https://github.com/redis/redis-adbc-driver/issues/107),
+[#110](https://github.com/redis/redis-adbc-driver/issues/110),
+[#113](https://github.com/redis/redis-adbc-driver/issues/113),
+[#114](https://github.com/redis/redis-adbc-driver/issues/114),
+[#116](https://github.com/redis/redis-adbc-driver/issues/116),
+[#360](https://github.com/redis/redis-adbc-driver/issues/360),
+[#362](https://github.com/redis/redis-adbc-driver/issues/362) and
+[#363](https://github.com/redis/redis-adbc-driver/issues/363).
 
 ## Existing resources and their limits
 
@@ -85,4 +96,5 @@ infrastructure errors at implementation revision `b35a4739`. All 188 retained
 baseline cases have dispositions: 122 observed passes and 66 deferred failures.
 The 66 are exclusions from that implementation change, not from #118's
 compatibility goal or from the full runner. merged [PR #366](https://github.com/redis/redis-adbc-driver/pull/366)
-delivered the fixes; #118 and the owning feature issues retain the remaining work.
+delivered the fixes; the owning feature issues listed above retain the remaining
+work after #118 closed.

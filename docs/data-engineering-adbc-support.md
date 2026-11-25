@@ -1,7 +1,9 @@
 # ADBC support across 51 data engineering and data science tools
 
 **Current Python policy:** Python 3.14 or newer is required. Superset 6.1 is
-unsupported pending [upstream dependency support](https://github.com/redis/redis-adbc-driver/issues/471). Superset results
+unsupported; the adapter moved to the [redis-adbc-integrations guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md).
+[#471](https://github.com/redis/redis-adbc-driver/issues/471) is closed, and no
+Superset 7.x run is recorded in this repository. Superset results
 and aggregate sweep counts below retain their historical environments and do not
 establish current Python 3.14 support.
 

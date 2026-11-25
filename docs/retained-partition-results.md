@@ -7,7 +7,7 @@ over contiguous chunk ordinals.
 `ExecuteQuery` remains the ordinary SQL API. Live row-range partitions remain the
 default and let workers read the producer’s shared committed generation without
 storing a separate final result. This implementation addresses the runtime work in [#166](https://github.com/redis/redis-adbc-driver/issues/166), [#167](https://github.com/redis/redis-adbc-driver/issues/167)
-and [#169](https://github.com/redis/redis-adbc-driver/issues/169); the deployment/performance matrix in [#170](https://github.com/redis/redis-adbc-driver/issues/170) is tracked separately.
+and [#169](https://github.com/redis/redis-adbc-driver/issues/169); the deployment/performance matrix was tracked separately in [#170](https://github.com/redis/redis-adbc-driver/issues/170), closed on 2026-10-26.
 
 ## Configure and use
 
@@ -131,7 +131,9 @@ Statement `adbc.redis.partition_execution_limits` accepts a partial JSON object:
 
 Dedicated source pools validate RESP headers before go-redis allocates decoded
 collections/bulk payloads: 1 MiB bulk, 4,096 collection entries, depth 32 and
-4,096-byte headers. All connections/nodes share the transport credit. Known-field
+4,096-byte headers. go-redis itself does not bound declared bulk lengths
+([redis/go-redis#4324](https://github.com/redis/go-redis/issues/4324), open when
+checked on 2026-11-24). All connections/nodes share the transport credit. Known-field
 HASH and membership reads use bounded pipelines. The coordinator has a one-minute
 execution deadline; cancellation closes its source sockets. Scalar values are
 limited to 64 KiB, schema columns to 1,024, nested type depth to 32, expression

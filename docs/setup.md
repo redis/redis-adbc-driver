@@ -88,7 +88,7 @@ the complete package/placement matrix and automated release distributions.
 |---|---|---|
 | pandas / Polars | Install the `pandas` or `polars` extra; use the bundled driver | [pandas](integrations/pandas.md), [Polars](integrations/polars.md) |
 | SQLAlchemy | Install the `sqlalchemy` extra; use `redis+adbc://` or `rediss+adbc://` | [SQLAlchemy](integrations/sqlalchemy.md) |
-| Superset 6.1 | Unsupported on Python 3.14+; see the upstream dependency blocker | [Superset](integrations/superset.md) |
+| Superset 6.1 | Unsupported on Python 3.14+; the adapter moved to redis-adbc-integrations | [Superset](integrations/superset.md) |
 | Dagster | Install the `dagster` extra; use RedisADBCIOManager or the documented ADBCResource path | [Dagster](integrations/dagster.md) |
 | DuckDB | Choose the embedded read-only extension or adbc_scanner for catalogs/writes | [DuckDB](duckdb.md) |
 | Airflow | Install the `airflow` extra in every task environment; use RedisAdbcHook | [Airflow](integrations/airflow.md) |
@@ -162,7 +162,9 @@ finally:
     engine.dispose()
 ```
 
-Superset 6.1 is currently unsupported; see [the restoration tracker](https://github.com/redis/redis-adbc-driver/issues/471).
+Superset 6.1 is unsupported on Python 3.14+. For Superset, use the
+[moved guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md);
+restoration issue [#471](https://github.com/redis/redis-adbc-driver/issues/471) is closed.
 
 ## DuckDB and other native ADBC clients
 
@@ -228,3 +230,6 @@ Use the package's `RedisAdbcHook` and the [dedicated Airflow guide](integrations
 which covers provider compatibility, autocommit handling, worker installation,
 connection extras and a runnable TaskFlow DAG. Generic AdbcHook defaults need
 special care; use the Redis helper for the documented get_records() behavior.
+The generic-hook limitation is reported upstream as
+[apache/airflow#76273](https://github.com/apache/airflow/issues/76273) (open,
+needs-triage when checked on 2026-11-24).

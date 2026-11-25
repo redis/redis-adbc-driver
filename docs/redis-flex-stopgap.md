@@ -271,8 +271,8 @@ limit. Full sorts still materialize results and have no general spill path.
   [#326](https://github.com/redis/redis-adbc-driver/issues/326) remain open and
   intentionally skipped: the existing ALTER/CREATE INDEX paths require FT.ALTER,
   unavailable on the tested Software Flex build.
-- Cloud-only [#329](https://github.com/redis/redis-adbc-driver/issues/329) remains
-  excluded from Software Flex work. An earlier disposable Cloud Pro target
+- Cloud-only [#329](https://github.com/redis/redis-adbc-driver/issues/329) (closed
+  2026-11-10, citing stopgap PR #323) was excluded from Software Flex work. An earlier disposable Cloud Pro target
   authenticated but rejected FT._LIST, so Cloud SQL was not established. Its
   database/subscription were removed; PR #331 created no Cloud resources.
 - Physical-host outage behavior, cold physical-SSD amplification and general sort

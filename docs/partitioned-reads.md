@@ -405,7 +405,10 @@ the built library. Release validation uses installed Linux and macOS wheels.
 The macOS job starts an owned native TLS-only Redis and checks default/minimum
 ADBC clients with 15 TLS checks, including native CA and hostname rejection.
 Local macOS packaged validation passed on 2026-10-21; hosted results are separate
-evidence. Cloud/proxy TLS and remaining compatibility gaps stay tracked in [#170](https://github.com/redis/redis-adbc-driver/issues/170).
+evidence. Cloud/proxy TLS evidence and the remaining compatibility gaps are
+listed in [partition validation](partition-validation.md).
+[#170](https://github.com/redis/redis-adbc-driver/issues/170) closed on
+2026-10-26, and no open issue tracks those gaps.
 
 
 Redis Software proxy TLS uses `scripts/software_partition_tls.py` after the
@@ -424,8 +427,10 @@ non-TLS suites; Linux release jobs also validate the installed wheel through a
 single-shard TLS proxy. Local macOS single/three-shard and Linux arm64 packaged
 runs passed all 16 Software checks. Each three-shard deployment uses one Software
 node, so this establishes proxy/shard routing coverage, not multi-node failover.
-See [verification](sdlc/changes/software-proxy-tls-400/plan.md). Cloud TLS and
-remaining performance evidence are still open in [#170](https://github.com/redis/redis-adbc-driver/issues/170).
+See [verification](sdlc/changes/software-proxy-tls-400/plan.md). Cloud Pro TLS
+evidence and its limits are in [partition validation](partition-validation.md).
+Remaining performance evidence has no open tracker since
+[#170](https://github.com/redis/redis-adbc-driver/issues/170) closed on 2026-10-26.
 
 ### Explicit layouts and byte lengths (#302/#304)
 

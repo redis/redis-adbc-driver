@@ -1,6 +1,8 @@
 # Draft: next TLS response waits after a moderately large preceding reply
 
-Status: prepared for coordinator review, not submitted. Independent RedisPy
+Status: submitted on 2026-11-15 as
+[docker/desktop-feedback#854](https://github.com/docker/desktop-feedback/issues/854)
+(open when checked on 2026-11-24). Independent RedisPy
 reproduced the host-path cliff, while the identical Go source on a Linux client
 in the server network namespace did not. Triage the actual host/network path
 before assigning an upstream client/server project. No infrastructure identities,

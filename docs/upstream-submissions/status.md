@@ -1,13 +1,13 @@
 # Upstream Redis integration documentation status
 
-Checked **2026-11-17** through GitHub REST PR state, draft and merge fields.
+Checked **2026-11-24** through GitHub REST PR state, draft and merge fields.
 [Umbrella #236](https://github.com/redis/redis-adbc-driver/issues/236),
 [status tracker #249](https://github.com/redis/redis-adbc-driver/issues/249),
 [guide index](../integrations/README.md),
 [issue triage](../sdlc/changes/issue-triage-2026-11-17/triage.md).
 
-The eighteen contributions below comprise **four merged, twelve open (all
-non-draft), and two closed without merge**. These are documentation outcomes;
+The eighteen contributions below comprise **four merged, ten open (all
+non-draft), and four closed without merge**. These are documentation outcomes;
 merge does not establish a new runtime compatibility result or endorsement.
 Non-draft means GitHub permits review, without implying human review or approval.
 No duplicate submissions or recurring monitoring were created.
@@ -17,14 +17,14 @@ No duplicate submissions or recurring monitoring were created.
 | pandas | [Guide](../integrations/pandas.md) | [#71772](https://github.com/pandas-dev/pandas/pull/71772) | Open; non-draft | #156 |
 | Polars | [Guide](../integrations/polars.md) | [#30441](https://github.com/pola-rs/polars/pull/30441) | Open; non-draft | #158 |
 | Apache Airflow | [Guide](../integrations/airflow.md) | [#75988](https://github.com/apache/airflow/pull/75988) | Open; non-draft | #272 |
-| Apache Superset | [Guide](../integrations/superset.md) | [#45852](https://github.com/apache/superset/pull/45852) | Open; non-draft | #159 |
+| Apache Superset | [Guide](../integrations/superset.md) | [#45852](https://github.com/apache/superset/pull/45852) | Closed without merge 2026-11-21 | #159 |
 | Prefect | [Guide](../integrations/prefect.md) | [#23662](https://github.com/PrefectHQ/prefect/pull/23662) | Open; non-draft | #236 |
 | dlt | [Guide](../integrations/dlt.md) | [#4621](https://github.com/dlt-hub/dlt/pull/4621) | Open; non-draft | #161 |
 | Ray | [Guide](../integrations/ray.md) | [#67560](https://github.com/ray-project/ray/pull/67560) | Merged 2026-11-09 | #164 |
 | Dagster | [Guide](../integrations/dagster.md) | [#371](https://github.com/dagster-io/community-integrations/pull/371) | Open; non-draft | #157 |
 | Dask | [Guide](../integrations/dask.md) | [#12654](https://github.com/dask/dask/pull/12654) | Open; non-draft | #236 |
 | SQLAlchemy | [Guide](../integrations/sqlalchemy.md) | [#13707](https://github.com/sqlalchemy/sqlalchemy/pull/13707) | Merged 2026-10-20 | #236 |
-| DuckDB | [Guide](../duckdb.md) | [#21](https://github.com/Query-farm/adbc_scanner/pull/21) | Open; non-draft | #236 |
+| DuckDB | [Guide](../duckdb.md) | [#21](https://github.com/Query-farm/adbc_scanner/pull/21) | Closed without merge 2026-11-24 | #236 |
 | dbt | [Guide](../integrations/dbt.md) | [#10219](https://github.com/dbt-labs/docs.getdbt.com/pull/10219) | Merged 2026-11-10 | #236 |
 | NumPy | [Guide](../integrations/numpy.md) | [#33187](https://github.com/numpy/numpy/pull/33187) | Merged 2026-11-17 | #249 |
 | scikit-learn | [Guide](../integrations/scikit-learn.md) | [#35280](https://github.com/scikit-learn/scikit-learn/pull/35280) | Closed without merge | #249 |
@@ -48,17 +48,28 @@ No duplicate submissions or recurring monitoring were created.
   an equivalent contribution without satisfying the upstream requirements.
 - SciPy #26571 is closed without merge. No explanatory maintainer comment was
   returned by the issue-comments endpoint during this check; no reason is inferred.
-- Superset 6.1 is currently unsupported by this project's Python 3.14+ package;
-  see the [current guide](../integrations/superset.md) and merged
-  [PR #472](https://github.com/redis/redis-adbc-driver/pull/472).
-  An open historical documentation PR does not override that restriction.
-- Airflow's generic-hook work remains in #272; Dask's worker-local Arrow sink
-  remains in #273. Open guide contributions do not resolve those feature gaps.
+- Superset 6.1 is unsupported by this project's Python 3.14+ package (merged
+  [PR #472](https://github.com/redis/redis-adbc-driver/pull/472)). The adapter
+  moved to the [redis-adbc-integrations guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md);
+  see also the [local pointer](../integrations/superset.md). Restoration issue
+  [#471](https://github.com/redis/redis-adbc-driver/issues/471) closed on
+  2026-11-17, but no Superset 7.x run is recorded in this repository. Upstream
+  #45852 closed without merge on 2026-11-21 with no explanatory comment; no
+  reason is inferred.
+- DuckDB `adbc_scanner` #21 was retargeted to the `v2.0` branch on 2026-11-10
+  after the maintainer asked for that base, then closed without merge on
+  2026-11-24. No replacement documentation PR was open when checked.
+- Airflow's generic-hook work remains in #272; the upstream report is
+  [apache/airflow#76273](https://github.com/apache/airflow/issues/76273) (open,
+  needs-triage). Dask's worker-local Arrow write API merged in
+  [PR #477](https://github.com/redis/redis-adbc-driver/pull/477), closing #273 on
+  2026-11-17. Open guide contributions do not resolve #272.
 
 ## Historical validation and submission provenance
 
 The previous October 30 snapshot is retained in git history. Its eleven-open-PR
-count, Dask draft status and six-new-drafts wording are historical. Driver-side
+count, Dask draft status and six-new-drafts wording are historical. So is the
+November 17 count of twelve open and two closed without merge. Driver-side
 [PR #248](https://github.com/redis/redis-adbc-driver/pull/248) merged on October 30;
 its workflows are no longer an unmerged proposal.
 

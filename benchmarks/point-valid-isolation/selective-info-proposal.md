@@ -1,7 +1,9 @@
 # Proposed selective FT.INFO output for bounded readiness proofs
 
 Status: proposal only; no server API, implementation or measured benefit is
-claimed present. No upstream issue/comment has been submitted.
+claimed present. Submitted upstream on 2026-11-15 as
+[RediSearch/RediSearch#12337](https://github.com/RediSearch/RediSearch/issues/12337)
+(open when checked on 2026-11-24).
 
 The [official command reference](https://redis.io/docs/latest/commands/ft.info/)
 documents `FT.INFO index` as a read-only Search command. The local driver's

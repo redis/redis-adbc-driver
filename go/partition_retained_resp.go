@@ -26,6 +26,7 @@ const (
 // The RESP guard withholds each length header until its logical allocation has
 // been admitted. A raw byte counter after go-redis starts reading is too late:
 // its decoder allocates bulk/collection storage from those headers first.
+// Upstream context: https://github.com/redis/go-redis/issues/4324.
 // The wrapper sits outside the dialer's TLS connection, so it sees plaintext
 // after normal authentication/TLS setup; it never inspects outgoing credentials.
 type retainedRESPConn struct {
