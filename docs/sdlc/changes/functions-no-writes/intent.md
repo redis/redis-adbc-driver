@@ -39,4 +39,4 @@ rejected), even though `FCALL_RO` would let Redis route them there. There is no
 automatic migration of existing dedicated SQL RBAC ACLs; that matches the
 documented "not migrated or upgraded" contract.
 
-See [specification](spec.md) and [plan and validation](plan.md).
+See [specification](spec.md) and [plan and validation](plan.md); implemented in [redis/redis-adbc-driver#683](https://github.com/redis/redis-adbc-driver/pull/683).
