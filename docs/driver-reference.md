@@ -216,8 +216,13 @@ error.
   `pool_fifo`, `pool_size`, `pool_timeout`, `min_idle_conns`,
   `max_idle_conns`, `max_active_conns`, `max_concurrent_dials`,
   `conn_max_idle_time`, `conn_max_lifetime`, `conn_max_lifetime_jitter`,
-  `skip_verify` with `rediss://`, and `db` (as the path; a cluster only has
-  database 0).
+  `conn_max_lifetime_reap_interval`, `skip_verify` with `rediss://`, and
+  `db` (as the path; a cluster only has database 0).
+- **`max_active_conns`** is a hard cap. When a pool has that many
+  connections open or being dialed, a command that needs another fails at
+  once with `redis: connection pool exhausted`; go-redis counts dials in
+  progress since v9.24.0. `pool_size` limits how many commands use the
+  pool at once, and the others wait up to `pool_timeout`.
 - **On a cluster,** every node's client gets them. `pool_size` and
   `max_active_conns` are per node. `max_retries` is per node too: a node's
   client sends a command again that many times (by default none), and the
@@ -231,7 +236,9 @@ error.
   set to true is an error. They send reads to replicas, which may not have
   the driver's latest writes yet.
 - **The driver's settings win:** the `username` and `password` options,
-  no `CLIENT SETINFO`, and the timeout options (see [Timeouts](#timeouts)).
+  no `CLIENT SETINFO` (`disable_identity` and `identity_suffix` have no
+  effect), context deadlines on socket I/O (`context_timeout_enabled` has no
+  effect), and the timeout options (see [Timeouts](#timeouts)).
   RESP3 is required; `protocol=3` may be set explicitly. Other protocol
   values, including `protocol=2`, are rejected. Every cluster node must
   negotiate RESP3; failed negotiation is an error.
@@ -399,8 +406,13 @@ The command profile for trusted writers is:
 ```text
 +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +sscan +sismember +multi +exec +watch +unwatch +fcall +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 # Cluster API clients also need
-+cluster|slots +command
++cluster|shards +cluster|slots +command
 ```
+
+go-redis (since v9.24.0) loads a cluster's topology with `CLUSTER SHARDS` and
+falls back to `CLUSTER SLOTS` when it is refused. A profile without
+`+cluster|shards` still connects, but every topology load is refused once and
+adds an ACL log entry.
 
 Connections require an explicit ACL username and password (the explicitly named
 `default` ACL user is allowed); anonymous, password-only and empty-password
@@ -463,7 +475,7 @@ Add `%R~<table-access-id>~*` per SELECT-authorized logical table, or deliberatel
 grant a whole schema with `%R~*~<escaped-schema>:{meta}:snapshot:16:rows:*`.
 Managed copies need permission on their private rows, separate from external
 source grants needed for import/refresh. Cluster clients also need
-`+cluster|slots +command`.
+`+cluster|shards +cluster|slots +command`.
 
 Queries, views, `information_schema`, `GetObjects` and `GetTableSchema` use
 immutable metadata and the caller's row grants. Broad snapshot reads need
@@ -951,7 +963,7 @@ commands:
 +ping +info +scan +hkeys +hmget +ft._list +ft.info +ft.aggregate +memory|usage
 +get +exists +sscan +sismember +hget +hexists +hgetall
 # A cluster (OSS Cluster API) also
-+cluster|slots +command
++cluster|shards +cluster|slots +command
 ```
 
 `check` leaves out the search indexes on keys the user may not read (Redis

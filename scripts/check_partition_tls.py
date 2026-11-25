@@ -290,7 +290,7 @@ def main(argv=None, cloud_principals_factory=None):
                      '+ft.search', '+ft.profile', '+get', '+exists', '+hget', '+hmget',
                      '+hgetall', '+smembers', '+sismember']
     if args.cluster_mode == 'true':
-        read_commands += ['+cluster|slots', '+command', '+asking']
+        read_commands += ['+cluster|shards', '+cluster|slots', '+command', '+asking']
     report = {'kind': 'local native partition TLS/independent ACL validation',
               'status': 'running', 'library_sha256': hashlib.sha256(Path(driver).read_bytes()).hexdigest(),
               'installed_wheel': not bool(override), 'python': sys.version.split()[0],
@@ -341,7 +341,7 @@ def main(argv=None, cloud_principals_factory=None):
                 (args.cluster_mode == 'auto' and cluster_enabled == 1)):
             raise ValueError('cluster primary requirement needs Cluster API routing')
         if args.cluster_mode == 'auto' and cluster_enabled == 1:
-            read_commands += ['+cluster|slots', '+command', '+asking']
+            read_commands += ['+cluster|shards', '+cluster|slots', '+command', '+asking']
         if args.software_fixture:
             report['topology'] = {'deployment': 'Redis Software TLS proxy', **principals.config}
         if args.oss_cluster_fixture:

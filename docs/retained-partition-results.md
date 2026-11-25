@@ -191,8 +191,8 @@ until operator cleanup after all jobs expire.
 
 Descriptors contain no credentials, endpoint, SQL or arbitrary Redis keys and
 are not bearer authorization. A minimal worker needs `+ping +fcall +time +getrange`
-and `%R~adbc:{retained:TENANT}:*`; Cluster additionally needs `+cluster|slots
-+command +asking`. Publishers need existing SQL/source privileges, source SCAN,
+and `%R~adbc:{retained:TENANT}:*`; Cluster additionally needs `+cluster|shards
++cluster|slots +command +asking`. Publishers need existing SQL/source privileges, source SCAN,
 known-field reads and index membership, topology checks when clustered, plus
 namespace FCALL and the functions' declared String/ZSET operations. All driver
 connections probe the preinstalled Functions library with FCALL; restricted

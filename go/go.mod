@@ -8,7 +8,7 @@ require (
 	github.com/apache/arrow-go/v18 v18.9.0
 	github.com/dlclark/regexp2/v2 v2.13.0
 	github.com/google/uuid v1.6.0
-	github.com/redis/go-redis/v9 v9.23.0
+	github.com/redis/go-redis/v9 v9.24.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/text v0.44.0
 	google.golang.org/protobuf v1.36.12

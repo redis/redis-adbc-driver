@@ -281,7 +281,7 @@ func TestRetainedPartitionAPIIndependentProcessAndMinimalACL(t *testing.T) {
 	user := "it_retained_public_" + storage.namespace[3:15]
 	rules := []string{"+ping", "+fcall", "+time", "+getrange", "%R~" + storage.prefix + "*"}
 	if a.cluster {
-		rules = append(rules, "+cluster|slots", "+command", "+asking")
+		rules = append(rules, "+cluster|shards", "+cluster|slots", "+command", "+asking")
 	}
 	a.user(user, rules...)
 	expected := []int64{-1, 1<<53 + 1, 1<<63 - 1}
