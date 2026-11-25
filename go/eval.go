@@ -1023,12 +1023,21 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 		bd, bs, _ := asDecimal(r)
 		switch op {
 		case "+", "-":
+			// Operands at the result scale are only read, so they need no
+			// copy; the sum goes to a fresh value (#652).
 			s := max(as, bs)
-			x, y := rescaleDecimal(ad, as, s), rescaleDecimal(bd, bs, s)
-			if op == "+" {
-				return decimalValue(x.Add(x, y), rt.Precision, s), nil
+			x, y := ad, bd
+			if as != s {
+				x = rescaleDecimal(ad, as, s)
 			}
-			return decimalValue(x.Sub(x, y), rt.Precision, s), nil
+			if bs != s {
+				y = rescaleDecimal(bd, bs, s)
+			}
+			z := new(big.Int)
+			if op == "+" {
+				return decimalValue(z.Add(x, y), rt.Precision, s), nil
+			}
+			return decimalValue(z.Sub(x, y), rt.Precision, s), nil
 		case "*":
 			return decimalValue(new(big.Int).Mul(ad, bd), rt.Precision, as+bs), nil
 		case "/":

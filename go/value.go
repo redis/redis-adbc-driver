@@ -96,6 +96,9 @@ func parseDecimal(s string) (*big.Int, int32, error) {
 		s = s[1:]
 	}
 	intPart, frac, _ := strings.Cut(s, ".")
+	if v, ok := parseSmallDecimal(intPart, frac, neg); ok {
+		return v, int32(int64(len(frac)) - exp), nil
+	}
 	digits := intPart + frac
 	if digits == "" {
 		return nil, 0, stateErr(stateInvalidText, "invalid decimal %q", s)
@@ -114,6 +117,30 @@ func parseDecimal(s string) (*big.Int, int32, error) {
 	}
 	scale := int64(len(frac)) - exp
 	return v, int32(scale), nil
+}
+
+// parseSmallDecimal is parseDecimal's unscaled value for at most 18 digits,
+// which fit an int64, without concatenating the parts or scanning text into
+// a big.Int (stored decimals decode once per row read, #652). ok is false
+// for anything else, which parseDecimal then parses as before.
+func parseSmallDecimal(intPart, frac string, neg bool) (*big.Int, bool) {
+	if n := len(intPart) + len(frac); n == 0 || n > 18 {
+		return nil, false
+	}
+	var u int64
+	for _, part := range [2]string{intPart, frac} {
+		for i := 0; i < len(part); i++ {
+			c := part[i]
+			if c < '0' || c > '9' {
+				return nil, false
+			}
+			u = u*10 + int64(c-'0')
+		}
+	}
+	if neg {
+		u = -u
+	}
+	return new(big.Int).SetInt64(u), true
 }
 
 // rescaleDecimal converts an unscaled value from one scale to another,
@@ -1291,7 +1318,11 @@ func decodeStored(s string, t ColType) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		return decimalValue(rescaleDecimal(d, scale, t.Scale), t.Precision, t.Scale), nil
+		if scale != t.Scale {
+			// d is freshly parsed, so at its stored scale it needs no copy.
+			d = rescaleDecimal(d, scale, t.Scale)
+		}
+		return decimalValue(d, t.Precision, t.Scale), nil
 	case KindBinary:
 		return binaryValue(s), nil
 	case KindInterval:

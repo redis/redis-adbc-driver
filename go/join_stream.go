@@ -42,8 +42,17 @@ type starShape struct {
 	outNeed map[string]bool
 }
 
-// compactDimensionRow keeps only the output columns of a retained row.
-func (s *starShape) compactDimensionRow(row map[string]Value) map[string]Value {
+// smallRowEntries is the most entries a Go map holds in its single first
+// group of slots; a map created with a capacity hint up to it has one group.
+const smallRowEntries = 8
+
+// compactDimensionRow keeps only the output columns of a retained row. A
+// fresh row (freshDimensionRows) of at most smallRowEntries entries occupies
+// one map group, which a smaller copy would not shrink, so its other columns
+// are deleted in place instead of copying the row (#652). Decoders create such
+// rows with a capacity of one entry per decoded column (decodedRowCapacity,
+// ownedFactRowCapacity) or grow them from empty (scanItem's in-memory copies).
+func (s *starShape) compactDimensionRow(row map[string]Value, fresh bool) map[string]Value {
 	if s.outNeed == nil {
 		return row
 	}
@@ -56,6 +65,14 @@ func (s *starShape) compactDimensionRow(row map[string]Value) map[string]Value {
 	if kept == len(row) {
 		return row
 	}
+	if fresh && len(row) <= smallRowEntries {
+		for k := range row {
+			if !s.outNeed[k] {
+				delete(row, k)
+			}
+		}
+		return row
+	}
 	out := make(map[string]Value, kept)
 	for k, v := range row {
 		if s.outNeed[k] {
@@ -63,6 +80,18 @@ func (s *starShape) compactDimensionRow(row map[string]Value) map[string]Value {
 		}
 	}
 	return out
+}
+
+// freshDimensionRows reports whether a streamed join's plain (non-branch)
+// dimension reader passes newly decoded row maps that nothing else
+// references: scans of a plain managed table, and the per-row copies scanItem
+// makes of an in-memory relation. Views, lazy, grouped or joined relations and
+// materialized reads may hand out rows they share.
+func freshDimensionRows(base *tableMeta) bool {
+	if base == nil || base.view != nil || base.lazy != nil || base.group != nil || base.join != nil || base.MaterializedSQL != "" || base.matviewRead != nil {
+		return false
+	}
+	return base.isMem || managedRowIDTable(base)
 }
 
 func (s *starShape) dimensionCap() int {
@@ -465,6 +494,7 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 	for d := range shape.dims {
 		dim := &shape.dims[d]
 		dim.buckets = map[string][]map[string]Value{}
+		fresh := dim.branch == nil && freshDimensionRows(jp.items[dim.item].base)
 		keep := func(rows []map[string]Value) error {
 			for _, row := range rows {
 				observed++
@@ -479,7 +509,7 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 					return err
 				}
 				if k, ok := starRowKey(row, dim.dimCols); ok {
-					dim.buckets[k] = append(dim.buckets[k], shape.compactDimensionRow(row))
+					dim.buckets[k] = append(dim.buckets[k], shape.compactDimensionRow(row, fresh))
 				}
 			}
 			return nil
