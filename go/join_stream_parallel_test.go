@@ -166,8 +166,17 @@ func (h *parallelNativeReplies) replyParallel(c goredis.Cmder) error {
 		if h.sourceError != nil {
 			return h.sourceError
 		}
-		lo := c.Args()[2].(int64)
-		hi := c.Args()[3].(int64)
+		var lo, hi int64
+		if from, count, ok := mockDirectorySeek(c.Args()); ok {
+			id, err := strconv.ParseInt(from, 10, 64)
+			if err != nil {
+				return err
+			}
+			lo = max(id, 1) - 1
+			hi = lo + count - 1
+		} else {
+			lo, hi = c.Args()[2].(int64), c.Args()[3].(int64)
+		}
 		var ids []string
 		for i := lo; i <= hi && i < h.n; i++ {
 			ids = append(ids, fmt.Sprintf("%020d", i+1))

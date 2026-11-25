@@ -59,6 +59,12 @@ type snapshotDeltaSource struct {
 	ids     []string
 	at      int
 	done    bool
+	// from is a pending seek bound (zero-padded ID). The first page counts the
+	// members below it and reads the page at it in one round trip.
+	from string
+	// reached: a page ended at or past the scan's through bound, so every
+	// later member is outside the range and no further page is read.
+	reached bool
 }
 type snapshotDeltaScan struct {
 	store             *store
@@ -83,21 +89,45 @@ func newSnapshotDeltaScan(s *store, m *tableMeta, fields []string) *snapshotDelt
 
 // Seek each exact directory to a live partition's lower bound. Directories
 // have score zero and lexically ordered decimal IDs, so no floating point
-// interval or repeated full-table scan is needed.
+// interval or repeated full-table scan is needed. The seek itself is deferred
+// to each source's first page (head), which reads it in the same round trip.
 func (d *snapshotDeltaScan) seek(ctx context.Context, lo, hi int64) error {
+	if err := cancelled(ctx); err != nil {
+		return err
+	}
 	d.through = fmt.Sprintf("%020d", hi)
+	from := fmt.Sprintf("%020d", lo)
 	for i := range d.sources {
-		n, err := d.store.redis(ctx).ZLexCount(ctx, snapshotMembers(snapshotDataID(d.sources[i].segment.Prefix)), "-", "("+fmt.Sprintf("%020d", lo)).Result()
-		if err != nil {
-			return wrapRedis(err, "failed to seek snapshot partition directory")
-		}
-		d.sources[i].offset = n
+		d.sources[i].from = from
 	}
 	return nil
 }
+
+// seekPage reads a seeking source's first page by value together with the
+// count of members below its bound, so later pages continue by rank exactly
+// as after a separate ZLEXCOUNT seek.
+func (d *snapshotDeltaScan) seekPage(ctx context.Context, src *snapshotDeltaSource, page int) ([]string, error) {
+	members := snapshotMembers(snapshotDataID(src.segment.Prefix))
+	pipe := d.store.redis(ctx).Pipeline()
+	below := pipe.ZLexCount(ctx, members, "-", "("+src.from)
+	first := pipe.ZRangeArgs(ctx, goredis.ZRangeArgs{Key: members, Start: "[" + src.from, Stop: "+", ByLex: true, Count: int64(page)})
+	if _, err := pipe.Exec(ctx); err != nil {
+		return nil, wrapRedis(err, "failed to seek snapshot partition directory")
+	}
+	n, err := below.Result()
+	if err != nil {
+		return nil, wrapRedis(err, "failed to seek snapshot partition directory")
+	}
+	ids, err := first.Result()
+	if err != nil {
+		return nil, wrapRedis(err, "failed to read snapshot row directory")
+	}
+	src.offset, src.from = n, ""
+	return ids, nil
+}
 func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 	src := &d.sources[i]
-	if src.at == len(src.ids) && !src.done {
+	if src.at == len(src.ids) && !src.done && !src.reached {
 		// A checkpointed compaction discards this scanner after one batch.
 		// Respect its smaller page bound instead of repeatedly fetching and
 		// throwing away directory entries beyond that checkpoint.
@@ -108,13 +138,20 @@ func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 		if d.pageRows > 0 {
 			page = min(page, d.pageRows)
 		}
-		ids, err := d.store.redis(ctx).ZRange(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), src.offset, src.offset+int64(page)-1).Result()
+		var ids []string
+		var err error
+		if src.from != "" {
+			ids, err = d.seekPage(ctx, src, page)
+		} else if ids, err = d.store.redis(ctx).ZRange(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), src.offset, src.offset+int64(page)-1).Result(); err != nil {
+			err = wrapRedis(err, "failed to read snapshot row directory")
+		}
 		if err != nil {
-			return "", wrapRedis(err, "failed to read snapshot row directory")
+			return "", err
 		}
 		src.ids, src.at = ids, 0
 		src.offset += int64(len(ids))
 		src.done = len(ids) < page
+		src.reached = d.through != "" && len(ids) > 0 && ids[len(ids)-1] >= d.through
 		if src.done && !snapshotOwns(ctx, src.segment.Prefix) && src.offset != src.segment.Rows {
 			return "", errorf(adbc.StatusIO, "published snapshot row directory changed")
 		}
