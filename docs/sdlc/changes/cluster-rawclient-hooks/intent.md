@@ -3,6 +3,7 @@
 Date: 2026-11-24. Author: Claude (Claude Code); requestor: Albert Wong, from
 the #671 validation session. Source: `redis/main` at 268ccf03. Status:
 implemented, local verification complete, review pending.
+PR: [#672](https://github.com/redis/redis-adbc-driver/pull/672).
 See [spec](spec.md) and [plan](plan.md).
 
 While validating #671 (go-redis v9.24.0, issue #650) on OSS Cluster API
