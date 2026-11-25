@@ -119,7 +119,7 @@ and error, including early query failure and late batch failure.
 |---|---|---|
 | Indexed row-local filter/projection, eligible LIMIT/OFFSET and exact index order | Incremental input and output | Already streams; direct Arrow projections and byte budgets remain applicable |
 | Aggregates/GROUP BY | Eligible scans reduce input page by page; output after reduction | General groups cannot be finalized before complete input; group/distinct state remains cardinality-dependent |
-| Driver ORDER BY | May require complete input; eligible top-K uses a bounded heap | Top-K still needs all candidate input before output; bounds projected winners, not every upstream operator |
+| Driver ORDER BY | May require complete input; eligible top-K uses a bounded heap; an eligible streamed single-table sort spills sorted runs above its budget and streams their merge | Top-K still needs all candidate input before output; bounds projected winners, not every upstream operator. Spilled sorts write query-local files ([sort spill](sdlc/changes/sort-spill/spec.md)) |
 | DISTINCT and distinct set operations | Retain deduplication/comparison state | Emission-order and SQL duplicate/type rules need a separate executor design; no new path enabled here |
 | Eligible UNION ALL trees without ORDER BY | Incremental output over sequential managed indexed-table child scans | Pairwise coercion and per-node LIMIT/OFFSET; only one active child; unsupported leaves/orderings retain materialization |
 | Joins, windows, CTEs/derived tables | Existing materialization paths | Streaming requires operator-specific state and dependency analysis; no blanket eligibility expansion |
