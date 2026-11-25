@@ -74,3 +74,17 @@ At the best observed cold rate (about 100k rows/s), 7.5–8.5M rows take 75–85
 - **Concurrency above 32:** the driver caps workers at 32. Higher concurrency was measured only with the probe.
 - **Before/after comparison:** there's no SF1 Flex comparison against main beyond the coordinating session's earlier 60-second timeouts.
 - **Review:** human review is pending.
+
+## Follow-up: directory-aggregate barrier
+
+#643 was merged before its CI finished. Its final run then failed on amd64 and arm64:
+- **snapshots-0:** `TestSnapshotDirectoryAggregateFailureJoinsWorkers`, all four subtests, at line 269.
+- **snapshots-2:** `TestSnapshotDirectoryAggregateConcurrentPublication`, at line 473.
+
+Both fail with "workers did not overlap". The tests' `directoryAggregateBarrier` holds each worker at its seek's single `ZLEXCOUNT` command until four workers are inside, and only through `ProcessHook`. The directory seek now sends that `ZLEXCOUNT` pipelined with its first page. So the barrier never engaged, the workers finished, and the overlap check failed. The driver's overlap and join behavior did not change: each worker still makes one seek round trip at its range start, and a failed seek's error propagates as before.
+
+The fix gives the barrier the same gate in `ProcessPipelineHook`; other pipelines still delegate to the embedded snapshot hook. Assertions are unchanged.
+
+On a dedicated Redis Software 8.8.0 fixture (3 shards, verified active 4x QPF, mnp, 32 connections, noeviction):
+- **Before the fix:** both tests failed exactly as in CI.
+- **After the fix:** every `TestSnapshotDirectoryAggregate*` test passed, and the CI snapshot shards 0 and 2 (`scripts/ci_go_suites.py run --suite snapshot --shards 4`) were rerun; their results are in the fix PR.

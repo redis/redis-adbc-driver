@@ -175,45 +175,77 @@ type directoryAggregateBarrier struct {
 	failure   string
 }
 
+// gate holds each observed worker's directory seek (its ZLEXCOUNT) until four
+// workers are inside it, then fails, cancels or releases them. A non-nil
+// error is that seek's reply.
+func (h *directoryAggregateBarrier) gate(ctx context.Context) error {
+	ordinal := h.entered.Add(1)
+	if ordinal == 4 {
+		close(h.ready)
+	}
+	select {
+	case <-h.ready:
+	case <-ctx.Done():
+		// Cancellation can win this select even after ready closes.
+		// Count peers that leave here as well as at the later wait.
+		h.cancelled.Add(1)
+		return ctx.Err()
+	}
+	if h.failure != "" && ordinal == 1 {
+		var err error = controlScriptNativeError("NOPERM directory aggregate permission refusal")
+		if h.failure == "transport" {
+			err = io.ErrUnexpectedEOF
+		}
+		return err
+	}
+	if h.failure != "" {
+		<-ctx.Done()
+		h.cancelled.Add(1)
+		return ctx.Err()
+	}
+	select {
+	case <-h.release:
+	case <-ctx.Done():
+		h.cancelled.Add(1)
+		return ctx.Err()
+	}
+	return nil
+}
+
+func (h *directoryAggregateBarrier) observed(ctx context.Context, cmd goredis.Cmder) bool {
+	return ctx.Value(directoryAggregateObservation{}) == true && cmd.Name() == "zlexcount"
+}
+
 func (h *directoryAggregateBarrier) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		if ctx.Value(directoryAggregateObservation{}) == true && cmd.Name() == "zlexcount" {
-			ordinal := h.entered.Add(1)
-			if ordinal == 4 {
-				close(h.ready)
-			}
-			select {
-			case <-h.ready:
-			case <-ctx.Done():
-				// Cancellation can win this select even after ready closes.
-				// Count peers that leave here as well as at the later wait.
-				h.cancelled.Add(1)
-				cmd.SetErr(ctx.Err())
-				return ctx.Err()
-			}
-			if h.failure != "" && ordinal == 1 {
-				var err error = controlScriptNativeError("NOPERM directory aggregate permission refusal")
-				if h.failure == "transport" {
-					err = io.ErrUnexpectedEOF
-				}
+		if h.observed(ctx, cmd) {
+			if err := h.gate(ctx); err != nil {
 				cmd.SetErr(err)
 				return err
 			}
-			if h.failure != "" {
-				<-ctx.Done()
-				h.cancelled.Add(1)
-				cmd.SetErr(ctx.Err())
-				return ctx.Err()
-			}
-			select {
-			case <-h.release:
-			case <-ctx.Done():
-				h.cancelled.Add(1)
-				cmd.SetErr(ctx.Err())
-				return ctx.Err()
-			}
 		}
 		return next(ctx, cmd)
+	}
+}
+
+// A ranged directory seek sends its ZLEXCOUNT pipelined with the first page,
+// so the barrier gates pipelines too. A failed seek fails its whole round trip.
+func (h *directoryAggregateBarrier) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	inner := h.snapshotHook.ProcessPipelineHook(next)
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		for _, cmd := range cmds {
+			if !h.observed(ctx, cmd) {
+				continue
+			}
+			if err := h.gate(ctx); err != nil {
+				for _, c := range cmds {
+					c.SetErr(err)
+				}
+				return err
+			}
+			break
+		}
+		return inner(ctx, cmds)
 	}
 }
 
