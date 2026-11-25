@@ -71,7 +71,7 @@ environment. Use Python 3.14 for current integrations; the package minimum is 3.
 | 48 | Apache Hop | Custom connection/transform plugin required | No packaged Hop ADBC connection supplied; native driver installation alone is insufficient. [Guide](data-engineering-adbc-support.md). |
 | 49 | RStudio | Managed native driver + R/DBI packages, or the Python wheel in its selected interpreter | Install in the actual R session/Python interpreter; preserve the documented R binding limits. [Guide](integrations/rstudio.md). |
 | 50 | Dataform | Custom target or external ingestion pipeline required | Standard Dataform workflows execute in BigQuery; no Redis target supplied. [Guide](data-engineering-adbc-support.md). |
-| 51 | Sling | Official Sling CLI + native Redis ADBC library | Use an explicit driver path, isolated metadata template overrides, and a precreated Redis table with direct truncate-and-load. No Python extra required. [Guide](integrations/sling.md). |
+| 51 | Sling | Official Sling CLI + native Redis ADBC library | Use Sling 1.6.8 or later with an explicit driver path; default full-refresh needs no template override. Precreate the Redis table with truncate/direct loading to keep declared types. No Python extra required. [Guide](integrations/sling.md). |
 
 ## Native clients, R and DuckDB
 
