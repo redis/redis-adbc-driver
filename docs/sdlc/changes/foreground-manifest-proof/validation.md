@@ -28,7 +28,8 @@ Final review checks correctness/lifetime, ACL/data ownership and source/evidence
 mapping. No remaining actionable finding is identified in this delta. This is an
 agent review, not a formal human approval. The separate recovery investigation
 [#345](https://github.com/redis/redis-adbc-driver/issues/345) remains unresolved;
-this performance change is not its fix.
+this performance change is not its fix. (Note added 2026-11-24: #345 was closed
+as not planned on 2026-11-07, without a fix.)
 
 ## Controlled foreground attribution
 

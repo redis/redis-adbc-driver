@@ -1,7 +1,8 @@
 # Partition validation and deployment ownership
 
 2026-10-21. [Issue #170](https://github.com/redis/redis-adbc-driver/issues/170)
-remains broader than local validation. A workflow definition is not a test result.
+was broader than local validation; it closed on 2026-10-26, and no open issue
+tracks the remaining gaps below. A workflow definition is not a test result.
 See [change evidence](sdlc/changes/partition-followups/evidence.md).
 
 | Environment | Durable job / remaining gate |

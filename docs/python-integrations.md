@@ -170,7 +170,10 @@ Install it separately; adapter imports now use `redis_adbc_integrations`.
 
 Install the wheel's `sqlalchemy` extra for SQLAlchemy >=2.1.9.
 
-Superset 6.1 is unsupported on Python 3.14+; see [the dependency blocker](https://github.com/redis/redis-adbc-driver/issues/471).
+Superset 6.1 is unsupported on Python 3.14+. The Superset adapter moved to the
+[redis-adbc-integrations guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md);
+[#471](https://github.com/redis/redis-adbc-driver/issues/471) is closed, and no
+Superset 7.x run is recorded in this repository.
 
 ```python
 from sqlalchemy import create_engine, inspect, text
@@ -192,7 +195,8 @@ does **not** undo writes. Savepoints and two-phase transactions are rejected.
 Use explicit values for IDs; ORM identity generation and transactional workloads
 are outside this connector's contract.
 
-Superset 6.1 is currently unsupported; see [the restoration tracker](https://github.com/redis/redis-adbc-driver/issues/471).
+For Superset, use the [moved guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md);
+restoration issue [#471](https://github.com/redis/redis-adbc-driver/issues/471) is closed.
 
 ## Dagster
 

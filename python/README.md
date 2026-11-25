@@ -227,5 +227,8 @@ The wrapper and native-read ABI are included in the v0.0.29 Python wheel;
 a source build is optional. See the [contract and examples](../docs/native-client.md)
 for installation, raw-byte/NULL semantics, ownership, and current limitations.
 
-Superset 6.1 is unsupported with the Python 3.14 minimum. Its older PyArrow
-dependency blocks supported wheels; [restoration is tracked in #471](https://github.com/redis/redis-adbc-driver/issues/471).
+Superset 6.1 is unsupported with the Python 3.14 minimum because its older
+PyArrow dependency blocks supported wheels. The adapter moved to the
+[redis-adbc-integrations guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md);
+[#471](https://github.com/redis/redis-adbc-driver/issues/471) is closed, and no
+Superset 7.x run is recorded in this repository.

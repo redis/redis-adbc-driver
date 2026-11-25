@@ -64,4 +64,4 @@ Nine synthetic-adapter tests use real child processes without database queries: 
 
 ## Focused live follow-up
 
-See [Q19 follow-up](Q19-FOLLOWUP.md) for the isolated SF1 measurements: direct Redis ADBC validates, while the third-path Q19 warm-up hits the 60-second deadline (tracked in #599). Full suites remain stopped.
+See [Q19 follow-up](Q19-FOLLOWUP.md) for the isolated SF1 measurements: direct Redis ADBC validates, while the third-path Q19 warm-up hit the 60-second deadline. [#599](https://github.com/redis/redis-adbc-driver/issues/599) closed on 2026-11-24 on 10% subset results after [PR #637](https://github.com/redis/redis-adbc-driver/pull/637); the SF1 third-path rerun is still pending in [#648](https://github.com/redis/redis-adbc-driver/issues/648). Full suites remain stopped.

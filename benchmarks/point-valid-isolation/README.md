@@ -202,9 +202,12 @@ forwarding, proxy, TLS or runtime mechanism is assigned from these comparisons.
 The standalone program deletes only its own seven expiring keys; deletion is
 best effort in the program, and independent coordinator verification observed an
 empty database/index set after this run. It does not FLUSH/SCAN other keys.
-No server configuration was changed. The [unsubmitted upstream draft](upstream-draft.md)
+No server configuration was changed. The [upstream draft](upstream-draft.md)
 and [selective FT.INFO proposal](selective-info-proposal.md) distinguish observed
-behavior from requested future capabilities. No external issue/comment was made.
+behavior from requested future capabilities. Both were submitted on 2026-11-15, as
+[docker/desktop-feedback#854](https://github.com/docker/desktop-feedback/issues/854)
+and [RediSearch/RediSearch#12337](https://github.com/RediSearch/RediSearch/issues/12337);
+both were open when checked on 2026-11-24.
 
 An unrun native Python/ADBC benchmark wrapper was prepared privately and excluded
 from this change after all read runtime candidates were rejected. No public

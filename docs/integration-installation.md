@@ -52,7 +52,7 @@ environment. Use Python 3.14 for current integrations; the package minimum is 3.
 | 29 | Plotly | `adbc-driver-redis[dbapi]` + `plotly` | Query/convert data in the plotting process; no Plotly-specific driver binary. [Guide](integrations/plotly.md). |
 | 30 | Matplotlib | `adbc-driver-redis[dbapi]` + `numpy matplotlib pillow` | Install in the rendering process; use the guide’s headless setup where needed. [Guide](integrations/matplotlib.md). |
 | 31 | Tableau | Custom connector/Flight SQL JDBC candidate | No packaged Tableau ADBC connector supplied; installing this library does not register a Tableau source. [Guide](data-engineering-adbc-support.md). |
-| 32 | Apache Superset | Version 6.1 is unsupported on Python 3.14+ | [Upstream dependency blocker #471](https://github.com/redis/redis-adbc-driver/issues/471). |
+| 32 | Apache Superset | Version 6.1 is unsupported on Python 3.14+ | The adapter moved to the [redis-adbc-integrations guide](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/superset.md). [#471](https://github.com/redis/redis-adbc-driver/issues/471) is closed; no Superset 7.x run is recorded here. |
 | 33 | Metabase | Custom Java database driver/connector required | No packaged Metabase driver supplied; a wheel cannot become a Metabase JDBC plugin. [Guide](data-engineering-adbc-support.md). |
 | 34 | Dagster | `redis-adbc-integrations[dagster]` (separate source install) | Install in code locations and execution workers; add pandas/Polars only for those asset types. [Guide](integrations/dagster.md). |
 | 35 | Prefect | `redis-adbc-integrations[prefect]` (separate source install) | Install in task execution images; open connections inside task processes. [Guide](integrations/prefect.md). |
