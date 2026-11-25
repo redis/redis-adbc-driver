@@ -672,6 +672,91 @@ func (e *executor) prepareTupleVisibility(ctx context.Context, meta *tableMeta, 
 	return nil
 }
 
+// flexPartitionGroups bounds the groups one Flex partition combines in
+// memory before handing them to its spill shards.
+const flexPartitionGroups = 4096
+
+// partialGroupCombiner combines a partition's partial tuples by key, with the
+// plan's exact combine, before they reach the spill: each group is passed on
+// once instead of one tuple per row. At most limit groups are held; adding a
+// new key beyond that first hands the held groups on.
+type partialGroupCombiner struct {
+	combine func(*spillTuple, spillTuple) error
+	limit   int
+	groups  map[string]*spillTuple
+	order   []string
+}
+
+func newPartialGroupCombiner(combine func(*spillTuple, spillTuple) error, limit int) *partialGroupCombiner {
+	return &partialGroupCombiner{combine: combine, limit: max(1, limit), groups: make(map[string]*spillTuple)}
+}
+
+func (c *partialGroupCombiner) add(tuple spillTuple, visit func(spillTuple) error) error {
+	if group := c.groups[tuple.key]; group != nil {
+		return combineSpillTuple(c.combine, group, tuple)
+	}
+	if len(c.groups) >= c.limit {
+		if err := c.flush(visit); err != nil {
+			return err
+		}
+	}
+	c.groups[tuple.key] = &tuple
+	c.order = append(c.order, tuple.key)
+	return nil
+}
+
+// flush passes every held group on, in first-seen order, and empties.
+func (c *partialGroupCombiner) flush(visit func(spillTuple) error) error {
+	for _, key := range c.order {
+		if err := visit(*c.groups[key]); err != nil {
+			return err
+		}
+	}
+	clear(c.groups)
+	c.order = c.order[:0]
+	return nil
+}
+
+// scanFlexPartialGroups is a Flex partition's row scan for partial groups.
+// Q1's four groups no longer fill the spill buffers with one tuple per row
+// that are later sorted and combined. Metrics count the same rows and value
+// bytes, reusing the tuple's encoded values instead of encoding them again.
+func (e *executor) scanFlexPartialGroups(ctx context.Context, req scanRequest, params []Value, p *tupleAggregatePlan, env *evalEnv, visit func(spillTuple) error) error {
+	groups := newPartialGroupCombiner(p.combine, flexPartitionGroups)
+	vals := make([]Value, len(p.cols)) // the tuple keeps encoded copies only
+	err := e.scanPages(ctx, req, params, func(rows []map[string]Value) error {
+		for _, row := range rows {
+			for i, c := range p.cols {
+				v, ok := row[c.Name]
+				if !ok {
+					v = nullValue(c.Type)
+				}
+				vals[i] = v
+			}
+			tuple, err := p.tuple(env, vals, 1)
+			if err != nil {
+				return err
+			}
+			if e.aggregateMetrics != nil {
+				e.aggregateMetrics.tuples.Add(1)
+				for i := range p.cols {
+					if !tuple.null[i] {
+						e.aggregateMetrics.valueBytes.Add(int64(len(p.cols[i].field()) + len(tuple.raw[i])))
+					}
+				}
+			}
+			if err := groups.add(tuple, visit); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return groups.flush(visit)
+}
+
 // Read an entire partition before accepting it. A group-limit error can
 // occur on a later cursor page: discard that attempt before splitting or
 // scanning, otherwise partial rows would be counted twice.
@@ -728,6 +813,9 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 			req.ranges = &rowIDRangeScan{lo: lo, hi: boundHi}
 		} else if plan.meta.SnapshotOverlay {
 			req.ranges = &rowIDRangeScan{lo: lo, hi: boundHi}
+		}
+		if flex && p.partialGroups && len(p.distinct) == 0 {
+			return local.scanFlexPartialGroups(ctx, req, params, p, env, visit)
 		}
 		return local.scanPages(ctx, req, params, func(rows []map[string]Value) error {
 			for _, row := range rows {
