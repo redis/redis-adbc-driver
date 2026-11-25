@@ -62,7 +62,10 @@ single-segment published tables. See the
 Grouped exact aggregates use the partitioned aggregate with Flex: each
 row-ID partition reads its exact directory range and checks the complete
 predicate on each row, without Search tuples, compact probes or Search
-visibility queries. An eager join reads a large input (at least 65,536 rows)
+visibility queries. Each partition combines its partial groups in memory
+(at most 4,096) before its spill, so a few groups no longer cost one spilled
+tuple per row; server-side aggregation stays off because it cannot be exact
+on Flex ([record](sdlc/changes/flex-q1-partials/validation.md)). An eager join reads a large input (at least 65,536 rows)
 through the same parallel readers, shared candidates or exact-directory
 ranges, unless the query reads that input's presence tag. See the
 [change record](sdlc/changes/flex-q1-q19/validation.md).
