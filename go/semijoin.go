@@ -611,9 +611,12 @@ func (sj *semiJoin) semiRowKey(lookup func(outerRef) (Value, error)) (key string
 	return string(buf), null, true, nil
 }
 
-// semiProbeKeys bounds one probe's key union. Search re-evaluates a union for
-// each result page, so per-key cost rises past a few hundred keys (measured
-// 0.41 ms/key at 250 and 0.60 ms/key at 1,000 keys of four rows each).
+// semiProbeKeys bounds one probe's key union. It was chosen when Search
+// re-evaluated a union for each row-ID window (measured 0.41 ms/key at 250
+// and 0.60 ms/key at 1,000 keys of four rows each). Since #631 a union of at
+// least snapshotUnionCompleteTerms keys reads its candidates in one or two
+// evaluations, whose cost is roughly linear in the key count; the bound now
+// mainly keeps batches small enough to run on parallel workers.
 const semiProbeKeys = 256
 
 // semiProbePage is how many in-memory rows (a join's, see scanMem) one

@@ -195,4 +195,67 @@ func TestSnapshotCandidateBoundedWindows(t *testing.T) {
 			t.Fatal("rows past a stale bound need open-ended tail pages")
 		}
 	})
+	t.Run("large union", func(t *testing.T) {
+		// #631: Search's cost for a union grows with its term count, and each
+		// row-ID window evaluates the whole union again. A large union's
+		// candidates are read completely, in at most two Search queries per
+		// source, with the same ordered rows and newer-segment visibility.
+		// Every third key, plus k = 50 (updated: a newer version of the same
+		// key) and k = 60 (deleted). k = 250 also has a newer version.
+		var keys, wantUnion []string
+		for i := 1; i <= 600; i += 3 {
+			keys = append(keys, strconv.Itoa(i))
+			if i == 49 {
+				keys = append(keys, "50")
+			}
+			if i == 58 {
+				keys = append(keys, "60")
+			}
+		}
+		for _, k := range keys {
+			if k != "60" {
+				wantUnion = append(wantUnion, k)
+			}
+		}
+		var terms []string
+		for _, k := range keys {
+			terms = append(terms, fmt.Sprintf("@k:[%s %s]", k, k))
+		}
+		query := "(" + strings.Join(terms, " | ") + ")"
+		hook := &candidateQueryHook{}
+		raw := h.rawClient(hook)
+		defer raw.Close()
+		st, ctx, pin := h.inspectionSnapshot(raw)
+		defer pin.release()
+		meta, err := st.getTable(ctx, defaultSchema, table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d := newSnapshotCandidateScan(ctx, st, meta, query, []string{"k"}, 4)
+		var got []string
+		for {
+			_, rows, err := d.next(ctx)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range rows {
+				got = append(got, row["k"])
+			}
+		}
+		if !reflect.DeepEqual(got, wantUnion) {
+			t.Fatalf("union candidates %v\nwant %v", got, wantUnion)
+		}
+		unions := 0
+		for _, q := range hook.queries {
+			if strings.Contains(q, " | ") {
+				unions++
+			}
+		}
+		if unions == 0 || unions > 2*len(d.sources) {
+			t.Fatalf("%d Search evaluations of a %d-term union for %d sources", unions, len(keys), len(d.sources))
+		}
+	})
 }
