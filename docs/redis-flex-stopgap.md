@@ -47,6 +47,18 @@ Streamed snowflake joins read their fact and large dimensions, including
 the largest table of a multi-table branch, through these exact-directory
 readers. See the [change record](sdlc/changes/tpch-flex-read-path/validation.md).
 
+A parallel join reader with a selective Flex filter counts the filter's
+complete Search candidates first. A set of at most 524,288 rows (64 MiB of
+keys) that fills at least two 256-row chunks is materialized once and split
+by row ID across the workers. Each worker still resolves newest-version
+visibility, fetches its rows and checks the complete predicate on each one.
+A set over the ordinary 131,072-row candidate budget reads exact-directory
+ranges, and other scans keep that budget. A streamed join's fact key demand
+may hold up to 4,096 keys with Flex (1,000 otherwise). After DML, a table's
+overlay filters are not pushed to Search, so these candidate paths apply to
+single-segment published tables. See the
+[change record](sdlc/changes/tpch-flex-q7-q8/validation.md).
+
 Final plain indexes retain `SKIPINITIALSCAN`. After private row images are
 complete, bounded guarded row-ID HSET notifications populate the fresh index.
 Publication requires readiness, no indexing failures, exact prefix/cardinality
