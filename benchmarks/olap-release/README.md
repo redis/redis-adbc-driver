@@ -54,13 +54,27 @@ The official released-scanner profile and direct Redis worker are unaffected.
 
 A live six-row smoke check on Redis Software with verified 4× QPF matched direct Redis ADBC for grouped exact decimals, duplicates and NULLs. DuckDB's plan showed an ADBC table scan, filter delivery, and local hash aggregation. It used DuckDB 2.0.1 and scanner revision `98ff0a39fc`. SF1 results are separate evidence, not inferred from this smoke test.
 
+## Worker memory isolation
+
+By default every child (setup, engine and validator) shares the client cgroup with the coordinator and `supervise.py`. A worker that exhausts that limit can then get the coordinator OOM-killed as well, losing the query record ([#660](https://github.com/redis/redis-adbc-driver/issues/660)). This is most likely when the worker's memory is charged to the cgroup but not to its own resident set, for example result files on a tmpfs.
+
+Optional integer `worker_memory_limit_bytes` in private `connection.json` (at least 16 MiB) runs each child in its own cgroup v2 leaf with that `memory.max` and `memory.oom.group` enabled. On first use, the coordinator moves every process in the client cgroup, including the supervisor, into a sibling `olap-harness` leaf. A worker OOM is then confined to that worker's leaf: the coordinator survives and records `worker_failed`. To keep results comparable with earlier runs, set it to the historical client limit (8 GiB is `8589934592`). Then give the client container at least 256 MiB more than that, for example `--memory 8448m --memory-swap 8448m`. The harness refuses to start when the tightest client limit leaves less headroom than that. It also refuses without cgroup v2, on a host's root cgroup, and when `/sys/fs/cgroup` is read-only. Docker mounts it read-only by default. Use `--privileged`, or `--cap-add SYS_ADMIN` and `mount -o remount,rw /sys/fs/cgroup` where the host's security profile allows the remount. Use only a disposable, dedicated client container, because the harness rearranges its cgroup.
+
+Each engine record keeps the client-level `oom_kills_delta`. It adds `memory` with `isolation`, the leaf's `limit_bytes`, its own `oom_kills`, and `peak_bytes` (`memory.peak`, which includes page cache). Validator leaves are reported in `<engine>_validation_memory`. The peak is a cgroup measurement, not a driver heap profile. Without the setting, records show `"memory": {"isolation": "shared"}` and metadata says the cgroup is shared. Memory a dead worker leaves behind, such as tmpfs files, still counts against the client limit until the coordinator deletes it. Keep `/private` on disk, or add headroom for the DuckDB reference result.
+
 ## Checks
 
 ```sh
 python3 -m unittest discover -s benchmarks/olap-release -p 'test_*.py' -v
 ```
 
-Nine synthetic-adapter tests use real child processes without database queries: distinct PIDs/import isolation, crash attribution, missing references, mismatch/no-ratio, validator timeout, private cleanup, output reuse refusal, credential redaction, bounded multi-pass sorting, truncation and separate third-path reporting. Related harness issue: [#596](https://github.com/redis/redis-adbc-driver/issues/596). Historical OOMs from a shared worker cannot establish the Redis driver's isolated memory requirement.
+The worker-OOM containment test runs only when explicitly enabled. It rearranges its cgroup, so run it only inside a disposable container. CI runs it with:
+
+```sh
+docker run --rm --privileged --memory 512m --memory-swap 512m --shm-size 256m -e OLAP_HARNESS_CGROUP_TESTS=1 -v "$PWD:/src:ro" -w /src/benchmarks/olap-release python:3.14-slim python -m unittest -v test_isolation.WorkerMemoryCgroupTests
+```
+
+Nine synthetic-adapter tests use real child processes without database queries: distinct PIDs/import isolation, crash attribution, missing references, mismatch/no-ratio, validator timeout, private cleanup, output reuse refusal, credential redaction, bounded multi-pass sorting, truncation and separate third-path reporting. Related harness issues: [#596](https://github.com/redis/redis-adbc-driver/issues/596) and [#660](https://github.com/redis/redis-adbc-driver/issues/660). Historical OOMs from a shared worker cannot establish the Redis driver's isolated memory requirement.
 
 ## Focused live follow-up
 

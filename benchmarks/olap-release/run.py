@@ -131,8 +131,9 @@ def parse_args():
 
 def setup(args):
     # This process always exits before any timed worker starts.
-    from isolation import client_threads, redis_options
+    from isolation import cgroup_limit, client_threads, redis_options, worker_memory_limit
     threads = client_threads(args.private)
+    worker_limit = worker_memory_limit(args.private)
     out = args.output / args.suite
     out.mkdir(parents=True, exist_ok=True)
     events = out / "events.jsonl"
@@ -146,7 +147,10 @@ def setup(args):
         "suite": args.suite, "scale_factor": 1, "warmups": 1, "repeats": 3,
         "statement_timeout_seconds": 60, "platform": platform.platform(),
         "architecture": platform.machine(), "client_cpus": threads, "client_threads": threads,
-        "client_memory_limit_bytes": int(Path('/sys/fs/cgroup/memory.max').read_text()),
+        "client_memory_limit_bytes": cgroup_limit(Path('/sys/fs/cgroup/memory.max')),
+        "worker_memory_limit_bytes": worker_limit,
+        "worker_memory_isolation": ("per-child cgroup v2 leaf; coordinator and supervisor outside the worker limit"
+                                    if worker_limit else "shared client cgroup: coordinator, supervisor and workers"),
         "duckdb_memory_limit": "8GB",
         "route": "Linux client in Redis Software server network namespace; TLS localhost",
         "table_mode": None if args.duckdb_only else "managed", "driver": importlib.metadata.version("adbc-driver-redis"),
@@ -207,8 +211,10 @@ def main():
     if not args.query:
         if (args.output / args.suite / "queries.jsonl").exists():
             raise ValueError("use a fresh output directory; do not overwrite historical results or metadata")
-        subprocess.run([sys.executable, "-u", str(Path(__file__).resolve()),
-                        *sys.argv[1:], "--phase", "setup"], check=True)
+        from isolation import worker_leaf, worker_memory
+        with worker_leaf(worker_memory(args.private), "setup") as leaf:
+            subprocess.run(leaf.wrap([sys.executable, "-u", str(Path(__file__).resolve()),
+                                      *sys.argv[1:], "--phase", "setup"]), check=True)
     if args.prepare_only or args.load_only:
         return
     from isolation import run_query

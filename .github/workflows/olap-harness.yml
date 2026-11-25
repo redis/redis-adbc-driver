@@ -25,3 +25,17 @@ jobs:
           python-version: '3.14'
       - name: Check isolated workers without databases or benchmark queries
         run: python -m unittest discover -s benchmarks/olap-release -p 'test_*.py' -v
+
+  worker-memory-cgroup:
+    # A disposable privileged container gives the test a writable cgroup v2
+    # mount; the test rearranges that container's cgroup (#660).
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check a worker OOM cannot kill the coordinator
+        run: >-
+          docker run --rm --privileged --memory 512m --memory-swap 512m --shm-size 256m
+          -e OLAP_HARNESS_CGROUP_TESTS=1 -e PYTHONDONTWRITEBYTECODE=1
+          -v "$PWD:/src:ro" -w /src/benchmarks/olap-release python:3.14-slim
+          python -m unittest -v test_isolation.WorkerMemoryCgroupTests
