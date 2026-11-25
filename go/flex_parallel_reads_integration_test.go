@@ -58,6 +58,55 @@ func flexPlan(t *testing.T, h *sqlHarness, query string) ([]string, map[string]a
 	return rows, diag
 }
 
+// With Flex, a grouped exact aggregate (TPC-H Q1's shape, including its
+// date-minus-interval filter) used to run the serial aggregate, one row at a
+// time (#636). It now uses the partitioned aggregate, each partition reading
+// its exact row-ID directory range with the complete predicate checked on
+// every row.
+func TestSQLFlexPartitionedAggregate(t *testing.T) {
+	h := newSQLHarnessWithOptions(t, map[string]string{OptionStringFlex: "true", OptionStringQueryWorkers: "4", OptionStringQueryWorkerBudget: "4"})
+	h.dropTables("it_fpa")
+	t.Cleanup(func() { h.dropTables("it_fpa") })
+	const n = 3*aggregatePartitionRows + 1000
+	h.exec("CREATE TABLE it_fpa (id BIGINT, g INTEGER, v DECIMAL(12,2), q BIGINT, d DATE)")
+	h.exec(fmt.Sprintf("INSERT INTO it_fpa SELECT i, i %% 5, CAST((i %% 1000) * 0.01 AS DECIMAL(12,2)), i %% 1000, DATE '1998-01-01' + (i %% 365) FROM generate_series(1,%d) AS s(i)", n))
+	const limit = 2*aggregatePartitionRows + 77
+	type group struct{ count, sum, min, max int64 }
+	want := map[int64]*group{}
+	for i := int64(1); i <= limit; i++ {
+		// Q1's filter: d <= 1998-12-01 - 90 days = 1998-09-02, day 244.
+		if i%365 > 244 {
+			continue
+		}
+		g, cents := i%5, i%1000
+		if want[g] == nil {
+			want[g] = &group{min: math.MaxInt64}
+		}
+		w := want[g]
+		w.count++
+		w.sum += cents
+		w.min, w.max = min(w.min, cents), max(w.max, cents)
+	}
+	cents := func(c int64) string { return fmt.Sprintf("%d.%02d", c/100, c%100) }
+	var wantRows []string
+	for g := int64(0); g < 5; g++ {
+		w := want[g]
+		wantRows = append(wantRows, fmt.Sprintf("%d|%d|%s|%d|%d|%d", g, w.count, cents(w.sum), w.sum, w.min, w.max))
+	}
+	// TPC-H Q1's shape: exact decimal sums and integer aggregates by group.
+	rows, diag := flexPlan(t, h, fmt.Sprintf("SELECT g, COUNT(*), SUM(v), SUM(q), MIN(q), MAX(q) FROM it_fpa WHERE d <= DATE '1998-12-01' - INTERVAL '90' DAY AND id <= %d GROUP BY g ORDER BY g", limit))
+	if strings.Join(rows, "\n") != strings.Join(wantRows, "\n") {
+		t.Fatalf("Flex partitioned aggregate:\n%s\nwant:\n%s", strings.Join(rows, "\n"), strings.Join(wantRows, "\n"))
+	}
+	plan, _ := diag["plan"].(map[string]any)
+	if plan["kind"] != "partitioned_exact" || plan["server_source_tuples"] != false || plan["client_compact_tuples"] != false {
+		t.Fatalf("grouped Flex aggregate did not read exact partitions: %v", diag)
+	}
+	if grant, _ := diag["worker_grant"].(float64); grant < 2 {
+		t.Fatalf("partitioned Flex aggregate ran on %v workers", diag["worker_grant"])
+	}
+}
+
 // With Flex, an eager join's large input (TPC-H Q19's lineitem) was read whole
 // and serially (#636). It is now read by the parallel chunk readers, and the
 // join's rows are unchanged, with NULL and duplicate keys.

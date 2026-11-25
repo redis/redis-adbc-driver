@@ -402,6 +402,19 @@ func aggregateGroupLimit(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "MAX_AGGREGATE_GROUPS") && strings.Contains(err.Error(), "GROUPBY")
 }
 
+// flexDirectoryWhere is wp for an exact-directory read with Flex: no Search
+// query, and the complete original predicate as the residual.
+// A plan without its original predicate keeps its Search query.
+func flexDirectoryWhere(wp wherePlan) wherePlan {
+	if wp.original == nil {
+		if wp.query != "*" {
+			return wp
+		}
+		return wherePlan{query: "*", residual: wp.residual, none: wp.none}
+	}
+	return wherePlan{query: "*", residual: wp.original, original: wp.original, none: wp.none}
+}
+
 func partitionWhere(wp wherePlan, lo, hi int64, tail bool) wherePlan {
 	upper := strconv.FormatInt(hi, 10)
 	if tail {
@@ -663,7 +676,8 @@ func (e *executor) prepareTupleVisibility(ctx context.Context, meta *tableMeta, 
 // occur on a later cursor page: discard that attempt before splitting or
 // scanning, otherwise partial rows would be counted twice.
 func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan, p *tupleAggregatePlan, wp wherePlan, params []Value, lo, hi int64, tail bool, visit func(spillTuple) error) error {
-	if plan.meta.SnapshotOverlay && !p.visibilityReady {
+	flex := e.store.flexSnapshotTable(plan.meta)
+	if plan.meta.SnapshotOverlay && !p.visibilityReady && !flex {
 		// Coordinators prepare once before starting workers. Independently
 		// invoked partitions must establish the same proof, without mutating a
 		// shape that another worker may share.
@@ -708,7 +722,11 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 			defer func() { e.telemetry.fetch.Add(stats.fetch.Load()) }()
 		}
 		req := scanRequest{meta: plan.meta, where: part, need: need}
-		if plan.meta.SnapshotOverlay {
+		if flex {
+			// Exact directory range, complete predicate on every row.
+			req.where = flexDirectoryWhere(wp)
+			req.ranges = &rowIDRangeScan{lo: lo, hi: boundHi}
+		} else if plan.meta.SnapshotOverlay {
 			req.ranges = &rowIDRangeScan{lo: lo, hi: boundHi}
 		}
 		return local.scanPages(ctx, req, params, func(rows []map[string]Value) error {
@@ -735,6 +753,9 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 			}
 			return nil
 		})
+	}
+	if flex {
+		return scan()
 	}
 	if p.compactRows {
 		return e.compactIntegerTuplePartition(ctx, plan, p, part, params, lo, boundHi, emit)
@@ -844,7 +865,10 @@ func addWeightedInteger(a *accumulator, v Value, n int64) {
 }
 
 func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value, force bool) (groups []aggGroup, handled bool, resultErr error) {
-	if e.store.flexEnabled() || e.gpu != nil {
+	// With Flex, managed partitions read exact directories (see
+	// aggregateTuplePartition); other Flex sources keep the serial aggregate.
+	flex := e.store.flexSnapshotTable(plan.meta)
+	if e.store.flexEnabled() && !flex || e.gpu != nil {
 		return nil, false, nil
 	}
 	if len(plan.meta.PendingCleanup) > 0 {
@@ -853,6 +877,12 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	p, ok := tupleAggregateShape(plan, aggs)
 	if !ok || wp.none || wp.keys != nil {
 		return nil, false, nil
+	}
+	if flex {
+		if wp.original == nil && wp.query != "*" {
+			return nil, false, nil
+		}
+		wp = flexDirectoryWhere(wp)
 	}
 	parentCtx, original := ctx, e
 	defer func() {
@@ -864,26 +894,30 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 			groups, resultErr = original.serialDriverAggregate(parentCtx, plan, wp, aggs, params)
 		}
 	}()
-	// Residual-only inputs must be retained in the server tuple before filtering.
-	need := map[string]bool{}
-	columnRefs(wp.residual, need)
-	for _, c := range plan.meta.Columns {
-		if !need[c.Name] {
-			continue
-		}
-		found := false
-		for _, old := range p.cols {
-			found = found || old.Name == c.Name
-		}
-		if !found {
-			if _, ok := distinctColumn(plan.meta, &ColumnRef{Name: c.Name}); !ok {
-				return nil, false, nil
+	// Residual-only inputs must be retained in the server tuple before
+	// filtering. With Flex there are no server tuples: each partition's row
+	// scan checks the complete predicate on the row itself.
+	if !flex {
+		need := map[string]bool{}
+		columnRefs(wp.residual, need)
+		for _, c := range plan.meta.Columns {
+			if !need[c.Name] {
+				continue
 			}
-			p.cols = append(p.cols, c)
+			found := false
+			for _, old := range p.cols {
+				found = found || old.Name == c.Name
+			}
+			if !found {
+				if _, ok := distinctColumn(plan.meta, &ColumnRef{Name: c.Name}); !ok {
+					return nil, false, nil
+				}
+				p.cols = append(p.cols, c)
+			}
 		}
-	}
-	if !distinctResidual(wp.residual, p.cols, nil) {
-		return nil, false, nil
+		if !distinctResidual(wp.residual, p.cols, nil) {
+			return nil, false, nil
+		}
 	}
 	last, err := e.store.rowSequence(ctx, plan.meta)
 	if errors.Is(err, goredis.Nil) {
@@ -895,7 +929,11 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	if (!force && last < aggregatePartitionRows) || last >= exactDoubleLimit {
 		return nil, false, nil
 	}
-	if err := e.prepareTupleVisibility(ctx, plan.meta, p); err != nil {
+	if flex {
+		// No Search tuples, compact probes or visibility queries: exact
+		// directories resolve visibility in every partition.
+		p.server, p.visibilityReady = false, true
+	} else if err := e.prepareTupleVisibility(ctx, plan.meta, p); err != nil {
 		return nil, true, err
 	}
 	if e.pushdown == PushdownNone {
@@ -908,7 +946,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 		}
 	}
 	var compactRTT time.Duration
-	if (!plan.meta.SnapshotOverlay || e.snapshotIndexable(ctx, plan.meta)) && compactIntegerTupleShape(plan.meta, p, wp) {
+	if !flex && (!plan.meta.SnapshotOverlay || e.snapshotIndexable(ctx, plan.meta)) && compactIntegerTupleShape(plan.meta, p, wp) {
 		p.compactRows, compactRTT = e.compactIntegerTupleRTT(ctx)
 		if p.compactRows {
 			p.server = false
