@@ -450,15 +450,8 @@ var snowflakeParallelDimensionRows int64 = 65536
 func (e *executor) scanParallelDimension(ctx context.Context, shape *starShape, jp *joinPlan, item int, params []Value, keep func([]map[string]Value) error) (handled bool, resultErr error) {
 	it := jp.items[item]
 	base := it.base
-	scope := snapshotOf(ctx)
-	if !shape.snowflake || e.workerBudget == nil || e.store == nil || !e.store.snapshots || scope == nil || scope.pin == nil ||
-		base.isMem || base.view != nil || !managedRowIDTable(base) || snapshotDataID(base.prefix()) == "" || len(base.PendingCleanup) > 0 {
+	if !shape.snowflake || !e.parallelTableEligible(ctx, base) {
 		return false, nil
-	}
-	for _, seg := range base.snapshotSegments() {
-		if snapshotOwns(ctx, seg.Prefix) {
-			return false, nil
-		}
 	}
 	if n, ok := starRows(base); !ok || n < snowflakeParallelDimensionRows {
 		return false, nil
@@ -484,8 +477,35 @@ func (e *executor) scanParallelDimension(ctx context.Context, shape *starShape, 
 	if wp.keys != nil {
 		return false, nil
 	}
-	// With Flex, a filter's shared complete candidates are split across the
-	// workers (sharedFlexCandidates); otherwise workers read exact directories.
+	return e.parallelTableRows(ctx, base, view, wp, predicate, need, params, int64(shape.dimensionCap()), keep)
+}
+
+// parallelTableEligible reports whether base can be read by the parallel
+// exact-directory or shared-candidate chunk readers: a published, driver-
+// owned managed table read under a statement pin, with no private segments.
+func (e *executor) parallelTableEligible(ctx context.Context, base *tableMeta) bool {
+	scope := snapshotOf(ctx)
+	if e.workerBudget == nil || e.store == nil || !e.store.snapshots || scope == nil || scope.pin == nil ||
+		base.isMem || base.view != nil || !managedRowIDTable(base) || snapshotDataID(base.prefix()) == "" || len(base.PendingCleanup) > 0 {
+		return false
+	}
+	for _, seg := range base.snapshotSegments() {
+		if snapshotOwns(ctx, seg.Prefix) {
+			return false
+		}
+	}
+	return true
+}
+
+// parallelTableRows reads one eligible table's rows matching predicate (wp is
+// its plan) with parallel workers, and keep receives them in chunk (row-ID)
+// order. With Flex, a filter's shared complete candidates are split across
+// the workers (sharedFlexCandidates); otherwise workers read exact
+// directories. The complete predicate is checked on every row. More than
+// limit rows end the read with errStarDimensionCap. handled false means the
+// table keeps its serial read.
+func (e *executor) parallelTableRows(ctx context.Context, base, view *tableMeta, wp wherePlan, predicate Expr, need map[string]bool, params []Value, limit int64, keep func([]map[string]Value) error) (handled bool, err error) {
+	scope := snapshotOf(ctx)
 	var cands *snapshotCandidateScan
 	var candBounds [][2]string
 	if wp.query != "*" {
@@ -507,6 +527,11 @@ func (e *executor) scanParallelDimension(ctx context.Context, shape *starShape, 
 	}
 	var grant, chunks int
 	var last int64
+	defer func() {
+		if grant > 0 && e.workerGrant != nil {
+			e.workerGrant.Store(int64(grant))
+		}
+	}()
 	if cands != nil {
 		if grant, err = e.workerBudget.acquireBounded(ctx, e.queryWorkers, min(len(candBounds), 32)); err != nil {
 			return true, cancelled(ctx)
@@ -543,7 +568,6 @@ func (e *executor) scanParallelDimension(ctx context.Context, shape *starShape, 
 	}
 	capacity := ownedFactRowCapacity(len(need))
 	results := make([][]map[string]Value, chunks)
-	limit := int64(shape.dimensionCap())
 	var total, next atomic.Int64
 	var wg sync.WaitGroup
 	var panicMu sync.Mutex

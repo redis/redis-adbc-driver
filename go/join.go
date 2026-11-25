@@ -528,6 +528,9 @@ func (it *joinItem) view() *tableMeta {
 // relation, which another alias (or a later execution) may read again.
 func (e *executor) scanJoinItem(ctx context.Context, it *joinItem, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
 	if !it.base.isMem || req.where.none {
+		if rows, handled, err := e.scanJoinItemFlexParallel(ctx, it, req, params); handled {
+			return nil, rows, err
+		}
 		return e.scan(ctx, req, params)
 	}
 	if err := cancelled(ctx); err != nil {
@@ -540,6 +543,35 @@ func (e *executor) scanJoinItem(ctx context.Context, it *joinItem, req scanReque
 	req.meta.mem = rows
 	defer func() { req.meta.mem = nil }()
 	return e.scan(ctx, req, params)
+}
+
+// With Flex, an eager join's large input whose filter Search cannot narrow
+// within the serial candidate budget, or that has no filter, was read whole
+// and serially (TPC-H Q19's lineitem, #636). It is read by the parallel chunk
+// readers instead: shared complete candidates when they fit, otherwise exact
+// directories, with the complete predicate checked on every row and rows in
+// row-ID order. It returns no keys, so the item's presence tag is true, as
+// for in-memory inputs; an input whose presence tag the query reads keeps
+// the serial scan (the snowflake planner uses the same rule).
+func (e *executor) scanJoinItemFlexParallel(ctx context.Context, it *joinItem, req scanRequest, params []Value) ([]map[string]Value, bool, error) {
+	if e.store == nil || !e.store.flexEnabled() || it.tag != "" && req.need[it.tag] || it.lateral != nil || req.where.none || req.where.keys != nil ||
+		req.ranges != nil || req.limit != nil || len(req.sortBy) != 0 || req.late != nil || req.ties != nil ||
+		len(req.dependencies) != 0 || len(req.visibility) != 0 || req.hashScan || req.authoritative || !e.parallelTableEligible(ctx, it.base) {
+		return nil, false, nil
+	}
+	if n, ok := starRows(it.base); !ok || n < snowflakeParallelDimensionRows {
+		return nil, false, nil
+	}
+	predicate := req.where.original
+	if !snowflakeParallelPredicate(predicate) {
+		return nil, false, nil
+	}
+	var rows []map[string]Value
+	handled, err := e.parallelTableRows(ctx, it.base, req.meta, req.where, predicate, req.need, params, math.MaxInt64, func(page []map[string]Value) error {
+		rows = append(rows, page...)
+		return nil
+	})
+	return rows, handled, err
 }
 
 // joinKey normalizes a value for hash-join equality: values that compare

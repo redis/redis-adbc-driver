@@ -59,6 +59,14 @@ overlay filters are not pushed to Search, so these candidate paths apply to
 single-segment published tables. See the
 [change record](sdlc/changes/tpch-flex-q7-q8/validation.md).
 
+Grouped exact aggregates use the partitioned aggregate with Flex: each
+row-ID partition reads its exact directory range and checks the complete
+predicate on each row, without Search tuples, compact probes or Search
+visibility queries. An eager join reads a large input (at least 65,536 rows)
+through the same parallel readers, shared candidates or exact-directory
+ranges, unless the query reads that input's presence tag. See the
+[change record](sdlc/changes/flex-q1-q19/validation.md).
+
 Final plain indexes retain `SKIPINITIALSCAN`. After private row images are
 complete, bounded guarded row-ID HSET notifications populate the fresh index.
 Publication requires readiness, no indexing failures, exact prefix/cardinality
