@@ -289,7 +289,9 @@ Require RESP3 for single-endpoint and Cluster API clients. Do not support RESP2
 or offer `protocol=2` as a compatibility option. Reject failed RESP3 negotiation.
 Connections must provide an ACL username and password (explicit `default` is allowed).
 Reject anonymous/password-only connections. Require Redis Functions and execute
-atomic driver operations through FCALL; never restore EVAL/EVALSHA or SCRIPT
+atomic driver operations through FCALL; declare bodies that cannot write with
+`newReadOnlyRedisFunction` (registered `no-writes`, invoked with FCALL_RO, so
+they run over maxmemory). Never restore EVAL/EVALSHA or SCRIPT
 fallbacks. Use SCAN-family enumeration rather than KEYS/SMEMBERS. After adding
 server functions, run `cd go && go generate .` and verify the inventory with
 `go run ./internal/cmd/genfunctions -check`. See the

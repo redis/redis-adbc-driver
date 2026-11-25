@@ -67,12 +67,14 @@ const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft
 	" %R~" + snapshotPrefix + "workspace:*:sequence-state:*"
 
 // ACL selectors keep FCALL's declared-key envelope separate from commands a
-// script may execute. Only this backend role/ACL domain HASH is writable; SADD registers
+// script may execute. FCALL_RO shares that selector: no-writes entry points
+// (the connection probe, namespace reads, capability probes) keep the same
+// envelope. Only this backend role/ACL domain HASH is writable; SADD registers
 // retention but cannot remove another principal's namespace.
 func rbacReaderACL(domain string) string {
 	own := snapshotReaderPrefix + snapshotReaderNamespace(domain)
 	return rbacBaseACL + " +time +scard +hlen +hstrlen +zcard +zrange +zrangebylex +zscore +zlexcount +memory|usage %R~" + snapshotReaderDirectory + " %R~" + snapshotReaderDomains + " %R~" + snapshotReaderPrefix + "* %R~" + snapshotPrefix + "members:*" +
-		" (+fcall ~" + snapshotCatalogKey + " ~" + snapshotPrefix + "*)" +
+		" (+fcall +fcall_ro ~" + snapshotCatalogKey + " ~" + snapshotPrefix + "*)" +
 		" (+hset +hdel ~" + own + ") (+sadd ~" + snapshotReaderDirectory + ")"
 }
 

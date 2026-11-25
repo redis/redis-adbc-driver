@@ -1225,7 +1225,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 				positions = append(positions, n+1)
 			}
 		}
-	case "fcall":
+	case "fcall", "fcall_ro":
 		if len(args) > 2 {
 			count, _ := strconv.Atoi(fmt.Sprint(args[2]))
 			for n := 3; n < 3+count && n < len(args); n++ {
@@ -2124,6 +2124,10 @@ func (s *store) snapshotCatalogInitialized(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// snapshotCatalogWriteProbeLua reports whether the caller may write the
+// catalog root, without writing it.
+const snapshotCatalogWriteProbeLua = `return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`
+
 // openSnapshotCatalog validates the storage format before recovery or any driver write.
 func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing ...bool) error {
 	allowExternal := len(importing) > 0 && importing[0]
@@ -2170,7 +2174,7 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 		return err
 	}
 	if initialized {
-		capable, err := once(ctx, s.client, "FCALL", redisFunctionName(`return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`), 1, snapshotCatalogKey).Int()
+		capable, err := once(ctx, s.client, append(newReadOnlyRedisFunction(snapshotCatalogWriteProbeLua).Args(1), snapshotCatalogKey)...).Int()
 		if err != nil {
 			return wrapRedis(err, "failed to inspect snapshot control capability")
 		}

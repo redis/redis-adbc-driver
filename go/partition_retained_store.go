@@ -78,7 +78,7 @@ func retainedSHA(data []byte) string {
 // Scripts are deliberately sent once; callers abort uncertain uploads. No
 // transport retry may turn a failed publication into a fresh execution.
 func (s *retainedStore) call(ctx context.Context, function redisFunction, keys []string, args ...any) (any, error) {
-	command := []any{"FCALL", function.Name(), len(keys)}
+	command := function.Args(len(keys))
 	for _, key := range keys {
 		command = append(command, key)
 	}

@@ -9,10 +9,12 @@ import (
 )
 
 func TestSnapshotBatchFunctionsNeverFallBack(t *testing.T) {
-	for _, script := range []struct{ body, name string }{{snapshotWriteBatchLua, snapshotWriteBatchDigest}, {snapshotIndexNotifyLua, snapshotIndexNotifyDigest}, {snapshotCompactionCopyLua, snapshotCompactionCopyDigest}, {snapshotPointReadLua, snapshotPointReadDigest}} {
+	// Only the read-only point read is sent with FCALL_RO; writers keep FCALL.
+	for _, script := range []struct{ body, name, command string }{{snapshotWriteBatchLua, snapshotWriteBatchDigest, "FCALL"}, {snapshotIndexNotifyLua, snapshotIndexNotifyDigest, "FCALL"}, {snapshotCompactionCopyLua, snapshotCompactionCopyDigest, "FCALL"}, {snapshotPointReadLua, snapshotPointReadDigest, "FCALL_RO"}} {
 		for _, failure := range []error{nil, io.ErrUnexpectedEOF, controlScriptNativeError("ERR Function not found"), controlScriptNativeError("NOPERM fcall")} {
 			args := []any{"FCALL", script.name, 2, snapshotCatalogKey, snapshotMetadataGraph, "opaque-token", string([]byte{'a', 0, 'b'}), "9007199254740993"}
 			before := append([]any(nil), args...)
+			before[0] = script.command
 			p := &controlScriptProcessor{t: t, step: func(_ int, _ goredis.Cmder) error { return failure }}
 			var runner snapshotControlExecutor
 			result := runner.runScript(context.Background(), p, script.name, args)

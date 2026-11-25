@@ -33,11 +33,21 @@ func snapshotObservedControlName(cmd goredis.Cmder) string {
 
 func snapshotObservedScriptBody(cmd goredis.Cmder) string {
 	args := cmd.Args()
-	if len(args) < 2 || !strings.EqualFold(fmt.Sprint(args[0]), "FCALL") {
+	if len(args) < 2 {
+		return ""
+	}
+	command := strings.ToUpper(fmt.Sprint(args[0]))
+	if command != "FCALL" && command != "FCALL_RO" {
 		return ""
 	}
 	for _, body := range redisFunctionBodies {
 		if args[1] == redisFunctionName(body) {
+			// The other command is not the driver's call: FCALL_RO refuses an
+			// unflagged function, and FCALL of a no-writes body is denied under
+			// OOM and needs write key permissions. Fakes then see an unknown call.
+			if command != redisFunctionCommand(redisFunctionName(body)) {
+				return ""
+			}
 			return body
 		}
 	}

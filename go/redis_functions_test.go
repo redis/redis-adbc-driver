@@ -19,7 +19,7 @@ import (
 func TestRedisFunctionManifest(t *testing.T) {
 	_, code := redisFunctionLibrary()
 	for _, p := range []struct{ name, body string }{{snapshotIndexNotifyDigest, snapshotIndexNotifyLua}, {snapshotControlDigest, snapshotControl}, {snapshotWriteBatchDigest, snapshotWriteBatchLua}, {snapshotCompactionCopyDigest, snapshotCompactionCopyLua}, {snapshotPointReadDigest, snapshotPointReadLua}} {
-		if !strings.Contains(code, "redis.register_function('"+p.name+"'") {
+		if !redisFunctionRegistered(code, p.name) {
 			t.Fatal("entry point absent from installed library", p.name)
 		}
 		if p.name != redisFunctionName(p.body) {
@@ -27,7 +27,7 @@ func TestRedisFunctionManifest(t *testing.T) {
 		}
 	}
 	for _, body := range redisFunctionBodies {
-		if !strings.Contains(code, "redis.register_function('"+redisFunctionName(body)+"'") {
+		if !redisFunctionRegistered(code, redisFunctionName(body)) {
 			t.Fatal("missing entry point")
 		}
 	}
@@ -60,11 +60,13 @@ func TestRedisFunctionsInitializationRefusals(t *testing.T) {
 				if n > len(tc.replies) {
 					t.Fatal("unexpected retry")
 				}
-				want := "FCALL"
+				// The probe is a no-writes entry point, so it still answers
+				// over maxmemory; FUNCTION LOAD itself is denied under OOM.
+				want := "FCALL_RO"
 				if n == 2 {
 					want = "FUNCTION"
 				}
-				if cmd.Args()[0] != want {
+				if cmd.Args()[0] != want || (want == "FCALL_RO" && cmd.Args()[1] != newReadOnlyRedisFunction("return 1").Name()) {
 					t.Fatal("legacy execution", cmd.Args()[0])
 				}
 				if n == 2 && (cmd.Args()[1] != "LOAD" || len(cmd.Args()) != 3) {

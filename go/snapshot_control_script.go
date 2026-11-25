@@ -21,8 +21,9 @@ func (e *snapshotControlExecutor) run(ctx context.Context, client processor, key
 
 // Every outcome, including a missing function or an ACL refusal, is returned
 // without fallback. Unknown mutation replies retain their durable resolution.
+// The named entry point selects FCALL or, for a no-writes body, FCALL_RO.
 func (e *snapshotControlExecutor) runScript(ctx context.Context, client processor, name string, args []any) *goredis.Cmd {
-	args[0], args[1] = "FCALL", name
+	args[0], args[1] = redisFunctionCommand(name), name
 	if err := ctx.Err(); err != nil {
 		cmd := goredis.NewCmd(ctx, args...)
 		cmd.SetErr(err)

@@ -3,7 +3,6 @@
 package redis
 
 var redisFunctionBodies = []string{
-	"if not redis.acl_check_cmd(unpack(ARGV)) then return redis.error_reply('NOPERM replacement command denied') end return 1",
 	"return 1",
 	`
 if redis.call('HDEL', KEYS[1], ARGV[1]) == 1 then
@@ -30,8 +29,6 @@ return 0
 	`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`,
 	`if redis.call('TYPE',KEYS[1]).ok ~= 'hash' then return 0 end; return redis.call('DEL',KEYS[1])`,
 	`local n=redis.call('SCARD',KEYS[1]);for _,v in ipairs(ARGV) do if redis.call('SISMEMBER',KEYS[1],v)==0 then n=n+1 end end;if n>128 then return redis.error_reply('RBAC reader domain limit (128) exceeded; administrator reconciliation required') end;return redis.call('SADD',KEYS[1],unpack(ARGV))`,
-	`local own='';for i=2,#KEYS do if redis.acl_check_cmd('HSET',KEYS[i],'probe','') and redis.acl_check_cmd('HDEL',KEYS[i],'probe') and redis.acl_check_cmd('SADD',KEYS[1],'probe') then if own~='' then return redis.error_reply('multiple reader authorization domains; SQL RBAC requires a single Redis role') end;own=KEYS[i] end end;return own`,
-	`return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`,
 	flexAllocateRowIDs,
 	keyRowInsertLua,
 	keyRowUpdateLua,
@@ -39,6 +36,7 @@ return 0
 	retainedCommitLua,
 	retainedPutLua,
 	retainedRevokeLua,
+	snapshotCatalogWriteProbeLua,
 	snapshotCompactionCopyLua,
 	snapshotControl,
 	snapshotDataEdges + snapshotDescriptorRefs + snapshotMutationAdmission + snapshotMutationPrepare + snapshotFlexRowLimit + snapshotMutationApply,
@@ -60,6 +58,7 @@ return 0
 	snapshotOperationStatusLua,
 	snapshotPointReadLua,
 	snapshotReaderControl,
+	snapshotReaderDomainProbeLua,
 	snapshotRowMutation,
 	snapshotSearchAdmission,
 	snapshotSequenceValueCAS,
@@ -67,4 +66,18 @@ return 0
 	unmanagedDeleteLua,
 	unmanagedReplaceDeleteLua,
 	unmanagedReplaceInspectLua,
+	unmanagedReplacePermissionLua,
+}
+
+// Registered with flags={'no-writes'} and invoked with FCALL_RO.
+var redisReadOnlyFunctionBodies = []string{
+	"return 1",
+	snapshotCatalogWriteProbeLua,
+	snapshotNamespaceRead,
+	snapshotOperationStatusLua,
+	snapshotPointReadLua,
+	snapshotReaderDomainProbeLua,
+	snapshotSearchAdmission,
+	unmanagedReplaceInspectLua,
+	unmanagedReplacePermissionLua,
 }

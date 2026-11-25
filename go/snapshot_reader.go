@@ -160,7 +160,7 @@ func (s *store) snapshotNamespaceKeys(ctx context.Context, directory string) ([]
 
 	// Atomic read-only size checks precede materializing an untrusted directory.
 	// A separate SCARD followed by SSCAN could race arbitrary raw SADD calls.
-	names, err := once(ctx, s.client, "FCALL", redisFunctionName(snapshotNamespaceRead), 1, directory).StringSlice()
+	names, err := once(ctx, s.client, append(newReadOnlyRedisFunction(snapshotNamespaceRead).Args(1), directory)...).StringSlice()
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +200,10 @@ func (s *store) registerRBACReaderDomains(ctx context.Context, manager *rbacMana
 	return wrapRedis(once(ctx, s.client, args...).Err(), "cannot register RBAC reader authorization domains")
 }
 
+// snapshotReaderDomainProbeLua names the one registered domain whose reader
+// HASH the caller may write; acl_check_cmd inspects permissions without writing.
+const snapshotReaderDomainProbeLua = `local own='';for i=2,#KEYS do if redis.acl_check_cmd('HSET',KEYS[i],'probe','') and redis.acl_check_cmd('HDEL',KEYS[i],'probe') and redis.acl_check_cmd('SADD',KEYS[1],'probe') then if own~='' then return redis.error_reply('multiple reader authorization domains; SQL RBAC requires a single Redis role') end;own=KEYS[i] end end;return own`
+
 func (s *store) discoverReaderDomain(ctx context.Context) (string, error) {
 	domains, err := s.snapshotNamespaceKeys(ctx, snapshotReaderDomains)
 	if err != nil {
@@ -207,7 +211,7 @@ func (s *store) discoverReaderDomain(ctx context.Context) (string, error) {
 	}
 	keys := []any{snapshotReaderDirectory}
 	keys = append(keys, domains[1:]...)
-	args := []any{"FCALL", redisFunctionName(`local own='';for i=2,#KEYS do if redis.acl_check_cmd('HSET',KEYS[i],'probe','') and redis.acl_check_cmd('HDEL',KEYS[i],'probe') and redis.acl_check_cmd('SADD',KEYS[1],'probe') then if own~='' then return redis.error_reply('multiple reader authorization domains; SQL RBAC requires a single Redis role') end;own=KEYS[i] end end;return own`), len(keys)}
+	args := newReadOnlyRedisFunction(snapshotReaderDomainProbeLua).Args(len(keys))
 	args = append(args, keys...)
 	own, err := once(ctx, s.client, args...).Text()
 	if err != nil {

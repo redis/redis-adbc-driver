@@ -65,7 +65,7 @@ configured `adbc:{retained:<namespace>}:*` keys. Normal connection setup also
 needs PING; Cluster clients need topology discovery/COMMAND and ASKING. It needs
 no EVAL/write permission or source table/index reads. Publishers need the state
 scripts and their declared namespace-scoped operations; they are trusted
-publishers for that namespace. Public ADBC read-only bootstrap additionally needs FCALL to probe the
+publishers for that namespace. Public ADBC read-only bootstrap additionally needs FCALL_RO to probe the
 preinstalled driver Functions library; it does not need FUNCTION LOAD or namespace
 writes. This is separate from the raw storage reader. Bootstrap is exercised with independent minimal-ACL
 worker processes. No TLS or RESP defaults change; final local storage
