@@ -645,8 +645,9 @@ type joinStep struct {
 // joinOrder returns the steps of the join. Outer joins keep the written
 // order. Inner joins (INNER, CROSS, comma) start from the table whose pushed
 // filters match the fewest rows (counted by its index), then repeatedly add
-// the smallest table connected to the ones already joined; each condition is
-// applied at the first step where all its tables are available.
+// the smallest table connected to the ones already joined, preferring one an
+// equality joins as a hash key over one only another condition reaches; each
+// condition is applied at the first step where all its tables are available.
 func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan) ([]joinStep, error) {
 	inner := true
 	for _, it := range jp.items {
@@ -732,12 +733,15 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 	dimensionProduct := int64(1)
 	for len(steps) < len(jp.items) {
 		connectedItems := make([]bool, len(jp.items))
-		best, bestConnected := -1, false
+		// An equality runJoin can hash on beats any other condition reading
+		// the joined tables, which only filters every pair (an OR or <> across
+		// tables, as in TPC-DS Q15/Q19/Q45), which beats no condition.
+		best, bestTier := -1, -1
 		for i := range jp.items {
 			if chosen[i] {
 				continue
 			}
-			connected := false
+			tier := 0
 			for _, pc := range pool {
 				if slices.Contains(pc.items, i) && len(pc.items) > 1 {
 					others := true
@@ -746,18 +750,22 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 							others = false
 						}
 					}
-					connected = connected || others
+					if others {
+						connectedItems[i] = true
+						tier = max(tier, 1)
+						if jp.hashJoinKey(pc.expr, i, chosen) {
+							tier = 2
+						}
+					}
 				}
 			}
-			connectedItems[i] = connected
-			better := best < 0 ||
-				(connected && !bestConnected) ||
-				(connected == bestConnected && counts[i] < counts[best])
+			better := best < 0 || tier > bestTier ||
+				(tier == bestTier && counts[i] < counts[best])
 			if len(steps) == 0 {
 				better = best < 0 || counts[i] < counts[best]
 			}
 			if better {
-				best, bestConnected = i, connected
+				best, bestTier = i, tier
 			}
 		}
 		if len(steps) > 0 {
@@ -1071,6 +1079,22 @@ func within(idx []int, set map[int]bool) bool {
 }
 
 func onlyItem(idx []int, i int) bool { return len(idx) == 1 && idx[0] == i }
+
+// hashJoinKey reports whether c is an equality that runJoin splits into a
+// hash key when item i joins the chosen items: one side reads only chosen
+// items and the other only item i.
+func (jp *joinPlan) hashJoinKey(c Expr, i int, chosen map[int]bool) bool {
+	b, ok := c.(*Binary)
+	if !ok || b.Op != "=" {
+		return false
+	}
+	li, lok := jp.itemsOf(b.L)
+	ri, rok := jp.itemsOf(b.R)
+	if !lok || !rok || len(li) == 0 || len(ri) == 0 {
+		return false
+	}
+	return within(li, chosen) && onlyItem(ri, i) || within(ri, chosen) && onlyItem(li, i)
+}
 
 func mergeRows(a, b map[string]Value) map[string]Value {
 	m := make(map[string]Value, len(a)+len(b))
