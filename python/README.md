@@ -111,7 +111,7 @@ Framework adapter profiles run in redis-adbc-integrations:
 | spark | 3.14 | `spark-tests`: fetched Arrow results into local Spark; Java required |
 | dbt | 3.14 | `dbt-tests` plus native adapter: build, model tests, catalog |
 | documents | 3.14 | `workflow-tests` plus R/Quarto: DBI reads/binding check and HTML render |
-| analysis | 3.14 | `analysis-tests`: Ibis expressions and MLflow dataset tracking; PyArrow below 26 |
+| analysis | 3.14 | `analysis-tests`: Ibis expressions and MLflow dataset tracking; PyArrow 26 |
 | beam | 3.14 | `beam-tests`: native ADBC reads inside local FnApi worker subprocesses |
 | mage | 3.14 | `mage-tests`: real local loader/transformer pipeline |
 | kestra | 3.14 | `kestra-tests`: native Python Script tasks, file handoff, checked task outputs; Java 25+ |
@@ -119,15 +119,15 @@ Framework adapter profiles run in redis-adbc-integrations:
 Ibis, MLflow, Beam, Mage, and Kestra each cover populated and empty results.
 These are custom native ADBC/Arrow/Python workflows. They do not establish an
 Ibis Redis backend, an MLflow Redis tracking store, a packaged Beam I/O connector,
-or hosted application support. MLflow 3.17.2's automatic digest fails on pandas
-3.1.0 empty string columns; the empty workflow uses its public explicit-digest
-option, while the exact default-path failure is retained as a strict expected
-failure ([upstream bug](https://github.com/mlflow/mlflow/issues/27358)).
+or hosted application support. The analysis profile requires MLflow 3.18.0,
+whose automatic digest handles empty pandas string columns
+([upstream fix](https://github.com/mlflow/mlflow/pull/27359)). Its empty
+workflow checks both the default digest and the public explicit-digest option.
 
-MLflow and Beam's released dependency caps require PyArrow below 26. Their
-profiles retain compatible versions. MLflow's PyArrow 26 update already merged
-in [#27216](https://github.com/mlflow/mlflow/pull/27216); Beam's request is
-[#40919](https://github.com/apache/beam/issues/40919).
+Beam's released dependency cap requires PyArrow below 26, so its profile retains
+a compatible version. Beam's PyArrow 26 support
+([#40927](https://github.com/apache/beam/pull/40927)) is merged but not yet in a
+release.
 
 Run just this follow-up batch with the same saved launcher and isolated profiles:
 
@@ -161,9 +161,10 @@ names or passing `all` delegates to the isolated all-native runner. The runner
 leaves Redis Software available; remove it with
 `COMPOSE_PROJECT_NAME=redis-adbc-candidates make -C go redis-down`.
 `SOFTWARE_DB_PORT`, `SOFTWARE_API_PORT` (default `29443`), and
-`CANDIDATE_COMPOSE_PROJECT` select another fixture. `REDIS_URI` is set to the
-verified fixture. Flight SQL paths are excluded. Hosted deployment, GPU/model
-scale, and browser UI coverage are not implied by these local tests.
+`CANDIDATE_COMPOSE_PROJECT` select another fixture. `REDIS_URI` and
+`SSL_CERT_FILE` come from the verified TLS fixture's `go/build/test.env`.
+Flight SQL paths are excluded. Hosted deployment, GPU/model scale, and browser
+UI coverage are not implied by these local tests.
 
 ### Ray workers with a private CA
 

@@ -41,7 +41,9 @@ case "$(uname -s)" in
   Linux) driver_extension=so ;;
   *) echo "unsupported driver build platform: $(uname -s)" >&2; exit 1 ;;
 esac
-export REDIS_URI="redis://127.0.0.1:${SOFTWARE_DB_PORT}/0"
+# redis-up writes the TLS fixture's authenticated REDIS_URI and its CA as
+# SSL_CERT_FILE. The test suite rejects plaintext Redis Software URIs.
+source "$repo_root/go/build/test.env"
 export REDIS_ADBC_LIBRARY="$repo_root/go/build/libadbc_driver_redis.${driver_extension}"
 export PYTHONPATH="$repo_root/python${PYTHONPATH:+:$PYTHONPATH}"
 export RUN_DUCKDB_TESTS=1

@@ -138,7 +138,17 @@ class RunnerTests(unittest.TestCase):
                     "CANDIDATE_RESULTS_DIR": str(self.results),
                     "CANDIDATE_PROFILES": "", "R_LIBS_USER": str(self.root / "r-library"),
                     "RSCRIPT": str(self.bin / "Rscript"), "QUARTO": str(self.bin / "quarto")}
-        self.write_command(self.bin / "make", '#!/bin/bash\necho "make $*" >> "$EVENTS"\n')
+        # Like software-setup.sh, redis-up publishes the TLS fixture's
+        # authenticated URI and CA in go/build/test.env.
+        self.fixture_uri = "rediss://default:fixture%20secret@localhost:26379/0"
+        self.fixture_ca = str(self.repo / "go/build/test-tls/ca.pem")
+        self.write_command(self.bin / "make", f'''#!/bin/bash
+echo "make $*" >> "$EVENTS"
+if [[ "$3" == redis-up ]]; then
+  mkdir -p "$2/build"
+  printf '%s\\n' "export REDIS_URI='{self.fixture_uri}'" "export SSL_CERT_FILE='{self.fixture_ca}'" > "$2/build/test.env"
+fi
+''')
         self.write_command(self.bin / "Rscript", '#!/bin/bash\necho Rscript >> "$EVENTS"\n')
         self.write_command(self.bin / "quarto", '#!/bin/bash\nexit 0\n')
         self.python = self.bin / "candidate-python"
@@ -147,6 +157,7 @@ import json, os, sys
 from pathlib import Path
 with open(os.environ["EVENTS"], "a") as out:
     out.write(json.dumps({"pytest": sys.argv[1:], "python": sys.argv[0],
+                          "uri": os.environ.get("REDIS_URI"),
                           "ssl": os.environ.get("SSL_CERT_FILE")}) + "\\n")
 xml = os.environ.get("CANDIDATE_JUNIT_XML")
 if xml:
@@ -197,8 +208,9 @@ echo '<testsuite><testcase/></testsuite>' > "$CANDIDATE_JUNIT_XML"
         self.assertEqual(self.read_events(), [])
         self.assertFalse(self.results.exists())
 
-    def test_every_profile_preserves_environment_selectors_and_special_hooks(self):
-        result = self.run_script("run-all-native-candidates.sh", SSL_CERT_FILE="unchanged")
+    def test_every_profile_uses_fixture_tls_environment_and_special_hooks(self):
+        result = self.run_script("run-all-native-candidates.sh", REDIS_URI="redis://stale:6379/0",
+                                 SSL_CERT_FILE="caller-ca.pem")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         events = self.read_events()
         invocations = [json.loads(e) for e in events if e.startswith("{")]
@@ -216,7 +228,10 @@ echo '<testsuite><testcase/></testsuite>' > "$CANDIDATE_JUNIT_XML"
             expected = [str(self.repo / "python/tests" / t) for tool in registry.PROFILES[profile].candidates
                         for t in registry.CANDIDATES[tool]]
             self.assertEqual(event["pytest"][-len(expected):], expected)
-            self.assertEqual(event["ssl"], "unchanged")
+            # Tests reach the runner's own verified TLS fixture, never a
+            # plaintext endpoint or a caller's unrelated URI or CA.
+            self.assertEqual(event["uri"], self.fixture_uri)
+            self.assertEqual(event["ssl"], self.fixture_ca)
         installs = [e["uv"] for e in invocations if "uv" in e and e["uv"][0] == "pip"]
         for name, p in registry.PROFILES.items():
             self.assertTrue(any(f"{self.repo}/python[{p.extras}]" in args
