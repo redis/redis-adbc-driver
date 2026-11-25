@@ -900,7 +900,12 @@ func (e *executor) semiJoinState(ctx context.Context, sq *Subquery) *semiResult 
 	r := &semiResult{}
 	e.cache.semi[sq] = r
 	plan := sq.semi.plan
-	if plan.meta.isMem || plan.meta.SnapshotOverlay && !e.snapshotIndexable(ctx, plan.meta) {
+	// Flex snapshot reads traverse exact row-ID directories and ignore Search
+	// candidates (snapshotIndexable is false there), so neither a per-row
+	// run nor a page probe's key union narrows the inner side: each would
+	// rescan it whole (#639). Build it once instead.
+	flex := e.store != nil && e.store.flexEnabled()
+	if plan.meta.isMem || flex || plan.meta.SnapshotOverlay && !e.snapshotIndexable(ctx, plan.meta) {
 		// Each per-row run filters the whole relation anyway.
 		r.eager = true
 		return r
