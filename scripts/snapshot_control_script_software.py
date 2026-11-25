@@ -2,7 +2,7 @@
 """Verify Function requirements and point leases on Redis Software.
 
 Destructive Go snapshot fixtures run only on an explicitly owned local test
-database. The temporary full operator excludes FCALL and must be rejected; it
+database. The temporary full operator excludes FCALL and FCALL_RO and must be rejected; it
 is not a restricted SQL reader. Credentials and operational identifiers remain in private files/env.
 """
 
@@ -60,7 +60,7 @@ def main():
         operator = "script-operator-" + uuid.uuid4().hex + "@example.com"
         point_operator = "point-lease-" + uuid.uuid4().hex + "@example.com"
         try:
-            principals.create(operator, secrets.token_urlsafe(32), ["~*", "+@all", "-fcall"])
+            principals.create(operator, secrets.token_urlsafe(32), ["~*", "+@all", "-fcall", "-fcall_ro"])
             principals.create(point_operator, secrets.token_urlsafe(32), ["~*", "+@all", "-hgetall"])
             verify()
             env = dict(os.environ, REDIS_SNAPSHOT_URI=uri,

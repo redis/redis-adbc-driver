@@ -404,7 +404,7 @@ are refused without migration. See [snapshots](snapshots.md).
 The command profile for trusted writers is:
 
 ```text
-+ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +sscan +sismember +multi +exec +watch +unwatch +fcall +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
++ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +sscan +sismember +multi +exec +watch +unwatch +fcall +fcall_ro +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 # Cluster API clients also need
 +cluster|shards +cluster|slots +command
 ```
@@ -418,14 +418,24 @@ Connections require an explicit ACL username and password (the explicitly named
 `default` ACL user is allowed); anonymous, password-only and empty-password
 connections are rejected before
 network access. RESP3 and Redis Functions are required. Atomic driver operations
-use `FCALL`; EVAL/EVALSHA and script-cache fallbacks are unsupported.
+use `FCALL`; EVAL/EVALSHA and script-cache fallbacks are unsupported. Entry
+points that cannot write (the connection probe, point and reader-namespace
+reads, operation status, Search admission and ACL capability probes) are
+registered with `flags={'no-writes'}` and invoked with `FCALL_RO`. They keep
+answering while the server is over `maxmemory`, Redis refuses any write they
+attempt, and their declared keys need only read permission. This also holds
+on a Redis Software Flex database at its logical memory limit; the Flex RAM-part
+(`bigredis-max-ram`) refusal is unverified. Every other entry point writes and
+stays on `FCALL`, which Redis denies under memory pressure.
 
 On each new socket the driver probes its versioned function library. If missing,
 it installs the library with `FUNCTION LOAD`, requiring `+function|load` on that
 initializer. A trusted administrator can initialize the database first so other
-roles need only `+fcall` and the commands/key permissions required by their
-operations. Library and function names include the complete driver function-set
-version; installation never replaces another version. A missing function, ACL
+roles need only `+fcall`, `+fcall_ro` and the commands/key permissions required
+by their operations. Without `+fcall_ro`, a new connection fails its probe with
+`Redis Functions are required: NOPERM`. Library and function names include the
+complete driver function-set version and each entry point's flags; installation
+never replaces another version. A missing function, ACL
 refusal or uncertain operation reply fails without replay. Reconnect after an
 administrator removes function libraries. Metadata set enumeration uses `SSCAN`;
 it deduplicates pages and does not persist cursors.
@@ -442,7 +452,7 @@ the old mutable recipe's `INCR`, `DUMP` and `RESTORE` are no longer required.
 For example, a trusted writer for `public` and temporary tables uses:
 
 ```text
-ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +sscan +sismember +multi +exec +watch +unwatch +fcall +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
+ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +sscan +sismember +multi +exec +watch +unwatch +fcall +fcall_ro +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 ```
 
 `HELLO` and `AUTH` are always allowed. Add `+select` for a nonzero URI database,

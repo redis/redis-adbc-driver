@@ -91,6 +91,15 @@ permissions is outside its ownership.
 SQL never creates users, changes their memberships, changes
 `roles_permissions`, or rewrites other ACL objects.
 
+The baseline grants `+fcall_ro` beside `+fcall` in its Functions selector.
+The driver's read-only Functions, including the probe every new connection
+runs, use `FCALL_RO`. A dedicated ACL provisioned from an older `reader-acl`
+lacks it: its readers fail to connect, and grant writers refuse it as
+containing unmanaged rules. The ACL is not migrated automatically. With grant
+writers stopped, replace it with the current `reader-acl` baseline followed by
+the ledger's sorted ` %R~<prefix>*` tokens, as in the recovery procedure below,
+and upgrade every grant writer before resuming.
+
 ## Behavior
 
 ```sql

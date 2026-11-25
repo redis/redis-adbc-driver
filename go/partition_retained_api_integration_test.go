@@ -279,7 +279,8 @@ func TestRetainedPartitionAPIIndependentProcessAndMinimalACL(t *testing.T) {
 		t.Fatal(err)
 	}
 	user := "it_retained_public_" + storage.namespace[3:15]
-	rules := []string{"+ping", "+fcall", "+time", "+getrange", "%R~" + storage.prefix + "*"}
+	// The worker's only Function is the no-writes connection probe: FCALL_RO.
+	rules := []string{"+ping", "+fcall_ro", "+time", "+getrange", "%R~" + storage.prefix + "*"}
 	if a.cluster {
 		rules = append(rules, "+cluster|shards", "+cluster|slots", "+command", "+asking")
 	}

@@ -321,7 +321,7 @@ func (s *store) snapshotOperationStatus(ctx context.Context, id string) (*Snapsh
 	if !snapshotMetadataID(id) {
 		return nil, errorf(adbc.StatusInvalidArgument, "invalid operation handle")
 	}
-	raw, err := once(ctx, s.client, "FCALL", redisFunctionName(snapshotOperationStatusLua), 2, snapshotCatalogKey, snapshotOperationKey(id), id).Text()
+	raw, err := once(ctx, s.client, append(newReadOnlyRedisFunction(snapshotOperationStatusLua).Args(2), snapshotCatalogKey, snapshotOperationKey(id), id)...).Text()
 	if err == goredis.Nil {
 		return nil, errorf(adbc.StatusNotFound, "operation not found or retention expired")
 	}

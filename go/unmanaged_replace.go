@@ -91,6 +91,10 @@ local image = redis.call('DUMP', KEYS[1])
 if #image > tonumber(ARGV[2]) then return redis.error_reply('ERR replacement inventory exceeds 64 MiB') end
 return {image, redis.call('PEXPIRETIME', KEYS[1])}
 `
+
+// unmanagedReplacePermissionLua asks only whether the caller may run ARGV.
+const unmanagedReplacePermissionLua = "if not redis.acl_check_cmd(unpack(ARGV)) then return redis.error_reply('NOPERM replacement command denied') end return 1"
+
 const unmanagedReplaceDeleteLua = `
 if redis.call('TYPE', KEYS[1]).ok ~= 'hash' or redis.call('DUMP', KEYS[1]) ~= ARGV[1] or tostring(redis.call('PEXPIRETIME', KEYS[1])) ~= ARGV[2] then return 0 end
 return redis.call('DEL', KEYS[1])
@@ -139,7 +143,7 @@ func (s *store) unmanagedReplaceInventory(ctx context.Context, meta *tableMeta) 
 			if remaining < 0 {
 				return nil, errorf(adbc.StatusInvalidArgument, "replacement inventory exceeds 64 MiB")
 			}
-			v, err := once(ctx, s.client, "FCALL", redisFunctionName(unmanagedReplaceInspectLua), 1, key, meta.Columns[0].field(), remaining).Slice()
+			v, err := once(ctx, s.client, append(newReadOnlyRedisFunction(unmanagedReplaceInspectLua).Args(1), key, meta.Columns[0].field(), remaining)...).Slice()
 			if err != nil {
 				return nil, wrapRedis(err, "replacement inventory refused")
 			}
@@ -391,7 +395,7 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 		{"HSET", probe, meta.Columns[0].field(), "0"}, {"TYPE", probe},
 		{"DUMP", probe}, {"PEXPIRETIME", probe}, {"EXISTS", probe},
 	} {
-		args := []any{"FCALL", redisFunctionName("if not redis.acl_check_cmd(unpack(ARGV)) then return redis.error_reply('NOPERM replacement command denied') end return 1"), 0}
+		args := newReadOnlyRedisFunction(unmanagedReplacePermissionLua).Args(0)
 		args = append(args, command...)
 		if err := once(ctx, st.client, args...).Err(); err != nil {
 			return 0, wrapRedis(err, "replacement permission preflight failed")

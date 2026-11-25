@@ -53,18 +53,18 @@ python -m adbc_driver_redis doctor
 The driver bundles its Functions library and installs it automatically when it
 first connects to a server where that version is missing. No Lua files or manual
 `FUNCTION LOAD` command are needed. Supply an explicit ACL username and password;
-the connecting user needs its normal application permissions, `+fcall`, and
-`+function|load` when installation is needed. The online `doctor` command above
+the connecting user needs its normal application permissions, `+fcall`,
+`+fcall_ro`, and `+function|load` when installation is needed. The online `doctor` command above
 exercises this same setup path.
 
 For restricted application users, run `doctor` first using a trusted setup user's
 credentials supplied through the environment or secret manager. After it succeeds,
-applications can connect with their own ACL credentials and `+fcall` without
-`+function|load`. Repeat the setup with the new driver before deploying an upgrade
+applications can connect with their own ACL credentials, `+fcall` and
+`+fcall_ro` without `+function|load`. Repeat the setup with the new driver before deploying an upgrade
 that changes its bundled library, and initialize new Cluster nodes before restricted
 clients use them. Existing libraries coexist. See the
 [ACL reference](driver-reference.md#acl-users) for the full application grants;
-FCALL alone does not authorize SQL data access.
+FCALL and FCALL_RO alone do not authorize SQL data access.
 
 `doctor` returns 0 when requested checks pass, 1 on a diagnostic failure and 2
 for invalid arguments. Without a URI it runs offline. `--offline` ignores

@@ -49,7 +49,8 @@ end
 return {1,row}
 `
 
-var snapshotPointReadDigest = newRedisFunction(snapshotPointReadLua).Name()
+var snapshotPointRead = newReadOnlyRedisFunction(snapshotPointReadLua)
+var snapshotPointReadDigest = snapshotPointRead.Name()
 
 // handled=false is only a local eligibility refusal or a definite top-level
 // script ACL refusal. A lost read reply fails the statement; it is not replayed.
@@ -74,7 +75,7 @@ func (s *store) fetchSnapshotPoint(ctx context.Context, seg snapshotSegment, key
 		names = append([]string{rowIDField}, fields...)
 		names = append(names, snapshotDeletedField)
 	}
-	args := []any{"FCALL", redisFunctionName(snapshotPointReadLua), 2, key, directory, member, strconv.FormatInt(seg.Rows, 10), owned, mode}
+	args := append(snapshotPointRead.Args(2), key, directory, member, strconv.FormatInt(seg.Rows, 10), owned, mode)
 	bytes := len(key) + len(directory) + len(member) + len(owned) + len(mode) + 20
 	for _, name := range names {
 		args = append(args, name)

@@ -51,7 +51,7 @@ var (
 		"+hset", "+hget", "+hmget", "+hgetall", "+hdel", "+hincrby", "+hexists",
 		"+sadd", "+srem", "+sscan", "+sismember",
 		"+multi", "+exec", "+watch", "+unwatch",
-		"+fcall", "+copy", "+dbsize", "+time", "+type", "+unlink", "+pexpireat",
+		"+fcall", "+fcall_ro", "+copy", "+dbsize", "+time", "+type", "+unlink", "+pexpireat",
 		"+hlen", "+hstrlen", "+hscan", "+scard", "+memory|usage",
 		"+zadd", "+zrem", "+zcard", "+zrange", "+zrangebylex", "+zrangebyscore", "+zremrangebyscore", "+zscore", "+zmscore", "+zlexcount",
 	}

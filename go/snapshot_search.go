@@ -32,7 +32,8 @@ const snapshotSearchAdmission = snapshotRowLayoutLua + snapshotMutationAdmission
 func snapshotSearchGate(ctx context.Context, cmd goredis.Cmder) *goredis.Cmd {
 	fenced := fenceSnapshotCommand(ctx, cmd).(snapshotFencedCommand)
 	args := append([]any(nil), fenced.args...)
-	args[1] = redisFunctionName(snapshotSearchAdmission)
+	gate := newReadOnlyRedisFunction(snapshotSearchAdmission)
+	args[0], args[1] = gate.Command(), gate.Name()
 	check := goredis.NewCmd(ctx, args...)
 	check.SetFirstKeyPos(3)
 	return check
