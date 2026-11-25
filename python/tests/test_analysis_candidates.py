@@ -45,6 +45,12 @@ def test_mlflow_dataset_tracking(uri, workflow_rows, tmp_path, monkeypatch, empt
     from mlflow.tracking import MlflowClient
 
     name, expected = workflow_rows
+    # SQL output retains each column's canonical declaration as field metadata.
+    declarations = ["BIGINT", "VARCHAR", "DOUBLE PRECISION", "BOOLEAN"]
+    expected = expected.cast(pa.schema([
+        field.with_metadata({b"ARROW:FLIGHT:SQL:TYPE_NAME": declaration.encode()})
+        for field, declaration in zip(expected.schema, declarations, strict=True)
+    ]))
     expected = expected.slice(0, 0) if empty else expected
     table = read_rows(uri, name, empty)
     assert table.equals(expected, check_metadata=True)
@@ -53,8 +59,8 @@ def test_mlflow_dataset_tracking(uri, workflow_rows, tmp_path, monkeypatch, empt
     experiment = client.create_experiment("native_adbc", artifact_location=(tmp_path / "artifacts").as_uri())
     options = {}
     if empty:
-        # MLflow 3.17.2's automatic digest fails on a pandas 3.1 empty string
-        # column. Its public explicit-digest option avoids that upstream path.
+        # Exercise MLflow's public explicit-digest option. The automatic digest
+        # on the same empty result is covered by test_mlflow_default_empty_digest.
         sink = pa.BufferOutputStream()
         with pa.ipc.new_stream(sink, table.schema) as writer:
             writer.write_table(table)
@@ -83,24 +89,16 @@ def test_mlflow_dataset_tracking(uri, workflow_rows, tmp_path, monkeypatch, empt
     assert artifact == {"rows": expected.to_pylist(), "schema": str(expected.schema)}
 
 
-class MLflowEmptyDigestCompatibilityError(AssertionError):
-    pass
-
-
-# https://github.com/mlflow/mlflow/issues/27358
-@pytest.mark.xfail(raises=MLflowEmptyDigestCompatibilityError, strict=True,
-                   reason="MLflow 3.17.2 automatic digest rejects pandas 3.1.0 empty string columns")
 def test_mlflow_default_empty_digest(uri, workflow_rows, monkeypatch):
+    # MLflow 3.17.2 failed here; 3.18.0 (mlflow/mlflow#27359) computes the
+    # automatic digest of empty Arrow-backed pandas string columns.
     monkeypatch.setenv("MLFLOW_DISABLE_AGENT_HINT", "1")
     mlflow = pytest.importorskip("mlflow")
     pandas = pytest.importorskip("pandas")
     name, _ = workflow_rows
     frame = read_rows(uri, name, True).to_pandas()
-    try:
-        dataset = mlflow.data.from_pandas(frame, name="empty_native_rows")
-    except NotImplementedError as error:
-        if (mlflow.__version__ == "3.17.2" and pandas.__version__ == "3.1.0"
-                and str(error) == "eq not implemented for <class 'type'>"):
-            raise MLflowEmptyDigestCompatibilityError(str(error)) from error
-        raise
-    assert dataset.profile["num_rows"] == 0
+    label = frame["label"].dtype
+    assert isinstance(label, pandas.StringDtype) and label.storage == "pyarrow"
+    dataset = mlflow.data.from_pandas(frame, name="empty_native_rows")
+    assert dataset.profile == {"num_rows": 0, "num_elements": 0}
+    assert isinstance(dataset.digest, str) and dataset.digest

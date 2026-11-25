@@ -6,9 +6,9 @@ sets the environment used below. Use a separate environment for this tool.
 
 ## Install and run
 
-The saved analysis profile uses PyArrow below 26; install `./python[analysis-tests]` from the repository root for that isolated dependency set.
+The saved analysis profile uses PyArrow 26; install `./python[analysis-tests]` from the repository root for that isolated dependency set.
 ```sh
-python -m pip install 'ibis-framework[duckdb]>=12' 'pyarrow>=18,<26'
+python -m pip install 'ibis-framework[duckdb]>=12' 'pyarrow>=26.0.1'
 ```
 
 Save the following as `example.py` in your working directory and run
