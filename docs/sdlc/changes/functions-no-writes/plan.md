@@ -2,7 +2,7 @@
 
 2026-11-25 · PR base: 16032de1 (live runs on the same change atop 9ea7ba76; the four intervening commits only spill joins and sorts) · Status: implemented and locally validated
 
-See [intent](intent.md) and [specification](spec.md).
+See [intent](intent.md) and [specification](spec.md); implemented in [redis/redis-adbc-driver#683](https://github.com/redis/redis-adbc-driver/pull/683).
 
 1. Inventory every Function body and call site. Audit each body for write and
    may-replicate commands, including commands that shared fragments define but
@@ -85,12 +85,19 @@ verified by the script and again by the over-maxmemory test.
   failed with `NOPERM … 'fcall_ro'`. With `+ping +fcall_ro +time +getrange` (no
   `+fcall`) it passed with an empty ACL log for the worker.
 
-Not run locally: `scripts/test_*partition_tls.py` and the Python Software ACL
-scripts changed here (`snapshot_gc_acl.py`, `snapshot_control_script_software.py`,
-`retained_partition_tls.py`). The validation venv couldn't be built because PyPI
-is outside this environment's network allowlist. The denied-operator gate above
-ran the Go test that `snapshot_control_script_software.py` drives. CI runs
-`check_partition_tls.py`, which includes the retained worker grant. The new
+- Python Software ACL scripts, after building the validation venv (`uv sync`,
+  run outside the agent sandbox because PyPI is off its allowlist) on a fresh
+  owned fixture prepared by `software_partition_tls.py` (verified API and
+  TLS-only proxy, 4x QPF re-verified). `snapshot_control_script_software.py`
+  passed `TestRedisFunctionsRejectEvalOnlySoftware` (operator
+  `+@all -fcall -fcall_ro`) and `TestSnapshotControlScriptPointLeaseSoftware`.
+  `snapshot_gc_acl.py` passed the GC, import, replace and insert permission
+  preflights and cleanup recovery, 5/5, with the `+fcall_ro` grants. The
+  offline `scripts/test_*partition_tls.py` passed 49/49.
+
+Not run locally: `retained_partition_tls.py` runs only inside
+`check_partition_tls.py`, which needs a built driver library and its own TLS
+fixture. PR CI runs it, and it includes the retained worker grant. The new
 integration test is opt-in, so CI skips it. This session did not test Flex.
 The requesting session's dedicated Flex database refused unflagged `FCALL` at
 its logical limit while `FCALL_RO` of the `no-writes` body answered (see

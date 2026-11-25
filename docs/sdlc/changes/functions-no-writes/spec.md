@@ -69,4 +69,4 @@ older `reader-acl` must be re-provisioned (see [SQL RBAC](../../../sql-rbac.md))
   exactly the read-only entry points. `FCALL_RO` of an unflagged entry point is
   refused.
 
-See [intent](intent.md) and [plan and validation](plan.md).
+See [intent](intent.md) and [plan and validation](plan.md); implemented in [redis/redis-adbc-driver#683](https://github.com/redis/redis-adbc-driver/pull/683).
