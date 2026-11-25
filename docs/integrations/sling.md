@@ -2,9 +2,10 @@
 
 [Sling](https://github.com/slingdata-io/sling-cli) can move PostgreSQL data into
 Redis through this driver's native ADBC library and read it back into PostgreSQL.
-Tested on macOS ARM64 with Sling 1.6.6, PostgreSQL 18.6, and Redis Software
-8.8.0 with three shards and verified active 4x QPF. This is a tested configuration,
-not a claim that every Sling load mode works.
+Tested on macOS ARM64 with a pre-release Sling 1.6.8 build, PostgreSQL 18.7, and
+Redis Software 8.8.0 with three shards and verified active 4x QPF. The build is
+the upstream `v1.6.8` branch at `df2c0388`; the official 1.6.8 release was not yet
+available. This is a tested configuration, not a claim that every Sling load mode works.
 
 This guide includes end-to-end setup recipes for
 [PostgreSQL](#postgresql-to-redis), [MySQL](#mysql-to-redis),
@@ -117,10 +118,11 @@ access, plus create/insert permissions only when seeding the sample data.
 
 ### 1. Install Sling and build the native Redis driver
 
-Pin Sling to the version with recorded integration evidence:
+Install Sling 1.6.8 or later. Earlier releases lack the metadata and empty-batch
+fixes this guide relies on; see [observed limitations](#observed-limitations).
 
 ```sh
-curl -fsSL https://slingdata.io/install.sh | bash -s -- v1.6.6
+curl -fsSL https://slingdata.io/install.sh | bash -s -- v1.6.8
 export PATH="$HOME/.sling/bin:$PATH"
 sling --version
 
@@ -141,14 +143,13 @@ an ADBC driver manager. Sling can download the manager on first use. Offline
 installations can set `ADBC_DRIVER_MANAGER_LIB` to an installed manager's absolute
 path; see [Sling's ADBC setup](https://docs.slingdata.io/connections/database-connections/adbc).
 
-### 2. Create an isolated Sling home and install the SQL template
+### 2. Create an isolated Sling home
 
 ```sh
 umask 077
 export SLING_HOME_DIR="$PWD/go/build/sling-guide"
 export SLING_DISABLE_TELEMETRY=true
-mkdir -p "$SLING_HOME_DIR/templates"
-cp scripts/sling/adbc.yaml "$SLING_HOME_DIR/templates/adbc.yaml"
+mkdir -p "$SLING_HOME_DIR"
 
 source go/build/test.env
 export REDIS_URI SSL_CERT_FILE
@@ -159,11 +160,11 @@ case "$(uname -s)" in
 esac
 ```
 
-The [template](../../scripts/sling/adbc.yaml) supplies Redis-compatible schema
-and column discovery, DROP and rename statements. The override affects all
-generic ADBC connections in this Sling home, so keep it isolated. It is required
-for the documented Sling 1.6.6 workflow; simply naming the Redis library does not
-supply Sling's missing Redis SQL templates.
+The isolated home keeps this walkthrough's Sling configuration and logs under
+ignored `go/build/`. Sling 1.6.8 has no SQL template for the Redis driver, so it
+reads schemas, tables and columns through ADBC `GetObjects`, drops only tables that
+exist, and renames with standard `ALTER TABLE ... RENAME TO`. No template override
+is needed.
 
 ### 3. Configure the Redis connection
 
@@ -195,13 +196,15 @@ before setting that declaration. Keep TLS certificate verification enabled.
 sling conns test REDIS_ADBC
 ```
 
-All source recipes below use this connection, template and isolated Sling home.
-They precreate a separate Redis table, then use `truncate` with `direct_insert`
-and `insert_concurrency: 1`, following the validated PostgreSQL approach.
+All source recipes below use this connection and isolated Sling home. They
+precreate a separate Redis table with explicit types, then use `truncate` with
+`direct_insert` and `insert_concurrency: 1`. That keeps the declared column types;
+Sling's default full-refresh also works without precreation but chooses its own
+types, as shown in the PostgreSQL section.
 **Each load deletes existing rows in its named Redis target and can leave it
 empty or partially loaded on failure.** Use fresh sample names on both sides;
 the source seed commands are intended to run once. Do not run cleanup against
-existing application data. Empty-source transfers remain unvalidated.
+existing application data.
 
 Keep connection values, keys and local Sling logs private. Replace every
 connection placeholder using your secret manager or private environment; do not
@@ -226,7 +229,7 @@ Configure the PostgreSQL CA trust required by your environment. Use URI encoding
 for reserved characters in credentials. See Sling's
 [PostgreSQL connector](https://docs.slingdata.io/connections/database-connections/postgres).
 
-### 4. Seed a small PostgreSQL source and precreate the Redis table
+### 4. Seed a small PostgreSQL source
 
 Use a fresh `demo` schema in both dedicated development databases. The following
 commands create a three-row dataset; choose different names if these objects
@@ -238,25 +241,21 @@ sling conns exec PG_SLING \
   'CREATE TABLE demo.source (id BIGINT, label TEXT, active BOOLEAN, amount NUMERIC(18,2), day DATE, happened_at TIMESTAMP(6), ratio DOUBLE PRECISION)' \
   "INSERT INTO demo.source VALUES (1, 'Alice', true, 12.50, '2026-01-01', '2026-01-01 12:00:00.123456', 0.5), (2, '世界', false, -3.25, '2026-01-02', '2026-01-02 12:00:00.000001', 1.25), (3, NULL, NULL, NULL, NULL, NULL, NULL)"
 
-sling conns exec REDIS_ADBC \
-  'CREATE SCHEMA IF NOT EXISTS demo' \
-  'CREATE TABLE demo.inbound (id BIGINT, label TEXT, active BOOLEAN, amount NUMERIC(18,2), day DATE, happened_at TIMESTAMP(6), ratio DOUBLE PRECISION)'
+sling conns exec REDIS_ADBC 'CREATE SCHEMA IF NOT EXISTS demo'
 ```
 
-Precreation sets the destination's intended types and avoids the default staging
-path's known empty-batch problem. For real migrations, map the source schema
-explicitly before loading; check unsigned integers, decimal precision, timestamp
-zones, binary columns and database-specific types.
+The Redis schema is created explicitly; the recorded test did not rely on Sling
+to create schemas.
 
 ### 5. Transfer PostgreSQL rows to Redis and read them back
 
-**The next command deletes existing rows in `demo.inbound` before loading.**
-A failed run can leave the table empty or partially loaded. Use a dedicated target.
+**The next command replaces `demo.inbound` if it exists.** Sling loads a
+`demo.inbound_tmp` staging table, writes the target from it, and drops the staging
+table. Use a dedicated target.
 
 ```sh
 sling run --src-conn PG_SLING --src-stream demo.source \
-  --tgt-conn REDIS_ADBC --tgt-object demo.inbound \
-  --mode truncate --tgt-options '{"direct_insert":true}'
+  --tgt-conn REDIS_ADBC --tgt-object demo.inbound --mode full-refresh
 
 sling conns exec REDIS_ADBC \
   'SELECT id, label, amount FROM demo.inbound ORDER BY id' \
@@ -264,11 +263,33 @@ sling conns exec REDIS_ADBC \
 ```
 
 The count should be three; the third row's label and amount should be NULL.
+Sling chooses the destination types: in the recorded test it created `amount` as
+`NUMERIC(38,9)` for the source's `NUMERIC(18,2)`, with the values unchanged. The
+other six columns kept their source types. Replacement spans multiple statements
+and is not atomic, even though the driver provides statement snapshots; a failed
+run can leave the target missing, empty or partially loaded.
+
+#### Keep declared destination types
+
+To keep exact declared types, precreate the Redis table and load it with
+`truncate` and `direct_insert`. **This deletes existing rows in
+`demo.inbound_typed` before loading.**
+
+```sh
+sling conns exec REDIS_ADBC \
+  'CREATE TABLE demo.inbound_typed (id BIGINT, label TEXT, active BOOLEAN, amount NUMERIC(18,2), day DATE, happened_at TIMESTAMP(6), ratio DOUBLE PRECISION)'
+
+sling run --src-conn PG_SLING --src-stream demo.source \
+  --tgt-conn REDIS_ADBC --tgt-object demo.inbound_typed \
+  --mode truncate --tgt-options '{"direct_insert":true}'
+```
+
 `direct_insert` bypasses Sling's staging table, as documented in
 [Sling's target options](https://docs.slingdata.io/concepts/replication/target-options).
 Keep `insert_concurrency: 1` on the Redis connection for this verified approach.
-Truncate plus loading spans multiple statements and is not an atomic replacement,
-even though the driver provides statement snapshots.
+For real migrations, map the source schema explicitly before loading; check
+unsigned integers, decimal precision, timestamp zones, binary columns and
+database-specific types.
 
 ## MySQL to Redis
 
@@ -615,16 +636,14 @@ and the [current import ownership rules](../snapshots.md).
 
 ## Save repeatable transfers as YAML
 
-After creating both schemas and the Redis table, save this as a private
+After creating the `demo` schema on both sides, save this as a private
 `postgres-to-redis.yaml`:
 
 ```yaml
 source: PG_SLING
 target: REDIS_ADBC
 defaults:
-  mode: truncate
-  target_options:
-    direct_insert: true
+  mode: full-refresh
 streams:
   demo.source:
     object: demo.inbound
@@ -651,15 +670,19 @@ sling run -r /private/path/redis-to-postgres.yaml
 
 The files use [Sling's replication format](https://docs.slingdata.io/concepts/replication).
 They contain connection names rather than credentials. The same destructive
-truncate/full-refresh semantics apply. These YAML equivalents have been checked
-against the documented format; the recorded integration harness uses CLI flags.
+full-refresh semantics apply. For a precreated, typed target, set `mode: truncate`
+and `target_options: {direct_insert: true}` instead. These YAML equivalents have
+been checked against the documented format; the recorded integration harness uses
+CLI flags.
 
 ## Clean up the walkthrough
 
 After inspecting the results, remove only the objects created for this walkthrough:
 
 ```sh
-sling conns exec REDIS_ADBC 'DROP TABLE IF EXISTS demo.inbound'
+sling conns exec REDIS_ADBC \
+  'DROP TABLE IF EXISTS demo.inbound' \
+  'DROP TABLE IF EXISTS demo.inbound_typed'
 sling conns exec PG_SLING \
   'DROP TABLE IF EXISTS demo.roundtrip' \
   'DROP TABLE IF EXISTS demo.source'
@@ -697,8 +720,8 @@ and exported file after review. Do not delete the source application HASHes.
 
 ## Run the integration test
 
-Install the official Sling 1.6.6 binary for your platform. Docker, a C compiler,
-Go, Python 3, curl, jq, and OpenSSL must be available for the repository setup.
+Install Sling 1.6.8 or later for your platform. Docker, a C compiler, Go,
+Python 3, curl, jq, and OpenSSL must be available for the repository setup.
 From the repository root:
 
 ```sh
@@ -708,10 +731,21 @@ python3 scripts/test_sling_postgres.py --sling /absolute/path/to/sling
 The [test](../../scripts/test_sling_postgres.py) runs `make -C go redis-up` to
 verify effective QPF=4, six Search workers, mnp routing/32 connections and
 noeviction, then builds the shared library with `make -C go build`. It starts a
-disposable PostgreSQL 18 container on a randomly assigned loopback port, seeds
-10,003 rows, runs two complete round trips, and verifies both directions with
-PostgreSQL `EXCEPT ALL`. It removes its uniquely named Redis schema and PostgreSQL
-container/volume afterward. The shared Redis Software fixture stays running.
+disposable PostgreSQL 18 container on a randomly assigned loopback port and seeds
+10,003 rows. Through a stock generic ADBC connection, it runs:
+
+- the empty `SELECT ... WHERE 1=0` query;
+- default full-refresh staging into a new, then an existing, Redis table;
+- two truncate/direct loads into a precreated Redis table;
+- Redis-to-PostgreSQL exports of each, compared with PostgreSQL `EXCEPT ALL`
+  in both directions;
+- empty sources, with and without `SLING_ALLOW_EMPTY`, and an empty Redis export;
+- `sling conns discover` on the staged table.
+
+It records the Redis and PostgreSQL column types as observations, checks that
+Sling removed its staging tables, and exits nonzero when any case fails or cannot
+run. It removes its uniquely named Redis schema and PostgreSQL container/volume
+afterward. The shared Redis Software fixture stays running.
 Raw logs, isolated Sling configuration, and local endpoints stay in ignored
 `go/build/sling-*/` directories. Sling telemetry is disabled by the test.
 Sling may download its ADBC driver manager into that isolated directory.
@@ -738,52 +772,54 @@ Set the persistence declaration only after verifying the endpoint's policy;
 the test performs that verification. Use a dedicated test database. Tables must
 be created or imported through the driver; arbitrary Redis keys are not SQL tables.
 
-Copy [the Redis ADBC template](../../scripts/sling/adbc.yaml) to
-`$SLING_HOME_DIR/templates/adbc.yaml`. Use an isolated Sling home because this
-override applies to all generic ADBC connections in that home. It supplies
-schema/column discovery and idempotent DROP/rename SQL through Sling's supported
-[template override mechanism](https://github.com/slingdata-io/sling-cli/blob/9d5186194e76e3e146b7d6367a6e27a961242dce/core/dbio/dbio_types.go).
-
-Precreate the Redis schema and table through `sling conns exec REDIS_ADBC` with
-the intended SQL types. Then run:
+Create the Redis schema through `sling conns exec REDIS_ADBC`. Sling 1.6.8 needs
+no template override. Default full-refresh stages and creates the target:
 
 ```sh
 sling run --src-conn PG_SLING --src-stream demo.source \
-  --tgt-conn REDIS_ADBC --tgt-object demo.inbound \
-  --mode truncate --tgt-options '{"direct_insert":true}'
+  --tgt-conn REDIS_ADBC --tgt-object demo.inbound --mode full-refresh
 
 sling run --src-conn REDIS_ADBC --src-stream demo.inbound \
   --tgt-conn PG_SLING --tgt-object demo.roundtrip --mode full-refresh
 ```
 
-Truncate/direct mode destroys the target's existing rows before loading and is
-not an atomic replacement. Failure can leave an empty or partially loaded table.
-No rollback or CDC/upsert guarantee is implied. The verified path uses Sling's
-ordinary row conversion and Arrow bulk ingestion; the token-gated Arrow lane
-was not enabled.
+To keep declared types, precreate the Redis table and load it with
+`--mode truncate --tgt-options '{"direct_insert":true}'`.
+
+Full-refresh replaces the target and truncate/direct mode destroys its existing
+rows before loading; neither is an atomic replacement. Failure can leave a
+missing, empty or partially loaded table. No rollback or CDC/upsert guarantee is
+implied. The verified paths use Sling's ordinary row conversion and Arrow bulk
+ingestion; the token-gated Arrow lane was not enabled.
 
 ## Observed limitations
 
-- Stock `driver_name: redis` full-refresh into Redis fails with
-  `Could not find template schemas` before ingestion. Redis is not one of
-  Sling's recognized driver names for SQL-template delegation.
-- Selecting PostgreSQL templates while retaining the explicit Redis library
-  fails on Sling's metadata query `(select current_catalog)`. That configuration
-  was investigated but is not the tested solution.
-- After adding metadata templates, default staging encounters a Sling panic
-  when an absent table's column query returns an empty Arrow batch. The smaller
-  reproducer is `sling conns exec REDIS_ADBC 'SELECT label FROM demo.inbound WHERE 1=0'`
-  against an existing table. Sling 1.6.6 exits nonzero with an Arrow string
-  array bounds panic. Its `makeRecordNextFunc` tries row zero without skipping
-  zero-row batches. Empty record batches are valid Arrow; no driver change was
-  made to hide this consumer behavior. Precreation/direct mode avoids this
-  path for the nonempty transfers tested here. Empty-source transfers remain
-  unvalidated and should not be assumed to work.
-- Destination DDL is not preserved exactly: Sling inferred `varchar(65500)`
-  from `text` and unconstrained `numeric` from `numeric(18,2)` on the return trip.
-  All tested values and NULLs survived exactly; this is value compatibility,
-  not complete PostgreSQL schema compatibility.
+Measured with the pre-release Sling 1.6.8 build named at the top of this guide;
+see the [validation record](../sdlc/changes/sling-v1-6-8/validation.md).
 
-See [validation evidence](../sdlc/changes/sling-postgres/validation.md).
-The interoperability results and compatibility gaps were reported upstream in
-[Sling issue #836](https://github.com/slingdata-io/sling-cli/issues/836).
+- Sling 1.6.6 failed a stock `driver_name: redis` full-refresh with
+  `Could not find template schemas`, and panicked on an empty Arrow batch such as
+  `sling conns exec REDIS_ADBC 'SELECT label FROM demo.inbound WHERE 1=0'`.
+  Sling 1.6.8 reads metadata through ADBC `GetObjects` and skips zero-row
+  batches ([Sling #836](https://github.com/slingdata-io/sling-cli/issues/836));
+  the stock connection, default staging and that query passed. Sling 1.6.7
+  predates both fixes and was not tested.
+- Sling chooses destination DDL. Default staging into Redis created `amount` as
+  `NUMERIC(38,9)` for the source's `NUMERIC(18,2)`; `NUMERIC(38,9)` holds at most
+  29 integer digits. `BIGINT`, `TEXT`, `BOOLEAN`, `DATE`, `TIMESTAMP(6)` and
+  `DOUBLE PRECISION` kept their types. Precreate the table to keep declared
+  precision and scale.
+- A PostgreSQL target receives unconstrained `numeric` for that column, from both
+  the precreated and the staged Redis table; upstream does this so that values of
+  any scale fit. `label` stays `text` (Sling 1.6.6 produced `varchar(65500)`).
+  All tested values and NULLs survived exactly; this is value compatibility, not
+  complete PostgreSQL schema compatibility.
+- In full-refresh mode an empty source creates no target table unless
+  `SLING_ALLOW_EMPTY=TRUE` is set, as for any Sling target. With it, Sling created
+  empty Redis and PostgreSQL tables. A truncate/direct load of an empty source left
+  the precreated Redis table empty. No staging tables remained after any transfer.
+- `sling conns discover` was not validated: the public-source build used here
+  omits it.
+
+The earlier [Sling 1.6.6 evidence](../sdlc/changes/sling-postgres/validation.md)
+records the template override and precreation workaround that these fixes retire.

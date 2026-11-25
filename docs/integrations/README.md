@@ -20,12 +20,12 @@ comparison, with Sling's standalone workflow recorded separately. The runner
 wires reusable SQLAlchemy, DBI, Fivetran and ADBC
 contracts into the testing harness, with explicit adapter gaps and skip counts.
 
-Sling has a separate [PostgreSQL round-trip test](../../scripts/test_sling_postgres.py):
-two 10,003-row round trips passed with zero value or duplicate differences on
-verified Redis Software 4x QPF. It requires template overrides and direct loading
-into a precreated Redis table; default staging and empty-result handling have
-documented failures. These results are separate from the historical Python guide
-sweep and upstream acceptance counts.
+Sling has a separate [PostgreSQL round-trip test](../../scripts/test_sling_postgres.py).
+With a pre-release Sling 1.6.8 build, 10,003-row round trips through default
+staging and through a precreated Redis table passed with zero value or duplicate
+differences on verified Redis Software 4x QPF, as did empty sources and empty
+results. No template override is required. These results are separate from the
+historical Python guide sweep and upstream acceptance counts.
 
 See [installation routes for all 51 inventory entries](../integration-installation.md).
 

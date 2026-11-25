@@ -225,11 +225,13 @@ Install it separately; adapter imports now use `redis_adbc_integrations`.
 ## Sling
 
 [Sling](https://slingdata.io) loads the native Redis ADBC shared library directly;
-it does not require a Python integration extra. PostgreSQL → Redis → PostgreSQL
-passed twice with 10,003 rows and zero value or duplicate differences on verified
-Redis Software 4x QPF. Redis-target writes require metadata template overrides,
-a precreated table, and direct truncate-and-load. Default staging and empty Arrow
-results have documented Sling limitations; this is not a performance benchmark.
+it does not require a Python integration extra. With a pre-release Sling 1.6.8
+build and a stock generic ADBC connection, PostgreSQL → Redis → PostgreSQL passed
+with 10,003 rows and zero value or duplicate differences on verified Redis Software
+4x QPF, through both default staging and truncate-and-load into a precreated table.
+Empty sources and empty Arrow results also passed. Sling 1.6.8 needs no template
+override; it widens `NUMERIC(18,2)` to `NUMERIC(38,9)` when staging into Redis.
+This is not a performance benchmark.
 See the [Sling guide](integrations/sling.md) for setup and the
 [standalone test](../scripts/test_sling_postgres.py) for reproduction.
 
