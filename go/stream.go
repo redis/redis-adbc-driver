@@ -222,6 +222,14 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 	if sc.req.where.none || !incrementalScan(plan, sc) {
 		rows, handled, err := e.selectTopK(ctx, plan, sc, params)
 		if !handled {
+			// A global sort larger than its memory budget streams from spilled
+			// runs (#654); smaller ones return their rows as below.
+			var sorted *streamReader
+			if rows, sorted, handled, err = e.sortSpillSelect(ctx, plan, sc, params, so); sorted != nil {
+				return execResult{isQuery: true, cols: sorted.cols, stream: sorted, affected: -1}, nil
+			}
+		}
+		if !handled {
 			rows, err = e.selectScanned(ctx, plan, sc, params)
 		}
 		if err != nil {
@@ -297,7 +305,7 @@ type streamReader struct {
 	cache    *execCache // the statement's, for checkReads
 	owners   []*streams
 	it       *scanIter
-	union    *unionRows
+	union    streamRowSource // a UNION ALL tree or a spilled sort instead of a scan
 	distinct *streamDistinct
 	items    []planItem
 	env      *evalEnv
@@ -323,6 +331,13 @@ type streamReader struct {
 	cur          arrow.RecordBatch
 	err          error
 	closed       bool
+}
+
+// streamRowSource is a stream's source of finished rows other than a scan: a
+// UNION ALL tree (union_stream.go) or a spilled sort's merge (sort_spill.go).
+type streamRowSource interface {
+	next(context.Context) ([]Value, error)
+	close()
 }
 
 // fill reads pages until a batch of rows is pending, or the rows end.

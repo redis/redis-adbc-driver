@@ -1902,11 +1902,19 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 // selectScanned reads the rows prepareScan planned, then computes windows,
 // sorts, limits and evaluates the select list.
 func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selectScan, params []Value) ([][]Value, error) {
-	meta, sel, indexSort, pushLimit := plan.meta, plan.sel, sc.indexSort, sc.pushLimit
 	_, rows, err := e.scan(ctx, sc.req, params)
 	if err != nil {
 		return nil, err
 	}
+	return e.selectRows(ctx, plan, sc, rows, nil, params)
+}
+
+// selectRows is selectScanned after its scan: windows, sort, limit and the
+// select list over rows. keys, if set, are the rows' ORDER BY keys, already
+// evaluated in order (sortSpillSelect evaluates them while buffering).
+func (e *executor) selectRows(ctx context.Context, plan *selectPlan, sc selectScan, rows []map[string]Value, keys [][]Value, params []Value) ([][]Value, error) {
+	meta, sel, indexSort, pushLimit := plan.meta, plan.sel, sc.indexSort, sc.pushLimit
+	var err error
 	env := e.newEnv(ctx, meta.types(), params)
 	if err := retainedAllocate(ctx, int64(len(rows)), int64(len(plan.order))*512+64); err != nil {
 		return nil, err
@@ -1923,18 +1931,20 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 		}
 	}
 	if !indexSort && len(plan.order) > 0 {
-		keys := make([][]Value, len(rows))
-		for _, i := range idx {
-			if err := cancelled(ctx); err != nil {
-				return nil, err
-			}
-			setRow(i)
-			for _, o := range plan.order {
-				k, err := env.eval(o.expr)
-				if err != nil {
-					return nil, invalidArg(err)
+		if keys == nil {
+			keys = make([][]Value, len(rows))
+			for _, i := range idx {
+				if err := cancelled(ctx); err != nil {
+					return nil, err
 				}
-				keys[i] = append(keys[i], k)
+				setRow(i)
+				for _, o := range plan.order {
+					k, err := env.eval(o.expr)
+					if err != nil {
+						return nil, invalidArg(err)
+					}
+					keys[i] = append(keys[i], k)
+				}
 			}
 		}
 		if err := sortSlice(ctx, idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], plan.order) }); err != nil {

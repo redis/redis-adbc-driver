@@ -265,7 +265,11 @@ measurement of total server memory or flash allocation.
 Larger pages reduced broad-query latency and increased some heap peaks. For wide
 values, configure `adbc.redis.stream_batch_bytes` as well as row batching. The
 measured 8 MiB Arrow budget reduced client heap but is not a total-query memory
-limit. Full sorts still materialize results and have no general spill path.
+limit. A streamed single-table `ORDER BY` that Search cannot sort spills sorted
+runs to query-local files above an estimated 256 MiB of buffered rows and streams
+their merge ([sort spill](sdlc/changes/sort-spill/spec.md), #654). Other sorts
+(subqueries, joins, set operations, windows, DISTINCT) still materialize, and
+joins have no spill path.
 
 - [#325](https://github.com/redis/redis-adbc-driver/issues/325) and
   [#326](https://github.com/redis/redis-adbc-driver/issues/326) remain open and

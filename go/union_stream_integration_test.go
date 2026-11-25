@@ -124,7 +124,11 @@ func TestUnionAllStreamSemantics(t *testing.T) {
 	}
 }
 
-func unionActiveLeaf(n *unionRows) *streamReader {
+func unionActiveLeaf(src streamRowSource) *streamReader {
+	n, ok := src.(*unionRows)
+	if !ok || n == nil {
+		return nil
+	}
 	if n.leaf != nil {
 		return n.leaf
 	}
@@ -168,7 +172,7 @@ func TestUnionAllStreamLifecycle(t *testing.T) {
 			if leaf == nil || id == 0 {
 				t.Fatal("no active child cursor")
 			}
-			if reader.union.children[1].leaf != nil {
+			if reader.union.(*unionRows).children[1].leaf != nil {
 				t.Fatal("right branch opened eagerly")
 			}
 			// Retained consumer buffers survive cancellation/connection close.
@@ -209,7 +213,7 @@ func TestUnionAllStreamLifecycle(t *testing.T) {
 		root := inspectionReader(r).(*streamReader)
 		leaf := unionActiveLeaf(root.union)
 		id := cursorOf(leaf)
-		if !root.union.children[0].closed || root.union.children[1].leaf != leaf || id == 0 {
+		if u := root.union.(*unionRows); !u.children[0].closed || u.children[1].leaf != leaf || id == 0 {
 			r.Release()
 			t.Fatal("child transition did not close left/open right")
 		}
