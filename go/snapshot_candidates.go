@@ -40,6 +40,8 @@ type snapshotCandidateSource struct {
 	done    bool
 	// width is the current row-ID window (0: open-ended keyset pages).
 	width int64
+	// tried is set once a large union's complete read was attempted.
+	tried bool
 }
 
 // snapshotCandidateWindowPages is the initial window width in pages.
@@ -47,6 +49,27 @@ const snapshotCandidateWindowPages = 16
 
 // snapshotCandidateMaxWindow bounds window growth below the exact-double range.
 const snapshotCandidateMaxWindow = int64(1) << 40
+
+// A pushed query with at least snapshotUnionCompleteTerms union alternatives
+// reads each source's candidates completely, in at most two unsorted Search
+// queries, instead of in row-ID windows (#631). Search's cost for a union
+// grows with its term count (about 40 µs per term on Software 8.8), and every
+// window evaluates the whole union again, so a 1,000-key lookup paged through
+// twenty windows cost 8–9× a range that returns as many rows.
+const snapshotUnionCompleteTerms = 64
+
+// The complete read is bounded like Flex's (snapshotFlexCandidateCap): a
+// union with more candidates keeps row-ID windows.
+const snapshotUnionCandidateCap = snapshotFlexCandidateCap
+const snapshotUnionCandidateBytes = snapshotFlexCandidateBytes
+
+// unionAlternatives counts a pushed query's union alternatives beyond the
+// first of each union: numeric `(@c:[a a] | @c:[b b])` and TAG `@c:{a | b}`
+// separate them with " | ", which escaped TAG text never contains (spaces
+// are escaped). It only selects how candidates are read.
+func unionAlternatives(query string) int {
+	return strings.Count(query, " | ")
+}
 
 type snapshotCandidateScan struct {
 	store        *store
@@ -56,6 +79,10 @@ type snapshotCandidateScan struct {
 	fields       []string
 	page         int
 	completeFlex bool // prefetched complete plain Search candidates; exact int64 identities
+	// completeUnion reads each source's candidates completely on first use
+	// (see snapshotUnionCompleteTerms); cap is the Search result cap.
+	completeUnion bool
+	cap           int64
 	// bound is an upper bound of the sources' row IDs (the table's row
 	// sequence, read once). Windows end there; 0 keeps open-ended pages.
 	bound int64
@@ -82,7 +109,8 @@ func (e *executor) snapshotIndexable(ctx context.Context, m *tableMeta) bool {
 }
 func newSnapshotCandidateScan(ctx context.Context, s *store, m *tableMeta, query string, fields []string, pageRows int) *snapshotCandidateScan {
 	cap := s.paginationCaps(ctx, snapshotSourceIndex(ctx, m))[0]
-	d := &snapshotCandidateScan{store: s, meta: m, query: query, fields: fields, page: int(min(int64(pageRows), cap))}
+	d := &snapshotCandidateScan{store: s, meta: m, query: query, fields: fields, page: int(min(int64(pageRows), cap)), cap: cap}
+	d.completeUnion = d.page > 0 && unionAlternatives(query) >= snapshotUnionCompleteTerms
 	// The pinned published segments' row IDs were allocated before this read,
 	// so the current sequence bounds them. Any read failure keeps the original
 	// open-ended pages; a stale bound only costs the final tail page.
@@ -121,8 +149,74 @@ func (d *snapshotCandidateScan) candidateQuery(src *snapshotCandidateSource) (qu
 	return fmt.Sprintf("(%s) %s", d.query, rangeTerm), hi
 }
 
+// readCompleteUnion reads every Search candidate of src in at most two
+// unsorted queries: one page-sized read, and a complete one when more match
+// (up to snapshotUnionCandidateCap). It reports false, leaving src
+// unchanged, when the union has more candidates or its reply is not
+// provably complete; row-ID windows then read src as before. Candidates get
+// the windows' identity checks, and visibility, HASH identity and directory
+// verification stay with the merge.
+func (d *snapshotCandidateScan) readCompleteUnion(ctx context.Context, src *snapshotCandidateSource) (bool, error) {
+	limit := int64(d.page)
+	maxRows := min(d.cap, snapshotUnionCandidateCap, snapshotUnionCandidateBytes/int64(len(src.segment.Prefix)+20))
+	for attempt := 0; attempt < 2; attempt++ {
+		if err := cancelled(ctx); err != nil {
+			return false, err
+		}
+		reply, err := d.store.searchDo(ctx, src.segment.Index, "FT.SEARCH", src.segment.Index, d.query, "NOCONTENT", "LIMIT", 0, limit, "TIMEOUT", 0, "DIALECT", 2).Result()
+		if err != nil {
+			return false, wrapRedis(err, "failed to read snapshot index candidates")
+		}
+		if snapshotReplyWarning(reply) {
+			return false, errorf(adbc.StatusIO, "snapshot candidate query returned a partial-result warning")
+		}
+		total, err := parseSearchCount(reply)
+		if err != nil {
+			return false, err
+		}
+		if total > limit {
+			if attempt > 0 || total > maxRows {
+				return false, nil
+			}
+			limit = total
+			continue
+		}
+		keys, err := parseSearchKeys(reply)
+		if err != nil {
+			return false, err
+		}
+		if int64(len(keys)) != total {
+			return false, nil
+		}
+		ids := make([]string, len(keys))
+		for j, key := range keys {
+			suffix, ok := strings.CutPrefix(key, src.segment.Prefix)
+			n, err := strconv.ParseInt(suffix, 10, 64)
+			if !ok || err != nil || n < 1 || n >= exactDoubleLimit || strconv.FormatInt(n, 10) != suffix {
+				return false, errorf(adbc.StatusIO, "snapshot candidate row order or identity is invalid")
+			}
+			ids[j] = fmt.Sprintf("%020d", n)
+		}
+		sort.Strings(ids)
+		for j := 1; j < len(ids); j++ {
+			if ids[j] == ids[j-1] {
+				return false, errorf(adbc.StatusIO, "snapshot candidate row order or identity is invalid")
+			}
+		}
+		src.ids, src.at, src.done = ids, 0, true
+		return true, nil
+	}
+	return false, nil
+}
+
 func (d *snapshotCandidateScan) head(ctx context.Context, i int) (string, error) {
 	src := &d.sources[i]
+	if d.completeUnion && !src.tried && !src.done && src.at == len(src.ids) {
+		src.tried = true
+		if _, err := d.readCompleteUnion(ctx, src); err != nil {
+			return "", err
+		}
+	}
 	// An exhausted window that matched nothing reads the next one, so an empty
 	// head still means the source is done for this page.
 	for src.at == len(src.ids) && !src.done {
