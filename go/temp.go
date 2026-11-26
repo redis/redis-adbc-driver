@@ -199,9 +199,10 @@ func (s *store) ownTempSchema(schema string) bool {
 	return s.temp.id != "" && schema == tempSchemaBase+s.temp.id
 }
 
-// checkWritableSchema rejects creating objects in a reserved schema other
-// than this connection's own temporary schema.
-func (s *store) checkWritableSchema(schema string) error {
+// checkWritableSchema rejects creating managed objects in a reserved schema
+// other than this connection's own temporary schema, or in a live schema.
+// Under a statement scope the live check is a publication dependency.
+func (s *store) checkWritableSchema(ctx context.Context, schema string) error {
 	if schema == foreignSchema || schema == pgCatalog || schema == liveSchema {
 		return virtualReadOnly(schema)
 	}
@@ -210,6 +211,11 @@ func (s *store) checkWritableSchema(schema string) error {
 	}
 	if reservedSchema(schema) && !s.ownTempSchema(schema) {
 		return errorf(adbc.StatusInvalidArgument, "schema name %q is reserved for temporary tables and views", schema)
+	}
+	if live, err := s.isLiveSchemaName(ctx, schema); err != nil {
+		return err
+	} else if live {
+		return liveSchemaHoldsLiveTables(schema)
 	}
 	return nil
 }

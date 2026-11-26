@@ -596,6 +596,16 @@ type CreateTableStmt struct {
 	AsSelect *SelectStmt
 	// Comment is the text of a table-level COMMENT [=] 'text' clause.
 	Comment string
+	// Options are WITH (name = value, …) storage parameters, in order. Only
+	// live tables accept any (prefix); managed tables refuse them.
+	Options []StorageOption
+}
+
+// StorageOption is one WITH (name = value) storage parameter. Name is
+// lowercased; Value is the string, number or identifier text as written.
+type StorageOption struct {
+	Name  string
+	Value string
 }
 
 type DropPartitionResultStmt struct {
@@ -696,6 +706,12 @@ type CreateSchemaStmt struct {
 	IfNotExists bool
 }
 
+// AlterSchemaStmt is ALTER SCHEMA name RENAME TO new_name.
+type AlterSchemaStmt struct {
+	Name    string
+	NewName string
+}
+
 type DropSchemaStmt struct {
 	Name     string
 	IfExists bool
@@ -741,6 +757,7 @@ func (*DeleteStmt) stmtNode()       {}
 func (*MergeStmt) stmtNode()        {}
 func (*CreateSchemaStmt) stmtNode() {}
 func (*DropSchemaStmt) stmtNode()   {}
+func (*AlterSchemaStmt) stmtNode()  {}
 func (*CreateViewStmt) stmtNode()   {}
 func (*DropViewStmt) stmtNode()     {}
 func (*TruncateStmt) stmtNode()     {}
@@ -1112,6 +1129,11 @@ func (p *parser) expectKeyword(kws ...string) error {
 		return syntaxErr("expected %s near %q", strings.Join(kws, " "), p.peek().text)
 	}
 	return nil
+}
+
+func (p *parser) isOpAt(n int, op string) bool {
+	t := p.peekAt(n)
+	return t.kind == tokOp && t.text == op
 }
 
 func (p *parser) isOp(op string) bool {
@@ -2261,6 +2283,14 @@ func (p *parser) parseCreate() (Stmt, error) {
 		return nil, err
 	}
 	st.Table = t
+	if p.isKeyword("WITH") && p.isOpAt(1, "(") {
+		if st.Options, err = p.parseStorageOptions(); err != nil {
+			return nil, err
+		}
+		if !p.isKeyword("AS") {
+			return nil, syntaxErr("expected AS after WITH (…) in CREATE TABLE")
+		}
+	}
 	if p.acceptKeyword("AS") {
 		parens := p.acceptOp("(")
 		sel, err := p.parseSelect()
@@ -2312,6 +2342,11 @@ func (p *parser) parseCreate() (Stmt, error) {
 	if err := p.expectOp(")"); err != nil {
 		return nil, err
 	}
+	if p.isKeyword("WITH") && p.isOpAt(1, "(") {
+		if st.Options, err = p.parseStorageOptions(); err != nil {
+			return nil, err
+		}
+	}
 	// A table comment, MySQL / Snowflake style.
 	if p.acceptKeyword("COMMENT") {
 		p.acceptOp("=")
@@ -2320,6 +2355,39 @@ func (p *parser) parseCreate() (Stmt, error) {
 		}
 	}
 	return st, nil
+}
+
+// parseStorageOptions parses WITH (name [= value] [, …]) after CREATE TABLE.
+func (p *parser) parseStorageOptions() ([]StorageOption, error) {
+	if err := p.expectKeyword("WITH"); err != nil {
+		return nil, err
+	}
+	if err := p.expectOp("("); err != nil {
+		return nil, err
+	}
+	var out []StorageOption
+	for {
+		name, err := p.parseIdent()
+		if err != nil {
+			return nil, err
+		}
+		opt := StorageOption{Name: strings.ToLower(name)}
+		if p.acceptOp("=") {
+			t := p.peek()
+			switch t.kind {
+			case tokString, tokNumber, tokIdent:
+				opt.Value = t.text
+				p.pos++
+			default:
+				return nil, syntaxErr("expected a value for storage parameter %q", name)
+			}
+		}
+		out = append(out, opt)
+		if !p.acceptOp(",") {
+			break
+		}
+	}
+	return out, p.expectOp(")")
 }
 
 // parseCommentText parses the string of a COMMENT clause in CREATE TABLE.
@@ -2631,6 +2699,20 @@ func (p *parser) parseAlter() (Stmt, error) {
 	}
 	if p.acceptKeyword("MATERIALIZED") {
 		return p.parseRenameMatView()
+	}
+	if p.acceptKeyword("SCHEMA") {
+		name, err := p.parseIdent()
+		if err != nil {
+			return nil, err
+		}
+		if !p.acceptKeyword("RENAME", "TO") {
+			return nil, &sqlError{msg: "ALTER SCHEMA supports only RENAME TO", state: stateFeatureNotSupported}
+		}
+		newName, err := p.parseIdent()
+		if err != nil {
+			return nil, err
+		}
+		return &AlterSchemaStmt{Name: name, NewName: newName}, nil
 	}
 	st := &AlterTableStmt{}
 	if p.acceptKeyword("VIEW") {

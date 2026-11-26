@@ -49,7 +49,7 @@ func TestSnapshotLiveArrowCreateAppendReplace(t *testing.T) {
 	}
 	h.expectRows("SELECT n FROM redis_live.live", "1")
 	impl := st.(*statementImpl)
-	_, old, err := impl.conn.store.readLiveRecord(h.ctx, "live")
+	_, old, err := impl.conn.store.readLiveRecord(h.ctx, liveRef{schema: liveSchema}, "live")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestSnapshotLiveArrowPreflight(t *testing.T) {
 func newLiveReplaceInput(t *testing.T, h *sqlHarness, keys []string, values []int64) (adbc.StatementWithContext, *ingestAdmissionReader) {
 	t.Helper()
 	st, input := unmanagedArrowInput(t, h, liveSchema, adbc.OptionValueIngestModeReplace, keys, values)
-	_, r, err := st.(*statementImpl).conn.store.readLiveRecord(h.ctx, "live")
+	_, r, err := st.(*statementImpl).conn.store.readLiveRecord(h.ctx, liveRef{schema: liveSchema}, "live")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestSnapshotLiveArrowReplaceScopeRefusals(t *testing.T) {
 				}
 			case "other_registration":
 				r := *st.(*statementImpl).conn.store
-				_, record, err := r.readLiveRecord(h.ctx, "live")
+				_, record, err := r.readLiveRecord(h.ctx, liveRef{schema: liveSchema}, "live")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -271,7 +271,7 @@ func TestSnapshotLiveArrowReplaceUnknownOutcome(t *testing.T) {
 			impl := st.(*statementImpl)
 			impl.conn.store.client.AddHook(hook)
 			// Use the observed client for this execution, retaining one-shot commands.
-			n, err := impl.executeSourceReplace(h.ctx, impl.liveSource, true)
+			n, err := impl.executeSourceReplace(h.ctx, impl.liveSource, true, liveRef{schema: liveSchema})
 			if n != 0 || err == nil || calls != 1 || input.calls.Load() != 0 {
 				t.Fatalf("n=%d calls=%d input=%d err=%v", n, calls, input.calls.Load(), err)
 			}

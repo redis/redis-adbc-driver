@@ -302,7 +302,7 @@ func TestLiveCollectionStreamLifecycle(t *testing.T) {
 		if !r.Next() {
 			t.Fatal(r.Err())
 		}
-		raw, record, err := (&store{client: f.raw}).readLiveRecord(f.h.ctx, "it_live_stream")
+		raw, record, err := (&store{client: f.raw}).readLiveRecord(f.h.ctx, liveRef{schema: liveSchema}, "it_live_stream")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -329,7 +329,7 @@ func TestLiveCollectionStreamLifecycle(t *testing.T) {
 		if !r.Next() {
 			t.Fatal(r.Err())
 		}
-		_, record, err := (&store{client: f.raw}).readLiveRecord(f.h.ctx, "it_live_stream")
+		_, record, err := (&store{client: f.raw}).readLiveRecord(f.h.ctx, liveRef{schema: liveSchema}, "it_live_stream")
 		if err != nil {
 			t.Fatal(err)
 		}

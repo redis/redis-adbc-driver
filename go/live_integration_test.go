@@ -27,7 +27,8 @@ func TestLiveHashesSQLAndRedis(t *testing.T) {
 		t.Fatal("not applied")
 	}
 	t.Cleanup(func() {
-		if err := UnregisterLiveHashes(h.ctx, f.opts, "it_live_users"); err != nil {
+		// The test body unregisters through SQL DROP TABLE.
+		if err := UnregisterLiveHashes(h.ctx, f.opts, "it_live_users"); err != nil && !isStatus(err, adbc.StatusNotFound) {
 			t.Error(err)
 		}
 	})
@@ -70,7 +71,21 @@ func TestLiveHashesSQLAndRedis(t *testing.T) {
 	h.expectRows("SELECT name,age FROM redis_live.it_live_users WHERE age>=60", "Binary|61")
 	h.expectRows("SELECT table_name FROM information_schema.tables WHERE table_schema='redis_live'", "it_live_users")
 	h.expectError("TRUNCATE redis_live.it_live_users", "live")
-	h.expectError("DROP TABLE redis_live.it_live_users", "read-only")
+	// DROP TABLE unregisters the driver-owned index and registration only.
+	index := r.Index
+	h.exec("DROP TABLE redis_live.it_live_users")
+	h.expectError("SELECT name FROM redis_live.it_live_users", "does not exist")
+	if f.raw.HGet(h.ctx, f.prefix+"one", "unmapped").Val() != "preserve" || f.raw.TTL(h.ctx, f.prefix+"one").Val() <= 0 {
+		t.Fatal("DROP TABLE changed a source HASH or its TTL")
+	}
+	if f.raw.HGet(h.ctx, f.prefix+"nul\x00key", "name").Val() != "Binary" || f.raw.Exists(h.ctx, f.prefix+"one:prefs").Val() != 1 {
+		t.Fatal("DROP TABLE removed source HASHes")
+	}
+	if err := f.raw.Do(h.ctx, "FT.INFO", index).Err(); err == nil || !isUnknownIndex(err) {
+		t.Fatalf("driver-owned live index was not removed: %v", err)
+	}
+	h.expectError("DROP TABLE redis_live.it_live_users", "does not exist")
+	h.exec("DROP TABLE IF EXISTS redis_live.it_live_users")
 }
 
 func TestLiveGeneratedInsertKeys(t *testing.T) {
@@ -265,7 +280,7 @@ func TestLiveUpdateMissingRowRefusesResurrection(t *testing.T) {
 		}
 	})
 	s := &store{client: f.raw, liveTables: true, liveExecution: true}
-	meta, err := s.liveTable(context.Background(), "it_live_missing")
+	meta, err := s.liveTable(context.Background(), liveRef{schema: liveSchema}, "it_live_missing")
 	if err != nil {
 		t.Fatal(err)
 	}

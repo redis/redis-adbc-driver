@@ -44,6 +44,7 @@ type databaseImpl struct {
 	foreignIndexes              bool
 	foreignIndexesMode          string
 	liveTables                  bool
+	schemaOwnershipLive         bool
 	driverbase.DatabaseImplBase
 
 	partitionCount int // default copied into newly opened connections
@@ -351,7 +352,7 @@ func (d *databaseImpl) openConnection(ctx context.Context) (*connectionImpl, err
 	if err != nil {
 		return nil, err
 	}
-	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username), writerDomain: cfg.writerDomain, liveTables: d.liveTables}
+	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username), writerDomain: cfg.writerDomain, liveTables: d.liveTables, schemaOwnershipLive: d.schemaOwnershipLive}
 	if !d.readerOnly {
 		if err := st.searchDo(ctx, "", "FT._LIST").Err(); err != nil {
 			_ = client.Close()
@@ -549,6 +550,9 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 	if key == OptionStringLiveTables {
 		return strconv.FormatBool(d.liveTables), nil
 	}
+	if key == OptionStringSchemaOwnership {
+		return schemaOwnershipValue(d.schemaOwnershipLive), nil
+	}
 	if key == OptionStringForeignIndexes {
 		return strconv.FormatBool(d.foreignIndexes), nil
 	}
@@ -668,6 +672,12 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "live_tables must be true or false")
 		}
 		d.liveTables = value == "true"
+	case OptionStringSchemaOwnership:
+		live, err := parseSchemaOwnership(value)
+		if err != nil {
+			return err
+		}
+		d.schemaOwnershipLive = live
 	case OptionStringForeignIndexes:
 		v, err := parseForeignIndexes(value)
 		if err != nil {

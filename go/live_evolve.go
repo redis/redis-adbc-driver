@@ -5,7 +5,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"slices"
 	"strings"
@@ -35,7 +34,7 @@ func EvolveLiveHashes(ctx context.Context, options map[string]string, o LiveHash
 	if o.Table == "" || o.ExpectedIndex == "" || !o.ExclusiveQuiescent || o.Prefix == "" || len(o.Columns) == 0 {
 		return nil, errorf(adbc.StatusInvalidArgument, "live evolution requires table, exact prefix/index, columns and exclusive quiescence")
 	}
-	if o.Schema != "" && o.Schema != liveSchema || o.Mode != "" || o.Index != "" || o.OwnIndex || o.TrustStrings || o.operation != nil {
+	if o.Mode != "" || o.Index != "" || o.OwnIndex || o.TrustStrings || o.operation != nil {
 		return nil, errorf(adbc.StatusInvalidArgument, "live evolution accepts only live registration shaping options")
 	}
 	c, err := dialHashes(ctx, options)
@@ -51,7 +50,11 @@ func evolveLiveHashes(ctx context.Context, c *hashConn, o LiveHashEvolutionOptio
 	if c.db.flex {
 		return nil, flexUnsupported("live HASH tables")
 	}
-	before, r, err := c.st.readLiveRecord(ctx, o.Table)
+	ref, err := c.st.liveAPIRef(ctx, o.Schema)
+	if err != nil {
+		return nil, err
+	}
+	before, r, err := c.st.readLiveRecord(ctx, ref, o.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +98,7 @@ func evolveLiveHashes(ctx context.Context, c *hashConn, o LiveHashEvolutionOptio
 	shape.Types, shape.Encodings, shape.Renames = types, encodings, renames
 	// IndexColumns is checked after selecting public columns below.
 	shape.IndexColumns = nil
-	a := &adopter{c: c, o: shape, schema: liveSchema, table: o.Table, index: liveIndexPrefix + snapshotID(), progress: func(string) {}, res: &HashAdoption{Report: &HashReport{Prefix: o.Prefix}}}
+	a := &adopter{c: c, o: shape, schema: ref.schema, table: o.Table, index: liveIndexPrefix + snapshotID(), progress: func(string) {}, res: &HashAdoption{Report: &HashReport{Prefix: o.Prefix}}}
 	if err := a.readLiveEvolution(ctx, o.Columns); err != nil {
 		return nil, err
 	}
@@ -112,7 +115,7 @@ func evolveLiveHashes(ctx context.Context, c *hashConn, o LiveHashEvolutionOptio
 	if err != nil {
 		return nil, err
 	}
-	result := &LiveHashRegistration{Table: liveSchema + "." + o.Table, Prefix: o.Prefix, Index: meta.index()}
+	result := &LiveHashRegistration{Table: ref.schema + "." + o.Table, Prefix: o.Prefix, Index: meta.index()}
 	for _, col := range meta.Columns {
 		result.Columns = append(result.Columns, HashColumn{Name: col.Name, Field: col.field(), Type: col.Type.SQLName(), Encoding: col.Encoding})
 	}
@@ -153,6 +156,7 @@ func planLiveEvolution(old, inferred *tableMeta, names, indexNames []string) (*t
 	meta := *inferred
 	meta.Columns = nil
 	meta.Live, meta.LiveVersion = true, snapshotID()
+	meta.Schema, meta.LiveSchemaID = old.Schema, old.LiveSchemaID
 	seen := map[string]bool{}
 	for _, name := range names {
 		if !utf8.ValidString(name) || strings.ContainsRune(name, 0) || strings.HasPrefix(name, "__") || seen[name] {
@@ -197,19 +201,19 @@ func planLiveEvolution(old, inferred *tableMeta, names, indexNames []string) (*t
 }
 
 func validLiveEvolutionPair(a, b *tableMeta) bool {
-	return a != nil && b != nil && a.Live && b.Live && a.Schema == liveSchema && b.Schema == a.Schema && a.Name == b.Name && a.prefix() == b.prefix() && a.index() != b.index() &&
+	return a != nil && b != nil && a.Live && b.Live && a.Schema != "" && b.Schema == a.Schema && b.LiveSchemaID == a.LiveSchemaID && a.Name == b.Name && a.prefix() == b.prefix() && a.index() != b.index() &&
 		strings.HasPrefix(b.index(), liveIndexPrefix) && len(strings.TrimPrefix(b.index(), liveIndexPrefix)) == 32 && b.Adopted && b.KeyRows && !b.Unmanaged && !b.AppIndex && !b.Foreign && b.SnapshotRows == nil && !b.SnapshotOverlay && len(b.SnapshotSegments) == 0
 }
 
 func (s *store) swapLiveEvolution(ctx context.Context, before string, r *liveRecord) (string, error) {
-	after, err := json.Marshal(r)
+	after, err := marshalLiveRecord(*r)
 	if err != nil {
 		return "", err
 	}
 	if len(after) > 1<<20 {
 		return "", errorf(adbc.StatusInvalidArgument, "live evolution descriptor exceeds 1 MiB")
 	}
-	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, r.Meta.Name, before, string(after)).Int()
+	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRefOf(r.Meta).registry(), r.Meta.Name, before, string(after)).Int()
 	if err != nil {
 		return "", wrapRedis(err, "live evolution transition outcome uncertain; inspect/resume retained identity")
 	}
@@ -281,12 +285,21 @@ func (s *store) resumeLiveEvolution(ctx context.Context, raw string, r *liveReco
 // phase. The exact original index is required. Source writers must remain paused.
 // An unobserved uncertain CREATE cannot be canceled: its identity stays reserved.
 func CancelLiveHashEvolution(ctx context.Context, options map[string]string, table, expectedIndex string) error {
+	return CancelLiveHashEvolutionInSchema(ctx, options, liveSchema, table, expectedIndex)
+}
+
+// CancelLiveHashEvolutionInSchema is CancelLiveHashEvolution for a named live schema.
+func CancelLiveHashEvolutionInSchema(ctx context.Context, options map[string]string, schema, table, expectedIndex string) error {
 	c, err := dialHashes(ctx, options)
 	if err != nil {
 		return err
 	}
 	defer c.close(ctx)
-	raw, r, err := c.st.readLiveRecord(ctx, table)
+	ref, err := c.st.liveAPIRef(ctx, schema)
+	if err != nil {
+		return err
+	}
+	raw, r, err := c.st.readLiveRecord(ctx, ref, table)
 	if err != nil {
 		return err
 	}

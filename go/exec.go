@@ -16,6 +16,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -257,10 +258,19 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 	}
 
 	if e.store != nil && e.store.snapshots && snapshotOf(ctx) == nil {
+		if handled, result, err := e.tryLiveDDL(ctx, ps); handled {
+			return result, err
+		}
 		if handled, result, err := e.tryLiveWrite(ctx, ps, params, paramTypes); handled {
 			return result, err
 		}
-		return e.executeSnapshot(ctx, ps, params, paramTypes, so)
+		result, err := e.executeSnapshot(ctx, ps, params, paramTypes, so)
+		if errors.As(err, new(liveWriteRoute)) {
+			// The managed write target is a table in a named live schema.
+			// Nothing was planned or executed under the released managed pin.
+			return e.runLiveWrite(ctx, ps, params, paramTypes)
+		}
+		return result, err
 	}
 	if err := e.validateCurrentCatalog(ctx); err != nil {
 		return execResult{}, err
@@ -365,6 +375,9 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 	case *DropIndexStmt:
 		return execResult{affected: -1}, e.runDropIndex(ctx, st)
 	case *CreateTableStmt:
+		if len(st.Options) > 0 {
+			return execResult{}, stateErrorf(stateFeatureNotSupported, "CREATE TABLE … WITH (…) storage parameters are supported only for live tables")
+		}
 		if st.AsSelect != nil {
 			n, err := e.runCreateTableAs(ctx, st)
 			return execResult{affected: n}, err
@@ -400,6 +413,9 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		}
 		return execResult{affected: -1}, e.store.dropCatalog(ctx, st.Name, st.IfExists, st.Cascade)
 	case *CreateSchemaStmt:
+		if e.store.schemaOwnershipLive {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "%s=live requires %s=true on a statement-snapshot connection in the redis catalog", OptionStringSchemaOwnership, OptionStringLiveTables)
+		}
 		if e.currentCatalog() != catalogName && (st.Name == liveSchema || st.Name == foreignSchema || st.Name == pgCatalog || st.Name == infoSchema || reservedSchema(st.Name)) {
 			return execResult{}, errorf(adbc.StatusInvalidArgument, "reserved schema name")
 		}
@@ -412,6 +428,8 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 			return execResult{}, err
 		}
 		return execResult{affected: -1}, e.store.dropSchema(ctx, catalogSchema(e.currentCatalog(), st.Name), st.IfExists, st.Cascade)
+	case *AlterSchemaStmt:
+		return execResult{}, e.alterSchemaUnsupported(ctx, st)
 	case *TruncateStmt:
 		return execResult{affected: -1}, e.runTruncate(ctx, st)
 	case *CommentStmt:

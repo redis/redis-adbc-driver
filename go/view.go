@@ -99,7 +99,7 @@ func (s *store) viewExists(ctx context.Context, schema, name string) (bool, erro
 // putView creates a view, or replaces one (CREATE OR REPLACE VIEW), which
 // keeps the comments of the view it replaces (see keepComments).
 func (s *store) putView(ctx context.Context, v *viewMeta) error {
-	if err := s.checkWritableSchema(v.Schema); err != nil {
+	if err := s.checkWritableSchema(ctx, v.Schema); err != nil {
 		return err
 	}
 	key := viewKey(v.Schema, v.Name)

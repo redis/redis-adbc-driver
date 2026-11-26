@@ -38,9 +38,10 @@ column shaping controls as HASH adoption. New HASH fields do not automatically
 become SQL columns.
 
 Enable `adbc.redis.live_tables=true` as a database or connection option. Registered
-tables appear in the `redis_live` schema. That schema name must not already be
-used by a managed schema. The name is reserved for new schemas. There can be
-at most 1,024 registrations, each with at most 1,024 columns and a 1 MiB
+tables appear in the `redis_live` schema, or in a [named live schema](#live-schemas-and-sql-ddl)
+selected with `-schema`. The `redis_live` name must not already be used by a
+managed schema, and it is reserved for new schemas. Each live schema holds at most
+1,024 registrations, each with at most 1,024 columns and a 1 MiB
 definition. Prefixes and column names must be valid UTF-8; row keys may contain
 binary suffixes.
 
@@ -153,9 +154,11 @@ indexes or control metadata directly.
 This mode supports SELECT, INSERT, UPDATE, DELETE, MERGE and RETURNING. SQL
 writes may read other live tables, but cannot read managed tables in the same
 write statement. Managed writes cannot consume live tables. Shared managed read
-snapshots, retained execution, modifying CTEs, TRUNCATE
-and SQL schema-changing DDL are not supported for live tables. Compatible
-registration/schema and index changes use the explicit [evolution workflow](#evolve-a-live-registration). Ordinary SELECTs may
+snapshots, retained execution, modifying CTEs and TRUNCATE are not supported for
+live tables. The only SQL DDL for live tables is `CREATE TABLE` (including `AS
+SELECT`), `DROP TABLE` (unregister) and `ALTER TABLE … RENAME TO`, plus schema-level
+DDL for [live schemas](#live-schemas-and-sql-ddl).
+Compatible column and index changes use the explicit [evolution workflow](#evolve-a-live-registration). Ordinary SELECTs may
 join live and managed tables; only the managed portion is frozen.
 
 MERGE uses the same live-source write paths. It evaluates the join, WHEN clauses,
@@ -175,7 +178,8 @@ CTEs remain excluded from live writes.
 `redis-adbc live evolve` (Go API: `EvolveLiveHashes`) changes the registered SQL
 view and its driver-owned index while preserving every source HASH field, key
 and TTL. This source-tree feature is not a claim about an existing wheel release.
-SQL `ALTER TABLE`, `CREATE INDEX` and `DROP INDEX` remain unsupported for live tables.
+Other SQL `ALTER TABLE` actions, `CREATE INDEX` and `DROP INDEX` remain unsupported
+for live tables; `ALTER TABLE … RENAME TO` renames only the SQL registration.
 
 Evolution requires source `SCAN` and `HGETALL`, index `FT.CREATE`, `FT.INFO` and
 `FT.DROPINDEX`, and live control-metadata permissions. Its full validation scan
@@ -250,6 +254,111 @@ starts, resume must finish the new definition rather than restore the old one.
 Unregister refuses an unfinished evolution; finish resume/cancellation first.
 Candidate/retired index cleanup is recoverable after a lost reply. Removing a
 live registration still leaves source HASHes intact.
+
+## Live schemas and SQL DDL
+
+Source builds after v0.0.31 add SQL schema DDL for live tables. Check release notes
+for packaged availability. Besides the built-in `redis_live`, you can create named
+**live schemas**: SQL namespaces that hold only live registrations.
+
+Set `adbc.redis.schema_ownership=live` (database or connection option, together
+with `adbc.redis.live_tables=true`) so `CREATE SCHEMA` creates live schemas. The
+default, `managed`, keeps `CREATE SCHEMA` creating managed schemas.
+
+```sql
+CREATE SCHEMA IF NOT EXISTS analytics;   -- a live schema
+ALTER SCHEMA analytics RENAME TO events;
+DROP SCHEMA events CASCADE;              -- unregisters its tables; HASHes stay
+```
+
+```sh
+go/build/redis-adbc live register -schema analytics -prefix app:users: -table users -apply
+```
+
+Python and other ADBC callers can target a live schema with ordinary statements and
+`adbc_ingest(..., db_schema_name="analytics")`:
+
+```python
+with dbapi.connect(uri, db_kwargs={
+    "adbc.redis.live_tables": "true",
+    "adbc.redis.schema_ownership": "live",
+}) as conn, conn.cursor() as cur:
+    cur.execute("CREATE SCHEMA IF NOT EXISTS analytics")
+    cur.adbc_statement.set_options(**{
+        "adbc.redis.ingest.live_source": json.dumps({"prefix": "app:events:v1:"}),
+    })
+    cur.adbc_ingest("events", table, mode="create", db_schema_name="analytics")
+```
+
+| Statement | Live behavior |
+|---|---|
+| `CREATE SCHEMA [IF NOT EXISTS] s` | Creates a live schema when `schema_ownership=live`. `IF NOT EXISTS` is a no-op for any existing schema, live or managed, and never changes its ownership; without it an existing name is SQLSTATE 42P06. `CREATE SCHEMA IF NOT EXISTS redis_live` succeeds when live tables are enabled. |
+| `DROP SCHEMA [IF EXISTS] s [CASCADE]` | A non-empty schema needs `CASCADE` (otherwise 2BP01). `CASCADE` unregisters every table first, then removes the schema. Source HASHes are never changed. |
+| `ALTER SCHEMA s RENAME TO n` | Renames a live schema. Its tables, indexes and in-flight live statements are unaffected. Managed schemas cannot be renamed. |
+| `CREATE TABLE [IF NOT EXISTS] t (col TYPE [NOINDEX] [COMMENT '…'], …) [WITH (prefix = '…')]` | Creates an empty live table in `redis_live` or a live schema, with a driver-owned index. Keys default to `<schema>:<table>:<uuid>`. See [SQL-created live tables](#sql-created-live-tables). |
+| `CREATE TABLE t [WITH (prefix = '…')] AS SELECT …` | Runs the query first (it may read only live tables), then creates the table and inserts the rows as live HASHes. |
+| `DROP TABLE [IF EXISTS] t [, …]` | Unregisters each table after checking all of them: the driver-owned index (without DD) and registration are removed, and source HASHes, TTLs and unknown fields stay. Live and managed tables cannot be dropped in one statement. |
+| `ALTER TABLE [IF EXISTS] t RENAME TO u` | Renames the SQL registration within its schema (42P07 if `u` exists). The prefix, keys and index are unchanged; statements still using the old name fail their identity check. Other `ALTER TABLE` actions are 0A000. |
+
+`redis_live` cannot be dropped or renamed. Live schema names are valid UTF-8 without
+NUL, at most 1,024 bytes, and cannot be `public`, `redis_live`, `redis_foreign`,
+`information_schema`, start with `pg_` or name a temporary schema. A database
+holds at most 1,024 live schemas. Managed and live schemas share one namespace:
+a live schema cannot reuse a managed schema's name, and managed tables, views,
+sequences and imports cannot be created in a live schema.
+
+Without `live_tables=true`, live schemas are hidden from catalog listings and
+cannot be dropped or renamed through SQL. Live schema DDL requires the `redis`
+catalog.
+
+A replace-by-swap needs care, because `DROP TABLE` keeps data. One pattern is:
+Arrow-create a staging table under a fresh, empty `live_source` prefix, `DELETE FROM`
+the old table, `DROP TABLE` it, then `ALTER TABLE stage RENAME TO target`. These
+statements are separate live operations with the usual per-row, partial-failure
+semantics; there is no transaction around the swap.
+
+### SQL-created live tables
+
+`CREATE TABLE` in `redis_live` or a live schema creates an empty live collection.
+The application owns the HASHes it writes; the driver owns the definition and index.
+
+```sql
+CREATE TABLE analytics.users (name TEXT, age BIGINT, bio TEXT NOINDEX);
+-- keys: analytics:users:<uuid>
+CREATE TABLE analytics.events (kind TEXT) WITH (prefix = 'app:events:');
+CREATE TABLE analytics.adults AS SELECT name, age FROM analytics.users WHERE age >= 18;
+```
+
+- **Prefix.** The default is `<schema>:<table>:`, with `:` and other special
+  characters in each part percent-escaped (a schema named `adbc` becomes
+  `%61dbc`). `WITH (prefix = '…')` chooses another. The prefix must hold no keys,
+  including nested and non-HASH keys, and no Search index may cover or sit inside
+  it. That includes the index of a renamed live table, which keeps its original
+  prefix. Inserted rows without `__key` get `<prefix><uuid>`.
+- **Columns.** Names, types, `NULL`, `NOINDEX` and `COMMENT` are accepted. Every
+  column is nullable, because a HASH field can be missing. `NOT NULL`, `DEFAULT`,
+  `SERIAL`/identity, `CHECK`, `PRIMARY KEY`, `UNIQUE` and `REFERENCES` are refused
+  (0A000): direct Redis writes would bypass them, and the planner must not rely on
+  them. Indexing follows live registration: eligible columns are indexed unless
+  marked `NOINDEX`. All values use native encoding.
+- **`CREATE TABLE … AS SELECT`.** The query runs before anything is created, under
+  the live write rule: it may read live tables only (or none). Rows are then
+  written with the ordinary non-replaying live inserts, so a failure can leave the
+  new table with some of its rows. A row whose values are all NULL is refused,
+  because a HASH needs a field. Parameters are not supported.
+- Concurrent creation of two tables on the same new prefix is not fenced against
+  each other; give concurrent creators distinct prefixes.
+- Creation is not atomic across registration and index creation; on failure use
+  `redis-adbc live resume` or `DROP TABLE` as for Arrow creation. `IF NOT EXISTS`
+  is a no-op for an existing live table of that name. Temporary live tables are
+  not supported; `CREATE TEMP TABLE` still creates a managed temporary table.
+  Managed `CREATE TABLE` refuses `WITH (…)`.
+
+`DROP SCHEMA` fences new registrations while it runs. If it is interrupted, the
+schema stays visible but refuses new registrations and renames; run `DROP SCHEMA`
+again to finish. A registration that raced with a completed drop withdraws its
+reservation before creating an index. Only a lost reply to that withdrawal can
+leave an unreachable reservation record; it holds no index or application data.
 
 ## Partitioned reads of live HASHes
 
@@ -455,10 +564,16 @@ uncertain deletes, index commands and input writes are never replayed.
 go/build/redis-adbc live unregister -table users -apply
 ```
 
-This removes the driver's index and registration, **leaving every source HASH
-unchanged**. SQL `DROP TABLE` is refused for this schema; use unregister so the
-ownership boundary is explicit. Active queries can fail if their registration
-is removed. Managed compaction and reclamation never own these application rows.
+```sql
+DROP TABLE IF EXISTS redis_live.users;
+```
+
+Both remove the driver's index (without DD) and registration, **leaving every
+source HASH, TTL and unknown field unchanged**. `DROP TABLE` does not delete
+application data; run `DELETE FROM` first if the rows should go too. Active queries
+can fail if their registration is removed. Managed compaction and reclamation
+never own these application rows. An unfinished evolution must be resumed or
+canceled first.
 
 An interrupted registration retains its generated index identity. When the
 index exists and is healthy, finish publication without repeating index creation:
@@ -499,6 +614,8 @@ SQL excludes. Indexed fields on those nested HASHes must also have compatible
 encodings, or Search can report an indexing failure for the collection.
 
 Go callers use `RegisterLiveHashes`, `ResumeLiveHashes` and
-`UnregisterLiveHashes`. `AdoptHashes`, `CopyHashes` and foreign-index imports keep
+`UnregisterLiveHashes` (set `HashAdoptOptions.Schema` for a named live schema, and
+use `ResumeLiveHashesInSchema`, `UnregisterLiveHashesInSchema` and
+`CancelLiveHashEvolutionInSchema` for its tables). `AdoptHashes`, `CopyHashes` and foreign-index imports keep
 their existing managed-copy behavior. See the [ownership comparison](managed-vs-unmanaged-tables.md)
 and [managed statement snapshots](snapshots.md).

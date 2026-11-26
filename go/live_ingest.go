@@ -14,7 +14,7 @@ import (
 )
 
 // OptionStringIngestLiveSource selects an application prefix for Arrow creation
-// in redis_live. Replacement additionally requires the current index identity
+// in redis_live or a named live schema. Replacement additionally requires the current index identity
 // and explicit dedicated-collection consent.
 const OptionStringIngestLiveSource = "adbc.redis.ingest.live_source"
 
@@ -64,14 +64,22 @@ func (cfg *unmanagedIngestSource) matchesLive(m *tableMeta) error {
 	return copy.matches(&other)
 }
 
-func (s *statementImpl) isLiveIngest() bool {
+func (s *statementImpl) isLiveIngest(ctx context.Context) (bool, error) {
 	if !s.conn.store.liveTables {
-		return false
+		return false, nil
 	}
 	if s.ingest.SchemaName == liveSchema {
-		return true
+		return true, nil
 	}
-	return s.ingest.SchemaName == "" && !s.ingest.Temporary && s.conn.sess.currentSchema() == liveSchema
+	if s.ingest.Temporary || s.ingest.CatalogName != "" && s.ingest.CatalogName != catalogName || s.ingest.CatalogName == "" && s.conn.sess.currentCatalog() != catalogName {
+		return false, nil
+	}
+	schema := s.ingest.SchemaName
+	if schema == "" {
+		schema = s.conn.sess.currentSchema()
+	}
+	_, ok, err := s.conn.store.liveRefFor(ctx, schema)
+	return ok, err
 }
 
 func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, resultErr error) {
@@ -98,8 +106,8 @@ func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, res
 	if schema == "" {
 		schema = s.conn.sess.currentSchema()
 	}
-	if !st.liveTables || schema != liveSchema || opts.Temporary || s.unmanagedSource != nil {
-		return 0, errorf(adbc.StatusInvalidArgument, "live ingestion requires live_tables=true, redis_live and no unmanaged_source")
+	if !st.liveTables || opts.Temporary || s.unmanagedSource != nil {
+		return 0, errorf(adbc.StatusInvalidArgument, "live ingestion requires live_tables=true, a live schema and no unmanaged_source")
 	}
 	if snapshotOf(ctx) != nil || s.conn.store.hasSharedReadView() || snapshotOperationRequestOf(ctx) != nil {
 		return 0, errorf(adbc.StatusNotImplemented, "live ingestion cannot use staged, shared or retained operations")
@@ -110,6 +118,13 @@ func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, res
 	if opts.CatalogName != "" && opts.CatalogName != catalogName || opts.CatalogName == "" && s.conn.sess.currentCatalog() != catalogName {
 		return 0, errorf(adbc.StatusNotFound, "catalog does not exist")
 	}
+	ref, live, err := st.liveRefFor(ctx, schema)
+	if err != nil {
+		return 0, err
+	}
+	if !live {
+		return 0, errorf(adbc.StatusInvalidArgument, "live ingestion requires live_tables=true, a live schema and no unmanaged_source")
+	}
 	if cfg != nil && cfg.Replace != nil && opts.Mode != adbc.OptionValueIngestModeReplace {
 		return 0, errorf(adbc.StatusInvalidArgument, "live_source.replace requires replace mode")
 	}
@@ -117,7 +132,7 @@ func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, res
 		if cfg == nil || cfg.Replace == nil {
 			return 0, errorf(adbc.StatusInvalidArgument, "live replacement requires live_source and explicit consent")
 		}
-		return s.executeSourceReplace(ctx, cfg, true)
+		return s.executeSourceReplace(ctx, cfg, true, ref)
 	}
 	if opts.Mode != adbc.OptionValueIngestModeCreate && opts.Mode != adbc.OptionValueIngestModeCreateAppend && opts.Mode != adbc.OptionValueIngestModeAppend {
 		return 0, errorf(adbc.StatusInvalidArgument, "unknown live ingest mode")
@@ -128,7 +143,7 @@ func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, res
 	if err := s.prepareExtensionInput(); err != nil {
 		return 0, err
 	}
-	_, record, err := st.readLiveRecord(ctx, opts.TableName)
+	_, record, err := st.readLiveRecord(ctx, ref, opts.TableName)
 	var ae adbc.Error
 	if err != nil && (!errors.As(err, &ae) || ae.Code != adbc.StatusNotFound) {
 		return 0, err
@@ -155,28 +170,13 @@ func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, res
 		if cfg == nil {
 			return 0, errorf(adbc.StatusInvalidArgument, "live creation requires live_source with an empty application prefix")
 		}
-		meta, err := s.newSourceIngestMeta(schema, cfg, true)
+		meta, err := s.newSourceIngestMeta(ref.schema, cfg, true)
 		if err != nil {
 			return 0, err
 		}
+		meta.LiveSchemaID = ref.id
 		meta.IndexName = liveIndexPrefix + snapshotID()
-		if err := st.requireEmptyUnmanagedPrefix(ctx, cfg.Prefix); err != nil {
-			return 0, err
-		}
-		before, err := st.reserveLive(ctx, meta)
-		if err != nil {
-			return 0, err
-		}
-		if err := st.searchDo(ctx, meta.index(), liveIndexArgs(meta)...).Err(); err != nil {
-			return 0, wrapRedis(err, "live index creation failed; registration retained; do not replay")
-		}
-		if err := st.requireEmptyUnmanagedPrefix(ctx, cfg.Prefix); err != nil {
-			return 0, err
-		}
-		if err := st.awaitIndexReady(ctx, meta.index()); err != nil {
-			return 0, err
-		}
-		if err := st.publishLive(ctx, meta.Name, before, meta); err != nil {
+		if _, err := st.createLiveRegistration(ctx, meta); err != nil {
 			return 0, err
 		}
 		record = &liveRecord{State: "ready", Meta: meta}
@@ -184,23 +184,44 @@ func (s *statementImpl) executeLiveIngest(ctx context.Context) (count int64, res
 	return s.appendLiveArrow(ctx, record.Meta)
 }
 
+const liveSchemaReserveLua = `
+if redis.call('EXISTS',KEYS[2]) == 1 then return -2 end
+if redis.call('HEXISTS',KEYS[1],ARGV[1]) == 1 then return 0 end
+if redis.call('HLEN',KEYS[1]) >= tonumber(ARGV[3]) then return -1 end
+redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); return 1`
+
+// reserveLive records a building registration before index creation. A named
+// schema's reservation is refused while its DROP SCHEMA tombstone exists and is
+// withdrawn if the schema was dropped after the caller resolved it.
 func (s *store) reserveLive(ctx context.Context, meta *tableMeta) (string, error) {
-	raw, err := json.Marshal(liveRecord{State: "building", Meta: meta})
+	raw, err := marshalLiveRecord(liveRecord{State: "building", Meta: meta})
 	if err != nil {
 		return "", err
 	}
 	if len(raw) > 1<<20 {
 		return "", errorf(adbc.StatusInvalidArgument, "live descriptor exceeds 1 MiB")
 	}
-	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`
+	ref := liveRefOf(meta)
+	var n int
+	if ref.id == "" {
+		n, err = once(ctx, s.client, "FCALL", redisFunctionName(`
 if redis.call('HEXISTS',KEYS[1],ARGV[1]) == 1 then return 0 end
 if redis.call('HLEN',KEYS[1]) >= tonumber(ARGV[3]) then return -1 end
 redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); return 1`), 1, liveRegistry, meta.Name, string(raw), liveMaxTables).Int()
+	} else {
+		n, err = once(ctx, s.client, "FCALL", redisFunctionName(liveSchemaReserveLua), 2, ref.registry(), ref.stateKey(), meta.Name, string(raw), liveMaxTables).Int()
+	}
 	if err != nil {
 		return "", wrapRedis(err, "live registration outcome uncertain; inspect before retrying")
 	}
+	if n == -2 {
+		return "", errorf(adbc.StatusInvalidState, "live schema %q is being dropped", meta.Schema)
+	}
 	if n != 1 {
 		return "", errorf(adbc.StatusAlreadyExists, "live table already registered or capacity reached")
+	}
+	if err := s.confirmLiveReservation(ctx, meta, string(raw)); err != nil {
+		return "", err
 	}
 	return string(raw), nil
 }
@@ -208,11 +229,11 @@ redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); return 1`), 1, liveRegistry, meta.Na
 // Retain the replacement schema before submitting its index creation. A lost
 // FT.CREATE reply can then be resolved with the ordinary live resume lifecycle.
 func (s *store) stageLiveReplacement(ctx context.Context, before string, meta *tableMeta) (string, error) {
-	raw, err := json.Marshal(liveRecord{State: "building", Meta: meta})
+	raw, err := marshalLiveRecord(liveRecord{State: "building", Meta: meta})
 	if err != nil {
 		return "", err
 	}
-	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, meta.Name, before, string(raw)).Int()
+	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRefOf(meta).registry(), meta.Name, before, string(raw)).Int()
 	if err != nil {
 		return "", wrapRedis(err, "live replacement staging outcome uncertain; registration retained")
 	}
@@ -238,7 +259,7 @@ func (s *statementImpl) appendLiveArrow(ctx context.Context, meta *tableMeta) (c
 	if schema == nil {
 		return 0, errorf(adbc.StatusInvalidArgument, "live Arrow input has no schema")
 	}
-	wanted, err := metaFromArrow(liveSchema, meta.Name, schema)
+	wanted, err := metaFromArrow(meta.Schema, meta.Name, schema)
 	if err != nil {
 		return 0, err
 	}
@@ -263,7 +284,7 @@ func (s *statementImpl) appendLiveArrow(ctx context.Context, meta *tableMeta) (c
 	}
 	// Use the current execution's non-replaying, cancellation-owned transport.
 	// No shared connection/store state is changed to bypass managed semantics.
-	st := &store{client: s.conn.store.redis(ctx), liveTables: true, liveExecution: true}
+	st := s.conn.store.liveExecutionStore(ctx)
 	e := s.executor()
 	e.store = st
 	defs := e.columnDefaults(ctx, meta)

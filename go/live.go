@@ -74,15 +74,16 @@ func (s *store) checkLiveNamespace(ctx context.Context) error {
 
 // RegisterLiveHashes registers application HASHes without copying or modifying
 // them. The shaping options match AdoptHashes, but Schema must be redis_live
-// (or empty), and source indexes/TrustStrings are not accepted. Without Apply,
+// (or empty) or an existing live schema, and source indexes/TrustStrings are
+// not accepted. Without Apply,
 // only schema inference is performed. A failed registration retains its private
 // index identity; ResumeLiveHashes observes it without replaying FT.CREATE.
 func RegisterLiveHashes(ctx context.Context, options map[string]string, o HashAdoptOptions) (*LiveHashRegistration, error) {
 	if err := validLivePrefix(o.Prefix); err != nil {
 		return nil, err
 	}
-	if o.Schema != "" && o.Schema != liveSchema || o.Index != "" || o.TrustStrings || o.operation != nil {
-		return nil, errorf(adbc.StatusInvalidArgument, "live registration uses redis_live and a driver-owned index; source indexes, trusted strings and retained operations are unsupported")
+	if o.Index != "" || o.TrustStrings || o.operation != nil {
+		return nil, errorf(adbc.StatusInvalidArgument, "live registration uses a live schema and a driver-owned index; source indexes, trusted strings and retained operations are unsupported")
 	}
 	c, err := dialHashes(ctx, options)
 	if err != nil {
@@ -92,6 +93,10 @@ func RegisterLiveHashes(ctx context.Context, options map[string]string, o HashAd
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	if c.db.flex {
 		return nil, flexUnsupported("live HASH tables")
+	}
+	ref, err := c.st.liveAPIRef(ctx, o.Schema)
+	if err != nil {
+		return nil, err
 	}
 	name := o.Table
 	if name == "" {
@@ -104,7 +109,7 @@ func RegisterLiveHashes(ctx context.Context, options map[string]string, o HashAd
 	if progress == nil {
 		progress = func(string) {}
 	}
-	a := &adopter{c: c, o: o, schema: liveSchema, table: name, index: liveIndexPrefix + snapshotID(), progress: progress, res: &HashAdoption{Report: &HashReport{Prefix: o.Prefix}}}
+	a := &adopter{c: c, o: o, schema: ref.schema, table: name, index: liveIndexPrefix + snapshotID(), progress: progress, res: &HashAdoption{Report: &HashReport{Prefix: o.Prefix}}}
 	if err := a.read(ctx); err != nil {
 		return nil, err
 	}
@@ -112,7 +117,7 @@ func RegisterLiveHashes(ctx context.Context, options map[string]string, o HashAd
 	if err != nil {
 		return nil, err
 	}
-	meta.Live = true
+	meta.Live, meta.Schema, meta.LiveSchemaID = true, ref.schema, ref.id
 	if len(meta.Columns) > 1024 {
 		return nil, errorf(adbc.StatusInvalidArgument, "live tables support at most 1024 columns")
 	}
@@ -128,7 +133,7 @@ func RegisterLiveHashes(ctx context.Context, options map[string]string, o HashAd
 			col.TagsChecked, col.TagValues = true, tagsTruncated
 		}
 	}
-	res := &LiveHashRegistration{Table: liveSchema + "." + name, Prefix: o.Prefix, Index: a.index, Columns: a.res.Report.Columns}
+	res := &LiveHashRegistration{Table: ref.schema + "." + name, Prefix: o.Prefix, Index: a.index, Columns: a.res.Report.Columns}
 	if !o.Apply {
 		res.Index = ""
 		return res, nil
@@ -154,6 +159,7 @@ func RegisterLiveHashes(ctx context.Context, options map[string]string, o HashAd
 	if err != nil {
 		return res, err
 	}
+	res.Table = meta.Schema + "." + name
 
 	if err := c.st.searchDo(ctx, a.index, liveIndexArgs(meta)...).Err(); err != nil {
 		return res, wrapRedis(err, "live index creation failed; registration identity retained; do not replay an uncertain create")
@@ -188,10 +194,13 @@ func (s *store) publishLive(ctx context.Context, name, before string, meta *tabl
 	if err := s.validateLiveIndex(ctx, meta); err != nil {
 		return err
 	}
-	after, _ := json.Marshal(liveRecord{State: "ready", Meta: meta})
+	after, err := marshalLiveRecord(liveRecord{State: "ready", Meta: meta})
+	if err != nil {
+		return err
+	}
 	n, err := once(ctx, s.client, "FCALL", redisFunctionName(`
 if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end
-redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, name, before, string(after)).Int()
+redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRefOf(meta).registry(), name, before, string(after)).Int()
 	if err != nil {
 		return wrapRedis(err, "live registration publication outcome is uncertain")
 	}
@@ -204,12 +213,21 @@ redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, name, b
 // ResumeLiveHashes completes a registration whose generated index already
 // exists. It never recreates a missing index or replays an uncertain mutation.
 func ResumeLiveHashes(ctx context.Context, options map[string]string, table string) error {
+	return ResumeLiveHashesInSchema(ctx, options, liveSchema, table)
+}
+
+// ResumeLiveHashesInSchema is ResumeLiveHashes for a named live schema.
+func ResumeLiveHashesInSchema(ctx context.Context, options map[string]string, schema, table string) error {
 	c, err := dialHashes(ctx, options)
 	if err != nil {
 		return err
 	}
 	defer c.close(ctx)
-	raw, r, err := c.st.readLiveRecord(ctx, table)
+	ref, err := c.st.liveAPIRef(ctx, schema)
+	if err != nil {
+		return err
+	}
+	raw, r, err := c.st.readLiveRecord(ctx, ref, table)
 	if err != nil {
 		return err
 	}
@@ -229,10 +247,10 @@ func ResumeLiveHashes(ctx context.Context, options map[string]string, table stri
 	return c.st.publishLive(ctx, table, raw, r.Meta)
 }
 
-func (s *store) readLiveRecord(ctx context.Context, name string) (string, *liveRecord, error) {
-	raw, err := s.client.HGet(ctx, liveRegistry, name).Result()
+func (s *store) readLiveRecord(ctx context.Context, ref liveRef, name string) (string, *liveRecord, error) {
+	raw, err := s.client.HGet(ctx, ref.registry(), name).Result()
 	if errors.Is(err, goredis.Nil) {
-		return "", nil, tableNotFound(liveSchema, name)
+		return "", nil, tableNotFound(ref.schema, name)
 	}
 	if err != nil {
 		return "", nil, wrapRedis(err, "failed to read live registration")
@@ -241,13 +259,16 @@ func (s *store) readLiveRecord(ctx context.Context, name string) (string, *liveR
 	if err := json.Unmarshal([]byte(raw), &r); err != nil || r.Meta == nil {
 		return "", nil, errorf(adbc.StatusIO, "invalid live registration")
 	}
+	if !r.resolveSchema(ref) {
+		return "", nil, errorf(adbc.StatusIO, "invalid live ownership descriptor")
+	}
 	if r.Pending != nil {
 		if r.State != "evolving" && r.State != "retiring" && r.State != "aborting" || !validLiveEvolutionPair(r.Meta, r.Pending) {
 			return "", nil, errorf(adbc.StatusIO, "invalid live evolution descriptor")
 		}
 	}
 	m := r.Meta
-	if !m.Live || !m.Adopted || !m.KeyRows || m.AppIndex || m.Foreign || m.Schema != liveSchema || m.Name != name || !strings.HasPrefix(m.IndexName, liveIndexPrefix) || len(strings.TrimPrefix(m.IndexName, liveIndexPrefix)) != 32 || validLivePrefix(m.KeyPrefix) != nil || m.SnapshotRows != nil || m.SnapshotOverlay || len(m.SnapshotSegments) != 0 {
+	if !m.Live || !m.Adopted || !m.KeyRows || m.AppIndex || m.Foreign || m.Schema != ref.schema || m.Name != name || !strings.HasPrefix(m.IndexName, liveIndexPrefix) || len(strings.TrimPrefix(m.IndexName, liveIndexPrefix)) != 32 || validLivePrefix(m.KeyPrefix) != nil || m.SnapshotRows != nil || m.SnapshotOverlay || len(m.SnapshotSegments) != 0 {
 		return "", nil, errorf(adbc.StatusIO, "invalid live ownership descriptor")
 	}
 	return raw, &r, nil
@@ -315,9 +336,9 @@ func validateLiveIndexDefinition(m *tableMeta, i indexInfo) error {
 	return nil
 }
 
-func (s *store) liveTable(ctx context.Context, name string) (*tableMeta, error) {
+func (s *store) liveTable(ctx context.Context, ref liveRef, name string) (*tableMeta, error) {
 	if !s.liveTables {
-		return nil, tableNotFound(liveSchema, name)
+		return nil, tableNotFound(ref.schema, name)
 	}
 	if sharedSnapshotScope(ctx) {
 		return nil, errorf(adbc.StatusNotImplemented, "live tables do not participate in shared read snapshots")
@@ -325,7 +346,7 @@ func (s *store) liveTable(ctx context.Context, name string) (*tableMeta, error) 
 	if scope := snapshotOf(ctx); scope != nil && scope.write {
 		return nil, errorf(adbc.StatusNotImplemented, "managed writes cannot access live tables")
 	}
-	_, r, err := s.readLiveRecord(ctx, name)
+	_, r, err := s.readLiveRecord(ctx, ref, name)
 	if err != nil {
 		return nil, err
 	}
@@ -340,18 +361,18 @@ func (s *store) liveTable(ctx context.Context, name string) (*tableMeta, error) 
 	return r.Meta, nil
 }
 
-func (s *store) liveNames(ctx context.Context) ([]string, error) {
+func (s *store) liveNames(ctx context.Context, ref liveRef) ([]string, error) {
 	if !s.liveTables {
 		return nil, nil
 	}
-	n, err := s.client.HLen(ctx, liveRegistry).Result()
+	n, err := s.client.HLen(ctx, ref.registry()).Result()
 	if err != nil {
 		return nil, err
 	}
 	if n > liveMaxTables {
 		return nil, errorf(adbc.StatusIO, "live table capacity exceeded")
 	}
-	entries, err := s.client.HGetAll(ctx, liveRegistry).Result()
+	entries, err := s.client.HGetAll(ctx, ref.registry()).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +391,7 @@ func (s *store) liveNames(ctx context.Context) ([]string, error) {
 }
 
 func (s *store) checkLiveIdentity(ctx context.Context, m *tableMeta) error {
-	_, r, err := s.readLiveRecord(ctx, m.Name)
+	_, r, err := s.readLiveRecord(ctx, liveRefOf(m), m.Name)
 	if err != nil {
 		return err
 	}
@@ -492,21 +513,13 @@ func (s *store) deleteLiveKeys(ctx context.Context, m *tableMeta, keys []string)
 // Live writes deliberately run outside managed publication. The isolated store
 // can resolve only live tables, so even nested SQL cannot mutate managed rows.
 // The execution's original transport still owns cancellation and connection Close.
+// redis_live targets are recognized here without a catalog read; named live
+// schemas are recognized under the managed write pin (see liveWriteRoute).
 func (e *executor) tryLiveWrite(ctx context.Context, ps ParsedStmt, params []Value, types []ColType) (bool, execResult, error) {
 	if !e.store.liveTables {
 		return false, execResult{}, nil
 	}
-	var target *TableName
-	switch st := ps.Stmt.(type) {
-	case *InsertStmt:
-		target = &st.Table
-	case *UpdateStmt:
-		target = &st.Table
-	case *DeleteStmt:
-		target = &st.Table
-	case *MergeStmt:
-		target = &st.Table
-	}
+	target := liveWriteTarget(ps.Stmt)
 	if target == nil {
 		return false, execResult{}, nil
 	}
@@ -514,21 +527,56 @@ func (e *executor) tryLiveWrite(ctx context.Context, ps ParsedStmt, params []Val
 	if err != nil || schema != liveSchema {
 		return false, execResult{}, nil
 	}
+	res, err := e.runLiveWrite(ctx, ps, params, types)
+	return true, res, err
+}
+
+func liveWriteTarget(stmt Stmt) *TableName {
+	switch st := stmt.(type) {
+	case *InsertStmt:
+		return &st.Table
+	case *UpdateStmt:
+		return &st.Table
+	case *DeleteStmt:
+		return &st.Table
+	case *MergeStmt:
+		return &st.Table
+	}
+	return nil
+}
+
+// liveWriteRoute reports that a managed write target resolved to a live table.
+// The managed statement releases its pin and reruns as an isolated live write;
+// no SQL has been planned or executed yet.
+type liveWriteRoute struct{}
+
+func (liveWriteRoute) Error() string { return "live write target" }
+
+func (e *executor) runLiveWrite(ctx context.Context, ps ParsedStmt, params []Value, types []ColType) (execResult, error) {
 	if snapshotOperationRequestOf(ctx) != nil || e.retained != nil {
-		return true, execResult{}, errorf(adbc.StatusNotImplemented, "live writes cannot prepare retained operations")
+		return execResult{}, errorf(adbc.StatusNotImplemented, "live writes cannot prepare retained operations")
 	}
 	for _, cte := range statementWith(ps.Stmt) {
 		if cte.Statement != nil {
-			return true, execResult{}, errorf(adbc.StatusNotImplemented, "live writes do not support modifying CTEs")
+			return execResult{}, errorf(adbc.StatusNotImplemented, "live writes do not support modifying CTEs")
 		}
 	}
 	ctx, cancel := statementOperationContext(ctx, e.sess)
 	defer cancel()
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	local := *e
-	local.store = &store{client: e.store.redis(ctx), liveTables: true, liveExecution: true}
-	res, err := local.execute(ctx, ps, params, types, nil)
-	return true, res, err
+	local.store = e.store.liveExecutionStore(ctx)
+	return local.execute(ctx, ps, params, types, nil)
+}
+
+// liveExecutionStore is the isolated store for live writes and Arrow appends.
+// It reads only live registries; named schemas resolve through the parent
+// store under a short metadata pin.
+func (s *store) liveExecutionStore(ctx context.Context) *store {
+	parent := s
+	return &store{client: s.redis(ctx), liveTables: true, liveExecution: true, liveResolve: func(c context.Context, schema string) (liveRef, bool, error) {
+		return parent.liveSchemaRef(context.WithValue(c, snapshotContextKey{}, (*snapshotScope)(nil)), schema)
+	}}
 }
 
 // UnregisterLiveHashes drops only the driver's index and registration. It
@@ -536,12 +584,27 @@ func (e *executor) tryLiveWrite(ctx context.Context, ps ParsedStmt, params []Val
 // A building registration can be removed only after its matching index exists;
 // an unknown create with no observable index retains its recovery identity.
 func UnregisterLiveHashes(ctx context.Context, options map[string]string, table string) error {
+	return UnregisterLiveHashesInSchema(ctx, options, liveSchema, table)
+}
+
+// UnregisterLiveHashesInSchema is UnregisterLiveHashes for a named live schema.
+// SQL DROP TABLE on a live table runs the same lifecycle.
+func UnregisterLiveHashesInSchema(ctx context.Context, options map[string]string, schema, table string) error {
 	c, err := dialHashes(ctx, options)
 	if err != nil {
 		return err
 	}
 	defer c.close(ctx)
-	raw, r, err := c.st.readLiveRecord(ctx, table)
+	ref, err := c.st.liveAPIRef(ctx, schema)
+	if err != nil {
+		return err
+	}
+	return c.st.unregisterLive(ctx, ref, table)
+}
+
+func (s *store) unregisterLive(ctx context.Context, ref liveRef, table string) error {
+	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
+	raw, r, err := s.readLiveRecord(ctx, ref, table)
 	if err != nil {
 		return err
 	}
@@ -552,7 +615,7 @@ func UnregisterLiveHashes(ctx context.Context, options map[string]string, table 
 		// An existing, matching index proves that the only FT.CREATE has
 		// executed. The creator can still publish only by CAS of this record.
 		// Absence cannot prove a lost/delayed create never ran, so retain it.
-		reply, err := c.st.searchDo(ctx, r.Meta.index(), "FT.INFO", r.Meta.index()).Result()
+		reply, err := s.searchDo(ctx, r.Meta.index(), "FT.INFO", r.Meta.index()).Result()
 		if err != nil && !(r.State != "building" && isUnknownIndex(err)) {
 			return wrapRedis(err, "unfinished live index creation is unresolved; registration retained")
 		}
@@ -564,8 +627,11 @@ func UnregisterLiveHashes(ctx context.Context, options map[string]string, table 
 	}
 	if r.State != "deleting" {
 		r.State = "deleting"
-		next, _ := json.Marshal(r)
-		n, err := once(ctx, c.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, liveRegistry, table, raw, string(next)).Int()
+		next, err := marshalLiveRecord(*r)
+		if err != nil {
+			return err
+		}
+		n, err := once(ctx, s.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]); return 1`), 1, ref.registry(), table, raw, string(next)).Int()
 		if err != nil {
 			return wrapRedis(err, "live removal admission outcome is uncertain")
 		}
@@ -574,10 +640,10 @@ func UnregisterLiveHashes(ctx context.Context, options map[string]string, table 
 		}
 		raw = string(next)
 	}
-	if err := c.st.searchDo(ctx, r.Meta.index(), "FT.DROPINDEX", r.Meta.index()).Err(); err != nil && !isUnknownIndex(err) {
+	if err := s.searchDo(ctx, r.Meta.index(), "FT.DROPINDEX", r.Meta.index()).Err(); err != nil && !isUnknownIndex(err) {
 		return wrapRedis(err, "live index removal outcome is uncertain; registration retained")
 	}
-	n, err := once(ctx, c.client, "FCALL", redisFunctionName(`if redis.call('HGET',KEYS[1],ARGV[1]) ~= ARGV[2] then return 0 end; redis.call('HDEL',KEYS[1],ARGV[1]); return 1`), 1, liveRegistry, table, raw).Int()
+	n, err := once(ctx, s.client, "FCALL", redisFunctionName(liveWithdrawLua), 1, ref.registry(), table, raw).Int()
 	if err != nil {
 		return wrapRedis(err, "live removal publication outcome is uncertain")
 	}

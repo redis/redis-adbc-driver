@@ -149,7 +149,12 @@ func (e *executor) snapshotWriteTarget(ctx context.Context, target *TableName) (
 	if err != nil {
 		return nil, err
 	}
-	return e.store.getTable(ctx, schema, table)
+	meta, err := e.store.getTable(ctx, schema, table)
+	if err == nil && meta.Live {
+		// Live writes run outside managed admission and publication.
+		return nil, liveWriteRoute{}
+	}
+	return meta, err
 }
 func (s *statementImpl) snapshotIngestTarget(ctx context.Context) (*tableMeta, error) {
 	opts := s.ingest

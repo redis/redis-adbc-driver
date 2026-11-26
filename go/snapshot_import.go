@@ -426,6 +426,11 @@ func (a *adopter) snapshotAdoptionChecklist(ctx context.Context, source *tableMe
 		if !schema {
 			cl.add(CheckBlocker, "the destination schema does not exist", "create the schema before importing")
 		}
+		if live, err := a.c.st.isLiveSchemaName(ctx, a.schema); err != nil {
+			return cl, err
+		} else if live {
+			cl.add(CheckBlocker, "the destination schema holds live tables", "import into a managed schema, or register the collection with redis-adbc live register")
+		}
 		view, err := a.c.st.viewExists(ctx, a.schema, a.table)
 		if err != nil {
 			return cl, err

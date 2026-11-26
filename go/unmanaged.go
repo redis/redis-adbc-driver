@@ -139,7 +139,7 @@ func (s *store) registerUnmanagedExpected(ctx context.Context, meta *tableMeta, 
 	}
 	defer s.abortSnapshot(pin, id)
 	if meta.Schema != foreignSchema {
-		if err := s.checkWritableSchema(meta.Schema); err != nil {
+		if err := s.checkWritableSchema(wctx, meta.Schema); err != nil {
 			return err
 		}
 	}
