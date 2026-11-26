@@ -1,3 +1,15 @@
+# Deployment status
+
+Status (2026-11-19, Pacific): the public collector now uses API Gateway, Lambda and private S3 storage. Historical telemetry and the existing dashboard token were migrated. Summaries refresh every 15 minutes; download snapshots refresh daily. See the [serverless deployment and recovery guide](SERVERLESS.md).
+
+The legacy EC2 collector has been stopped and its Elastic IP released. Its encrypted disk and protected backup bucket remain available for rollback; retained storage still incurs charges. No continuously running collector or database is required. Operational deployment settings, packages and verification artifacts remain private.
+
+Migration verification preserved 125,031 historical reports and 90,649 sessions, with all traffic-filter totals, deployment IDs and recent execution identities matching the old collector. A scheduled refresh and authenticated public dashboard reads succeeded. A warm ingestion replay took about 0.3 seconds; its first request took about 3.2 seconds, exceeding the driver's two-second timeout despite durable storage. Duplicate retries remain safe.
+
+The following describes the **historical EC2 deployment** and its recovery procedures; it is retained for rollback context, not the active serving architecture.
+
+---
+
 # AWS Redis analytics deployment
 
 Status (2026-11-05): the collector was recovered after account cleanup automation

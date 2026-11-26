@@ -3,4 +3,6 @@
 *.tfstate.*
 *.tfplan
 *.tfvars
+*.tfvars.json
 crash.log
+private/
