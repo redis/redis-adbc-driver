@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +46,19 @@ func openFlexSnapshotCandidates(ctx context.Context, s *store, m *tableMeta, que
 // openFlexSnapshotCandidatesWithin is openFlexSnapshotCandidates under an
 // explicit materialization budget.
 func openFlexSnapshotCandidatesWithin(ctx context.Context, s *store, m *tableMeta, query string, fields []string, bounds *rowIDRangeScan, budget flexCandidateBudget) (*snapshotCandidateScan, error) {
+	return openFlexSnapshotCandidatesCounted(ctx, s, m, query, fields, bounds, budget, nil)
+}
+
+// openFlexSnapshotCandidatesCounted is openFlexSnapshotCandidatesWithin given
+// the query's complete candidate counts, already checked for the same pinned
+// segments (completeFlexCandidateCounts). It does not count them again: each
+// source's union is evaluated once more, for its fetch. With Flex, a key
+// union costs milliseconds per term per evaluation (TPC-H Q7's 798-supplier
+// demand about 8 s at SF1), so the repeated count doubled the Search cost of
+// a shared candidate read. The fetch still requires exactly the known count
+// of distinct, valid row IDs (completeSnapshotIDsWithin). Counts for other
+// segments are ignored, and the sources are counted as before.
+func openFlexSnapshotCandidatesCounted(ctx context.Context, s *store, m *tableMeta, query string, fields []string, bounds *rowIDRangeScan, budget flexCandidateBudget, known *flexCandidateCounts) (*snapshotCandidateScan, error) {
 	filter := newSnapshotPageFilter(ctx, s, m, query)
 	if filter == nil {
 		return nil, nil
@@ -52,20 +66,27 @@ func openFlexSnapshotCandidatesWithin(ctx context.Context, s *store, m *tableMet
 	if err := s.checkKeys(ctx, m, false); err != nil {
 		return nil, err
 	}
+	if known != nil && !slices.Equal(known.segments, filter.segments) {
+		known = nil
+	}
 	counts := make([]int64, len(filter.segments))
 	total := int64(0)
 	keyBytes := int64(0)
 	for i, seg := range filter.segments {
-		reply, err := completeSnapshotSearch(ctx, s, seg, query, 0)
-		if err == errCompleteSnapshotLimit {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		count, err := completeSnapshotCount(reply, seg)
-		if err != nil {
-			return nil, err
+		var count int64
+		if known != nil {
+			count = known.counts[i]
+		} else {
+			reply, err := completeSnapshotSearch(ctx, s, seg, query, 0)
+			if err == errCompleteSnapshotLimit {
+				return nil, nil
+			}
+			if err != nil {
+				return nil, err
+			}
+			if count, err = completeSnapshotCount(reply, seg); err != nil {
+				return nil, err
+			}
 		}
 		var refused bool
 		total, keyBytes, refused = budget.add(seg.Prefix, count, total, keyBytes)
@@ -113,6 +134,76 @@ func openFlexSnapshotCandidatesWithin(ctx context.Context, s *store, m *tableMet
 		return nil, err
 	}
 	return d, nil
+}
+
+// fetchCompleteFlexCandidates evaluates query once per source: each fetch asks
+// for the rows budget still has room for, and its reply's total is the
+// source's complete count, so it needs no separate count. With Flex a key
+// union costs milliseconds per term per evaluation (TPC-H Q7's 798-supplier
+// demand about 8 s at SF1), and counting first doubled the Search cost of a
+// shared candidate read.
+//
+// cands is the complete set, with exact counts, when every source fits
+// budget. A source over budget ends the read with nil cands; counts then hold
+// the sources read so far, including that one, whose total alone proves the
+// refusal (and so any smaller budget's). That source's keys are discarded,
+// at most budget's rows. nil counts: no plain index, or Search refused the
+// fetch size with its own result limit; the caller counts first instead.
+// Every reply is checked as the count-then-fetch path checks it.
+func fetchCompleteFlexCandidates(ctx context.Context, s *store, m *tableMeta, query string, budget flexCandidateBudget) (*snapshotCandidateScan, *flexCandidateCounts, error) {
+	filter := newSnapshotPageFilter(ctx, s, m, query)
+	if filter == nil {
+		return nil, nil, nil
+	}
+	if err := s.checkKeys(ctx, m, false); err != nil {
+		return nil, nil, err
+	}
+	counts := &flexCandidateCounts{}
+	d := &snapshotCandidateScan{store: s, meta: m, query: query, page: snapshotDeltaPage, completeFlex: true}
+	total, keyBytes := int64(0), int64(0)
+	for _, seg := range filter.segments {
+		reply, err := completeSnapshotSearch(ctx, s, seg, query, int(budget.rows-total))
+		if err == errCompleteSnapshotLimit {
+			return nil, nil, nil
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		if snapshotReplyWarning(reply) {
+			return nil, nil, errorf(adbc.StatusIO, "partial complete snapshot candidate reply")
+		}
+		count, err := parseSearchCount(reply)
+		if err != nil {
+			return nil, nil, err
+		}
+		if count < 0 || count > seg.Rows {
+			return nil, nil, errorf(adbc.StatusIO, "invalid snapshot candidate count")
+		}
+		counts.segments, counts.counts = append(counts.segments, seg), append(counts.counts, count)
+		var refused bool
+		if total, keyBytes, refused = budget.add(seg.Prefix, count, total, keyBytes); refused {
+			if err := s.checkKeys(ctx, m, false); err != nil {
+				return nil, nil, err
+			}
+			return nil, counts, nil
+		}
+		src := snapshotCandidateSource{segment: seg, done: true}
+		if count > 0 {
+			if src.ids, err = completeSnapshotIDsWithin(reply, seg, count, budget.rows); err != nil {
+				return nil, nil, err
+			}
+		} else if keys, err := parseSearchKeys(reply); err != nil || len(keys) != 0 {
+			return nil, nil, errorf(adbc.StatusIO, "invalid snapshot candidate count")
+		}
+		if err := checkCompleteSnapshotDirectory(ctx, s, seg, src.ids); err != nil {
+			return nil, nil, err
+		}
+		d.sources = append(d.sources, src)
+	}
+	if err := s.checkKeys(ctx, m, false); err != nil {
+		return nil, nil, err
+	}
+	return d, counts, nil
 }
 
 // The LIMIT 0 count probe and complete LIMIT n fetch use no sorting, numeric

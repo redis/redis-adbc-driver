@@ -18,8 +18,14 @@ type overBudgetParallelReplies struct {
 	count    int64
 	searches atomic.Int64
 	failure  error
-	// keys, when set, answer a complete candidate fetch (LIMIT 0 n).
+	// keys, when set, answer a complete candidate fetch (LIMIT 0 n);
+	// otherwise the fetch returns the first count row keys.
 	keys []string
+	// limit, when nonzero, is Search's maximum LIMIT: a larger fetch gets
+	// its native result-limit refusal.
+	limit int
+	// fetches counts FT.SEARCH calls with a nonzero LIMIT.
+	fetches atomic.Int64
 	// fetched counts HASH reads, by key.
 	fetched map[string]int
 }
@@ -35,24 +41,31 @@ func (h *overBudgetParallelReplies) replyProof(c goredis.Cmder) error {
 		return nil
 	case "ft.search":
 		h.searches.Add(1)
-		if n := c.Args()[6].(int); n != 0 {
-			if h.keys == nil || int64(n) != h.count {
-				return errors.New("parallel fallback repeated candidate fetch")
-			}
-			reply := []any{h.count}
-			for _, k := range h.keys {
-				reply = append(reply, k)
-			}
-			c.(onceCmd).SetVal(reply)
-			return nil
-		}
 		if strings.Contains(fmt.Sprint(c.Args()[2]), rowIDField) {
 			return errors.New("parallel fallback introduced numeric row-ID filter")
 		}
 		if h.failure != nil {
 			return h.failure
 		}
-		c.(onceCmd).SetVal([]any{h.count})
+		n := c.Args()[6].(int)
+		if h.limit > 0 && n > h.limit {
+			return completeLimitError(fmt.Sprintf("LIMIT exceeds maximum of %d", h.limit))
+		}
+		reply := []any{h.count}
+		if n > 0 {
+			h.fetches.Add(1)
+			keys := h.keys
+			if keys == nil {
+				seg := h.segments[fmt.Sprint(c.Args()[1])]
+				for i := int64(1); i <= min(int64(n), h.count); i++ {
+					keys = append(keys, seg.Prefix+fmt.Sprint(i))
+				}
+			}
+			for _, k := range keys[:min(n, len(keys))] {
+				reply = append(reply, k)
+			}
+		}
+		c.(onceCmd).SetVal(reply)
 		return nil
 	case "zmscore":
 		scores := make([]any, len(c.Args())-2)
@@ -171,7 +184,9 @@ func TestParallelStarAmbiguousFlexCountNeverFallsBack(t *testing.T) {
 // candidates once and splits them across the workers. Only candidate rows
 // are read, and each one is checked against the complete predicate: the
 // candidate whose row no longer matches is dropped, and no directory range
-// is read. Before shared candidates, this set kept the serial scan.
+// is read. Before shared candidates, this set kept the serial scan. Search
+// runs once: the fetch's total is the count (fetchCompleteFlexCandidates).
+// Counting first, then again before the fetch, evaluated it three times.
 func TestParallelStarSharesFlexCandidatesAcrossWorkers(t *testing.T) {
 	e, ctx, req, h := overBudgetParallelFixture(t, 4097)
 	fact := req.meta.join.items[1].base
@@ -192,7 +207,7 @@ func TestParallelStarSharesFlexCandidatesAcrossWorkers(t *testing.T) {
 		}
 		return nil
 	})
-	if !handled || err != nil || e.workerGrant.Load() != 2 || h.searches.Load() != 3 || h.rangeReads != 0 || e.workerBudget.option(OptionIntQueryWorkersActive) != "0" {
+	if !handled || err != nil || e.workerGrant.Load() != 2 || h.searches.Load() != 1 || h.rangeReads != 0 || e.workerBudget.option(OptionIntQueryWorkersActive) != "0" {
 		t.Fatalf("shared candidates: handled%v err%v grant%d searches%d ranges%d", handled, err, e.workerGrant.Load(), h.searches.Load(), h.rangeReads)
 	}
 	for i := int64(1); i <= k; i++ {
@@ -212,5 +227,39 @@ func TestParallelStarSharesFlexCandidatesAcrossWorkers(t *testing.T) {
 	}
 	if len(h.fetched) != k {
 		t.Fatalf("read %d candidate rows, want %d", len(h.fetched), k)
+	}
+}
+
+// The fetch's total is its source's complete count, so a reply with fewer
+// keys than its total fails the query. It never falls back to ranges,
+// retries, or emits a row.
+func TestParallelStarSharedFlexFetchRejectsShortReply(t *testing.T) {
+	e, ctx, req, h := overBudgetParallelFixture(t, 4097)
+	seg := req.meta.join.items[1].base.snapshotSegments()[0]
+	const k = 2000
+	h.count, h.fetched = k, map[string]int{}
+	for i := 1; i < k; i++ {
+		h.keys = append(h.keys, seg.Prefix+fmt.Sprint(i))
+	}
+	count := 0
+	handled, err := e.scanStarJoinPages(ctx, req, nil, func(rows []map[string]Value) error { count += len(rows); return nil })
+	if !handled || err == nil || !strings.Contains(err.Error(), "incomplete snapshot candidate materialization") || count != 0 ||
+		h.searches.Load() != 1 || h.rangeReads != 0 || len(h.fetched) != 0 || e.workerBudget.option(OptionIntQueryWorkersActive) != "0" {
+		t.Fatalf("short reply: handled%v err%v rows%d searches%d ranges%d fetched%d", handled, err, count, h.searches.Load(), h.rangeReads, len(h.fetched))
+	}
+}
+
+// When Search's own result limit refuses the shared budget's fetch size, the
+// reader counts first and fetches exactly that count, reusing it rather than
+// counting again (openFlexSnapshotCandidatesCounted): three Search calls,
+// with the same rows as the single fetch.
+func TestParallelStarSharedFlexLimitRefusalCountsThenFetches(t *testing.T) {
+	e, ctx, req, h := overBudgetParallelFixture(t, 4097)
+	const k = 2000
+	h.count, h.limit = k, 100000
+	rows := 0
+	handled, err := e.scanStarJoinPages(ctx, req, nil, func(r []map[string]Value) error { rows += len(r); return nil })
+	if !handled || err != nil || rows != 2*k || e.workerGrant.Load() != 2 || h.searches.Load() != 3 || h.fetches.Load() != 1 || h.rangeReads != 0 {
+		t.Fatalf("limit refusal: handled%v err%v rows%d grant%d searches%d fetches%d ranges%d", handled, err, rows, e.workerGrant.Load(), h.searches.Load(), h.fetches.Load(), h.rangeReads)
 	}
 }

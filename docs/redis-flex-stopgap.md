@@ -47,17 +47,28 @@ Streamed snowflake joins read their fact and large dimensions, including
 the largest table of a multi-table branch, through these exact-directory
 readers. See the [change record](sdlc/changes/tpch-flex-read-path/validation.md).
 
-A parallel join reader with a selective Flex filter counts the filter's
-complete Search candidates first. A set of at most 524,288 rows (64 MiB of
-keys) that fills at least two 256-row chunks is materialized once and split
-by row ID across the workers. Each worker still resolves newest-version
-visibility, fetches its rows and checks the complete predicate on each one.
-A set over the ordinary 131,072-row candidate budget reads exact-directory
-ranges, and other scans keep that budget. A streamed join's fact key demand
-may hold up to 4,096 keys with Flex (1,000 otherwise). After DML, a table's
-overlay filters are not pushed to Search, so these candidate paths apply to
-single-segment published tables. See the
-[change record](sdlc/changes/tpch-flex-q7-q8/validation.md).
+A parallel join reader with a selective Flex filter fetches the filter's
+complete Search candidates in one Search call per source, up to 524,288 rows
+(64 MiB of keys); the reply's total is the complete count. A set within
+that budget that fills at least two 256-row chunks is split by row ID across
+the workers. Each worker still resolves newest-version visibility, fetches
+its rows and checks the complete predicate on each one. A larger set reads
+exact-directory ranges, after discarding the fetched keys, and other scans
+keep the ordinary 131,072-row candidate budget. If Search's own result limit
+refuses the fetch size, the reader counts first and then fetches that count.
+A streamed join's fact key demand may hold up to 4,096 keys with Flex (1,000
+otherwise). After DML, a table's overlay filters are not pushed to Search, so
+these candidate paths apply to single-segment published tables. See the
+[change record](sdlc/changes/tpch-flex-q7-q8/validation.md) and the
+[single-fetch record](sdlc/changes/flex-search-union-cost/validation.md).
+
+On Flex, each NUMERIC key-union term costs milliseconds per Search
+evaluation, and the cost depends on the column: at SF1, about 2 ms for
+`l_partkey`, 10 ms for `l_suppkey` and 137 ms for `o_custkey`, even for a
+key that matches nothing. TPC-H Q7's 798-supplier demand takes about 8 s per
+evaluation. A larger key demand can cost far more than reading the rows it
+excludes, so the 4,096-key limit is unchanged
+([measurements](sdlc/changes/flex-search-union-cost/validation.md#rejected-a-wider-flex-key-demand)).
 
 Grouped exact aggregates use the partitioned aggregate with Flex: each
 row-ID partition reads its exact directory range and checks the complete
