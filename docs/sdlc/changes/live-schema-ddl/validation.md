@@ -126,7 +126,10 @@ TestInfoSchema|TestGetObjects|TestSQLSchema)`), 10 skipped, 0 failed, including
 all 14 `TestACL*`. The same follow-up replaced the remaining `HKEYS` in live
 registry listing (`DROP SCHEMA`) with the existing `HLEN`+`HGETALL` pattern, so
 live schema DDL needs no command outside the documented driver ACL. The eight
-live schema tests pass again on Software.
+live schema tests pass again on Software. A full root-package run of the final
+code on that OSS fixture, with the aggregate cap raised as the macOS job does,
+passed: exit 0, 1,600 passed, 435 skipped, 0 failed. PR #726 merged at `00762e22`;
+the `HKEYS` follow-up and these records ship separately.
 
 ## Review and limits
 
