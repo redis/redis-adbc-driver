@@ -7,4 +7,4 @@ See [intent](intent.md) and [plan](plan.md).
 - The serverless module is always present. `serverless_package` is required; a `moved` block maps `module.serverless[0]` to `module.serverless` with no resource changes.
 - The public DNS record is always the API Gateway alias. The legacy A-record branch, Elastic IP, AMI lookup, user data and migration-only variables are removed.
 - The backup bucket, its protection and lifecycle rules, and the legacy RDB backups are unchanged.
-- No plan or apply touches the shared state as part of this change. Any apply needs a fresh reviewed plan against the shared state and the owner's explicit approval.
+- An apply requires a fresh plan of the merged configuration against the shared state that matches the approved action set, and the owner's explicit approval.

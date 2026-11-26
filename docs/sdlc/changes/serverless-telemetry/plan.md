@@ -35,4 +35,4 @@ Validation:
 
 This records agent verification, not independent human approval.
 
-The state discrepancy is resolved in configuration by [retire-legacy-collector](../retire-legacy-collector/intent.md); it has not been applied.
+The state discrepancy was resolved by [retire-legacy-collector](../retire-legacy-collector/intent.md), applied on 2026-11-26.
