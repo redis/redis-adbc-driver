@@ -1,0 +1,5 @@
+== q11-shard-before bigdb0:keys=8661322,expires=0,avg_ttl=0,subexpiry=0,clean=6324961,dirty=983848,disk=8106468,ram=7308809,meta=412219  2026-11-26T20:22:11Z
+== q14-shard-before bigdb0:keys=8661322,expires=0,avg_ttl=0,subexpiry=0,clean=6324961,dirty=983848,disk=8106468,ram=7308809,meta=412219  2026-11-26T20:22:16Z
+== idle-shard bigdb0:keys=8661322,expires=0,avg_ttl=0,subexpiry=0,clean=6340363,dirty=983848,disk=8106468,ram=7324211,meta=407275  2026-11-26T20:22:32Z
+== idle-sampler {"source": "management_api_bdb_stats", "ram_objects": 7324211, "flash_objects": 8106468, "ram_clean_objects": 6340363, "ram_dirty_objects": 983848, "keys": 8661322, "used_memory_bytes": 13328642504, "used_flash_bytes": 6617636584, "interval_start_utc": "2026-11-26T20:22:31Z", "interval_end_utc": "2026-11-26T20:22:32Z"} 2026-11-26T20:22:32Z
+== idle-shard-after bigdb0:keys=8661322,expires=0,avg_ttl=0,subexpiry=0,clean=6340363,dirty=983848,disk=8106468,ram=7324211,meta=407275  2026-11-26T20:22:32Z
