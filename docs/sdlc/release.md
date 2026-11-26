@@ -1,5 +1,34 @@
 # Release and recovery runbook
 
+## Driver-matched integration releases (2026-11-26)
+
+See the [change record](changes/integration-release-matching/intent.md). The two
+destination repositories still own their builds, tests and releases, and driver
+releases still do not wait for them. They now follow each driver release:
+
+- **Trigger.** After `publish-pypi.yml` publishes `adbc-driver-redis` X.Y.Z, the
+  daily `Driver release` workflow in each repository picks up that latest PyPI
+  version. PyPI is the last step of a driver release, so only releases that
+  passed this repository's gates are picked up.
+- **[redis-adbc-duckdb](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb)**
+  builds and tests the extension with driver tag `vX.Y.Z` on Linux amd64/arm64
+  and macOS arm64. Only if every platform passes does it move its `driver`
+  pin and publish extension release `vX.Y.Z`. DuckDB users receive that driver
+  through `INSTALL redis_adbc FROM community` only after a separate
+  community-registry `ref` update.
+- **[redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations)**
+  runs every framework suite against the X.Y.Z wheel from PyPI. Only if they all
+  pass does it publish GitHub release `vX.Y.Z` and the same files to PyPI as
+  `redis-adbc-integrations` X.Y.Z, requiring `adbc-driver-redis[dbapi]==X.Y.Z.*`.
+  This needs a Trusted Publisher for that project on PyPI.
+- **Nightly.** Both repositories also test this repository's `main` every night,
+  so a driver change that breaks them shows up before it is released.
+
+A failed downstream release does not undo the driver release. Treat it as a
+compatibility regression: fix it here or in the destination repository, then
+publish the next driver release (or rerun the destination workflow after a
+destination-only fix).
+
 ## Independent integrations (2026-11-18)
 
 The [native DuckDB extension](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb) and
