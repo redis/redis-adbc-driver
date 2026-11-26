@@ -82,6 +82,17 @@ evaluation. A larger key demand can cost far more than reading the rows it
 excludes, so the 4,096-key limit is unchanged
 ([measurements](sdlc/changes/flex-search-union-cost/validation.md#rejected-a-wider-flex-key-demand)).
 
+With Flex, an integer key demand is pushed as one range term per run of
+consecutive keys: SSB's dates of one month are one `@lo_orderdate:[lo hi]`
+term. A term costs about the same, point or range, almost whatever it
+matches, so SSB Q1.1's 365 dates take 12 terms and 9 s instead of timing
+out. A dimension with no filter of its own, in it or in its snowflake branch,
+keeps the 1,000-key limit: its keys exclude only fact rows the join drops
+anyway (SSB Q2.x's 2,556 dates). Supplier, customer and part keys are rarely
+consecutive, and on the measured 1-shard Flex database each `lineorder` term
+cost about 0.55 s, so 9 of 13 SSB SF1 queries still exceed the 60 s deadline
+([record](sdlc/changes/flex-ssb-key-demand/validation.md)).
+
 Grouped exact aggregates use the partitioned aggregate with Flex: each
 row-ID partition reads its exact directory range and checks the complete
 predicate on each row, without Search tuples, compact probes or Search

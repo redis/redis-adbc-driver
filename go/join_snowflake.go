@@ -339,6 +339,8 @@ func (e *executor) planSnowflakeShape(ctx context.Context, jp *joinPlan, need ma
 		if len(members) > 1 {
 			dim.branch, dim.branchItems = snowflakeBranchPlan(jp, members, root, s.filters, edges, cross, isTree)
 		}
+		// cross holds every condition but the tree edges (and filters).
+		dim.unfiltered = starDimensionUnfiltered(jp, s.filters, members, cross)
 		s.dims = append(s.dims, dim)
 	}
 	// Conditions inside one branch are joined there; the rest span branches.
