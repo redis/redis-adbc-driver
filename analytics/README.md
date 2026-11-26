@@ -331,11 +331,22 @@ Reset table clears filters/sort and restores 25 rows. Controls persist across
 refreshes in the current page. Pagination does not fetch additional history: the
 query endpoint still supplies at most 200 recent samples.
 
+Exclusion (2026-11-26): search, column and execution filters take space-separated,
+case-insensitive terms that must all match. A term prefixed with `-` hides rows
+containing it, for example `-runnervm` or `select -benchmark`. Quote a phrase with
+spaces (`-"ci / test"`) or a literal leading minus (`"-5"`). A lone `-` hides
+nothing. Unquoted words now match independently rather than as one substring.
+
 
 ## Driver improvement diagnostics
 
 The dashboard traffic selector scopes usage counts, retention, source tables and
 comparisons to CI/test, benchmark, application, unknown, or inferred CI traffic.
+Two exclusion presets keep everything except named traffic: `exclude_ci_benchmark`
+(application and unknown) and `exclude_ci` (application, benchmark and unknown).
+Each filter is a separately precomputed summary, so presets are a fixed list
+rather than arbitrary combinations; adding one increases refresh work and the
+summary object the dashboard API reads.
 Application classifications are self-reported, not verified customer activity.
 The default is all traffic. Unclassified legacy runner hostnames matching
 `runnervm[a-z0-9]+` appear in a separate **CI (inferred)** bucket; they are never

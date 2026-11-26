@@ -126,6 +126,16 @@ test('execution filter excludes samples with a minus-prefixed term', () => {
   assert.deepEqual(ids(), ['c']);
 });
 
+test('traffic selector offers exactly the collector filters', () => {
+  const html = fs.readFileSync(__dirname + '/dashboard.html', 'utf8');
+  const select = html.match(/<select id="traffic-filter">([\s\S]*?)<\/select>/)[1];
+  const values = [...select.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(values, ['all', 'exclude_ci_benchmark', 'exclude_ci', 'application', 'ci', 'ci_inferred', 'benchmark', 'unknown']);
+  const source = fs.readFileSync(__dirname + '/collector.py', 'utf8');
+  const presets = [...source.matchAll(/^\s+'(exclude_[a-z_]+)':/gm)].map(match => match[1]);
+  assert.deepEqual(presets.sort(), ['exclude_ci', 'exclude_ci_benchmark']);
+});
+
 test('version and size comparisons keep cumulative metrics distinct from samples', () => {
   const {context,elements}=dashboard();
   vm.runInContext(`renderInsights({latency_bounds_ms:[1,5,10],comparisons:[{traffic_class:'ci_inferred',driver_version:'v1',kind:'select',metrics:{attempts:100,success:90,errors:2,canceled:3,abandoned:5,latency:[90,5,5,0],execution_paths:{driver_scan:10},error_classes:{io:2},group_limit_retries:3,row_fallbacks:1}}],executions:[{traffic_class:'application',driver_version:'v2',kind:'select',workload_size:'1–100',duration_ms:20,status:'success'},{traffic_class:'application',driver_version:'v2',kind:'select',workload_size:'1–100',duration_ms:40,status:'abandoned'}]})`,context);

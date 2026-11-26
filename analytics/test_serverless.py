@@ -190,6 +190,37 @@ class ServerlessTests(unittest.TestCase):
         self.assertEqual(summaries['ci']['connections'], 1)
         self.assertEqual(summaries['application']['connections'], 1)
 
+    def test_exclusion_presets_hide_ci_and_benchmark_traffic(self):
+        for category, host in [('application', 'app'), ('unknown', 'other'), ('benchmark', 'bench'),
+                               ('ci', 'ci-host'), (None, 'runnervm1abc')]:
+            p = report(); p.update(installation_id=str(uuid.uuid4()), source_hostname=host)
+            if category:
+                p['traffic_class'] = category
+            self.ingest(p)
+        self.store.refresh(baseline_required=False)
+        manifest, _ = self.store.get('manifest.json')
+        summaries, _ = self.store.get(manifest['summaries'])
+        self.assertEqual(set(summaries), TRAFFIC_FILTERS)
+        connections = {traffic: summary['connections'] for traffic, summary in summaries.items()}
+        self.assertEqual(connections['all'], 5)
+        self.assertEqual(connections['ci_inferred'], 1)
+        self.assertEqual(connections['exclude_ci'], 3)  # application, unknown and benchmark
+        self.assertEqual(connections['exclude_ci_benchmark'], 2)  # application and unknown
+        self.assertEqual(summaries['exclude_ci_benchmark']['traffic_filter'], 'exclude_ci_benchmark')
+        with patch('serverless.storage', return_value=self.store), patch('serverless.read_token', return_value='private'):
+            event = self.event('GET', '/api/summary')
+            event['headers']['Authorization'] = 'Bearer private'
+            event['queryStringParameters'] = {'traffic': 'exclude_ci_benchmark'}
+            response = api(event, None)
+            self.assertEqual(response['statusCode'], 200)
+            self.assertEqual(json.loads(response['body'])['connections'], 2)
+            # A generation published by an older worker lacks the presets.
+            del summaries['exclude_ci_benchmark']
+            self.store.put(manifest['summaries'], summaries)
+            response = api(event, None)
+            self.assertEqual(response['statusCode'], 503)
+            self.assertIn('not published yet', json.loads(response['body'])['error'])
+
     def test_legacy_migration_and_future_reports_match_redis(self):
         if 'ANALYTICS_TEST_REDIS_URL' not in os.environ:
             self.skipTest('requires the verified Redis Software fixture')
