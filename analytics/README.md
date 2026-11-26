@@ -18,7 +18,16 @@ Setting `endpoint` to an empty string keeps collection local without network
 reporting. `REDIS_ADBC_TELEMETRY_DISABLED=true` changes the default to disabled;
 an explicit database `enabled` option takes precedence.
 
-## Run the collector and dashboard
+## Hosted serverless collector
+
+The S3 backend uses request-driven Lambda ingestion and scheduled summaries without
+a continuously running collector or database. It preserves the driver endpoint and
+payload. Reports are acknowledged after a durable S3 write; summaries refresh every
+15 minutes and show their generation time. See [deployment, migration and recovery](deploy/SERVERLESS.md).
+Deployment status is recorded in the deployment README; available code alone does
+not mean the public endpoint has switched.
+
+## Run the legacy collector and dashboard locally
 
 Requires Python 3.10+, the dependencies in `requirements.txt`, and a dedicated
 Redis database. Redis holds all analytics; no SQLite or RDS database is used.

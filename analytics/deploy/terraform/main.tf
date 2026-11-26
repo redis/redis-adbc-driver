@@ -22,6 +22,11 @@ variable "vpc_id" { default = "vpc-9054f0f4" }
 variable "subnet_id" { default = "subnet-41211f18" }
 variable "hosted_zone_id" { default = "Z08723911XXA3M3FQCZ4E" }
 variable "hostname" { default = "adbc-telemetry.sa.redislabs.com" }
+variable "legacy_ami_id" {
+  type        = string
+  default     = null
+  description = "Pin the existing collector AMI during migration to prevent an unrelated image replacement."
+}
 variable "source_commit" {
   type        = string
   description = "Reviewed immutable redis/redis-adbc-driver commit containing analytics and bootstrap."
@@ -71,6 +76,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "backups" {
     expiration { days = 90 }
     noncurrent_version_expiration { noncurrent_days = 7 }
     abort_incomplete_multipart_upload { days_after_initiation = 1 }
+  }
+  rule {
+    id     = "retired-serverless-generations"
+    status = "Enabled"
+    filter { prefix = "serverless/generations/" }
+    noncurrent_version_expiration { noncurrent_days = 7 }
   }
 }
 resource "aws_s3_bucket_policy" "backups" {
@@ -123,7 +134,7 @@ resource "aws_security_group" "collector" {
   }
 }
 resource "aws_instance" "collector" {
-  ami           = nonsensitive(data.aws_ssm_parameter.ubuntu_ami.value)
+  ami           = var.legacy_ami_id == null ? nonsensitive(data.aws_ssm_parameter.ubuntu_ami.value) : var.legacy_ami_id
   instance_type = "t3.small"
   credit_specification { cpu_credits = "standard" }
   subnet_id                   = var.subnet_id
@@ -141,26 +152,40 @@ resource "aws_instance" "collector" {
   user_data  = templatefile("${path.module}/user-data.sh.tftpl", { source_commit = var.source_commit, hostname = var.hostname, bucket = aws_s3_bucket.backups.id, region = var.region })
   tags       = { Name = local.name }
   depends_on = [aws_iam_role_policy_attachment.ssm, aws_iam_role_policy.backup_writer, aws_s3_bucket_public_access_block.backups, aws_s3_bucket_server_side_encryption_configuration.backups]
-  lifecycle { prevent_destroy = true }
+  lifecycle {
+    prevent_destroy = true
+    # Releasing the retired host's EIP changes the observed association flag.
+    # It must not replace the retained rollback disk/instance on later applies.
+    ignore_changes = [associate_public_ip_address]
+  }
 }
 resource "aws_eip" "collector" {
+  count    = var.serverless_stop_legacy ? 0 : 1
   domain   = "vpc"
   instance = aws_instance.collector.id
   tags     = { Name = local.name }
 }
 resource "aws_route53_record" "collector" {
-  zone_id         = var.hosted_zone_id
-  name            = var.hostname
-  type            = "A"
-  ttl             = 60
-  records         = [aws_eip.collector.public_ip]
+  zone_id = var.hosted_zone_id
+  name    = var.hostname
+  type    = "A"
+  ttl     = var.serverless_cutover ? null : 60
+  records = var.serverless_cutover ? null : [aws_eip.collector[0].public_ip]
+  dynamic "alias" {
+    for_each = var.serverless_cutover ? [1] : []
+    content {
+      name                   = module.serverless[0].domain_target
+      zone_id                = module.serverless[0].domain_zone_id
+      evaluate_target_health = false
+    }
+  }
   allow_overwrite = false
 }
 output "endpoint" { value = "https://${var.hostname}/v1/usage" }
 output "dashboard" { value = "https://${var.hostname}/" }
 output "instance_id" { value = aws_instance.collector.id }
 output "backup_bucket" { value = aws_s3_bucket.backups.id }
-output "public_ip" { value = aws_eip.collector.public_ip }
+output "public_ip" { value = try(aws_eip.collector[0].public_ip, null) }
 
 
 variable "owner_email" {

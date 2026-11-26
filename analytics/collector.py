@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Redis-backed Redis ADBC product usage collector and local dashboard."""
 import argparse
+import copy
 from datetime import datetime, timedelta, timezone
 import hmac
 import hashlib
@@ -193,6 +194,73 @@ def subtract(current, previous):
     return current - previous
 
 
+def prepare_report(payload, previous=None):
+    """Validate a cumulative update without mutating the caller or prior state."""
+    p = copy.deepcopy(validate(payload))
+    old = copy.deepcopy(previous or {})
+    if old and p['sequence'] <= old['sequence']:
+        return p, None
+    for k in ['installation_id', 'labels', 'started_at', 'driver_version', 'os', 'arch']:
+        if old and p[k] != old[k]:
+            raise ValueError('session identity changed')
+    if old and old.get('source_hostname', '') != p.get('source_hostname', ''):
+        raise ValueError('source hostname changed')
+    if old and any(old.get(k) != p.get(k) for k in ['instance_id','workload_identity']):
+        raise ValueError('runtime or workload identity changed within session')
+    if old and old.get('traffic_class', 'unknown') != p.get('traffic_class', 'unknown'):
+        raise ValueError('traffic class changed within session')
+    p['metrics'] = {k: metric_defaults(m) for k, m in p['metrics'].items()}
+    if old: old['metrics'] = {k: metric_defaults(m) for k, m in old['metrics'].items()}
+    keys = ['connections', 'connection_errors', 'features', 'metrics', 'delivery_failures']
+    delta = subtract({k: p[k] for k in keys}, {k: old[k] for k in keys} if old else {})
+    return p, delta
+
+
+def deployment_identity(payload, client, new_id=lambda: str(uuid.uuid4())):
+    workload = payload.get('workload_identity')
+    if workload:
+        basis = workload['provider']
+        anchor = ['workload', basis, workload['key']]
+    else:
+        basis = 'installation_id:' + payload.get('installation_id_source','unknown')
+        anchor = ['installation', payload['installation_id']]
+    # Read-only containers may create a fresh installation ID per handle.
+    # A generated runtime ID associates those handles without any mounted file.
+    if not workload and payload.get('installation_id_source') == 'temporary' and payload.get('instance_id'):
+        installation_alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
+        anchor = ['runtime', payload['instance_id']]
+        runtime_alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
+        key = 'deployment-aliases'
+        inherited = client.hget(key, installation_alias)
+        client.hsetnx(key, runtime_alias, inherited or new_id())
+        deployment = client.hget(key, runtime_alias)
+        client.hsetnx(key, installation_alias, deployment)
+        return {'deployment_id':deployment,'instance_id':payload['instance_id'],
+                'instance_kind':'runtime','basis':'runtime_instance',
+                'confidence':'identifier_match','identity_verified':False}
+    # IP, PTR and hostname are deliberately excluded from confirmed aliases.
+    alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
+    key = 'deployment-aliases'
+    client.hsetnx(key, alias, new_id())
+    deployment = client.hget(key, alias)
+    return {'deployment_id': deployment, 'instance_id': payload.get('instance_id',payload['session_id']),
+            'instance_kind': 'runtime' if 'instance_id' in payload else 'legacy_handle',
+            'basis': basis, 'confidence': 'identifier_match', 'identity_verified': False}
+
+
+
+class AliasClient:
+    """Keep the shared association algorithm independent of storage key prefixes."""
+    def __init__(self, client, prefix):
+        self.client, self.prefix = client, prefix
+
+    def hget(self, key, field):
+        return self.client.hget(self.prefix + key, field)
+
+    def hsetnx(self, key, field, value):
+        return self.client.hsetnx(self.prefix + key, field, value)
+
+
 class Store:
     def __init__(self, url, prefix='adbc:{analytics}:'):
         self.redis = redis.Redis.from_url(
@@ -243,36 +311,7 @@ class Store:
             except redis.exceptions.RedisError: pass
 
     def deployment_identity(self, payload, client=None):
-        if client is None: client = self.redis
-        workload = payload.get('workload_identity')
-        if workload:
-            basis = workload['provider']
-            anchor = ['workload', basis, workload['key']]
-        else:
-            basis = 'installation_id:' + payload.get('installation_id_source','unknown')
-            anchor = ['installation', payload['installation_id']]
-        # Read-only containers may create a fresh installation ID per handle.
-        # A generated runtime ID associates those handles without any mounted file.
-        if not workload and payload.get('installation_id_source') == 'temporary' and payload.get('instance_id'):
-            installation_alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
-            anchor = ['runtime', payload['instance_id']]
-            runtime_alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
-            key = self.prefix + 'deployment-aliases'
-            inherited = client.hget(key, installation_alias)
-            client.hsetnx(key, runtime_alias, inherited or str(uuid.uuid4()))
-            deployment = client.hget(key, runtime_alias)
-            client.hsetnx(key, installation_alias, deployment)
-            return {'deployment_id':deployment,'instance_id':payload['instance_id'],
-                    'instance_kind':'runtime','basis':'runtime_instance',
-                    'confidence':'identifier_match','identity_verified':False}
-        # IP, PTR and hostname are deliberately excluded from confirmed aliases.
-        alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
-        key = self.prefix + 'deployment-aliases'
-        client.hsetnx(key, alias, str(uuid.uuid4()))
-        deployment = client.hget(key, alias)
-        return {'deployment_id': deployment, 'instance_id': payload.get('instance_id',payload['session_id']),
-                'instance_kind': 'runtime' if 'instance_id' in payload else 'legacy_handle',
-                'basis': basis, 'confidence': 'identifier_match', 'identity_verified': False}
+        return deployment_identity(payload, AliasClient(client if client is not None else self.redis, self.prefix))
 
     def ingest(self, payload, received_at=None, source=None):
         p = validate(payload)
@@ -288,19 +327,7 @@ class Store:
                     old = json.loads(raw) if raw else {}
                     if old and p['sequence'] <= old['sequence']:
                         return False
-                    for k in ['installation_id', 'labels', 'started_at', 'driver_version', 'os', 'arch']:
-                        if old and p[k] != old[k]:
-                            raise ValueError('session identity changed')
-                    if old and old.get('source_hostname', '') != p.get('source_hostname', ''):
-                        raise ValueError('source hostname changed')
-                    if old and any(old.get(k) != p.get(k) for k in ['instance_id','workload_identity']):
-                        raise ValueError('runtime or workload identity changed within session')
-                    if old and old.get('traffic_class', 'unknown') != p.get('traffic_class', 'unknown'):
-                        raise ValueError('traffic class changed within session')
-                    p['metrics'] = {k: metric_defaults(m) for k, m in p['metrics'].items()}
-                    if old: old['metrics'] = {k: metric_defaults(m) for k, m in old['metrics'].items()}
-                    keys = ['connections', 'connection_errors', 'features', 'metrics', 'delivery_failures']
-                    delta = subtract({k: p[k] for k in keys}, {k: old[k] for k in keys} if old else {})
+                    p, delta = prepare_report(p, old)
                     received = received_at or datetime.now(timezone.utc)
                     identity = self.deployment_identity(p, pipe)
                     classification = traffic_class({'hostname':p.get('source_hostname',''), **({'traffic_class':p['traffic_class']} if 'traffic_class' in p else {})}, p['labels'])
@@ -358,123 +385,129 @@ class Store:
             cursor = '(' + page[-1][0]
 
     def summary(self, traffic="all"):
-        if traffic not in TRAFFIC_FILTERS: raise ValueError("invalid traffic filter")
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(days=28)
-        week = now - timedelta(days=7)
         members = self.redis.zrevrange(self.prefix + 'download-times', 0, 9)
         downloads = [json.loads(p) for p in self.redis.hmget(self.prefix + 'downloads', members) if p] if members else []
-        orgs, metrics, features, daily, first, activity = {}, {}, {}, {}, {}, {}
-        hosts = {}
-        comparisons = {}
-        deployments, network_matches = {}, {}
-        weekly_deployments = set()
         recent = self.redis.zrevrange(self.prefix + 'execution-times', 0, 199)
         executions = [json.loads(p) for p in self.redis.hmget(self.prefix + 'executions', recent) if p] if recent else []
-        for e in executions:
-            e.setdefault('traffic_class', traffic_class({'hostname':e.get('source_hostname','')}, {}))
-            e.setdefault('driver_version', 'unknown')
-            e['workload_size'] = workload_size(e)
-        executions = [e for e in executions if timestamp(e['completed_at']) >= cutoff and (traffic == 'all' or e['traffic_class'] == traffic)]
-        for execution in executions:
-            execution['reverse_dns'] = self.reverse_dns(execution.get('public_ip',''))
-        active_week, active_month = set(), set()
-        connections = connection_errors = 0
-        for row in self.reports():
-            received, install = timestamp(row['received_at']), row['installation']
-            labels, d = json.loads(row['labels']), json.loads(row['delta'])
-            source = json.loads(row.get('source', '{}'))
-            category = traffic_class(source, labels)
-            if traffic != 'all' and category != traffic: continue
-            attempts = sum(m['attempts'] for m in d['metrics'].values())
-            successes = sum(m['success'] for m in d['metrics'].values())
-            if successes:
-                first[install] = min(first.get(install, received), received)
-                activity.setdefault(install, []).append(received)
-            if received < cutoff:
-                continue
-            source = json.loads(row.get('source', '{}'))
-            identity = json.loads(row.get('identity','{}'))
-            if identity.get('deployment_id'):
-                ident = identity['deployment_id']
-                deployment = deployments.setdefault(ident, {'deployment_id':ident, 'bases':set(),
-                    'installation_ids':set(), 'instance_ids':set(), 'legacy_handles':set(),
-                    'hostnames':set(), 'public_ips':set(), 'applications':set(),
-                    'attempts':0, 'last_seen':row['received_at']})
-                deployment['bases'].add(identity['basis'])
-                deployment['installation_ids'].add(install)
-                deployment['instance_ids' if identity['instance_kind']=='runtime' else 'legacy_handles'].add(identity['instance_id'])
-                if source.get('hostname'): deployment['hostnames'].add(source['hostname'])
-                if source.get('public_ip'):
-                    deployment['public_ips'].add(source['public_ip'])
-                    network_matches.setdefault(('public_ip', source['public_ip']),set()).add(ident)
-                if labels.get('application'): deployment['applications'].add(labels['application'])
-                deployment['attempts'] += attempts
-                deployment['last_seen'] = max(deployment['last_seen'],row['received_at'])
-                if attempts and received >= week: weekly_deployments.add(ident)
-            key = (source.get('hostname',''), source.get('public_ip',''))
-            host = hosts.setdefault(key, {'hostname': key[0], 'public_ip': key[1], 'installations': set(),
-                                        'attempts': 0, 'last_seen': row['received_at'], 'id_sources': set()})
-            host['installations'].add(install)
-            host['attempts'] += attempts
-            host['last_seen'] = max(host['last_seen'], row['received_at'])
-            host['id_sources'].add(source.get('id_source','unknown'))
-            connections += d['connections']
-            connection_errors += d['connection_errors']
-            if attempts:
-                active_month.add(install)
-                if received >= week:
-                    active_week.add(install)
-            day = daily.setdefault(received.date().isoformat(), {'attempts': 0, 'success': 0})
-            day['attempts'] += attempts
-            day['success'] += successes
-            for k, m in d['metrics'].items():
-                add_metric(metrics.setdefault(k, {}), m)
-                key = (category, source.get('driver_version', 'unknown'), k)
-                comparison = comparisons.setdefault(key, {'traffic_class':key[0], 'driver_version':key[1], 'kind':k, 'metrics':{}})
-                add_metric(comparison['metrics'], m)
-            for k, count in d['features'].items():
-                features[k] = features.get(k, 0) + count
-            if attempts or successes:
-                key = tuple(labels.get(k, '') for k in ['organization', 'team', 'application', 'environment', 'integration', 'use_case'])
-                org = orgs.setdefault(key, {'organization': key[0], 'team': key[1], 'application': key[2], 'environment': key[3], 'integration': key[4], 'use_case': key[5], 'attempts': 0, 'success': 0, 'errors': 0, 'installations': set()})
-                org['attempts'] += attempts
-                org['success'] += successes
-                org['errors'] += sum(m['errors'] for m in d['metrics'].values())
-                org['installations'].add(install)
-        eligible = [i for i, at in first.items() if at + timedelta(days=35) <= now]
-        retained = sum(any(first[i]+timedelta(days=28) <= at < first[i]+timedelta(days=35) for at in activity[i]) for i in eligible)
-        for org in orgs.values():
-            org['installations'] = len(org['installations'])
-        for host in hosts.values():
-            host['installations'] = len(host['installations'])
-            host['id_sources'] = sorted(host['id_sources'])
-            host['reverse_dns'] = self.reverse_dns(host['public_ip'])
-        for deployment in deployments.values():
-            deployment['installation_ids'] = len(deployment['installation_ids'])
-            deployment['runtime_instances'] = len(deployment.pop('instance_ids'))
-            deployment['legacy_handles'] = len(deployment['legacy_handles'])
-            for field in ['bases','hostnames','public_ips','applications']:
-                deployment[field] = sorted(deployment[field])
-            names = {self.reverse_dns(ip) for ip in deployment['public_ips']}
-            deployment['reverse_dns'] = sorted(name for name in names if name)
-            for name in deployment['reverse_dns']:
-                network_matches.setdefault(('reverse_dns', name),set()).add(deployment['deployment_id'])
-        associations = [{'match_type':kind, 'value':value, 'deployment_ids':sorted(ids),
-                         'confidence':'probable_network_only','merged':False}
-                        for (kind,value),ids in sorted(network_matches.items()) if len(ids)>1]
-        return {'traffic_filter':traffic, 'comparisons':list(comparisons.values()), 'deployments': list(deployments.values()), 'weekly_active_deployments':len(weekly_deployments),
-                'probable_associations':associations[:200],
-                'hosts': list(hosts.values()), 'executions': executions,
-                'execution_sample_limit': 200, 'execution_history_limit': 10000,
-                'window_days': 28, 'weekly_active_installations': len(active_week), 'monthly_active_installations': len(active_month),
-                'self_reported_organizations': len({o['organization'] for o in orgs.values() if o['organization']}),
-                'self_reported_teams': len({(o['organization'], o['team']) for o in orgs.values() if o['organization'] and o['team']}),
-                'connections': connections, 'connection_errors': connection_errors,
-                'retention_week4': {'eligible': len(eligible), 'retained': retained, 'rate': retained / len(eligible) if eligible else None},
-                'metrics': metrics, 'features': features, 'daily': daily, 'organizations': list(orgs.values()),
-                'versions': sorted(self.redis.sscan_iter(self.prefix + 'versions', count=100)), 'downloads': downloads,
-                'latency_bounds_ms': BOUNDS}
+        return summarize(self.reports(), downloads, executions,
+                         self.redis.sscan_iter(self.prefix + 'versions', count=100),
+                         traffic, self.reverse_dns)
+
+
+def summarize(reports, downloads, executions, versions, traffic="all", reverse_dns=lambda address: '', now=None):
+    """Build the existing dashboard contract from accepted report deltas."""
+    if traffic not in TRAFFIC_FILTERS:
+        raise ValueError('invalid traffic filter')
+    now = now or datetime.now(timezone.utc)
+    cutoff, week = now - timedelta(days=28), now - timedelta(days=7)
+    executions = copy.deepcopy(executions)
+    orgs, metrics, features, daily, first, activity = {}, {}, {}, {}, {}, {}
+    hosts, comparisons, deployments, network_matches = {}, {}, {}, {}
+    weekly_deployments = set()
+    for e in executions:
+        e.setdefault('traffic_class', traffic_class({'hostname':e.get('source_hostname','')}, {}))
+        e.setdefault('driver_version', 'unknown')
+        e['workload_size'] = workload_size(e)
+    executions = [e for e in executions if timestamp(e['completed_at']) >= cutoff and (traffic == 'all' or e['traffic_class'] == traffic)]
+    for execution in executions:
+        execution['reverse_dns'] = reverse_dns(execution.get('public_ip',''))
+    active_week, active_month = set(), set()
+    connections = connection_errors = 0
+    for row in reports:
+        received, install = timestamp(row['received_at']), row['installation']
+        labels, d = json.loads(row['labels']), json.loads(row['delta'])
+        source = json.loads(row.get('source', '{}'))
+        category = traffic_class(source, labels)
+        if traffic != 'all' and category != traffic: continue
+        attempts = sum(m['attempts'] for m in d['metrics'].values())
+        successes = sum(m['success'] for m in d['metrics'].values())
+        if successes:
+            first[install] = min(first.get(install, received), received)
+            activity.setdefault(install, []).append(received)
+        if received < cutoff:
+            continue
+        source = json.loads(row.get('source', '{}'))
+        identity = json.loads(row.get('identity','{}'))
+        if identity.get('deployment_id'):
+            ident = identity['deployment_id']
+            deployment = deployments.setdefault(ident, {'deployment_id':ident, 'bases':set(),
+                'installation_ids':set(), 'instance_ids':set(), 'legacy_handles':set(),
+                'hostnames':set(), 'public_ips':set(), 'applications':set(),
+                'attempts':0, 'last_seen':row['received_at']})
+            deployment['bases'].add(identity['basis'])
+            deployment['installation_ids'].add(install)
+            deployment['instance_ids' if identity['instance_kind']=='runtime' else 'legacy_handles'].add(identity['instance_id'])
+            if source.get('hostname'): deployment['hostnames'].add(source['hostname'])
+            if source.get('public_ip'):
+                deployment['public_ips'].add(source['public_ip'])
+                network_matches.setdefault(('public_ip', source['public_ip']),set()).add(ident)
+            if labels.get('application'): deployment['applications'].add(labels['application'])
+            deployment['attempts'] += attempts
+            deployment['last_seen'] = max(deployment['last_seen'],row['received_at'])
+            if attempts and received >= week: weekly_deployments.add(ident)
+        key = (source.get('hostname',''), source.get('public_ip',''))
+        host = hosts.setdefault(key, {'hostname': key[0], 'public_ip': key[1], 'installations': set(),
+                                    'attempts': 0, 'last_seen': row['received_at'], 'id_sources': set()})
+        host['installations'].add(install)
+        host['attempts'] += attempts
+        host['last_seen'] = max(host['last_seen'], row['received_at'])
+        host['id_sources'].add(source.get('id_source','unknown'))
+        connections += d['connections']
+        connection_errors += d['connection_errors']
+        if attempts:
+            active_month.add(install)
+            if received >= week:
+                active_week.add(install)
+        day = daily.setdefault(received.date().isoformat(), {'attempts': 0, 'success': 0})
+        day['attempts'] += attempts
+        day['success'] += successes
+        for k, m in d['metrics'].items():
+            add_metric(metrics.setdefault(k, {}), m)
+            key = (category, source.get('driver_version', 'unknown'), k)
+            comparison = comparisons.setdefault(key, {'traffic_class':key[0], 'driver_version':key[1], 'kind':k, 'metrics':{}})
+            add_metric(comparison['metrics'], m)
+        for k, count in d['features'].items():
+            features[k] = features.get(k, 0) + count
+        if attempts or successes:
+            key = tuple(labels.get(k, '') for k in ['organization', 'team', 'application', 'environment', 'integration', 'use_case'])
+            org = orgs.setdefault(key, {'organization': key[0], 'team': key[1], 'application': key[2], 'environment': key[3], 'integration': key[4], 'use_case': key[5], 'attempts': 0, 'success': 0, 'errors': 0, 'installations': set()})
+            org['attempts'] += attempts
+            org['success'] += successes
+            org['errors'] += sum(m['errors'] for m in d['metrics'].values())
+            org['installations'].add(install)
+    eligible = [i for i, at in first.items() if at + timedelta(days=35) <= now]
+    retained = sum(any(first[i]+timedelta(days=28) <= at < first[i]+timedelta(days=35) for at in activity[i]) for i in eligible)
+    for org in orgs.values():
+        org['installations'] = len(org['installations'])
+    for host in hosts.values():
+        host['installations'] = len(host['installations'])
+        host['id_sources'] = sorted(host['id_sources'])
+        host['reverse_dns'] = reverse_dns(host['public_ip'])
+    for deployment in deployments.values():
+        deployment['installation_ids'] = len(deployment['installation_ids'])
+        deployment['runtime_instances'] = len(deployment.pop('instance_ids'))
+        deployment['legacy_handles'] = len(deployment['legacy_handles'])
+        for field in ['bases','hostnames','public_ips','applications']:
+            deployment[field] = sorted(deployment[field])
+        names = {reverse_dns(ip) for ip in deployment['public_ips']}
+        deployment['reverse_dns'] = sorted(name for name in names if name)
+        for name in deployment['reverse_dns']:
+            network_matches.setdefault(('reverse_dns', name),set()).add(deployment['deployment_id'])
+    associations = [{'match_type':kind, 'value':value, 'deployment_ids':sorted(ids),
+                     'confidence':'probable_network_only','merged':False}
+                    for (kind,value),ids in sorted(network_matches.items()) if len(ids)>1]
+    return {'traffic_filter':traffic, 'comparisons':list(comparisons.values()), 'deployments': list(deployments.values()), 'weekly_active_deployments':len(weekly_deployments),
+            'probable_associations':associations[:200],
+            'hosts': list(hosts.values()), 'executions': executions,
+            'execution_sample_limit': 200, 'execution_history_limit': 10000,
+            'window_days': 28, 'weekly_active_installations': len(active_week), 'monthly_active_installations': len(active_month),
+            'self_reported_organizations': len({o['organization'] for o in orgs.values() if o['organization']}),
+            'self_reported_teams': len({(o['organization'], o['team']) for o in orgs.values() if o['organization'] and o['team']}),
+            'connections': connections, 'connection_errors': connection_errors,
+            'retention_week4': {'eligible': len(eligible), 'retained': retained, 'rate': retained / len(eligible) if eligible else None},
+            'metrics': metrics, 'features': features, 'daily': daily, 'organizations': list(orgs.values()),
+            'versions': sorted(versions), 'downloads': downloads,
+            'latency_bounds_ms': BOUNDS}
 
 
 class CollectorServer(ThreadingHTTPServer):
