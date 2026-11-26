@@ -299,7 +299,7 @@ func (e *executor) runSequence(ctx context.Context, st *SequenceStmt) error {
 	if err != nil {
 		return err
 	}
-	if err = e.store.checkWritableSchema(schema); err != nil {
+	if err = e.store.checkWritableSchema(ctx, schema); err != nil {
 		return err
 	}
 	key := sequenceKey(schema, name)

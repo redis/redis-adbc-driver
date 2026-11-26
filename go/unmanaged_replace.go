@@ -172,7 +172,7 @@ func (s *store) unmanagedReplaceInventory(ctx context.Context, meta *tableMeta) 
 
 func (s *store) currentUnmanagedRegistration(ctx context.Context, expected *tableMeta) error {
 	if expected.Live {
-		_, r, err := s.readLiveRecord(ctx, expected.Name)
+		_, r, err := s.readLiveRecord(ctx, liveRefOf(expected), expected.Name)
 		if err != nil {
 			return err
 		}
@@ -291,10 +291,11 @@ func (s *store) checkUnmanagedReplaceScope(ctx context.Context, meta *tableMeta)
 }
 
 func (s *statementImpl) executeUnmanagedReplace(ctx context.Context) (int64, error) {
-	return s.executeSourceReplace(ctx, s.unmanagedSource, false)
+	return s.executeSourceReplace(ctx, s.unmanagedSource, false, liveRef{})
 }
 
-func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanagedIngestSource, live bool) (written int64, resultErr error) {
+// ref is the resolved live schema when live is set.
+func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanagedIngestSource, live bool, ref liveRef) (written int64, resultErr error) {
 	p := &unmanagedReplaceProgress{phase: "preflight", outcome: "none", live: live}
 	defer func() {
 		if resultErr != nil {
@@ -318,7 +319,7 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 		return 0, errorf(adbc.StatusNotFound, "catalog does not exist")
 	}
 	if !live {
-		if err := st.checkWritableSchema(schema); err != nil {
+		if err := st.checkWritableSchema(ctx, schema); err != nil {
 			return 0, err
 		}
 	}
@@ -333,7 +334,7 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 	var liveBefore string
 	if live {
 		var record *liveRecord
-		liveBefore, record, err = st.readLiveRecord(ctx, opts.TableName)
+		liveBefore, record, err = st.readLiveRecord(ctx, ref, opts.TableName)
 		if err == nil {
 			if record.State != "ready" {
 				return 0, errorf(adbc.StatusInvalidState, "live registration is not ready")
@@ -365,6 +366,9 @@ func (s *statementImpl) executeSourceReplace(ctx context.Context, cfg *unmanaged
 	meta, err := s.newSourceIngestMeta(schema, cfg, live)
 	if err != nil {
 		return 0, err
+	}
+	if live {
+		meta.Schema, meta.LiveSchemaID = ref.schema, ref.id
 	}
 	definition, err := st.unmanagedReplaceIndexDefinition(ctx, old.index())
 	if err != nil {

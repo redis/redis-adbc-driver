@@ -81,7 +81,11 @@ private copy that needs explicit refresh. See the
 **Choose live HASH tables** when the application should own the data and the
 driver should own the indexes. SQL and Redis clients operate on the original
 HASHes; the driver creates and manages its Search index. This mode is included in v0.0.30 and later. See the [live HASH guide](docs/live-hash-tables.md) for
-registration, SQL/Redis examples, automatic keys, and limits.
+registration, SQL/Redis examples, automatic keys, and limits. Current source builds
+also support named [live schemas](docs/live-hash-tables.md#live-schemas-and-sql-ddl)
+with SQL `CREATE`/`DROP`/`ALTER SCHEMA`, and `CREATE TABLE` (including `AS
+SELECT`), `DROP TABLE` (unregister, keeping HASHes) and `ALTER TABLE … RENAME TO`
+for live tables.
 
 Live Arrow ingestion supports `create`, `append`, `create_append`, and `replace`.
 Creation requires an explicitly configured empty application prefix. Replacement

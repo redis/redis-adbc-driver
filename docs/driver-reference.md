@@ -1782,7 +1782,10 @@ allow otherwise streamable queries to stream.
   `CREATE TABLE [IF NOT EXISTS] t AS SELECT …` (column names and types come
   from the query; every indexable column is indexed),
   `DROP TABLE [IF EXISTS] t [, …] [CASCADE | RESTRICT]`,
-  `CREATE SCHEMA [IF NOT EXISTS] s`,
+  `CREATE SCHEMA [IF NOT EXISTS] s` (live schemas also support
+  `ALTER SCHEMA s RENAME TO n`; live tables support `CREATE TABLE … [WITH (prefix
+  = '…')]` and `CREATE TABLE … AS SELECT`, `DROP TABLE` as unregister and
+  `ALTER TABLE … RENAME TO`; see [live schemas](live-hash-tables.md#live-schemas-and-sql-ddl)),
   `CREATE [OR REPLACE] VIEW [IF NOT EXISTS] v [(cols)] AS SELECT …`,
   `DROP VIEW [IF EXISTS] v [, …] [CASCADE | RESTRICT]`,
   `ALTER VIEW [IF EXISTS] v RENAME TO w` (`ALTER TABLE v RENAME TO w` also
@@ -4513,6 +4516,7 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | Option | Level | Meaning |
 |-|-|-|
 | `adbc.redis.live_tables` | database, connection | `false` by default. Enables registered live HASH tables in `redis_live`, including SQL SELECT/INSERT/UPDATE/DELETE/MERGE and Arrow append/create-or-append over original keys. Creation and dedicated replacement require explicit `ingest.live_source` configuration and replacement consent. See [live HASH tables](live-hash-tables.md). |
+| `adbc.redis.schema_ownership` | database, connection | `managed` by default. `live` makes SQL `CREATE SCHEMA` create a [live schema](live-hash-tables.md#live-schemas-and-sql-ddl) for live registrations; it requires `adbc.redis.live_tables=true` and the `redis` catalog. Existing schemas keep their ownership. |
 | `adbc.redis.ingest.live_source` | statement | JSON application prefix and optional field encodings for live Arrow creation. Dedicated replacement also requires exact current index identity and schema/table, exclusive quiescence, TTL-loss and index-reset consent. Persists until cleared. See [live ingestion](live-hash-tables.md#write-arrow-data-to-live-hashes). |
 | `adbc.redis.statement_snapshots` | database, connection | Always `true` for managed tables. Explicit `true` is accepted; `false` is rejected. See [snapshots](snapshots.md). |
 | `adbc.redis.read_snapshot_action` | connection, write-only | `acquire` binds one read-only managed catalog view across metadata and sequential SELECTs; `release` unbinds while existing readers retain their view. Native connection only. See [shared read snapshots](shared-read-snapshots.md). |

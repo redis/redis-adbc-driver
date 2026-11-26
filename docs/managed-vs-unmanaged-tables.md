@@ -150,7 +150,10 @@ Remove the registration and its index without deleting the application data:
 go/build/redis-adbc live unregister -table users -apply
 ```
 
-SQL DROP TABLE is refused for live registrations. See the
+SQL `DROP TABLE` on a live table does the same: it unregisters and keeps every
+source HASH. Named [live schemas](live-hash-tables.md#live-schemas-and-sql-ddl) add
+`CREATE`/`DROP`/`ALTER SCHEMA`; live tables also support SQL `CREATE TABLE` and
+`ALTER TABLE … RENAME TO`. See the
 [live HASH contract](live-hash-tables.md) for registration/resume, exact key rules,
 nested-prefix index coverage, schema compatibility, and query limits.
 

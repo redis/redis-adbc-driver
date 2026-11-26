@@ -10,7 +10,6 @@ import (
 	"github.com/apache/arrow-adbc/go/adbc"
 	"io"
 	"strings"
-	"unicode/utf8"
 )
 
 type unmanagedIngestSource struct {
@@ -122,47 +121,19 @@ func (s *statementImpl) newSourceIngestMeta(schema string, cfg *unmanagedIngestS
 		meta.Live, meta.Unmanaged, meta.AppIndex = true, false, false
 		meta.LiveVersion = snapshotID()
 		meta.UnmanagedPrefixes = nil
-		if len(meta.Columns) > 1024 {
-			return nil, errorf(adbc.StatusInvalidArgument, "live tables support at most 1024 columns")
-		}
 		// Text-encoded temporal/boolean fields and UUIDs cannot use the
 		// numeric/native attribute layout. Match ordinary live adoption, even
 		// when an explicit policy names one of these fields.
-		noIndex := map[string]bool{}
-		for _, c := range meta.Columns {
-			noIndex[c.Name] = c.Encoding == "text" || c.Type.Alias == "uuid"
-		}
 		only := s.indexColumns
 		if only != nil {
-			only = map[string]bool{}
-			for name := range s.indexColumns {
+			for name := range only {
 				if _, ok := meta.resolve(name); !ok {
 					return nil, errorf(adbc.StatusInvalidArgument, "index column %q does not exist", name)
 				}
-				if !noIndex[name] {
-					only[name] = true
-				}
 			}
 		}
-		if err := meta.applyIndexPolicy(only, noIndex); err != nil {
+		if err := finishLiveMeta(meta, only, nil); err != nil {
 			return nil, err
-		}
-		for i := range meta.Columns {
-			c := &meta.Columns[i]
-			if !utf8.ValidString(c.Name) {
-				return nil, errorf(adbc.StatusInvalidArgument, "live column names must be UTF-8")
-			}
-			c.NaNs = c.Type.Kind.isFloat()
-			if c.Type.Kind == KindString {
-				c.TagsChecked, c.TagValues = true, tagsTruncated
-			}
-		}
-		raw, err := json.Marshal(liveRecord{State: "ready", Meta: meta})
-		if err != nil {
-			return nil, err
-		}
-		if len(raw) > 1<<20 {
-			return nil, errorf(adbc.StatusInvalidArgument, "live descriptor exceeds 1 MiB")
 		}
 		return meta, nil
 	}
@@ -228,7 +199,7 @@ func (s *statementImpl) executeUnmanagedSourceIngest(ctx context.Context) (int64
 	if opts.Temporary || isTempAlias(schema) || isTempSchema(schema) {
 		return fail(unmanagedUnsupported("temporary creation"))
 	}
-	if err := st.checkWritableSchema(schema); err != nil {
+	if err := st.checkWritableSchema(ctx, schema); err != nil {
 		return fail(err)
 	}
 	ctx, cancel := statementOperationContext(ctx, s.conn.sess)

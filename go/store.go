@@ -222,6 +222,10 @@ type tableMeta struct {
 	// LiveVersion changes with Arrow replacement, including identical schemas.
 	// Unlike columns, it survives query projection/aliasing unchanged.
 	LiveVersion string `json:"live_version,omitempty"`
+	// LiveSchemaID identifies a named live schema's registry. Stored records
+	// keep an empty Schema; readers restore the current logical schema name.
+	// Empty for redis_live, whose records keep their original schema field.
+	LiveSchemaID string `json:"live_schema_id,omitempty"`
 	// Unmanaged descriptors own only catalog metadata, never source rows or
 	// indexes. Their schema is pinned but source values remain live.
 	Unmanaged         bool     `json:"unmanaged,omitempty"`
@@ -997,27 +1001,32 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
-	liveTables         bool
-	liveExecution      bool     // isolated executor for live DML
-	writerDomain       [32]byte // scheduling hint only, never a Redis proof
-	sharedMu           sync.Mutex
-	sharedAcquiring    bool
-	sharedView         *sharedReadView
-	readerNamespace    string
-	restrictedReader   bool
-	readerKeys         snapshotReaderKeyCache
-	controlScript      snapshotControlExecutor
-	rowBatchScript     snapshotControlExecutor
-	indexNotifyScript  snapshotControlExecutor
-	pointReadScript    snapshotControlExecutor
-	compactionScript   snapshotControlExecutor
-	snapshots          bool
-	compactor          *snapshotCompactor
-	flex               bool
-	foreignIndexes     bool
-	foreignIndexesMode string
-	searchCapsOnce     sync.Once
-	searchCaps         [2]int64
+	liveTables    bool
+	liveExecution bool // isolated executor for live DML
+	// liveResolve resolves named live schemas for the isolated live executor,
+	// which has no catalog access of its own.
+	liveResolve func(context.Context, string) (liveRef, bool, error)
+	// schemaOwnershipLive makes SQL CREATE SCHEMA create live schemas.
+	schemaOwnershipLive bool
+	writerDomain        [32]byte // scheduling hint only, never a Redis proof
+	sharedMu            sync.Mutex
+	sharedAcquiring     bool
+	sharedView          *sharedReadView
+	readerNamespace     string
+	restrictedReader    bool
+	readerKeys          snapshotReaderKeyCache
+	controlScript       snapshotControlExecutor
+	rowBatchScript      snapshotControlExecutor
+	indexNotifyScript   snapshotControlExecutor
+	pointReadScript     snapshotControlExecutor
+	compactionScript    snapshotControlExecutor
+	snapshots           bool
+	compactor           *snapshotCompactor
+	flex                bool
+	foreignIndexes      bool
+	foreignIndexesMode  string
+	searchCapsOnce      sync.Once
+	searchCaps          [2]int64
 
 	searchAggregateCapKnown bool // initialized with searchCapsOnce
 	// client is a *goredis.Client, or a *goredis.ClusterClient when the
@@ -1110,7 +1119,7 @@ func (s *store) searchDo(ctx context.Context, index string, args ...any) *goredi
 
 func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta, error) {
 	if schema == liveSchema && s.liveTables {
-		return s.liveTable(ctx, table)
+		return s.liveTable(ctx, liveRef{schema: liveSchema}, table)
 	}
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignTable(ctx, table)
@@ -1118,6 +1127,9 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	meta, err := s.getTableMetadata(ctx, schema, table)
 	if err != nil {
 		return nil, err
+	}
+	if meta.Live {
+		return meta, nil
 	}
 	if err := s.validateSnapshotTable(ctx, meta); err != nil {
 		return nil, err
@@ -1128,9 +1140,14 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 // Metadata/reference publication does not need to open unrelated row indexes.
 func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*tableMeta, error) {
 	if schema == liveSchema && s.liveTables {
-		return s.liveTable(ctx, table)
+		return s.liveTable(ctx, liveRef{schema: liveSchema}, table)
 	}
 	if s.liveExecution {
+		if ref, ok, err := s.liveSchemaRef(ctx, schema); err != nil {
+			return nil, err
+		} else if ok {
+			return s.liveTable(ctx, ref, table)
+		}
 		return nil, errorf(adbc.StatusNotImplemented, "live writes may read only live tables")
 	}
 	if sharedSnapshotScope(ctx) && (isTempSchema(schema) || isTempAlias(schema)) {
@@ -1142,6 +1159,15 @@ func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*ta
 	readAt := time.Now()
 	raw, err := s.readSnapshotMetadataString(ctx, metaKey(schema, table))
 	if errors.Is(err, goredis.Nil) {
+		// Live schemas never hold managed tables. Consult the live name map
+		// only after a managed miss, so managed lookups keep their reads.
+		if s.liveTables {
+			if ref, ok, err := s.liveSchemaRef(ctx, schema); err != nil {
+				return nil, err
+			} else if ok {
+				return s.liveTable(ctx, ref, table)
+			}
+		}
 		return nil, tableNotFound(schema, table)
 	}
 	if err != nil {
@@ -1194,7 +1220,7 @@ func (s *store) tableExists(ctx context.Context, schema, table string) (bool, er
 // createTable registers the table metadata and creates its search index.
 // It returns false (and no error) if the table exists and ifNotExists is set.
 func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bool) (bool, error) {
-	if err := s.checkWritableSchema(meta.Schema); err != nil && !(meta.Schema == foreignSchema && snapshotImporting(ctx)) {
+	if err := s.checkWritableSchema(ctx, meta.Schema); err != nil && !(meta.Schema == foreignSchema && snapshotImporting(ctx)) {
 		return false, err
 	}
 	if len(meta.Columns) == 0 {
@@ -1758,6 +1784,9 @@ func (s *store) listSchemas(ctx context.Context) ([]string, error) {
 	members = slices.DeleteFunc(members, func(schema string) bool {
 		return reservedSchema(schema) || schema == foreignSchema && !s.foreignIndexes
 	})
+	// Named live schemas are ordinary members of the schema set. Listing them
+	// never reads the live name map, which restricted SQL readers cannot read;
+	// without live_tables they simply list no tables.
 	if !slices.Contains(members, defaultSchema) {
 		members = append(members, defaultSchema)
 	}
@@ -1807,6 +1836,14 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 	if reservedSchema(schema) {
 		return errorf(adbc.StatusInvalidArgument, "schema name %q is reserved for temporary tables and views", displaySchema(schema))
 	}
+	if live, err := s.isLiveSchemaName(ctx, schema); err != nil {
+		return err
+	} else if live {
+		if ifNotExists {
+			return nil
+		}
+		return stateErrorf(stateDuplicateSchema, "schema %q already exists", displaySchema(schema))
+	}
 	n, err := once(ctx, s.redis(ctx), "SADD", schemasKey, schema).Int64()
 	if err != nil {
 		return wrapRedis(err, "failed to create schema")
@@ -1833,6 +1870,11 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 			return nil
 		}
 		return stateErrorf(stateUndefinedSchema, "schema %q does not exist", displaySchema(schema))
+	}
+	if live, err := s.isLiveSchemaName(ctx, schema); err != nil {
+		return err
+	} else if live {
+		return errorf(adbc.StatusInvalidState, "schema %q holds live tables; drop it with %s=true (source HASHes are kept)", displaySchema(schema), OptionStringLiveTables)
 	}
 	tables, err := s.listTables(ctx, schema)
 	if err != nil {
@@ -1884,8 +1926,10 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 }
 
 func (s *store) listTables(ctx context.Context, schema string) ([]string, error) {
-	if schema == liveSchema && s.liveTables {
-		return s.liveNames(ctx)
+	if ref, ok, err := s.liveRefFor(ctx, schema); err != nil {
+		return nil, err
+	} else if ok {
+		return s.liveNames(ctx, ref)
 	}
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignNames(ctx)

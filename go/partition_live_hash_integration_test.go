@@ -405,7 +405,7 @@ func TestLiveHashPartitionBudgetsAndModeBoundary(t *testing.T) {
 		t.Fatal("retained live source unexpectedly enabled")
 	}
 	store := st.(*statementImpl).conn.store
-	meta, err := store.liveTable(f.h.ctx, name)
+	meta, err := store.liveTable(f.h.ctx, liveRef{schema: liveSchema}, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -516,7 +516,7 @@ func TestLiveHashPartitionIndexDefinitionChanged(t *testing.T) {
 	}
 	store := st.(*statementImpl).conn.store
 	_ = st.Close(f.h.ctx)
-	meta, err := store.liveTable(f.h.ctx, name)
+	meta, err := store.liveTable(f.h.ctx, liveRef{schema: liveSchema}, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,7 +569,7 @@ func TestLiveHashPartitionEvolutionInvalidatesReaders(t *testing.T) {
 	}
 	store := st.(*statementImpl).conn.store
 	_ = st.Close(f.h.ctx)
-	meta, err := store.liveTable(f.h.ctx, name)
+	meta, err := store.liveTable(f.h.ctx, liveRef{schema: liveSchema}, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -643,7 +643,7 @@ func TestLiveHashPartitionCachedLayoutFences(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				meta, err := source.exec.store.liveTable(f.h.ctx, name)
+				meta, err := source.exec.store.liveTable(f.h.ctx, liveRef{schema: liveSchema}, name)
 				if err != nil {
 					t.Fatal(err)
 				}

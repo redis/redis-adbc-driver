@@ -38,10 +38,17 @@ func (e *executor) liveHashPartitionPlan(ctx context.Context, sel *SelectStmt) (
 	if err != nil {
 		return nil, err
 	}
-	if schema != liveSchema || !e.store.liveTables || e.store.flexEnabled() {
+	if !e.store.liveTables || e.store.flexEnabled() {
 		return nil, errorf(adbc.StatusNotImplemented, "live_hash partitions require an enabled live HASH table on standard Redis Software")
 	}
-	meta, err := e.store.liveTable(ctx, name)
+	ref, live, err := e.store.liveRefFor(ctx, schema)
+	if err != nil {
+		return nil, err
+	}
+	if !live {
+		return nil, errorf(adbc.StatusNotImplemented, "live_hash partitions require an enabled live HASH table on standard Redis Software")
+	}
+	meta, err := e.store.liveTable(ctx, ref, name)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +89,7 @@ func (s *statementImpl) executeLiveHashPartitions(ctx context.Context, sel *Sele
 	}()
 	n := s.partitions()
 	parts := adbc.Partitions{NumPartitions: uint64(n), PartitionIDs: make([][]byte, n)}
-	d := liveHashPartitionID{partitionID: partitionID{Version: 6, Query: s.query, Schema: liveSchema, Table: plan.meta.Name, Target: livePartitionTarget(plan.meta), Zone: s.conn.sess.value("timezone").text, Params: encoded, Snapshot: group}, Buckets: n}
+	d := liveHashPartitionID{partitionID: partitionID{Version: 6, Query: s.query, Schema: plan.meta.Schema, Table: plan.meta.Name, Target: livePartitionTarget(plan.meta), Zone: s.conn.sess.value("timezone").text, Params: encoded, Snapshot: group}, Buckets: n}
 	if len(s.resultLayouts) > 0 {
 		d.Layouts = maps.Clone(s.resultLayouts)
 	}
@@ -116,7 +123,7 @@ func decodeLiveHashPartition(data []byte) (liveHashPartitionID, error) {
 	if decoder.Decode(&d) != nil || decoder.Decode(new(any)) != io.EOF {
 		return bad()
 	}
-	if d.Version != 6 || d.Schema != liveSchema || d.Query == "" || d.Table == "" || len(d.Target) != 64 || strings.Trim(d.Target, "0123456789abcdef") != "" || d.Zone == "" || d.Buckets < 1 || d.Buckets > maxPartitionCount || d.Bucket < 0 || d.Bucket >= d.Buckets || d.Lo != 0 || d.Hi != 0 || d.ScanCap != 0 || !d.Snapshot.valid() {
+	if d.Version != 6 || d.Schema != liveSchema && validLiveSchemaName(d.Schema) != nil || d.Query == "" || d.Table == "" || len(d.Target) != 64 || strings.Trim(d.Target, "0123456789abcdef") != "" || d.Zone == "" || d.Buckets < 1 || d.Buckets > maxPartitionCount || d.Bucket < 0 || d.Bucket >= d.Buckets || d.Lo != 0 || d.Hi != 0 || d.ScanCap != 0 || !d.Snapshot.valid() {
 		return bad()
 	}
 	if d.Layouts.partitionCompatible() != nil {
@@ -152,10 +159,10 @@ func (c *connectionImpl) readLiveHashPartition(ctx context.Context, data []byte)
 	if err != nil {
 		return nil, err
 	}
-	if sel.From.Name != d.Table || sel.From.Schema != "" && sel.From.Schema != liveSchema {
+	if sel.From.Name != d.Table || sel.From.Schema != "" && sel.From.Schema != d.Schema {
 		return nil, errorf(adbc.StatusInvalidArgument, "live partition query target does not match descriptor")
 	}
-	sel.From.Schema = liveSchema
+	sel.From.Schema = d.Schema
 	params, types, err := decodePartitionParams(d.Params)
 	if err != nil {
 		return nil, err

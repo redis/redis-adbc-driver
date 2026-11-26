@@ -92,6 +92,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return retainedJSON(c.retainedLimits), nil
 	case OptionStringLiveTables:
 		return strconv.FormatBool(c.store.liveTables), nil
+	case OptionStringSchemaOwnership:
+		return schemaOwnershipValue(c.store.schemaOwnershipLive), nil
 	case OptionStringForeignIndexes:
 		return strconv.FormatBool(c.store.foreignIndexes), nil
 	case OptionStringForeignIndexesMode:
@@ -168,6 +170,13 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 			}
 		}
 		c.store.liveTables = value == "true"
+		return nil
+	case OptionStringSchemaOwnership:
+		live, err := parseSchemaOwnership(value)
+		if err != nil {
+			return err
+		}
+		c.store.schemaOwnershipLive = live
 		return nil
 	case OptionStringForeignIndexesRefresh:
 		if c.store.hasSharedReadView() {

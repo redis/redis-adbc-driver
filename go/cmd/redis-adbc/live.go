@@ -24,7 +24,8 @@ func runLive(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	fs := newFlagSet("live "+command, stderr)
 	var cf connFlags
 	cf.register(fs)
-	table := fs.String("table", "", "table name in redis_live (required for resume/unregister)")
+	table := fs.String("table", "", "live table name (required for resume/unregister)")
+	schema := fs.String("schema", "redis_live", "live schema: redis_live or a schema created with schema_ownership=live")
 	apply := fs.Bool("apply", false, "apply the operation; otherwise report a preview")
 	var hf hashFlags
 	encodings := options{}
@@ -47,7 +48,7 @@ func runLive(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		return err
 	}
 	if command == "register" || command == "evolve" {
-		shape := redis.HashAdoptOptions{Prefix: hf.prefix, Table: *table, Types: hf.types, Renames: hf.renames, Encodings: encodings, IndexColumns: indexColumns(*index), Apply: *apply, Progress: func(s string) { fmt.Fprintln(stderr, s) }}
+		shape := redis.HashAdoptOptions{Prefix: hf.prefix, Schema: *schema, Table: *table, Types: hf.types, Renames: hf.renames, Encodings: encodings, IndexColumns: indexColumns(*index), Apply: *apply, Progress: func(s string) { fmt.Fprintln(stderr, s) }}
 		var r *redis.LiveHashRegistration
 		var err error
 		if command == "evolve" {
@@ -66,17 +67,17 @@ func runLive(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		return fmt.Errorf("-table is required")
 	}
 	if !*apply {
-		fmt.Fprintf(stdout, "With -apply, %s the live registration redis_live.%s. Source HASHes stay unchanged.\n", command, *table)
+		fmt.Fprintf(stdout, "With -apply, %s the live registration %s.%s. Source HASHes stay unchanged.\n", command, *schema, *table)
 		return nil
 	}
 	if command == "cancel-evolution" {
 		if *expectedIndex == "" {
 			return fmt.Errorf("-expected-index is required")
 		}
-		return redis.CancelLiveHashEvolution(ctx, cf.options(), *table, *expectedIndex)
+		return redis.CancelLiveHashEvolutionInSchema(ctx, cf.options(), *schema, *table, *expectedIndex)
 	}
 	if command == "resume" {
-		return redis.ResumeLiveHashes(ctx, cf.options(), *table)
+		return redis.ResumeLiveHashesInSchema(ctx, cf.options(), *schema, *table)
 	}
-	return redis.UnregisterLiveHashes(ctx, cf.options(), *table)
+	return redis.UnregisterLiveHashesInSchema(ctx, cf.options(), *schema, *table)
 }

@@ -110,7 +110,7 @@ func TestLiveEvolutionResumeCancelAndIdentity(t *testing.T) {
 	}
 	defer c.close(h.ctx)
 	stage := func() (string, *liveRecord) {
-		raw, r, err := c.st.readLiveRecord(h.ctx, "it_live_evolve_state")
+		raw, r, err := c.st.readLiveRecord(h.ctx, liveRef{schema: liveSchema}, "it_live_evolve_state")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -153,7 +153,7 @@ func TestLiveEvolutionResumeCancelAndIdentity(t *testing.T) {
 	// A direct CREATE ACL refusal is the only absent-candidate cancellation proof.
 	_, pending = stage()
 	pending.CreateRefused = true
-	current, _, err := c.st.readLiveRecord(h.ctx, "it_live_evolve_state")
+	current, _, err := c.st.readLiveRecord(h.ctx, liveRef{schema: liveSchema}, "it_live_evolve_state")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ func TestLiveEvolutionIndexRefusalAndLostCleanup(t *testing.T) {
 	if _, err := evolveLiveHashes(h.ctx, c, o); err == nil || !strings.Contains(err.Error(), "NOPERM") {
 		t.Fatalf("CREATE refusal: %v", err)
 	}
-	_, record, err := c.st.readLiveRecord(h.ctx, o.Table)
+	_, record, err := c.st.readLiveRecord(h.ctx, liveRef{schema: liveSchema}, o.Table)
 	if err != nil || record.State != "evolving" || !record.CreateRefused || fault.calls != 1 {
 		t.Fatalf("refusal lost: %+v %v calls=%d", record, err, fault.calls)
 	}
@@ -301,7 +301,7 @@ func TestLiveEvolutionIndexRefusalAndLostCleanup(t *testing.T) {
 		if _, err := evolveLiveHashes(h.ctx, c, o); err == nil {
 			t.Fatalf("ignored %s", mode)
 		}
-		_, record, err = c.st.readLiveRecord(h.ctx, o.Table)
+		_, record, err = c.st.readLiveRecord(h.ctx, liveRef{schema: liveSchema}, o.Table)
 		if err != nil || record.State != "retiring" || record.Pending.index() != o.ExpectedIndex || fault.calls != 1 {
 			t.Fatalf("lost retirement identity: %+v %v calls=%d", record, err, fault.calls)
 		}
