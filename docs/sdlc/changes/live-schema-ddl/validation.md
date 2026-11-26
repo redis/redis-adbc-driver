@@ -25,7 +25,7 @@ fresh environment.
 
 Snapshot-harness suites use the same disposable endpoint as `REDIS_SNAPSHOT_URI`.
 
-- **New integration tests** (`-run '^TestLiveSchema'`, both URIs): all nine pass.
+- **New integration tests** (`-run '^TestLiveSchema'`, both URIs): all eight pass.
   They cover the schema DDL lifecycle, DROP TABLE preflight and multi-table removal,
   managed/live name collisions (live schemas without `live_tables`, an adoption
   blocker, managed creation refused), the DROP SCHEMA tombstone and stale-reservation
@@ -105,7 +105,7 @@ is a real member of the managed schema set, so without `live_tables` it lists as
 a schema with no tables. The reader ACL is unchanged. After the fix:
 
 - `TestSQLRBACSelect` (`REDIS_RBAC_TEST_API` set): all 13 subtests pass.
-- All nine `TestLiveSchema*` tests pass. The collision test now asserts a live
+- All eight `TestLiveSchema*` tests pass. The collision test now asserts a live
   schema lists with zero tables when `live_tables` is off.
 - `scripts/check_partition_tls.py` against a local TLS-only `redis:8.6.2` fixture
   (unique container name and port, removed afterwards) passed with the rebuilt
@@ -113,6 +113,23 @@ a schema with no tables. The reader ACL is unchanged. After the fix:
   restricted credentials. The pre-fix build was not rerun against this script.
 - The Software proxy TLS wheel path was not run locally, because its setup replaces
   the kept fixture's certificates and TLS mode. CI verifies it.
+
+The second CI run on the failing head also failed `darwin-arm64`, whose "Test" step
+runs the Go suite against Redis Open Source, plus the same installed-wheel TLS step
+on `linux-amd64`. Redis OSS runs the protocol-ACL tests that Software skips.
+Against a local TLS-only `redis:8.6.2` fixture with Search, an exported copy of
+the failing head (`c04943de`) failed `TestACLDriverUser`, `TestACLClientName`,
+`TestACLReadOnlyUser` and the foreign-index reader, all with the same `HKEYS`
+NOPERM: the documented minimal driver ACL grants no `HKEYS` either. The fixed code
+passed 71 selected tests (`^(TestACL|TestLive|TestCatalog|TestSQLCatalog|
+TestInfoSchema|TestGetObjects|TestSQLSchema)`), 10 skipped, 0 failed, including
+all 14 `TestACL*`. The same follow-up replaced the remaining `HKEYS` in live
+registry listing (`DROP SCHEMA`) with the existing `HLEN`+`HGETALL` pattern, so
+live schema DDL needs no command outside the documented driver ACL. The eight
+live schema tests pass again on Software. A full root-package run of the final
+code on that OSS fixture, with the aggregate cap raised as the macOS job does,
+passed: exit 0, 1,600 passed, 435 skipped, 0 failed. PR #726 merged at `00762e22`;
+the `HKEYS` follow-up and these records ship separately.
 
 ## Review and limits
 
