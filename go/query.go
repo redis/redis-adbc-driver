@@ -2809,9 +2809,14 @@ const maxUnionTerms = 1000
 const flexDemandTerms = 4096
 
 // demandTermLimit is the largest fact key demand starFactDimensionDemand
-// builds and unionTerm pushes down.
+// builds and unionTerm pushes down. A correlated subquery's streamed join
+// (outer set) keeps maxUnionTerms even with Flex: it runs once per distinct
+// set of outer values (subqueryRows), so its union's cost repeats for each.
+// TPC-H Q2's minimum supply cost runs for each of 747 parts; at SF1 on Flex
+// its 1,987-supplier demand made each run's Search calls take about 32 ms,
+// about 80 s in all, where each run's own part key selects four rows.
 func (e *executor) demandTermLimit() int {
-	if e.store != nil && e.store.flexEnabled() {
+	if e.store != nil && e.store.flexEnabled() && e.outer == nil {
 		return flexDemandTerms
 	}
 	return maxUnionTerms

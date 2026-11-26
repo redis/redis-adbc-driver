@@ -261,3 +261,34 @@ func TestFlexFactKeyDemandUnionLimit(t *testing.T) {
 		t.Fatal("Flex pushed an unmarked OR over maxUnionTerms")
 	}
 }
+
+// A correlated subquery's streamed join (outer set) runs once per distinct
+// set of outer values, so with Flex its fact key demand keeps maxUnionTerms:
+// a 1,500-key demand is neither built nor pushed (TPC-H Q2 at SF1).
+func TestFlexCorrelatedFactKeyDemandKeepsUnionLimit(t *testing.T) {
+	ctx := context.Background()
+	fact := &tableMeta{Columns: []columnMeta{{Name: "f.a", Field: "a", Type: typeInt64, Indexed: true}}}
+	rows := make([]map[string]Value, 1500)
+	for i := range rows {
+		rows[i] = map[string]Value{"d.a": intValue(typeInt64, int64(i+1))}
+	}
+	dims := []starDimension{{factCols: []string{"f.a"}, dimCols: []string{"d.a"}, buckets: map[string][]map[string]Value{"all": rows}}}
+	flex := &executor{store: &store{flex: true}}
+	correlated := &executor{store: &store{flex: true}, outer: &evalEnv{}}
+	if correlated.demandTermLimit() != maxUnionTerms || flex.demandTermLimit() != flexDemandTerms {
+		t.Fatalf("demand limits: correlated %d uncorrelated %d", correlated.demandTermLimit(), flex.demandTermLimit())
+	}
+	if demand, err := starFactDimensionDemand(ctx, fact, dims, correlated.demandTermLimit()); err != nil || demand != nil {
+		t.Fatalf("correlated Flex demand over maxUnionTerms: %v %v", demand, err)
+	}
+	wide, err := starFactDimensionDemand(ctx, fact, dims, flex.demandTermLimit())
+	if err != nil || wide == nil {
+		t.Fatalf("uncorrelated Flex demand not built: %v", err)
+	}
+	if _, pushed, _ := correlated.unionTerm(ctx, wide, fact, correlated.newEnv(ctx, fact.types(), nil)); pushed {
+		t.Fatal("correlated Flex executor pushed a demand union over maxUnionTerms")
+	}
+	if _, pushed, _ := flex.unionTerm(ctx, wide, fact, flex.newEnv(ctx, fact.types(), nil)); !pushed {
+		t.Fatal("uncorrelated Flex executor refused its demand union")
+	}
+}

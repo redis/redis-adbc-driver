@@ -14,34 +14,49 @@ import "context"
 // resolves newest-version visibility, fetches its rows and checks the
 // complete predicate on each one, exactly like the serial candidate scan.
 
-// flexReaderPlan counts a parallel reader's Flex filter once. over proves the
-// ordinary scan budget refuses its complete candidates (completeFlexOverBudget),
-// so the reader uses exact-directory ranges. Otherwise, a set within
-// flexSharedCandidates that fills at least two chunks is materialized once
-// (cands, bounds). Neither: the reader keeps its existing plan.
+// flexReaderPlan evaluates a parallel reader's Flex filter once
+// (fetchCompleteFlexCandidates). over proves the ordinary scan budget refuses
+// its complete candidates (completeFlexOverBudget), so the reader uses
+// exact-directory ranges. Otherwise, a set within flexSharedCandidates that
+// fills at least two chunks is materialized once (cands, bounds). Neither: the
+// reader keeps its existing plan. If Search refuses the fetch size, the
+// filter is counted first, then fetched.
 func (e *executor) flexReaderPlan(ctx context.Context, view *tableMeta, query string) (cands *snapshotCandidateScan, bounds [][2]string, over bool, err error) {
 	if e.store == nil || !e.store.flexEnabled() || query == "" || query == "*" {
 		return nil, nil, false, nil
 	}
-	counts, err := e.store.completeFlexCandidateCounts(ctx, view, query)
-	if err != nil || counts == nil {
+	cands, counts, err := fetchCompleteFlexCandidates(ctx, e.store, view, query, flexSharedCandidates)
+	if err != nil {
 		return nil, nil, false, err
 	}
+	if counts == nil {
+		if counts, err = e.store.completeFlexCandidateCounts(ctx, view, query); err != nil || counts == nil {
+			return nil, nil, false, err
+		}
+		if !counts.refused(flexSharedCandidates) && counts.total() >= 2*starChunkRows {
+			cands, bounds, err = e.sharedFlexCandidates(ctx, view, query, counts)
+			return cands, bounds, counts.refused(flexScanCandidates), err
+		}
+		cands = nil
+	}
 	over = counts.refused(flexScanCandidates)
-	if counts.refused(flexSharedCandidates) || counts.total() < 2*starChunkRows {
+	if cands == nil || counts.total() < 2*starChunkRows {
 		return nil, nil, over, nil
 	}
-	cands, bounds, err = e.sharedFlexCandidates(ctx, view, query)
-	return cands, bounds, over, err
+	if bounds = cands.chunkBounds(int(starChunkRows)); len(bounds) < 2 {
+		return nil, nil, over, nil
+	}
+	return cands, bounds, over, nil
 }
 
 // sharedFlexCandidates returns a Flex filter's complete candidates and their
 // row-ID chunks of at most starChunkRows IDs. It returns nil, and the caller
 // keeps its existing plan, without a plain index, when the set exceeds
 // flexSharedCandidates or Search's own result limit, or when it fills fewer
-// than two chunks.
-func (e *executor) sharedFlexCandidates(ctx context.Context, view *tableMeta, query string) (*snapshotCandidateScan, [][2]string, error) {
-	cands, err := openFlexSnapshotCandidatesWithin(ctx, e.store, view, query, nil, nil, flexSharedCandidates)
+// than two chunks. counts are flexReaderPlan's, so the fetch is the only
+// further evaluation of query (openFlexSnapshotCandidatesCounted).
+func (e *executor) sharedFlexCandidates(ctx context.Context, view *tableMeta, query string, counts *flexCandidateCounts) (*snapshotCandidateScan, [][2]string, error) {
+	cands, err := openFlexSnapshotCandidatesCounted(ctx, e.store, view, query, nil, nil, flexSharedCandidates, counts)
 	if err != nil || cands == nil {
 		return nil, nil, err
 	}
