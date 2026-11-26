@@ -10,3 +10,5 @@ In the isolated OLAP harness (`benchmarks/olap-release/`), one query coordinator
 Desired behavior: the refused query keeps its coordinator-failure record, and later queries in the same pass run normally. Genuinely historical shared-worker output must still be refused.
 
 Out of scope: why a coordinator fails, the Flex compaction gate itself, the `pass_order` diagnostics in PR #718, timeouts and engine/validation behavior. No benchmark suite or live database is run for this change.
+
+Reviewable implementation: [PR #719](https://github.com/redis/redis-adbc-driver/pull/719).

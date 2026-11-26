@@ -33,3 +33,5 @@ Ran 65 tests in 5.821 s: OK, 1 skipped. The skip is `test_isolation.WorkerMemory
 ## Limits
 
 The test uses a stub coordinator, so it does not exercise `run.py`'s real Flex recheck; `test_flex_compaction.py` covers that refusal separately. No Redis Software Flex database, benchmark query or container was run. This is an agent check, not human maintainer approval.
+
+Reviewable implementation: [PR #719](https://github.com/redis/redis-adbc-driver/pull/719).

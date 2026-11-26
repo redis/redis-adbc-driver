@@ -13,3 +13,5 @@ Unchanged:
 - Coordinator isolation: neither the supervisor nor the coordinator imports DuckDB or the Redis ADBC driver.
 
 A fallback record carrying `engine_isolation` states the harness mode of the pass in which the coordinator failed. It does not claim that any engine ran.
+
+Reviewable implementation: [PR #719](https://github.com/redis/redis-adbc-driver/pull/719).

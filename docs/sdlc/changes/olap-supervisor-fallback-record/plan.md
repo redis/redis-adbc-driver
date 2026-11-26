@@ -9,3 +9,5 @@ See [intent](intent.md), [spec](spec.md), [validation](validation.md).
 4. Note the behavior and the new test in `benchmarks/olap-release/README.md`.
 5. Run `python3 -m unittest discover -s benchmarks/olap-release -p 'test_*.py'`.
 6. Open a PR against `main`; human review remains pending.
+
+Reviewable implementation: [PR #719](https://github.com/redis/redis-adbc-driver/pull/719).
