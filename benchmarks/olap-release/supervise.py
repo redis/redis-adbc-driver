@@ -53,7 +53,12 @@ for query_file in query_files:
         failure = "query coordinator exceeded 1200-second process limit"
     if failure:
         checkpoint = folder / f"checkpoint-{n}.json"
-        record = json.loads(checkpoint.read_text()) if checkpoint.exists() else {"suite": args.suite, "query": n}
+        # A coordinator can exit before run_query writes a checkpoint (e.g. a
+        # Flex compaction refusal). Mark the fallback as a current-harness
+        # record, or every later run_query refuses it as historical output.
+        record = json.loads(checkpoint.read_text()) if checkpoint.exists() else {
+            "suite": args.suite, "query": n,
+            "engine_isolation": "sequential fresh processes; separate disk-backed validation"}
         engine = record.get("active_engine")
         phase = record.get("active_phase", "coordinator")
         if engine:
