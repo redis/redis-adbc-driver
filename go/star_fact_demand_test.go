@@ -5,6 +5,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -220,9 +221,11 @@ func TestFlexFactKeyDemandUnionLimit(t *testing.T) {
 	fact := &tableMeta{Columns: []columnMeta{{Name: "f.a", Field: "a", Type: typeInt64, Indexed: true}}}
 	demandOf := func(n int, limit int) Expr {
 		t.Helper()
+		// Odd keys: no two are consecutive, so each stays its own Flex term
+		// (integerRunUnionQuery).
 		rows := make([]map[string]Value, n)
 		for i := range rows {
-			rows[i] = map[string]Value{"d.a": intValue(typeInt64, int64(i+1))}
+			rows[i] = map[string]Value{"d.a": intValue(typeInt64, int64(2*i+1))}
 		}
 		dims := []starDimension{{factCols: []string{"f.a"}, dimCols: []string{"d.a"}, buckets: map[string][]map[string]Value{"all": rows}}}
 		demand, err := starFactDimensionDemand(ctx, fact, dims, limit)
@@ -290,5 +293,154 @@ func TestFlexCorrelatedFactKeyDemandKeepsUnionLimit(t *testing.T) {
 	}
 	if _, pushed, _ := flex.unionTerm(ctx, wide, fact, flex.newEnv(ctx, fact.types(), nil)); !pushed {
 		t.Fatal("uncorrelated Flex executor refused its demand union")
+	}
+}
+
+// With Flex, a streamed join's fact key demand on an integer column is pushed
+// as one range per run of consecutive keys: SSB's yyyymmdd dates of a month
+// are one run, so 1993 is 12 ranges instead of 365 terms (integerRunUnionQuery).
+// The ranges hold exactly the keys: no gap is bridged, the int64 extremes stay
+// exact, NULL and duplicate keys add nothing, and a missing value is still
+// widened. Without Flex, and for an unmarked OR, each key keeps its own term.
+func TestFlexFactKeyDemandCoalescesIntegerRuns(t *testing.T) {
+	ctx := context.Background()
+	for name, typ := range map[string]ColType{"int64": typeInt64, "int32": typeInt32} {
+		fact := &tableMeta{Columns: []columnMeta{{Name: "f.a", Field: "a", Type: typ, Indexed: true}}}
+		keys := []int64{7, -3, -1, -2, 0, 19930228, 19930101, 7}
+		for d := int64(19930102); d <= 19930131; d++ {
+			keys = append(keys, d)
+		}
+		for d := int64(19930201); d < 19930228; d++ {
+			keys = append(keys, d)
+		}
+		want := "(@a:[-3 0] | @a:[7 7] | @a:[19930101 19930131] | @a:[19930201 19930228])"
+		if typ == typeInt64 {
+			keys = append(keys, math.MinInt64, math.MaxInt64, math.MaxInt64-1, math.MaxInt64-3)
+			want = "(@a:[-9223372036854775808 -9223372036854775808] | @a:[-3 0] | @a:[7 7] | @a:[19930101 19930131] | @a:[19930201 19930228] | @a:[9223372036854775804 9223372036854775804] | @a:[9223372036854775806 9223372036854775807])"
+		}
+		rows := []map[string]Value{{"d.a": nullValue(typ)}}
+		distinct := map[int64]bool{}
+		for _, k := range keys {
+			rows = append(rows, map[string]Value{"d.a": intValue(typ, k)})
+			distinct[k] = true
+		}
+		// Two buckets, so a key may repeat across them.
+		dims := []starDimension{{factCols: []string{"f.a"}, dimCols: []string{"d.a"}, buckets: map[string][]map[string]Value{"x": rows[:5], "y": rows[3:]}}}
+		flex := &executor{store: &store{flex: true}}
+		demand, err := starFactDimensionDemand(ctx, fact, dims, flex.demandTermLimit())
+		if err != nil {
+			t.Fatal(err)
+		}
+		env := flex.newEnv(ctx, fact.types(), nil)
+		q, pushed, err := flex.unionTerm(ctx, demand, fact, env)
+		if err != nil || !pushed || q != want {
+			t.Fatalf("%s Flex demand: pushed %v err %v\n%s\nwant\n%s", name, pushed, err, q, want)
+		}
+		ram := &executor{store: &store{}}
+		q, pushed, err = ram.unionTerm(ctx, demand, fact, ram.newEnv(ctx, fact.types(), nil))
+		if err != nil || !pushed || strings.Count(q, "@a:[") != len(distinct) {
+			t.Fatalf("%s RAM demand changed: %v %v %s", name, pushed, err, q)
+		}
+		plain := *demand.(*Binary)
+		plain.keyDemand = false
+		if q, _, _ := flex.unionTerm(ctx, &plain, fact, env); strings.Count(q, "@a:[") != len(distinct) {
+			t.Fatalf("%s Flex coalesced an unmarked OR: %s", name, q)
+		}
+		// A missing value among the keys still widens the coalesced union.
+		missing := *fact
+		missing.Columns = []columnMeta{fact.Columns[0]}
+		missing.Columns[0].MissingThrough, missing.Columns[0].Missing = 40, "19930115"
+		q, pushed, err = flex.unionTerm(ctx, demand, &missing, env)
+		if err != nil || !pushed || q != "("+want+" | @"+rowIDField+":[-inf 40])" {
+			t.Fatalf("%s missing value not widened: %v %v %s", name, pushed, err, q)
+		}
+		missing.Columns[0].Missing = "8"
+		if q, _, _ = flex.unionTerm(ctx, demand, &missing, env); q != want {
+			t.Fatalf("%s widened for a missing value outside the keys: %s", name, q)
+		}
+	}
+}
+
+// A dimension proven unfiltered keeps maxUnionTerms even with Flex: its keys
+// exclude only fact rows the inner join drops anyway (SSB Q2.x's 2,556 dates).
+// A filtered dimension's demand, and an unfiltered one within maxUnionTerms,
+// are still built.
+func TestFlexUnfilteredDimensionDemandKeepsUnionLimit(t *testing.T) {
+	ctx := context.Background()
+	fact := &tableMeta{Columns: []columnMeta{{Name: "f.a", Field: "a", Type: typeInt64, Indexed: true}, {Name: "f.b", Field: "b", Type: typeInt64, Indexed: true}}}
+	keyed := func(col string, n int) map[string][]map[string]Value {
+		rows := make([]map[string]Value, n)
+		for i := range rows {
+			rows[i] = map[string]Value{col: intValue(typeInt64, int64(i+1))}
+		}
+		return map[string][]map[string]Value{"all": rows}
+	}
+	limit := (&executor{store: &store{flex: true}}).demandTermLimit()
+	refsOf := func(dims []starDimension) map[string]bool {
+		t.Helper()
+		demand, err := starFactDimensionDemand(ctx, fact, dims, limit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		refs := map[string]bool{}
+		columnRefs(demand, refs)
+		return refs
+	}
+	dims := []starDimension{
+		{factCols: []string{"f.a"}, dimCols: []string{"d.a"}, buckets: keyed("d.a", 1500), unfiltered: true},
+		{factCols: []string{"f.b"}, dimCols: []string{"e.b"}, buckets: keyed("e.b", 1500)},
+	}
+	if refs := refsOf(dims); refs["f.a"] || !refs["f.b"] {
+		t.Fatalf("1,500 keys: unfiltered pushed or filtered dropped: %v", refs)
+	}
+	dims[0].buckets = keyed("d.a", maxUnionTerms)
+	if refs := refsOf(dims); !refs["f.a"] || !refs["f.b"] {
+		t.Fatalf("unfiltered demand within maxUnionTerms dropped: %v", refs)
+	}
+	// An empty unfiltered dimension still proves the join empty.
+	dims[0].buckets = map[string][]map[string]Value{}
+	demand, err := starFactDimensionDemand(ctx, fact, dims, limit)
+	if lit, ok := demand.(*Literal); err != nil || !ok || lit.V.Null || lit.V.I != 0 {
+		t.Fatalf("empty unfiltered dimension: %v %v", demand, err)
+	}
+}
+
+// starDimensionUnfiltered holds only for stored tables without a filter of
+// their own and without another condition inside the dimension. The planners
+// leave it unproven for the snowflake fixture's in-memory relations.
+func TestStarDimensionUnfilteredProof(t *testing.T) {
+	stored := func() *tableMeta { return &tableMeta{Columns: []columnMeta{{Name: "x", Type: typeInt64}}} }
+	jp := &joinPlan{items: []*joinItem{{base: stored(), prefix: "f."}, {base: stored(), prefix: "d."}, {base: stored(), prefix: "n."}, {base: &tableMeta{isMem: true}, prefix: "m."}}}
+	ref := func(name string) *ColumnRef { return &ColumnRef{Name: name} }
+	filter := &Binary{Op: "=", L: ref("n.x"), R: &Literal{V: intValue(typeInt64, 3)}}
+	inside := &Binary{Op: "<", L: ref("d.x"), R: ref("n.x")}
+	spanning := &Binary{Op: "<", L: ref("f.x"), R: ref("n.x")}
+	for _, tt := range []struct {
+		name    string
+		items   []int
+		filters map[int][]Expr
+		conds   []Expr
+		want    bool
+	}{
+		{"stored", []int{1}, nil, nil, true},
+		{"branch", []int{1, 2}, nil, []Expr{spanning}, true},
+		{"own filter", []int{1}, map[int][]Expr{1: {filter}}, nil, false},
+		{"branch filter", []int{1, 2}, map[int][]Expr{2: {filter}}, nil, false},
+		{"condition inside the branch", []int{1, 2}, nil, []Expr{inside}, false},
+		{"in-memory relation", []int{3}, nil, nil, false},
+	} {
+		if got := starDimensionUnfiltered(jp, tt.filters, tt.items, tt.conds); got != tt.want {
+			t.Errorf("%s: %v, want %v", tt.name, got, tt.want)
+		}
+	}
+	e, p, sjp := snowflakeTestShape(t, snowflakeQueries["q5"])
+	s, ok := e.planSnowflakeShape(context.Background(), sjp, map[string]bool{}, p.sel.Where)
+	if !ok {
+		t.Fatal("snowflake rejected")
+	}
+	for _, d := range s.dims {
+		if d.unfiltered {
+			t.Fatalf("in-memory dimension %s proven unfiltered", sjp.items[d.item].prefix)
+		}
 	}
 }

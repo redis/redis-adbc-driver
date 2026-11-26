@@ -10,6 +10,10 @@ import (
 // Each prepared dimension supplies necessary independent key sets, not a join
 // result. Cross-combinations may pass these filters; the original compound
 // bucket probes still enforce correlation and duplicate multiplicity.
+//
+// limit caps each key set. A dimension proven unfiltered keeps maxUnionTerms:
+// its keys exclude only fact rows the inner join drops anyway, yet with Flex
+// each key costs a Search term (SSB Q2.x would push all 2,556 dates).
 func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDimension, limit int) (Expr, error) {
 	var combined Expr
 	for _, dim := range dims {
@@ -18,6 +22,10 @@ func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDi
 		} // no proof of emptiness before preparation
 		if len(dim.buckets) == 0 {
 			return &Literal{V: boolValue(false)}, nil
+		}
+		dimLimit := limit
+		if dim.unfiltered {
+			dimLimit = min(limit, maxUnionTerms)
 		}
 		for pair, factName := range dim.factCols {
 			if pair >= len(dim.dimCols) {
@@ -49,7 +57,7 @@ func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDi
 						break collect
 					}
 					values[key] = v
-					if len(values) > limit {
+					if len(values) > dimLimit {
 						safe = false
 						break collect
 					}

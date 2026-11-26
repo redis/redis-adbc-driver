@@ -2874,13 +2874,15 @@ func (e *executor) unionTerm(ctx context.Context, c Expr, meta *tableMeta, env *
 		}
 		flatten(x)
 		limit := maxUnionTerms
+		ranges := false
 		if x.keyDemand {
 			limit = e.demandTermLimit()
+			ranges = e.store != nil && e.store.flexEnabled()
 		}
 		if len(leaves) > limit {
 			return "", false, nil
 		}
-		return e.orUnionTerms(leaves, meta, env)
+		return e.orUnionTerms(leaves, meta, env, ranges)
 	default:
 		return "", false, nil
 	}
@@ -2894,8 +2896,9 @@ func (e *executor) unionTerm(ctx context.Context, c Expr, meta *tableMeta, env *
 
 // orUnionTerms is unionTerm for the operands of an OR: the columns c with a
 // conjunct `c = constant` in every operand, in the first operand's order,
-// each give a union of their constants if c is indexed.
-func (e *executor) orUnionTerms(leaves []Expr, meta *tableMeta, env *evalEnv) (string, bool, error) {
+// each give a union of their constants if c is indexed. ranges builds an
+// integer column's union from runs of consecutive keys (integerRunUnionQuery).
+func (e *executor) orUnionTerms(leaves []Expr, meta *tableMeta, env *evalEnv, ranges bool) (string, bool, error) {
 	var cols []string
 	eqs := make([]map[string]Expr, len(leaves))
 	for j, leaf := range leaves {
@@ -2932,7 +2935,11 @@ func (e *executor) orUnionTerms(leaves []Expr, meta *tableMeta, env *evalEnv) (s
 			}
 			values[j] = v
 		}
-		if q, ok := unionQuery(cm, values, e.zone()); ok {
+		build := unionQuery
+		if ranges {
+			build = integerRunUnionQuery
+		}
+		if q, ok := build(cm, values, e.zone()); ok {
 			terms = append(terms, q)
 		}
 	}
@@ -2985,7 +2992,14 @@ func unionQuery(cm columnMeta, values []Value, z tzZone) (string, bool) {
 		q = fmt.Sprintf("@%s:{%s}", cm.field(), strings.Join(parts, " | "))
 	}
 	// Callers re-check the predicate on the rows, so the query may be wider.
-	q, _ = widenMissing(q, cm, func(m Value) bool {
+	q, _ = widenMissing(q, cm, equalsAny(values, z))
+	return q, true
+}
+
+// equalsAny reports whether a column's missing value m may equal one of
+// values (see widenMissing).
+func equalsAny(values []Value, z tzZone) func(Value) bool {
+	return func(m Value) bool {
 		for _, v := range values {
 			r, err := binaryOp("=", m, v, z)
 			if b, _ := truthy(r); err != nil || b {
@@ -2993,7 +3007,47 @@ func unionQuery(cm columnMeta, values []Value, z tzZone) (string, bool) {
 			}
 		}
 		return false
-	})
+	}
+}
+
+// integerRunUnionQuery is unionQuery for a streamed join's fact key demand
+// with Flex (unionTerm): on an integer column, each run of consecutive keys
+// becomes one range term `@c:[lo hi]`. On Flex a union costs about the same
+// per term, point or range, whatever the term matches: on SSB SF1 lineorder
+// about 0.55 s, so 1993's 365 dates take 7.5 s as 12 monthly ranges against
+// about 200 s as single keys. The ranges hold exactly the keys, so the query
+// matches the same rows, and the demand is still re-checked on every row.
+// Other columns, or keys that are not of the column's own type, keep
+// unionQuery's terms.
+func integerRunUnionQuery(cm columnMeta, values []Value, z tzZone) (string, bool) {
+	if !cm.Type.Kind.isInteger() {
+		return unionQuery(cm, values, z)
+	}
+	keys := make([]int64, 0, len(values))
+	for _, v := range values {
+		if v.Null {
+			continue
+		}
+		if v.T != cm.Type {
+			return unionQuery(cm, values, z)
+		}
+		keys = append(keys, v.I)
+	}
+	if len(keys) == 0 {
+		return unionQuery(cm, values, z)
+	}
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+	var parts []string
+	for i := 0; i < len(keys); {
+		j := i
+		for j+1 < len(keys) && keys[j+1] == keys[j]+1 {
+			j++
+		}
+		parts = append(parts, fmt.Sprintf("@%s:[%d %d]", cm.field(), keys[i], keys[j]))
+		i = j + 1
+	}
+	q, _ := widenMissing("("+strings.Join(parts, " | ")+")", cm, equalsAny(values, z))
 	return q, true
 }
 

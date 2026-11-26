@@ -22,6 +22,11 @@ type starDimension struct {
 	// branchItems are its join items. A nil branch scans item alone.
 	branch      *joinPlan
 	branchItems []int
+	// unfiltered proves the dimension retains every row of its stored tables
+	// (starDimensionUnfiltered), so its key demand excludes only fact rows the
+	// inner join drops anyway: with Flex it keeps maxUnionTerms
+	// (starFactDimensionDemand). False when not proven.
+	unfiltered bool
 }
 type starShape struct {
 	fact     int
@@ -359,12 +364,40 @@ func (e *executor) planStarShape(ctx context.Context, jp *joinPlan, need map[str
 			}
 		}
 	}
-	for _, d := range s.dims {
+	for i, d := range s.dims {
 		if len(d.dimCols) == 0 {
 			return nil, false
 		}
+		s.dims[i].unfiltered = starDimensionUnfiltered(jp, s.filters, []int{d.item}, nil)
 	}
 	return s, true
+}
+
+// starDimensionUnfiltered reports whether a dimension's items (the dimension,
+// or every table of its snowflake branch) are stored tables whose rows it
+// retains in full: none has a filter of its own, or is an in-memory relation
+// (a CTE or derived table, whose definition may have filtered its rows), and
+// no other condition (conds) lies within the items. Only the branch's tree
+// edges join them.
+func starDimensionUnfiltered(jp *joinPlan, filters map[int][]Expr, items []int, conds []Expr) bool {
+	member := map[int]bool{}
+	for _, i := range items {
+		if base := jp.items[i].base; len(filters[i]) > 0 || base.isMem || base.view != nil {
+			return false
+		}
+		member[i] = true
+	}
+	for _, x := range conds {
+		idx, _ := jp.itemsOf(x)
+		inside := len(idx) > 0
+		for _, i := range idx {
+			inside = inside && member[i]
+		}
+		if inside {
+			return false
+		}
+	}
+	return true
 }
 func starRowKey(row map[string]Value, cols []string) (string, bool) {
 	var b strings.Builder
