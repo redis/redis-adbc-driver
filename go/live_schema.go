@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -351,10 +352,17 @@ func (s *store) liveRegistryNames(ctx context.Context, ref liveRef) ([]string, e
 	if n > liveMaxTables {
 		return nil, errorf(adbc.StatusIO, "live table capacity exceeded")
 	}
-	names, err := s.client.HKeys(ctx, ref.registry()).Result()
+	// HGETALL is in the documented driver ACL; HKEYS is not. The registry is
+	// bounded above, as in liveNames.
+	entries, err := s.client.HGetAll(ctx, ref.registry()).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to read live registry")
 	}
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	slices.Sort(names)
 	return names, nil
 }
 
