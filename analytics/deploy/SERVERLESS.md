@@ -1,5 +1,7 @@
 # S3 collector deployment
 
+Status: deployed 2026-11-19 (Pacific); see the [deployment README](README.md). The staging and migration steps below are the procedure that was used and are kept as a record. Before any further Terraform change, read [Terraform state reconciliation](#terraform-state-reconciliation).
+
 The serverless collector uses API Gateway HTTP API, three Lambda functions, the existing private encrypted/versioned S3 bucket, a SecureString dashboard token, and EventBridge schedules. There is no database, NAT gateway, load balancer or provisioned Lambda concurrency. The dashboard shell is included in the API package; usage data is returned only by its authenticated summary endpoint.
 
 Reports are durably buffered before HTTP acknowledgement. Summaries refresh every 15 minutes; download snapshots refresh daily. The dashboard displays the generation time. The source IP comes from API Gateway, not forwarded headers. Global throttling is shared across clients (10 requests/second, burst 20), replacing the legacy per-IP limits. Public feedback remains spoofable and unverified. Cold starts and slow S3 calls can exceed a driver's two-second deadline; retrying an already saved report is harmless.
@@ -11,6 +13,8 @@ Use the existing Terraform backend and private operator variables. Keep all plan
 ```sh
 PYTHON=/path/to/venv/bin/python bash analytics/deploy/package-serverless.sh /private/path/collector.zip
 ```
+
+The deployed package has the fixed timestamps and file modes this script writes. Its dependencies, resolved from the `requirements.txt` ranges, are boto3 and botocore 1.44.7, dnspython 2.9.2, redis 8.1.0, s3transfer 0.19.3, jmespath 1.1.0, urllib3 2.8.0, python-dateutil 2.9.0.post0 and six 1.17.0. `requirements.txt` does not pin these, so a later build can resolve newer versions and produce a different zip. Terraform's `source_code_hash` then updates all three functions. To plan without function changes, supply the exact deployed package.
 
 Store the package under the ignored Terraform `private/` directory and persist operator settings in an ignored `operator.auto.tfvars.json` (mode 0600). Never put AWS keys or dashboard tokens in that file. Supply `serverless_package` with that absolute path; set `legacy_ami_id` to the current host's AMI so the public AMI lookup cannot replace it during migration. Leave `serverless_cutover=false` and `serverless_schedules_enabled=false`. Temporarily enable `serverless_migration_access` only for the migration. Review the plan for unrelated changes and preserve existing private operator values.
 
@@ -35,4 +39,28 @@ The manifest references complete immutable state and summary objects. A successf
 
 Costs depend on report frequency, payload size, history, API reads and worker duration. A fixed monthly estimate is not implied. S3 requests/storage, scheduled processing, Route 53 and any retained legacy resources continue to cost money. No RDS, DynamoDB or EC2 compute is needed for normal serverless collection.
 
-To roll back, first disable `serverless_stop_legacy` and start the legacy host if stopped, reallocate an Elastic IP through Terraform, restore its saved nginx configuration and collector service, then revert the DNS cutover flag. This restores historical legacy service but does not import reports received only by S3: reconcile those cumulative reports before claiming complete rollback. Keep S3 reports and the migration baseline throughout recovery. Never restore an older checkpoint in place without accounting for its published session high-water marks.
+Rolling back to EC2 is no longer a host restart. The legacy instance and its disk no longer exist (checked 2026-11-26). A return to EC2 would need a new host restored from a legacy RDB backup under `backups/` (while the 90-day backup rule still retains one) or from the migration baseline, plus a new Elastic IP, the nginx and collector configuration, and a reverted DNS cutover flag. Neither source contains reports received only by S3: reconcile those cumulative reports before claiming complete rollback. Keep S3 reports and the migration baseline throughout recovery. Never restore an older checkpoint in place without accounting for its published session high-water marks.
+
+## Terraform state reconciliation
+
+Checked 2026-11-26 with read-only AWS calls; no plan was run. The shared state holds the serverless module and the root legacy resources. Every `module.serverless[0]` resource matches the deployment, and the package in the operator's ignored `private/` directory has the deployed code hash. The root legacy resources differ from AWS:
+
+| State address | In state | In AWS |
+|---|---|---|
+| `aws_instance.collector` | stopped | instance not found; root volume not found |
+| `aws_ec2_instance_state.legacy[0]` | stopped | instance not found |
+| `aws_security_group.collector` | present | exists, no attached network interfaces |
+| `aws_iam_role.collector`, `aws_iam_role_policy.backup_writer`, `aws_iam_role_policy_attachment.ssm`, `aws_iam_instance_profile.collector` | present | exist |
+| `aws_iam_user_policy.approved_collector_exception[0]` | present | exists; denies stop/terminate on the deleted instance |
+
+`aws_eip.collector` is not in state; the migration released it. The state's DNS record is the alias form that `serverless_cutover=true` declares. The backup bucket's settings were not compared.
+
+From the configuration, a plan would refresh away the missing instance. Because `main.tf` still declares `aws_instance.collector`, and `serverless_stop_legacy=true` declares `aws_ec2_instance_state.legacy`, it would then create a new legacy host from the pinned AMI with the legacy bootstrap user data, stop it again, and repoint the FinOps exception at the new instance. `prevent_destroy` blocks destruction, not creation. Do not plan or apply until this is resolved.
+
+Options, each requiring the owner's explicit approval and a reviewed plan before any apply:
+
+1. **Retire legacy compute in configuration (recommended).** Delete `aws_instance.collector`, `aws_ec2_instance_state.legacy`, `aws_eip.collector`, their variables and outputs, and the EIP branch of the DNS record. Add `removed` blocks with `lifecycle { destroy = false }` for the instance and instance-state addresses, so the plan only forgets them. The FinOps exception protects only that instance: remove it too, either destroyed or forgotten with its own `removed` block. Decide separately whether the security group, role and profile are destroyed or forgotten the same way.
+2. **`terraform state rm`** of the instance and instance-state addresses. This edits shared state outside review and leaves the configuration unchanged, so the next plan still creates the host. Use it only together with option 1's configuration change, not instead of it.
+3. **Keep an optional legacy host.** Gate the instance, instance state and FinOps exception behind a new count that defaults to zero, with `moved` blocks to their `[0]` addresses. Refresh then drops the missing instance and nothing is created. A future EC2 host would still start empty and need the restore described above.
+
+`terraform apply -refresh-only` by itself removes the missing instance from state but leaves it declared, so the next normal plan still creates the host.
