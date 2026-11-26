@@ -35,23 +35,27 @@ python3 analytics/collector.py
 Open <http://127.0.0.1:8787/> and enter the read token. The collector binds to
 loopback. `/api/summary` requires the read token; the dashboard shell contains no
 usage data and does not persist the token. `/health` checks Redis availability.
-Self-hosted clients use the write token. The AWS HTTPS proxy injects its private
-write token on public ingestion requests, validates body limits and rate limits
-per IP; clients do not contain a secret. Public reports and labels remain
-unverified and can be spoofed. Tokens are generated on the host, outside Terraform
-state. Access logs are disabled.
+Self-hosted clients use the write token. Public reports and labels remain
+unverified and can be spoofed. Access logs are disabled.
+
+The hosted AWS collector no longer runs this Redis collector. Since 2026-11-19 it
+has been a serverless API Gateway and Lambda service that stores reports in S3.
+Its public ingestion needs no client secret, validates the same payload allowlist
+and 64 KiB body limit, and is throttled globally rather than per IP. Its dashboard
+read token is an encrypted SSM parameter, outside Terraform state. Its source is
+not yet in this repository.
 
 Redis uses pooled RESP3 connections, per-session WATCH/MULTI retry deduplication,
-a report stream, bounded read pages and indexed download snapshots. The deployment
-uses append-only persistence, `noeviction`, and hourly validated RDB exports to a
-private, encrypted, versioned S3 bucket with 90-day backup retention. Live Redis
-data has no automatic expiry; size the instance as usage grows. The deployment is
-a single server, so it is not highly available. Disk loss can lose up to an hour
-of writes since the last successful S3 backup.
+a report stream, bounded read pages and indexed download snapshots. A self-hosted
+Redis collector should use append-only persistence, `noeviction` and regular
+validated RDB exports. The retired EC2 deployment exported hourly to a private,
+encrypted, versioned S3 bucket with 90-day backup retention. Live Redis data has
+no automatic expiry; size the instance as usage grows. A single server is not
+highly available, and disk loss can lose writes since the last successful backup.
 
-See [Terraform deployment and restore](deploy/README.md) for infrastructure,
-credentials, backup checks and restore instructions. Deployment status is recorded
-there separately from the configuration.
+See [deployment status and dashboard access](deploy/README.md) for the hosted
+collector, its checks and the retired EC2 deployment's backup and restore
+instructions.
 
 ## Configure reporting or opt out
 
@@ -235,11 +239,12 @@ Discovery references: [ECS v4 task metadata](https://docs.aws.amazon.com/AmazonE
 ## Reporting sources and per-execution workloads
 
 The dashboard lists both the client-reported hostname and reverse DNS (PTR) of the
-public egress IP observed by the HTTPS proxy. A hostname is self-reported; a PTR
-name may identify a NAT/VPN/shared gateway rather than the machine. The proxy
-replaces `X-Real-IP`; the collector trusts it only from a loopback peer when
-`ANALYTICS_TRUST_PROXY=1`. Direct clients cannot supply an observed network name
-in their JSON. Older stored reports cannot be retroactively attributed.
+public egress IP observed by the collector's front end (API Gateway for the hosted
+collector). A hostname is self-reported; a PTR name may identify a NAT/VPN/shared
+gateway rather than the machine. For a self-hosted Redis collector behind nginx,
+the proxy replaces `X-Real-IP`; the collector trusts it only from a loopback peer
+when `ANALYTICS_TRUST_PROXY=1`. Direct clients cannot supply an observed network
+name in their JSON. Older stored reports cannot be retroactively attributed.
 
 PTR lookups run in two background workers, with two-second DNS deadlines, a
 bounded queue and one-hour cache. They do not block ingestion. Failed/missing
