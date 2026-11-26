@@ -4,18 +4,20 @@ Status (2026-11-19, Pacific): the public collector now uses API Gateway, Lambda 
 
 The deployed code is in this repository: [`serverless.py`](../serverless.py) (all three functions), [`collector.py`](../collector.py) (shared validation and summaries), [`migrate_serverless.py`](../migrate_serverless.py), [`package-serverless.sh`](package-serverless.sh), and the Terraform in [`terraform/serverless.tf`](terraform/serverless.tf) and [`terraform/serverless/`](terraform/serverless/main.tf). A 2026-11-26 read-only comparison found the deployed application files byte-identical to these sources and the deployed function, API, schedule, IAM, log and alarm settings matching the module. See the [source recovery record](../../docs/sdlc/changes/serverless-telemetry/plan.md#source-recovery-2026-11-26).
 
-The migration stopped the legacy EC2 collector and released its Elastic IP. A 2026-11-26 read-only check found that the instance and its root volume no longer exist, so the retained-disk rollback described in the migration plan is unavailable. The protected backup bucket remains. The legacy security group (no attached interfaces), instance role and profile, and the approved FinOps lifecycle exception policy still exist. No continuously running collector or database is required. Operational deployment settings, packages and verification artifacts remain private.
+The migration stopped the legacy EC2 collector and released its Elastic IP. A 2026-11-26 read-only check found that the instance and its root volume no longer exist, so the retained-disk rollback described in the migration plan is unavailable. The protected backup bucket remains. No continuously running collector or database is required. Operational deployment settings, packages and verification artifacts remain private.
+
+The Terraform configuration no longer declares the legacy collector. `removed` blocks forget the deleted instance and its instance-state resource. The unused legacy security group, instance role and profile, and the FinOps lifecycle exception policy still exist in AWS until an approved apply deletes them.
 
 > [!WARNING]
-> Do not run `terraform plan` or `apply` against the shared state until the
-> legacy instance is reconciled. The state still records the deleted
-> `aws_instance.collector` as stopped, and `main.tf` still declares it, so a plan
-> would propose creating a new legacy collector host. See
+> No apply has been run for this retirement. Before applying, review a plan
+> against the shared state and get the owner's approval. A 2026-11-26 plan
+> against a local copy of that state proposed only the two forgets and six
+> deletions, with no Lambda, API, DNS or bucket changes. See
 > [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
 
 Migration verification preserved 125,031 historical reports and 90,649 sessions, with all traffic-filter totals, deployment IDs and recent execution identities matching the old collector. A scheduled refresh and authenticated public dashboard reads succeeded. A warm ingestion replay took about 0.3 seconds; its first request took about 3.2 seconds, exceeding the driver's two-second timeout despite durable storage. Duplicate retries remain safe.
 
-The following describes the **historical EC2 deployment** and its recovery procedures. It is retained as a record and for the legacy RDB backups; its host no longer exists and it is not the active serving architecture.
+The following describes the **historical EC2 deployment** and its recovery procedures. It is retained as a record and for the legacy RDB backups; its host no longer exists and it is not the active serving architecture. Its Terraform resources and variables (including `source_commit` and `approved_finops_user`) were removed from `terraform/` on 2026-11-26, so the resource list and Terraform commands below describe configuration that no longer exists. `bootstrap.sh` and `update.sh` are kept only as a record.
 
 ---
 
