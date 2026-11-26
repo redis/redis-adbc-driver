@@ -89,6 +89,7 @@ func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc 
 		columnRefs(o.expr, need)
 	}
 
+	statement := ctx
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	jobs := make(chan int64)
@@ -175,8 +176,8 @@ dispatch:
 	}
 	close(jobs)
 	wg.Wait()
-	if cause := context.Cause(ctx); cause != nil {
-		return nil, true, cause
+	if err := poolErr(statement, ctx); err != nil {
+		return nil, true, err
 	}
 
 	merged := aggregateTopK{order: plan.order}
