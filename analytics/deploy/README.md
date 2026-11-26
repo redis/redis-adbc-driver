@@ -18,16 +18,18 @@ comparison found the deployed application files byte-identical to these sources
 and the deployed function, API, schedule, IAM, log and alarm settings matching the
 module. See the [source recovery record](../../docs/sdlc/changes/serverless-telemetry/plan.md#source-recovery-2026-11-26).
 
+The legacy collector is retired from Terraform (applied 2026-11-26, Pacific, with the owner's approval). The state no longer tracks the deleted instance or its instance-state resource. The apply deleted the unused legacy security group, instance role and its policies, instance profile and FinOps lifecycle exception policy. A follow-up plan reported no changes, and the public dashboard, health, summary authentication and ingestion validation checks passed. See [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
+
 > [!WARNING]
-> Do not run `terraform plan` or `apply` against the shared state until the
-> legacy instance is reconciled. The state still records the deleted
-> `aws_instance.collector` as stopped, and `main.tf` still declares it, so a plan
-> would propose creating a new legacy collector host. See
-> [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
-> Since 2026-11-26 the functions also run a package built outside Terraform (the
-> [dashboard exclusion filters](../../docs/sdlc/changes/dashboard-exclusion-filters/plan.md)).
-> Planning with an older `serverless_package` would revert all three functions'
-> code; supply the package whose SHA-256 matches the deployed `CodeSha256`.
+> Since 2026-11-26 the three functions run a package deployed outside Terraform
+> (the [dashboard exclusion filters](../../docs/sdlc/changes/dashboard-exclusion-filters/plan.md)).
+> The legacy-retirement apply wrote state a minute before that deployment, so state
+> still records the previous package hash for all three functions. A plan with the
+> previous `serverless_package` may report no function change while AWS runs newer
+> code. Never apply a package built from a commit without those changes. To bring state
+> in line, supply the deployed package (SHA-256
+> `yMuypDzXJMDqSQcfU0meO/cWD0FTk/DivaVwbqqIc9Y=`); the resulting code update
+> uploads identical bytes.
 
 ## Open the dashboard
 
@@ -122,10 +124,10 @@ aws logs tail /aws/lambda/redis-adbc-telemetry-s3-refresh \
 The migration plan kept the stopped EC2 host and its encrypted disk for
 rollback. Both are gone. CloudTrail shows the host was terminated on 2026-11-19,
 about two hours after the migration stopped it and released its Elastic IP. No
-detached disk remains. The protected backup bucket remains, and the legacy
-security group (no attached interfaces), instance role and profile, and the
-approved FinOps lifecycle exception policy still exist. A return to an EC2
-collector would need a new host. Its starting data could be:
+detached disk remains. The protected backup bucket remains; the 2026-11-26
+Terraform apply deleted the unused legacy security group, instance role, profile
+and FinOps lifecycle exception policy. A return to an EC2 collector would need a
+new host and new Terraform. Its starting data could be:
 
 - the last legacy Redis backup (`backups/2026/11/20/…rdb.gz`, taken
   2026-11-20 01:28 UTC). The 90-day `backups/` rule deletes it around
@@ -140,6 +142,8 @@ objects would have to be reconciled before claiming a complete rollback.
 Historical record. This collector, its host, disk and Elastic IP no longer exist.
 Do not run these steps against the live deployment. `restore.py` still applies
 to the legacy RDB backups until they expire.
+
+The following describes the **historical EC2 deployment** and its recovery procedures. It is retained as a record and for the legacy RDB backups; its host no longer exists and it is not the active serving architecture. Its Terraform resources and variables (including `source_commit` and `approved_finops_user`) were removed from `terraform/` on 2026-11-26, so the resource list and Terraform commands below describe configuration that no longer exists. `bootstrap.sh` and `update.sh` are kept only as a record.
 
 Status (2026-11-05): the collector was recovered after account cleanup automation
 terminated the original host. The latest available S3 history was restored, the

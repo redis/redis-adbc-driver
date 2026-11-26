@@ -14,6 +14,6 @@ precomputed summary in one object the dashboard API reads per request, so all
 format. The requestor chose two fixed presets instead.
 
 Out of scope: arbitrary traffic combinations, server-side text filtering,
-Terraform changes and legacy-state reconciliation (PR #723).
+Terraform changes, and the legacy-resource retirement done separately in PR #723.
 
 See [specification](spec.md) and [plan and validation](plan.md).

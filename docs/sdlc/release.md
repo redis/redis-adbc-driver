@@ -13,14 +13,16 @@ releases still do not wait for them. They now follow each driver release:
 - **[redis-adbc-duckdb](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb)**
   builds and tests the extension with driver tag `vX.Y.Z` on Linux amd64/arm64
   and macOS arm64. Only if every platform passes does it move its `driver`
-  pin and publish extension release `vX.Y.Z`. DuckDB users receive that driver
-  through `INSTALL redis_adbc FROM community` only after a separate
+  pin and publish extension release `vX.Y.Z`. The release commits its version
+  into the extension source together with the pin. DuckDB users receive that
+  driver through `INSTALL redis_adbc FROM community` only after a separate
   community-registry `ref` update.
 - **[redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations)**
   runs every framework suite against the X.Y.Z wheel from PyPI. Only if they all
   pass does it publish GitHub release `vX.Y.Z` and the same files to PyPI as
   `redis-adbc-integrations` X.Y.Z, requiring `adbc-driver-redis[dbapi]==X.Y.Z.*`.
-  This needs a Trusted Publisher for that project on PyPI.
+  PyPI authorizes its `driver-release.yml` workflow and `pypi` environment through
+  a Trusted Publisher under the account that owns `adbc-driver-redis`.
 - **Nightly.** Both repositories also test this repository's `main` every night,
   so a driver change that breaks them shows up before it is released.
 
@@ -28,6 +30,17 @@ A failed downstream release does not undo the driver release. Treat it as a
 compatibility regression: fix it here or in the destination repository, then
 publish the next driver release (or rerun the destination workflow after a
 destination-only fix).
+
+First matched releases, for driver v0.0.31, ran by manual dispatch on 2026-11-26:
+
+- [redis-adbc-integrations 0.0.31](https://pypi.org/project/redis-adbc-integrations/0.0.31/)
+  ([run](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/actions/runs/45894168051)).
+  Its PyPI files are byte-identical to the GitHub release assets.
+- [redis-adbc-duckdb v0.0.31](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/releases/tag/v0.0.31)
+  ([run](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/actions/runs/45894304221)).
+  It predates committing the version into the source, so its tagged source
+  still declares `v0.1.0`. Its registry update is
+  [duckdb/community-extensions#3815](https://github.com/duckdb/community-extensions/pull/3815).
 
 ## Independent integrations (2026-11-18)
 

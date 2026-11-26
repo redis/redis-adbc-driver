@@ -9,9 +9,10 @@ See [intent](intent.md) and [plan](plan.md).
   the read token. The new sections never contain the token, AWS keys, API IDs,
   function ARNs, instance IDs or IAM identities. Identifiers already published in
   the retired EC2 record are left unchanged.
-- The README links the deployed source and Terraform module, and a warning states
-  that the shared state must not be planned or applied until the deleted legacy
-  instance is reconciled.
+- The README links the deployed source and Terraform module. Until PR #723's
+  legacy retirement was applied, it warned against planning the shared state; it
+  now records that apply and warns about any Lambda package deployed outside
+  Terraform.
 - Rollback status reports what actually remains: no host or disk, the last legacy
   RDB backup and its expiry, and the migration baseline. It does not claim a
   rollback path that no longer exists.

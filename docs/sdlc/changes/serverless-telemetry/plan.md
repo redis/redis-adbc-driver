@@ -34,3 +34,5 @@ Validation:
 - The Go `TestUsage` checks were not run; no driver code changed.
 
 This records agent verification, not independent human approval.
+
+The state discrepancy was resolved by [retire-legacy-collector](../retire-legacy-collector/intent.md), applied on 2026-11-26.

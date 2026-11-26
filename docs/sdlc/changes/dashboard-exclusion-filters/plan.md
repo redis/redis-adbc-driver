@@ -58,7 +58,11 @@ Rollback: upload the previous package to all three functions. The older API code
 ignores the extra filters; the new API returns 503 for a filter missing from an
 older generation.
 
-Terraform: the operator's private `serverless_package` still has the previous
-hash, so a plan with it would revert all three functions' code. Replace it with
-the new package before planning. PR #723's plan description predates this
-deployment.
+Terraform: the legacy-retirement apply (PR #723, recorded in PR #724) last wrote
+the shared state at 21:21:49 UTC, before this deployment. The state's three
+`aws_lambda_function` entries still record the previous hash as both
+`source_code_hash` and `code_sha256`, and the operator's private
+`serverless_package` is still the previous package. The live functions kept the
+new hash after that apply. Replace the private package with the deployed one
+before the next plan, and never apply a package built from a commit without
+these changes.

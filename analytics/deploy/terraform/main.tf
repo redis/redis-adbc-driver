@@ -18,29 +18,10 @@ provider "aws" {
   }
 }
 variable "region" { default = "us-east-1" }
-variable "vpc_id" { default = "vpc-9054f0f4" }
-variable "subnet_id" { default = "subnet-41211f18" }
 variable "hosted_zone_id" { default = "Z08723911XXA3M3FQCZ4E" }
 variable "hostname" { default = "adbc-telemetry.sa.redislabs.com" }
-variable "legacy_ami_id" {
-  type        = string
-  default     = null
-  description = "Pin the existing collector AMI during migration to prevent an unrelated image replacement."
-}
-variable "source_commit" {
-  type        = string
-  description = "Reviewed immutable redis/redis-adbc-driver commit containing analytics and bootstrap."
-  validation {
-    condition     = can(regex("^[0-9a-f]{40}$", var.source_commit))
-    error_message = "Use a full immutable Git commit SHA."
-  }
-}
 data "aws_caller_identity" "current" {}
-data "aws_ssm_parameter" "ubuntu_ami" {
-  name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
-}
 locals {
-  name   = "redis-adbc-telemetry"
   bucket = "redis-adbc-telemetry-${data.aws_caller_identity.current.account_id}-${var.region}"
 }
 resource "aws_s3_bucket" "backups" {
@@ -88,126 +69,37 @@ resource "aws_s3_bucket_policy" "backups" {
   bucket = aws_s3_bucket.backups.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Deny", Principal = "*", Action = "s3:*", Resource = [aws_s3_bucket.backups.arn, "${aws_s3_bucket.backups.arn}/*"], Condition = { Bool = { "aws:SecureTransport" = "false" } } }] })
 }
-resource "aws_iam_role" "collector" {
-  tags               = { Name = local.name }
-  name               = local.name
-  assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" }, Action = "sts:AssumeRole" }] })
-}
-resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.collector.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-resource "aws_iam_role_policy" "backup_writer" {
-  name   = "write-analytics-backups"
-  role   = aws_iam_role.collector.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["s3:PutObject", "s3:AbortMultipartUpload"], Resource = "${aws_s3_bucket.backups.arn}/backups/*" }] })
-}
-resource "aws_iam_instance_profile" "collector" {
-  tags = { Name = local.name }
-  name = local.name
-  role = aws_iam_role.collector.name
-}
-resource "aws_security_group" "collector" {
-  name        = "${local.name}-https"
-  tags        = { Name = "${local.name}-https" }
-  description = "HTTPS analytics; HTTP only for certificate validation and redirects"
-  vpc_id      = var.vpc_id
-  ingress {
-    description = "Public HTTPS aggregate ingestion"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    description = "ACME certificate validation and HTTPS redirect"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-resource "aws_instance" "collector" {
-  ami           = var.legacy_ami_id == null ? nonsensitive(data.aws_ssm_parameter.ubuntu_ami.value) : var.legacy_ami_id
-  instance_type = "t3.small"
-  credit_specification { cpu_credits = "standard" }
-  subnet_id                   = var.subnet_id
-  vpc_security_group_ids      = [aws_security_group.collector.id]
-  iam_instance_profile        = aws_iam_instance_profile.collector.name
-  associate_public_ip_address = true
-  disable_api_termination     = true
-  metadata_options { http_tokens = "required" }
-  volume_tags = { Name = "${local.name}-data" }
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-    encrypted   = true
-  }
-  user_data  = templatefile("${path.module}/user-data.sh.tftpl", { source_commit = var.source_commit, hostname = var.hostname, bucket = aws_s3_bucket.backups.id, region = var.region })
-  tags       = { Name = local.name }
-  depends_on = [aws_iam_role_policy_attachment.ssm, aws_iam_role_policy.backup_writer, aws_s3_bucket_public_access_block.backups, aws_s3_bucket_server_side_encryption_configuration.backups]
-  lifecycle {
-    prevent_destroy = true
-    # Releasing the retired host's EIP changes the observed association flag.
-    # It must not replace the retained rollback disk/instance on later applies.
-    ignore_changes = [associate_public_ip_address]
-  }
-}
-resource "aws_eip" "collector" {
-  count    = var.serverless_stop_legacy ? 0 : 1
-  domain   = "vpc"
-  instance = aws_instance.collector.id
-  tags     = { Name = local.name }
-}
 resource "aws_route53_record" "collector" {
   zone_id = var.hosted_zone_id
   name    = var.hostname
   type    = "A"
-  ttl     = var.serverless_cutover ? null : 60
-  records = var.serverless_cutover ? null : [aws_eip.collector[0].public_ip]
-  dynamic "alias" {
-    for_each = var.serverless_cutover ? [1] : []
-    content {
-      name                   = module.serverless[0].domain_target
-      zone_id                = module.serverless[0].domain_zone_id
-      evaluate_target_health = false
-    }
+  alias {
+    name                   = module.serverless.domain_target
+    zone_id                = module.serverless.domain_zone_id
+    evaluate_target_health = false
   }
   allow_overwrite = false
 }
 output "endpoint" { value = "https://${var.hostname}/v1/usage" }
 output "dashboard" { value = "https://${var.hostname}/" }
-output "instance_id" { value = aws_instance.collector.id }
 output "backup_bucket" { value = aws_s3_bucket.backups.id }
-output "public_ip" { value = try(aws_eip.collector[0].public_ip, null) }
 
 
 variable "owner_email" {
   type        = string
   description = "Account-required lowercase owner tag. Supply privately; do not commit operational tfvars."
 }
-variable "approved_finops_user" {
-  type        = string
-  default     = null
-  nullable    = true
-  description = "Set only after explicit approval of an exception for this collector. Otherwise no FinOps IAM policy is changed."
+
+# The legacy EC2 collector was retired after the 2026-11-19 serverless cutover.
+# Its instance and root volume no longer exist, so forget their state entries
+# instead of planning a destroy. Its unused security group, instance role,
+# profile and FinOps lifecycle exception are no longer declared, so an approved
+# apply deletes them.
+removed {
+  from = aws_instance.collector
+  lifecycle { destroy = false }
 }
-resource "aws_iam_user_policy" "approved_collector_exception" {
-  count = var.approved_finops_user == null ? 0 : 1
-  name  = "RedisADBCCollectorApprovedLifecycleException"
-  user  = var.approved_finops_user
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Deny"
-      Action   = ["ec2:StopInstances", "ec2:TerminateInstances"]
-      Resource = aws_instance.collector.arn
-    }]
-  })
+removed {
+  from = aws_ec2_instance_state.legacy
+  lifecycle { destroy = false }
 }

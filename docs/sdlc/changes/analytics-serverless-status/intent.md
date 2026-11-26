@@ -16,7 +16,9 @@ labeled historical record.
 The serverless source was missing from git when this record was started. It was
 recovered on `claude/serverless-collector-source` ([PR #721](https://github.com/redis/redis-adbc-driver/pull/721))
 and merged into this branch, so the README now links to it instead of warning
-that it is absent.
+that it is absent. PR #723 then retired the legacy resources from Terraform
+(applied 2026-11-26), so the README records that apply in place of the
+state-reconciliation warning.
 
 Out of scope: landing the serverless source, changing infrastructure, rotating the
 token or repairing Terraform state.

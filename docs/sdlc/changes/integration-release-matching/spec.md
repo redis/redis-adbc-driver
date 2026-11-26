@@ -1,6 +1,6 @@
 # Specification
 
-Date: 2026-11-26. Requestor: Albert Wong. Source: d65f3b52c9be0a2013711b0716137533f13e9d67. Status: documentation; destination automation in review.
+Date: 2026-11-26. Requestor: Albert Wong. Source: d65f3b52c9be0a2013711b0716137533f13e9d67. Status: released for driver v0.0.31; community-registry update in review.
 
 The latest `adbc-driver-redis` version on PyPI identifies the latest completed
 driver release, because `publish-pypi.yml` runs only after `Release binaries`

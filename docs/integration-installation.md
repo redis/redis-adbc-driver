@@ -11,9 +11,9 @@ those extras are no longer part of the core driver wheel. Its releases share the
 driver's version: `redis-adbc-integrations` X.Y.Z was tested with, and requires,
 driver release X.Y.Z (`adbc-driver-redis[dbapi]==X.Y.Z.*`), so installing an
 extra such as `'redis-adbc-integrations[dask]'` also installs the matching
-driver wheel. Each release is published to PyPI after every integration suite
-passes against that driver release. Until the first one appears on PyPI, use the
-repository's source-install instructions.
+driver wheel. Each release is published to
+[PyPI](https://pypi.org/project/redis-adbc-integrations/) after every
+integration suite passes against that driver release, starting with 0.0.31.
 
 ## Per-tool installation
 

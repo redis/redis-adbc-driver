@@ -221,14 +221,21 @@ def wait_until_compacted(fetch, tables, gc_threshold=GC_THRESHOLD_DEFAULT, wait_
         sleep(min(poll_seconds, wait_seconds - waited))
 
 
-def redis_fetch(config):
-    """A RESP3 client and a function returning FT.INFO for every Search index."""
+def redis_client(config):
+    """A RESP3 redis-py client for the profile's URI, trusting SSL_CERT_FILE."""
     import redis
 
     options = {"protocol": 3, "decode_responses": True, "socket_timeout": 60}
     if config["uri"].startswith("rediss://") and os.environ.get("SSL_CERT_FILE"):
         options["ssl_ca_certs"] = os.environ["SSL_CERT_FILE"]
-    client = redis.Redis.from_url(config["uri"], **options)
+    return redis.Redis.from_url(config["uri"], **options)
+
+
+def redis_fetch(config):
+    """A RESP3 client and a function returning FT.INFO for every Search index."""
+    import redis
+
+    client = redis_client(config)
 
     def fetch():
         infos = []
