@@ -51,6 +51,30 @@ func cancelled(ctx context.Context) error {
 	return stateErrorf(stateQueryCanceled, "the query was cancelled")
 }
 
+// poolErr is the error a pool of workers stopped with, once they have all
+// returned. pool is the pool's context, made from ctx (the statement's) with
+// context.WithCancelCause; a worker that fails cancels it with its error.
+// poolErr is nil while pool is not done, and the worker's error when one
+// cancelled it first. Otherwise the cause is a bare context error, and
+// poolErr is what cancelled reports for ctx — TIMEOUT or CANCELLED with
+// SQLSTATE 57014, or a cause closeWith set — or, while ctx itself is not
+// done, for pool. Never the bare context error: once the statement's
+// deadline passes, context.Cause(pool) is context.DeadlineExceeded, which
+// reached callers as UNKNOWN without a SQLSTATE (#696).
+func poolErr(ctx, pool context.Context) error {
+	if pool.Err() == nil {
+		return nil
+	}
+	cause := context.Cause(pool)
+	if cause != nil && !errors.Is(cause, context.Canceled) && !errors.Is(cause, context.DeadlineExceeded) {
+		return cause
+	}
+	if err := cancelled(ctx); err != nil {
+		return err
+	}
+	return cancelled(pool)
+}
+
 // ctxStatus is the status of an error caused by a done context, as go-redis
 // returns one: CANCELLED or TIMEOUT. A socket timeout isn't one
 // (os.ErrDeadlineExceeded): it stays an IO error (see timeout.go).

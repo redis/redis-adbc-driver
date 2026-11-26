@@ -635,11 +635,8 @@ func (e *executor) parallelTableRows(ctx context.Context, base, view *tableMeta,
 	if capped.Load() && child.Err() == nil {
 		return true, errStarDimensionCap
 	}
-	if child.Err() != nil {
-		if cause := context.Cause(child); cause != nil && cause != context.Canceled {
-			return true, cause
-		}
-		return true, cancelled(ctx)
+	if err := poolErr(ctx, child); err != nil {
+		return true, err
 	}
 	if err := scope.pin.valid(ctx); err != nil {
 		return true, err
