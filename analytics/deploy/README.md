@@ -1,20 +1,150 @@
-# Deployment status
+# AWS analytics deployment
 
-Status (2026-11-19, Pacific): the public collector now uses API Gateway, Lambda and private S3 storage. Historical telemetry and the existing dashboard token were migrated. Summaries refresh every 15 minutes; download snapshots refresh daily. See the [serverless deployment and recovery guide](SERVERLESS.md).
+Status (checked 2026-11-26): since the 2026-11-19 (Pacific) cutover, the hosted
+collector at `https://adbc-telemetry.sa.redislabs.com` runs on API Gateway and
+AWS Lambda with S3 storage. No EC2 host, Redis server or other database is
+involved. The driver's endpoint, payload, two-second delivery timeout and
+opt-out behavior are unchanged. Historical telemetry and the existing dashboard
+token were migrated. See the [serverless deployment and recovery guide](SERVERLESS.md)
+and the [status change record](../../docs/sdlc/changes/analytics-serverless-status/plan.md).
 
-The deployed code is in this repository: [`serverless.py`](../serverless.py) (all three functions), [`collector.py`](../collector.py) (shared validation and summaries), [`migrate_serverless.py`](../migrate_serverless.py), [`package-serverless.sh`](package-serverless.sh), and the Terraform in [`terraform/serverless.tf`](terraform/serverless.tf) and [`terraform/serverless/`](terraform/serverless/main.tf). A 2026-11-26 read-only comparison found the deployed application files byte-identical to these sources and the deployed function, API, schedule, IAM, log and alarm settings matching the module. See the [source recovery record](../../docs/sdlc/changes/serverless-telemetry/plan.md#source-recovery-2026-11-26).
-
-The migration stopped the legacy EC2 collector and released its Elastic IP. A 2026-11-26 read-only check found that the instance and its root volume no longer exist, so the retained-disk rollback described in the migration plan is unavailable. The protected backup bucket remains. No continuously running collector or database is required. Operational deployment settings, packages and verification artifacts remain private.
+The deployed code is in this repository: [`serverless.py`](../serverless.py) (all
+three functions), [`collector.py`](../collector.py) (shared validation and
+summaries), [`migrate_serverless.py`](../migrate_serverless.py),
+[`package-serverless.sh`](package-serverless.sh), and the Terraform in
+[`terraform/serverless.tf`](terraform/serverless.tf) and
+[`terraform/serverless/`](terraform/serverless/main.tf). A 2026-11-26 read-only
+comparison found the deployed application files byte-identical to these sources
+and the deployed function, API, schedule, IAM, log and alarm settings matching the
+module. See the [source recovery record](../../docs/sdlc/changes/serverless-telemetry/plan.md#source-recovery-2026-11-26).
 
 The legacy collector is retired from Terraform (applied 2026-11-26, Pacific, with the owner's approval). The state no longer tracks the deleted instance or its instance-state resource. The apply deleted the unused legacy security group, instance role and its policies, instance profile and FinOps lifecycle exception policy. A follow-up plan reported no changes, and the public dashboard, health, summary authentication and ingestion validation checks passed. See [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
 
-Migration verification preserved 125,031 historical reports and 90,649 sessions, with all traffic-filter totals, deployment IDs and recent execution identities matching the old collector. A scheduled refresh and authenticated public dashboard reads succeeded. A warm ingestion replay took about 0.3 seconds; its first request took about 3.2 seconds, exceeding the driver's two-second timeout despite durable storage. Duplicate retries remain safe.
+> [!WARNING]
+> Since 2026-11-26 the three functions run a package deployed outside Terraform
+> (the [dashboard exclusion filters](../../docs/sdlc/changes/dashboard-exclusion-filters/plan.md)).
+> The legacy-retirement apply wrote state a minute before that deployment, so state
+> still records the previous package hash for all three functions. A plan with the
+> previous `serverless_package` may report no function change while AWS runs newer
+> code. Never apply a package built from a commit without those changes. The
+> operator's private package was replaced with the deployed one (SHA-256
+> `yMuypDzXJMDqSQcfU0meO/cWD0FTk/DivaVwbqqIc9Y=`), so the next plan shows code
+> updates for the three functions that upload identical bytes and bring the state
+> in line.
+
+## Open the dashboard
+
+1. Go to <https://adbc-telemetry.sa.redislabs.com/>.
+2. Enter the dashboard read token. It is stored as the SSM SecureString parameter
+   `/redis-adbc-analytics/read-token` in account `735486936198`, region
+   `us-east-1`. Read it with your own approved credentials and do not paste it
+   into tickets, chat or commits:
+
+   ```sh
+   aws ssm get-parameter --profile YOUR_APPROVED_PROFILE --region us-east-1 \
+     --name /redis-adbc-analytics/read-token --with-decryption \
+     --query Parameter.Value --output text
+   ```
+
+3. Summaries are regenerated every 15 minutes, not on each page load. The
+   dashboard shows when the summary it displays was generated. An old time means
+   the refresh worker is failing; the previous complete summary stays visible.
+4. To hide traffic, choose **All except CI, inferred CI and benchmark** or **All
+   except CI (labeled and inferred)** under *Reporting traffic*. To hide rows in a
+   table, prefix a search or filter term with `-` (for example `-runnervm`);
+   quote phrases with spaces (`-"ci / test"`).
+
+The read token was carried over from the EC2 collector. Its old location,
+`/etc/redis-adbc-analytics/collector.env` on the EC2 host, no longer exists.
+
+## Resources
+
+| Component | Configuration |
+|---|---|
+| Hostname | Route 53 alias record for `adbc-telemetry.sa.redislabs.com` to an API Gateway custom domain with an ACM certificate |
+| API | HTTP API, `$default` stage, Lambda proxy integration (10-second timeout). Routes: `GET /`, `/dashboard.js`, `/dashboard.css`, `/health`, `/api/summary` and `POST /v1/usage` |
+| Throttling | Shared by all clients: 10 requests/second, burst 20. It replaces the EC2 proxy's per-IP limits |
+| Lambda functions | Python 3.12 on arm64, named `redis-adbc-telemetry-s3-<role>`: `api` (256 MiB, 10 s, reserved concurrency 10), `refresh` (2048 MiB, 900 s, concurrency 1) and `downloads` (256 MiB, 300 s, concurrency 1) |
+| Schedules | EventBridge: `refresh` every 15 minutes, `downloads` daily |
+| Storage | Existing private bucket `redis-adbc-telemetry-735486936198-us-east-1` (versioned, encrypted, HTTPS-only). Raw reports and the migration baseline (`serverless/baseline.json.gz`) have no expiry. Retired summary generations expire 7 days after becoming noncurrent. Legacy `backups/` objects expire after 90 days |
+| Dashboard token | SSM SecureString `/redis-adbc-analytics/read-token`, read by the `api` function |
+| Monitoring | CloudWatch alarm on `refresh` errors. No notification action is configured, so check it explicitly |
+
+## Behavior and limits
+
+- Public ingestion needs no client secret. The `api` function validates the
+  payload allowlist and 64 KiB maximum. It acknowledges a report only after a
+  conditional S3 write succeeds or the session/sequence object already exists, so
+  a duplicate returns `accepted: false` without changing counters.
+- The observed source IP comes from API Gateway's request context. Forwarded
+  headers and client JSON cannot supply it. Reports remain self-reported and
+  unverified.
+- A cold start or slow S3 call can exceed the driver's two-second timeout.
+  Retrying a report that was saved but not acknowledged is safe.
+- Throttling is global, so a single noisy client can consume the shared limit.
+- Raw report history has no expiry, and storage plus worker cost grow with it.
+  Worker size and time guards fail closed and keep the previous summary.
+- Every traffic filter, including the two exclusion presets, is precomputed into
+  one `summaries.json` per generation, which the `api` function reads on each
+  dashboard request. On 2026-11-26 the eight filters made a 9.49 MB file, a
+  66-second refresh (529 MB peak) and an `api` peak of 169–174 MB of 256 MB.
+  Adding filters raises all three; raise `api` memory before adding more.
+- Costs are usage-based (API requests, Lambda duration, S3 requests/storage,
+  Route 53). There is no fixed monthly compute charge.
+- API access logs are disabled.
+
+Migration verification preserved 125,031 historical reports and 90,649 sessions,
+with all traffic-filter totals, deployment IDs and recent execution identities
+matching the old collector. A scheduled refresh and authenticated public dashboard
+reads succeeded. A warm ingestion replay took about 0.3 seconds; its first request
+took about 3.2 seconds, exceeding the driver's two-second timeout despite durable
+storage. Duplicate retries remain safe.
+
+## Checks
+
+```sh
+curl --fail https://adbc-telemetry.sa.redislabs.com/health
+# Expect 401 without the dashboard token:
+curl -o /dev/null -w '%{http_code}\n' https://adbc-telemetry.sa.redislabs.com/api/summary
+# Expect 200 with the token, without printing it:
+t="$(aws ssm get-parameter --profile YOUR_APPROVED_PROFILE --region us-east-1 \
+  --name /redis-adbc-analytics/read-token --with-decryption \
+  --query Parameter.Value --output text)"
+curl -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $t" \
+  https://adbc-telemetry.sa.redislabs.com/api/summary
+unset t
+# Worker health:
+aws cloudwatch describe-alarms --profile YOUR_APPROVED_PROFILE --region us-east-1 \
+  --alarm-name-prefix redis-adbc-telemetry-s3 --query 'MetricAlarms[].[AlarmName,StateValue]'
+aws logs tail /aws/lambda/redis-adbc-telemetry-s3-refresh \
+  --profile YOUR_APPROVED_PROFILE --region us-east-1 --since 1h
+```
+
+## Rollback status
+
+The migration plan kept the stopped EC2 host and its encrypted disk for
+rollback. Both are gone. CloudTrail shows the host was terminated on 2026-11-19,
+about two hours after the migration stopped it and released its Elastic IP. No
+detached disk remains. The protected backup bucket remains; the 2026-11-26
+Terraform apply deleted the unused legacy security group, instance role, profile
+and FinOps lifecycle exception policy. A return to an EC2 collector would need a
+new host and new Terraform. Its starting data could be:
+
+- the last legacy Redis backup (`backups/2026/11/20/…rdb.gz`, taken
+  2026-11-20 01:28 UTC). The 90-day `backups/` rule deletes it around
+  2027-02-18, and
+- the migration baseline `serverless/baseline.json.gz`, which has no expiry.
+
+Neither contains reports received only by S3 after cutover. Those raw report
+objects would have to be reconciled before claiming a complete rollback.
+
+## Retired EC2 collector (2026-11-05 to 2026-11-19)
+
+Historical record. This collector, its host, disk and Elastic IP no longer exist.
+Do not run these steps against the live deployment. `restore.py` still applies
+to the legacy RDB backups until they expire.
 
 The following describes the **historical EC2 deployment** and its recovery procedures. It is retained as a record and for the legacy RDB backups; its host no longer exists and it is not the active serving architecture. Its Terraform resources and variables (including `source_commit` and `approved_finops_user`) were removed from `terraform/` on 2026-11-26, so the resource list and Terraform commands below describe configuration that no longer exists. `bootstrap.sh` and `update.sh` are kept only as a record.
-
----
-
-# AWS Redis analytics deployment
 
 Status (2026-11-05): the collector was recovered after account cleanup automation
 terminated the original host. The latest available S3 history was restored, the
@@ -32,7 +162,7 @@ The driver reports by default to
 `https://adbc-telemetry.sa.redislabs.com/v1/usage`. The collector binds to
 `127.0.0.1:8787` behind an HTTPS nginx proxy. Redis holds all analytics.
 
-## Resources and access
+### Resources and access
 
 Terraform in [terraform/](terraform/main.tf) plans these resources in account
 `735486936198`, region `us-east-1`:
@@ -72,7 +202,7 @@ are intentionally removed. The
 instance and backup bucket have Terraform destruction protection; EC2 also has
 termination protection.
 
-## Deploy with Terraform
+### Deploy with Terraform
 
 Keep a private, git-ignored `operator.auto.tfvars` beside the module containing
 `source_commit`, the account-required `owner_email`, and (only after explicit
@@ -121,7 +251,7 @@ that variable does not rerun cloud-init on an existing machine; use SSM to stage
 and verify a new application release, with a backup first. Do not replace the
 Redis instance without a verified restore plan.
 
-## S3 backup and restore
+### S3 backup and restore
 
 `redis-adbc-backup.timer` exports a fresh consistent RDB every hour using the
 backup ACL user. `redis-check-rdb` must pass before gzip and upload. Each object

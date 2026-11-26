@@ -98,6 +98,9 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(traffic_class({'hostname':'runnervmabc','traffic_class':'application'}, {}), 'application')
         self.assertEqual(traffic_class({}, {}), 'unknown')
         self.assertEqual(traffic_class({'hostname':'runnervmabc','traffic_class':'unknown'}, {'environment':'ci'}), 'unknown')
+        # Dashboard filter names are never stored categories.
+        for name in ['all', 'exclude_ci', 'exclude_ci_benchmark']:
+            self.assertEqual(traffic_class({'traffic_class':name}, {}), 'unknown')
         self.assertEqual(workload_size({'rows_returned':10}), 'unmeasured')
         self.assertEqual(workload_size({'rows_examined':0}), '0')
         self.assertEqual(workload_size({'rows_examined':101,'rows_represented':10001}), '10k–1m')

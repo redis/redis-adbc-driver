@@ -86,6 +86,56 @@ test('table controls page, combine search/filters, sort numbers, and reset', () 
   assert.equal(search.value, ''); assert.equal(filter.value, '');
 });
 
+test('search and column filters exclude terms prefixed with a minus sign', () => {
+  const {context, elements} = dashboard();
+  vm.runInContext(`table('test', ['Host', 'Traffic'], [
+    ['runnervm1abc', 'CI / test'], ['app-host', 'Application (self-reported)'],
+    ['bench-host', 'Benchmark'], ['app-other', 'Not reported']])`, context);
+  const [controls, grid, pager] = elements.get('test').children;
+  const search = controls.children[0];
+  const status = pager.children[1];
+  const hosts = () => grid.children[1].children.map(row => row.children[0].textContent);
+  search.value = '-runnervm'; search.events.input();
+  assert.deepEqual(hosts(), ['app-host', 'bench-host', 'app-other']);
+  search.value = 'host -bench'; search.events.input();
+  assert.deepEqual(hosts(), ['app-host']);
+  search.value = '-'; search.events.input(); // A lone minus while typing hides nothing.
+  assert.match(status.textContent, /4 matching rows/);
+  search.value = ''; search.events.input();
+  const traffic = grid.children[0].children[1].children[1].children[0];
+  traffic.value = '-"ci / test" -benchmark'; traffic.events.input();
+  assert.deepEqual(hosts(), ['app-host', 'app-other']);
+  traffic.value = '"not reported"'; traffic.events.input();
+  assert.deepEqual(hosts(), ['app-other']);
+  traffic.value = '"-5"'; traffic.events.input(); // A quoted minus is literal text.
+  assert.equal(grid.children[1].children[0].children[0].textContent, 'No rows match your search or filters.');
+});
+
+test('execution filter excludes samples with a minus-prefixed term', () => {
+  const {context, elements} = dashboard();
+  const executions = `{executions:[
+    {kind:'select',status:'success',id:'a',completed_at:'2026-11-05T18:00:00Z',source_hostname:'runnervm9'},
+    {kind:'select',status:'error',id:'b',completed_at:'2026-11-05T18:01:00Z',source_hostname:'app-1'},
+    {kind:'ingest',status:'success',id:'c',completed_at:'2026-11-05T18:02:00Z',source_hostname:'app-2'}]}`;
+  const ids = () => elements.get('executions').children[1].children[1].children.map(row => row.children[9].textContent);
+  elements.get('execution-filter').value = 'select -runnervm';
+  vm.runInContext(`renderExecutions(${executions})`, context);
+  assert.deepEqual(ids(), ['b']);
+  elements.get('execution-filter').value = '-select';
+  vm.runInContext(`renderExecutions(${executions})`, context);
+  assert.deepEqual(ids(), ['c']);
+});
+
+test('traffic selector offers exactly the collector filters', () => {
+  const html = fs.readFileSync(__dirname + '/dashboard.html', 'utf8');
+  const select = html.match(/<select id="traffic-filter">([\s\S]*?)<\/select>/)[1];
+  const values = [...select.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(values, ['all', 'exclude_ci_benchmark', 'exclude_ci', 'application', 'ci', 'ci_inferred', 'benchmark', 'unknown']);
+  const source = fs.readFileSync(__dirname + '/collector.py', 'utf8');
+  const presets = [...source.matchAll(/^\s+'(exclude_[a-z_]+)':/gm)].map(match => match[1]);
+  assert.deepEqual(presets.sort(), ['exclude_ci', 'exclude_ci_benchmark']);
+});
+
 test('version and size comparisons keep cumulative metrics distinct from samples', () => {
   const {context,elements}=dashboard();
   vm.runInContext(`renderInsights({latency_bounds_ms:[1,5,10],comparisons:[{traffic_class:'ci_inferred',driver_version:'v1',kind:'select',metrics:{attempts:100,success:90,errors:2,canceled:3,abandoned:5,latency:[90,5,5,0],execution_paths:{driver_scan:10},error_classes:{io:2},group_limit_retries:3,row_fallbacks:1}}],executions:[{traffic_class:'application',driver_version:'v2',kind:'select',workload_size:'1–100',duration_ms:20,status:'success'},{traffic_class:'application',driver_version:'v2',kind:'select',workload_size:'1–100',duration_ms:40,status:'abandoned'}]})`,context);

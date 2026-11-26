@@ -378,6 +378,9 @@ def api(event, context):
         summaries, _ = store.get(manifest['summaries'])
         if summaries is None:
             return reply(503, {'error': 'summary unavailable'})
+        if traffic not in summaries:
+            # An older worker's generation can predate a newly added filter.
+            return reply(503, {'error': 'summary for this traffic filter is not published yet; retry after the next refresh'})
         return reply(200, summaries[traffic])
     except (BotoCoreError, ClientError):
         return reply(503, {'error': 'storage unavailable; retry later'})

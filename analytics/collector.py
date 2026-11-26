@@ -26,7 +26,25 @@ FEATURES = {'join', 'filter', 'aggregate', 'sort', 'limit', 'distinct', 'cte', '
 LABELS = {'organization', 'team', 'application', 'environment', 'use_case', 'integration'}
 COUNTERS = {'attempts', 'success', 'errors', 'canceled', 'abandoned', 'rows', 'affected'}
 TRAFFIC_CLASSES = {'ci', 'benchmark', 'application', 'unknown'}
-TRAFFIC_FILTERS = TRAFFIC_CLASSES | {'ci_inferred', 'all'}
+TRAFFIC_CATEGORIES = TRAFFIC_CLASSES | {'ci_inferred'}
+# Dashboard exclusion presets: the stored categories each preset keeps. Every
+# filter is precomputed by the refresh worker, so keep this list short.
+TRAFFIC_PRESETS = {
+    'exclude_ci': frozenset({'application', 'benchmark', 'unknown'}),
+    'exclude_ci_benchmark': frozenset({'application', 'unknown'}),
+}
+TRAFFIC_FILTERS = TRAFFIC_CATEGORIES | set(TRAFFIC_PRESETS) | {'all'}
+
+
+def traffic_selection(traffic):
+    """Return the stored categories a dashboard filter keeps; None keeps every row."""
+    if traffic == 'all':
+        return None
+    if traffic in TRAFFIC_PRESETS:
+        return TRAFFIC_PRESETS[traffic]
+    if traffic in TRAFFIC_CATEGORIES:
+        return {traffic}
+    raise ValueError('invalid traffic filter')
 ERROR_CLASSES = {'canceled', 'timeout', 'invalid_argument', 'invalid_state', 'not_implemented', 'not_found', 'already_exists', 'unauthenticated', 'unauthorized', 'io', 'integrity', 'invalid_data', 'internal', 'unknown'}
 EXECUTION_PATHS = {'unobserved', 'driver_scan', 'aggregate_pushdown', 'mixed', 'aggregate_row_fallback'}
 DIAGNOSTIC_FIELDS = {'error_classes', 'execution_paths', 'group_limit_retries', 'row_fallbacks'}
@@ -154,7 +172,7 @@ def metric_defaults(metric):
 
 def traffic_class(source, labels):
     explicit = source.get('traffic_class')
-    if explicit in TRAFFIC_FILTERS - {'all'}: return explicit
+    if explicit in TRAFFIC_CATEGORIES: return explicit
     environment = labels.get('environment', '').lower()
     if environment in {'ci', 'test', 'testing'}: return 'ci'
     if environment in {'benchmark', 'benchmarks'}: return 'benchmark'
@@ -396,8 +414,7 @@ class Store:
 
 def summarize(reports, downloads, executions, versions, traffic="all", reverse_dns=lambda address: '', now=None):
     """Build the existing dashboard contract from accepted report deltas."""
-    if traffic not in TRAFFIC_FILTERS:
-        raise ValueError('invalid traffic filter')
+    selected = traffic_selection(traffic)
     now = now or datetime.now(timezone.utc)
     cutoff, week = now - timedelta(days=28), now - timedelta(days=7)
     executions = copy.deepcopy(executions)
@@ -408,7 +425,7 @@ def summarize(reports, downloads, executions, versions, traffic="all", reverse_d
         e.setdefault('traffic_class', traffic_class({'hostname':e.get('source_hostname','')}, {}))
         e.setdefault('driver_version', 'unknown')
         e['workload_size'] = workload_size(e)
-    executions = [e for e in executions if timestamp(e['completed_at']) >= cutoff and (traffic == 'all' or e['traffic_class'] == traffic)]
+    executions = [e for e in executions if timestamp(e['completed_at']) >= cutoff and (selected is None or e['traffic_class'] in selected)]
     for execution in executions:
         execution['reverse_dns'] = reverse_dns(execution.get('public_ip',''))
     active_week, active_month = set(), set()
@@ -418,7 +435,7 @@ def summarize(reports, downloads, executions, versions, traffic="all", reverse_d
         labels, d = json.loads(row['labels']), json.loads(row['delta'])
         source = json.loads(row.get('source', '{}'))
         category = traffic_class(source, labels)
-        if traffic != 'all' and category != traffic: continue
+        if selected is not None and category not in selected: continue
         attempts = sum(m['attempts'] for m in d['metrics'].values())
         successes = sum(m['success'] for m in d['metrics'].values())
         if successes:
