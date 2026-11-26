@@ -164,7 +164,7 @@ see [validation](sdlc/changes/pandas-smoke/validation.md).
 ## Prefect custom Python tasks
 
 The adapter, examples and tests moved to [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/prefect.md).
-Install it separately; adapter imports now use `redis_adbc_integrations`.
+Install it separately at the version matching your driver; adapter imports now use `redis_adbc_integrations`.
 
 ## SQLAlchemy and Superset
 
@@ -201,26 +201,26 @@ restoration issue [#471](https://github.com/redis/redis-adbc-driver/issues/471) 
 ## Dagster
 
 The adapter, examples and tests moved to [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/dagster.md).
-Install it separately; adapter imports now use `redis_adbc_integrations`.
+Install it separately at the version matching your driver; adapter imports now use `redis_adbc_integrations`.
 
 ## Dask
 
 The adapter, examples and tests moved to [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/dask.md).
-Install it separately; adapter imports now use `redis_adbc_integrations`.
+Install it separately at the version matching your driver; adapter imports now use `redis_adbc_integrations`.
 
 ## Ray Data
 
 ### Worker-side Arrow reader
 
 The adapter, examples and tests moved to [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/ray.md).
-Install it separately; adapter imports now use `redis_adbc_integrations`.
+Install it separately at the version matching your driver; adapter imports now use `redis_adbc_integrations`.
 
 ## Apache Airflow
 
 ### Redis hook for get_records()
 
 The adapter, examples and tests moved to [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/airflow.md).
-Install it separately; adapter imports now use `redis_adbc_integrations`.
+Install it separately at the version matching your driver; adapter imports now use `redis_adbc_integrations`.
 
 ## Sling
 
@@ -236,7 +236,7 @@ See the [Sling guide](integrations/sling.md) for setup and the
 ## dlt
 
 The adapter, examples and tests moved to [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/blob/main/docs/integrations/dlt.md).
-Install it separately; adapter imports now use `redis_adbc_integrations`.
+Install it separately at the version matching your driver; adapter imports now use `redis_adbc_integrations`.
 
 ## Validation
 

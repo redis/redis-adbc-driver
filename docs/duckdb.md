@@ -6,6 +6,8 @@ to verify the library and driver-name discovery before configuring DuckDB.
 The standalone [`redis_adbc` extension](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/blob/main/README.md) targets
 DuckDB 2.0 and embeds
 the driver for streaming SELECT queries without a separate driver installation.
+Each driver release gets a matching extension release (extension `vX.Y.Z` embeds
+driver `vX.Y.Z`) after the extension passes its tests with that driver.
 Its [community-registry submission](https://github.com/duckdb/community-extensions/pull/3157)
 has merged; the public extension list still describes DuckDB 1.5.6.
 The integration below uses the
