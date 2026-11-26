@@ -264,9 +264,11 @@ func TestLiveSchemaManagedNameCollisions(t *testing.T) {
 	}
 	h.expectRows("SELECT count(*) FROM information_schema.tables WHERE table_schema='lv'", "0")
 
-	// Without live_tables a live schema is hidden and cannot be dropped as managed.
+	// Without live_tables a live schema lists no tables and cannot be dropped as
+	// managed. Listing never reads the live name map (restricted readers cannot).
 	setConnOption(t, h, OptionStringLiveTables, "false")
-	h.expectRows("SELECT count(*) FROM information_schema.schemata WHERE schema_name='lv'", "0")
+	h.expectRows("SELECT count(*) FROM information_schema.schemata WHERE schema_name='lv'", "1")
+	h.expectRows("SELECT count(*) FROM information_schema.tables WHERE table_schema='lv'", "0")
 	h.expectError("DROP SCHEMA lv", "holds live tables")
 	h.expectError("ALTER SCHEMA lv RENAME TO lv2", "holds live tables")
 	// The managed path cannot create a table in a live schema.

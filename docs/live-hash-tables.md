@@ -307,8 +307,8 @@ holds at most 1,024 live schemas. Managed and live schemas share one namespace:
 a live schema cannot reuse a managed schema's name, and managed tables, views,
 sequences and imports cannot be created in a live schema.
 
-Without `live_tables=true`, live schemas are hidden from catalog listings and
-cannot be dropped or renamed through SQL. Live schema DDL requires the `redis`
+Without `live_tables=true`, a live schema is listed as a schema with no tables
+and cannot be dropped or renamed through SQL. Live schema DDL requires the `redis`
 catalog.
 
 A replace-by-swap needs care, because `DROP TABLE` keeps data. One pattern is:

@@ -1784,14 +1784,9 @@ func (s *store) listSchemas(ctx context.Context) ([]string, error) {
 	members = slices.DeleteFunc(members, func(schema string) bool {
 		return reservedSchema(schema) || schema == foreignSchema && !s.foreignIndexes
 	})
-	if !s.liveTables && s.snapshots {
-		// Live schemas are usable only with live_tables=true.
-		live, err := s.redis(ctx).HKeys(ctx, liveSchemasKey).Result()
-		if err != nil {
-			return nil, wrapRedis(err, "failed to list live schemas")
-		}
-		members = slices.DeleteFunc(members, func(schema string) bool { return slices.Contains(live, schema) })
-	}
+	// Named live schemas are ordinary members of the schema set. Listing them
+	// never reads the live name map, which restricted SQL readers cannot read;
+	// without live_tables they simply list no tables.
 	if !slices.Contains(members, defaultSchema) {
 		members = append(members, defaultSchema)
 	}

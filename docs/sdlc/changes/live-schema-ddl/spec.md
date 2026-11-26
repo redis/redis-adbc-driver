@@ -91,6 +91,10 @@ under their retained producer catalog pin; like other in-flight live statements
 they keep reading after `ALTER SCHEMA … RENAME`, and fail once the table is
 unregistered.
 
+Catalog listing never reads the live name map. Without `live_tables`, a live
+schema lists as a schema with no tables. Restricted SQL reader principals
+(`rbacBaseACL`) have no grant for that map or `HKEYS`, and their ACL is unchanged.
+
 Managed table lookup is unchanged and runs first. Only a managed miss, with
 `live_tables=true`, consults the live name map. Live writes into named schemas
 resolve the target under the managed write pin, then use the existing isolated

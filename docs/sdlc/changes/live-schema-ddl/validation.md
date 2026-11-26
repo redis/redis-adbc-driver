@@ -27,7 +27,7 @@ Snapshot-harness suites use the same disposable endpoint as `REDIS_SNAPSHOT_URI`
 
 - **New integration tests** (`-run '^TestLiveSchema'`, both URIs): all nine pass.
   They cover the schema DDL lifecycle, DROP TABLE preflight and multi-table removal,
-  managed/live name collisions (hidden schemas without `live_tables`, an adoption
+  managed/live name collisions (live schemas without `live_tables`, an adoption
   blocker, managed creation refused), the DROP SCHEMA tombstone and stale-reservation
   withdrawal, Arrow create/append and a Dagster-style staged swap, `live_hash`
   partitions, evolution in a renamed named schema, and SQL `CREATE TABLE`. The
@@ -84,6 +84,35 @@ Snapshot-harness suites use the same disposable endpoint as `REDIS_SNAPSHOT_URI`
   -timeout=30m .`, REDIS_URI only, including the `CREATE TABLE` follow-up): exit 0,
   1,583 passed, 452 skipped, 0 failed. `TestSQLRekeyConcurrentWriters` passed in
   this run.
+
+## CI finding and fix (PR #726)
+
+The first CI run failed three steps. Two were `TestSQLRBACSelect`, whose failure
+produced the "SQL SELECT grant validation" summary, and the native TLS partition
+check with restricted worker ACLs, both cluster-driver jobs. The third was the
+`linux-arm64` installed-wheel Software proxy TLS check. Local runs had skipped the
+RBAC test because `REDIS_RBAC_TEST_API` was unset.
+
+With `REDIS_RBAC_TEST_API` pointed at the fixture, two subtests reproduced the
+failure: `NOPERM … no permissions to run the 'hkeys' command` from "failed to list
+live schemas". When `live_tables` was off, `listSchemas` read the live name map
+to hide live schemas. Restricted SQL reader principals (`rbacBaseACL`, mirrored
+by `scripts/snapshot_reader_acl.py`) have neither `HKEYS` nor a grant for that
+catalog key, so catalog listing failed for them.
+
+The fix removes that hiding: listing never reads the live name map. A live schema
+is a real member of the managed schema set, so without `live_tables` it lists as
+a schema with no tables. The reader ACL is unchanged. After the fix:
+
+- `TestSQLRBACSelect` (`REDIS_RBAC_TEST_API` set): all 13 subtests pass.
+- All nine `TestLiveSchema*` tests pass. The collision test now asserts a live
+  schema lists with zero tables when `live_tables` is off.
+- `scripts/check_partition_tls.py` against a local TLS-only `redis:8.6.2` fixture
+  (unique container name and port, removed afterwards) passed with the rebuilt
+  library: 18 native partition checks and 6 metadata checks, with independent
+  restricted credentials. The pre-fix build was not rerun against this script.
+- The Software proxy TLS wheel path was not run locally, because its setup replaces
+  the kept fixture's certificates and TLS mode. CI verifies it.
 
 ## Review and limits
 
