@@ -80,7 +80,10 @@ Snapshot-harness suites use the same disposable endpoint as `REDIS_SNAPSHOT_URI`
   pre-existing copylocks finding in `live_ingest_creation_integration_test.go`),
   `git diff --check`, and the local Markdown link/anchor check: passed.
 
-Final root Software suite on the finished code: pending.
+- **Final root Software suite on the finished code** (`go test -count=1 -v -p 1
+  -timeout=30m .`, REDIS_URI only, including the `CREATE TABLE` follow-up): exit 0,
+  1,583 passed, 452 skipped, 0 failed. `TestSQLRekeyConcurrentWriters` passed in
+  this run.
 
 ## Review and limits
 
