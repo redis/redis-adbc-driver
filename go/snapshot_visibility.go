@@ -53,6 +53,24 @@ func (e *executor) snapshotIndexQueries(ctx context.Context, m *tableMeta) ([]sn
 	if !e.snapshotIndexable(ctx, m) {
 		return nil, false, nil
 	}
+	return e.snapshotVisibilityQueries(ctx, m)
+}
+
+// snapshotCountQueries are snapshotIndexQueries for counting rows only, which
+// Flex also supports. Flex reads never page sorted Search candidates: without
+// SORTABLE, each SORTBY page re-sorts every remaining match (47 s to page
+// 288,464 TPC-DS SF 0.1 rows on Software 8.2.6-58, against about 4 s from the
+// exact directories). But its NUMERIC row-ID ranges and deletion-marker counts
+// agree with the directories, so approximate statistics count them instead of
+// reading every row ID (#627).
+func (e *executor) snapshotCountQueries(ctx context.Context, m *tableMeta) ([]snapshotIndexQuery, bool, error) {
+	if !e.snapshotSearchable(ctx, m) {
+		return nil, false, nil
+	}
+	return e.snapshotVisibilityQueries(ctx, m)
+}
+
+func (e *executor) snapshotVisibilityQueries(ctx context.Context, m *tableMeta) ([]snapshotIndexQuery, bool, error) {
 	segments := m.snapshotSegments()
 	type bounds struct {
 		lo, hi          string

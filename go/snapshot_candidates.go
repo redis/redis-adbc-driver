@@ -93,7 +93,13 @@ type snapshotCandidateScan struct {
 // Empty private tails are safe and skipped, keeping selective UPDATE/DELETE
 // discovery fast before their first mutation.
 func (e *executor) snapshotIndexable(ctx context.Context, m *tableMeta) bool {
-	if e.store == nil || e.store.flexEnabled() || !m.SnapshotOverlay {
+	return e.store != nil && !e.store.flexEnabled() && e.snapshotSearchable(ctx, m)
+}
+
+// snapshotSearchable is snapshotIndexable without its Flex exclusion, which
+// only sorted Search candidate reads need (see snapshotCountQueries).
+func (e *executor) snapshotSearchable(ctx context.Context, m *tableMeta) bool {
+	if e.store == nil || !m.SnapshotOverlay {
 		return false
 	}
 	for _, seg := range m.snapshotSegments() {

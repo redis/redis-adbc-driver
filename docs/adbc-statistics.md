@@ -20,8 +20,11 @@ one request. The returned Arrow data is materialized before the pin releases.
 
 With `approximate=true`, native counts use immutable per-segment Search queries
 with exact visibility masks: shadowed versions and tombstones never contribute.
-This path requires FT.INFO readiness and FT.SEARCH access. Inexact numeric IDs or
-excessive mask work fall back to authoritative directories. With
+This path requires FT.INFO readiness and FT.SEARCH access. Inexact numeric IDs,
+excessive mask work or a nonempty unsettled private segment fall back to
+authoritative directories. It also applies to Redis Flex databases, whose
+snapshot reads never use the sorted Search candidate path
+([Flex stopgap](redis-flex-stopgap.md#statement-snapshot-implementation)). With
 `approximate=false`, counts merge ordered row-ID directories and read winning
 HASH identities and tombstones; they do not consult Search document counts.
 Directory reads use bounded pages and require ZRANGE/HMGET plus normal snapshot

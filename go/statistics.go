@@ -161,7 +161,7 @@ func (c *connectionImpl) snapshotStatisticRowCount(ctx context.Context, meta *ta
 		// its normal scan flag need not force statistics into a row-by-row scan.
 		indexed := *meta
 		indexed.SnapshotOverlay = true
-		queries, ok, err := (&executor{store: c.store}).snapshotIndexQueries(ctx, &indexed)
+		queries, ok, err := (&executor{store: c.store}).snapshotCountQueries(ctx, &indexed)
 		if err != nil {
 			return 0, err
 		}
