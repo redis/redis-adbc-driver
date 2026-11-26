@@ -6,18 +6,21 @@
 - **Driver diagnostics and pass order** are in every Redis-backed record of the live smoke run. That includes Q15's 60 s warm-up timeout, whose record now names the plan and where the time went ([below](#q15-what-the-record-now-says)).
 - **The RAM/flash object split is not available from a Redis-side command on Redis Software 8.8 Flex.**
   - The shard has it, but the database endpoint's proxy does not report it, and scripts may not call `INFO`.
-  - The record says `split_available: false`, with key count and the endpoint's `used_memory`. It does not estimate a split.
-  - A split before timing needs another source. That is [open](#open-decision).
+  - Without a sampler the record says `split_available: false`, with key count and the endpoint's `used_memory`. It does not estimate a split.
+- **The opt-in external sampler supplies it.** After that finding the user chose this route. With the reference `flex_tier_sampler.py` configured, both live smoke records carry the split (`split_source: "external_sampler"`), and it matched the shard's own counts exactly ([below](#external-sampler-smoke-run)).
 
 ## Tests
 
 - **Failing first:**
   - Before `diagnostics.py` existed, `python3 -m unittest discover -s benchmarks/olap-release -p 'test_*.py'` ran 65 tests with 13 errors: the new module would not import, and the shared synthetic-worker helper now patches the Flex sampler.
   - Against an empty stub module, the 16 new or changed tests failed (4 failures, 12 errors). That covers every `test_diagnostics` test except the two guards, "RAM profile never sampled" and "imports no engine", which pass trivially, plus the retention assertion in `test_mismatch_has_no_ratio`.
-- **After the change:** 81 tests, OK, 1 skipped (the opt-in cgroup test).
-  - macOS Python 3.15.2, without `redis-py`.
+- **Sampler, failing first:** with the hook and reference sampler tests written and nothing implemented, `test_diagnostics` and `test_flex_tier_sampler` had 16 errors:
+  - every `SamplerTests` case except the "no sampler, no field" guard;
+  - the reference sampler module would not import.
+- **After the change:** 81 tests passed, then 93 with the sampler; 1 skipped (the opt-in cgroup test). Both totals were checked in two environments:
+  - macOS Python 3.15.2, without `redis-py`;
   - `adbc-olap-release-client:20261123` (Python 3.14, `redis-py` 8.1.0), with `--network none`.
-- **Cgroup test:** `test_isolation.WorkerMemoryCgroupTests` with `OLAP_HARNESS_CGROUP_TESTS=1`, in a disposable privileged client container as in CI (512 MiB). OK.
+- **Cgroup test:** `test_isolation.WorkerMemoryCgroupTests` with `OLAP_HARNESS_CGROUP_TESTS=1`, in a disposable privileged client container as in CI (512 MiB). OK before and after the sampler.
 
 ## Deployment
 
@@ -75,6 +78,26 @@ This is one sample on one fixture, not a diagnosis of #717. It names a candidate
 - A coordinator killed by the supervisor's outer limit writes a failure record from its checkpoint, which has `pass_order` and the split sample but not the sidecar.
 - Not live-tested: a killed Redis worker's last `running` sample, an option refusal by an older driver, and an unreadable sidecar. Synthetic child-process tests cover each.
 
-## Open decision
+## External sampler smoke run
 
-A RAM/flash split just before timing needs a source other than the database endpoint on this deployment. Examples are the management API's `bigstore_objs_ram` / `bigstore_objs_flash` read by a caller-owned sampler outside `run.py`, or a future endpoint that forwards `Bigredis-Keyspace`. This change does not choose one.
+The first smoke run showed that the endpoint gives no split. The user then chose an external sampler, so a second fixture was brought up to check it live.
+
+- **Fixture:** same shape and settings as above. Started 20:03:24Z and removed 20:22:58Z, local Docker only, database uid 2.
+  - The management API showed active 4x QPF, 6 Search workers, `mnp` and 32 connections. That was checked at 20:03:57, before the gate (20:13:50), before each query (20:22:10, 20:22:16) and after the run (20:22:32), with no failed check.
+- **Data:** TPC-H SF1 loaded again, 20:04–20:13Z, by the unchanged main harness.
+  - The new harness's gate passed after 285 s. `supplier` (10,000 documents) had no cycle yet and was `exempt_uncompacted` under the profile's existing exemption, with its `FT.CREATE` time and point-term profile recorded.
+- **Profile:**
+  - `flex_tier_sampler` was `["python", "/harness/flex_tier_sampler.py", "/private/management.json"]`.
+  - The owner-only `management.json` named `https://localhost:9443` (the API inside the server's network namespace), the fixture's admin user, `bdb_uid` 2 and `verify_tls: false` for its self-signed localhost certificate.
+- **Run:** Q11 and Q14 in one folder; records in [evidence/sampler/queries.jsonl](evidence/sampler/queries.jsonl), with [metadata.json](evidence/sampler/metadata.json).
+  - Both validated: Redis medians 763 ms and 1.86 s.
+  - `pass_order` was 1 and then 2 after Q11. The warm-up diagnostics matched the first run's plans and row counts.
+  - Each `redis_flex_tiers_before` has `split_available: true` and `split_source: "external_sampler"`: `ram_objects` 7,308,809 and `flash_objects` 8,106,468, with clean 6,324,961 and dirty 983,848.
+  - The sampler took 35 ms and 34 ms, and its intervals ended at the capture second (20:22:11, 20:22:16).
+- **Out-of-band check** ([evidence/sampler/out-of-band-comparison.txt](evidence/sampler/out-of-band-comparison.txt)):
+  - Just before each query, `shard-cli 1 INFO Bigredis-Keyspace` inside the server container gave `ram=7308809`, `disk=8106468`, `clean=6324961` and `dirty=983848`. Those are the record's values exactly.
+  - At idle afterwards, a standalone sampler run fell between two shard reads with identical counts (`ram=7324211`, `disk=8106468`) and matched them.
+  - So the management API's `bigstore_objs_ram` / `bigstore_objs_flash` / `bigstore_objs_clean` / `bigstore_objs_dirty` are the shard's `ram` / `disk` / `clean` / `dirty`.
+- **Sanitization:** the records contain no password, user, URI, API host or port, configuration path or `flex_tier_sampler` command.
+
+The sampler's failure paths (non-zero exit, timeout, invalid or oversized output, missing executable, malformed option) are covered by real-subprocess tests, not live.

@@ -41,6 +41,28 @@ All new fields are additive. Existing fields, timings, statuses, validation and 
   - Its `db0:` line keeps `keys`, `expires` and `avg_ttl` only.
   - `INFO` is refused inside scripts, so a Redis Function cannot read the shard's sections either.
   - On that deployment the field therefore records `split_available: false` with `keys` and `endpoint_used_memory`. It never estimates a split.
+- **External sampler (opt-in, chosen 2026-11-26 by the user after that finding):**
+  - **Option:** private `connection.json` key `flex_tier_sampler`, a non-empty list of non-empty strings (a command, run without a shell). `run_query` validates it before any engine starts, on every profile.
+  - **When:** on a Flex profile, right after the `INFO` sample, so it is the last thing before the engine starts.
+  - **How it runs:** stdin closed, stderr discarded, a 30 s limit. Stdout must be one JSON object of at most 64 KiB.
+  - **Whitelist:**
+    - non-negative integer `ram_objects`, `flash_objects`, `ram_clean_objects`, `ram_dirty_objects`, `keys`, `used_memory_bytes` and `used_flash_bytes` (integral floats are accepted);
+    - `interval_start_utc` and `interval_end_utc` (timezone-aware ISO 8601, re-serialized in UTC);
+    - `source` (an identifier).
+    - Everything else, including anything credential-like, is dropped.
+  - **Record:** `<engine>_flex_tiers_before.sampler` holds those fields plus `seconds` (the sampler's wall time).
+  - **Which split wins:** if the endpoint reported no split and the sampler gave both counts, the top-level `ram_objects` and `flash_objects` come from the sampler, with `split_available: true` and `split_source: "external_sampler"`. An endpoint split wins and is labeled `split_source: "endpoint_info"`.
+  - **Failures:** a sampler failure records only `sampler.error`: `exited with code N`, `timed out after 30 s`, `output is not one JSON object`, `output is larger than 64 KiB`, or a launch exception's type name. The query still runs. Neither output stream is copied on failure.
+  - **Process boundary:** `run.py` still never calls the management API. The coordinator runs a caller-owned command, and the endpoint `INFO` sample is unchanged.
+- **Reference sampler `flex_tier_sampler.py`** (stdlib only), run as `flex_tier_sampler.py <private management.json>`:
+  - **Config file:** `url` (`https://host:port`, no credentials in it), `username`, `password`, `bdb_uid` (positive integer), optional `ca_file`, optional boolean `verify_tls` (default true; false only for `localhost`, `127.0.0.1` or `::1`).
+  - **Request:** `GET <url>/v1/bdbs/stats/last/<bdb_uid>`, the database's latest 1-second interval, with basic authentication and a 20 s timeout.
+  - **Output:** one JSON object:
+    - `bigstore_objs_ram` → `ram_objects`, `bigstore_objs_flash` → `flash_objects`, `bigstore_objs_clean` / `bigstore_objs_dirty` → `ram_clean_objects` / `ram_dirty_objects`;
+    - `no_of_keys` → `keys`, `used_memory` → `used_memory_bytes`, `used_bigstore` → `used_flash_bytes`;
+    - `stime` / `etime` → `interval_start_utc` / `interval_end_utc`;
+    - `source: "management_api_bdb_stats"`.
+  - **Errors:** exit 1 with only the exception type (and HTTP status) on stderr.
 
 ## Pass order
 
@@ -55,5 +77,7 @@ All new fields are additive. Existing fields, timings, statuses, validation and 
 - Unit tests for the whitelist, including that SQL literals, column names, index queries, LIMIT values and unknown fields never reach the record. Tests for the INFO parsing of the proxy's and the shard's formats, and for capture errors.
 - Real child-process tests with the synthetic driver: only the warm-up statement is instrumented; the record carries the sanitized sidecar, including a crashed worker's last `running` sample; an option refusal is recorded without failing the query; the raw sidecar is retained after a mismatch; and the third engine records its unavailability.
 - Coordinator tests: the split is captured just before each Redis-backed engine on Flex and never on RAM, and `pass_order` across queries in one folder.
+- Sampler tests with real sampler subprocesses: the whitelist (credentials dropped), which split wins, every failure mode, option validation before any engine, and that a failing `INFO` sample still runs the sampler.
+- Reference sampler tests with a fake opener: URL, authentication, metric mapping, TLS rules, and that credentials never reach stdout or stderr.
 - `python3 -m unittest discover -s benchmarks/olap-release -p 'test_*.py'`.
 - Live smoke run on a disposable Software Flex fixture with verified 4x QPF ([validation](validation.md)).

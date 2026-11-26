@@ -13,3 +13,8 @@
 6. Run `python3 -m unittest discover -s benchmarks/olap-release -p 'test_*.py'`.
 7. Live smoke run: TPC-H SF1 loaded on a disposable Flex fixture (64 GiB, 8 GiB RAM tier, verified 4x QPF, Search disk 8% / 2% / 3 MiB, AOF every second). Then the compaction gate and queries 11, 14 and 15 in one output folder; Q15 is the #717 timeout. Record the fields in [validation](validation.md).
 8. Remove the fixture and record its cost and ownership. Open the PR.
+9. After step 2's finding, the user chose an external sampler (2026-11-26). Then:
+   - write failing tests for the `flex_tier_sampler` hook and the reference `flex_tier_sampler.py`;
+   - implement both and document them;
+   - rerun a live smoke on a fresh Flex fixture of the same shape (TPC-H SF1, Q11 and Q14). Compare the sampler's counts with the shard's own `Bigredis-Keyspace` taken out of band;
+   - remove the fixture and update the PR.

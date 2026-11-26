@@ -210,6 +210,122 @@ class FlexTierTests(unittest.TestCase):
         self.assertEqual(loaded.stdout.strip(), "[]")
 
 
+# What the reference sampler printed for the measured shard, plus fields a
+# caller's sampler must never get into a record.
+SAMPLE = {"source": "management_api_bdb_stats", "ram_objects": 7803390, "flash_objects": 8190741,
+          "ram_clean_objects": 6938217, "ram_dirty_objects": 865173, "keys": 8661322,
+          "used_memory_bytes": 13444720436, "used_flash_bytes": 6374828452.0,
+          "interval_start_utc": "2026-11-26T18:43:26Z", "interval_end_utc": "2026-11-26T18:43:27Z"}
+CLEAN_SAMPLE = {**SAMPLE, "used_flash_bytes": 6374828452, "interval_start_utc": "2026-11-26T18:43:26+00:00",
+                "interval_end_utc": "2026-11-26T18:43:27+00:00"}
+UNSAFE = {"password": "private-secret", "url": "https://admin:private-secret@localhost:9443",
+          "bdb_name": "secret-db", "note": "private-secret"}
+
+
+class SamplerTests(unittest.TestCase):
+    """The opt-in flex_tier_sampler command (a caller-owned process, never run.py)."""
+
+    def private(self, tmp, script=None, command=None):
+        private = Path(tmp)
+        profile = {"uri": "rediss://test:private-secret@localhost:12000/0", "db_kwargs": {"adbc.redis.flex": "true"}}
+        if script is not None:
+            (private / "sampler.py").write_text(script)
+            command = [sys.executable, str(private / "sampler.py")]
+        if command is not None:
+            profile["flex_tier_sampler"] = command
+        (private / "connection.json").write_text(json.dumps(profile))
+        return private
+
+    def sample(self, private, sections=PROXY, error=None):
+        client = FakeInfoClient(sections, error=error)
+        with patch.object(flex_compaction, "redis_client", lambda config: client), \
+                patch.object(diagnostics, "utc_now", lambda: NOW):
+            state = diagnostics.flex_tiers(private)
+        self.assertNotIn("private-secret", json.dumps(state))
+        self.assertNotIn("secret-db", json.dumps(state))
+        return state
+
+    def printing(self, value):
+        return f"import json\nprint(json.dumps({value!r}))\n"
+
+    def test_sampler_supplies_the_split_and_is_whitelisted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = self.sample(self.private(tmp, self.printing({**SAMPLE, **UNSAFE, "ram_objects_estimate": 1})))
+            sampler = dict(state["sampler"])
+            self.assertGreaterEqual(sampler.pop("seconds"), 0)
+            self.assertEqual(sampler, CLEAN_SAMPLE)
+            self.assertEqual((state["ram_objects"], state["flash_objects"], state["split_available"],
+                              state["split_source"]), (7803390, 8190741, True, "external_sampler"))
+            # The endpoint's own values are kept alongside.
+            self.assertEqual((state["keys"], state["endpoint_used_memory"]), (6151256, 4851870684))
+
+    def test_an_endpoint_split_wins_and_the_sample_is_kept(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = self.sample(self.private(tmp, self.printing(SAMPLE)), sections=SHARD)
+            self.assertEqual((state["ram_objects"], state["flash_objects"], state["split_source"]),
+                             (2953601, 4460583, "endpoint_info"))
+            self.assertEqual(state["sampler"]["ram_objects"], 7803390)
+
+    def test_a_failed_info_sample_still_runs_the_sampler(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = self.sample(self.private(tmp, self.printing(SAMPLE)), error=ConnectionError("rediss://x"))
+            self.assertEqual(state["error"], "ConnectionError")
+            self.assertEqual((state["ram_objects"], state["split_available"], state["split_source"]),
+                             (7803390, True, "external_sampler"))
+
+    def test_failures_are_recorded_without_any_output(self):
+        leak = "import sys\nprint('{\"ram_objects\": 1, \"password\": \"private-secret\"}')\n" \
+               "print('private-secret', file=sys.stderr)\n"
+        cases = {
+            "exited with code 3": leak + "sys.exit(3)\n",
+            "output is not one JSON object": "print('ram_objects=1 private-secret')\n",
+            "output is larger than 64 KiB": "print('{\"keys\": 1, \"pad\": \"' + 'x' * 70000 + '\"}')\n",
+            "timed out after 0.5 s": "import time\ntime.sleep(10)\n",
+        }
+        for error, script in cases.items():
+            with self.subTest(error=error), tempfile.TemporaryDirectory() as tmp, \
+                    patch.object(diagnostics, "SAMPLER_TIMEOUT_SECONDS", 0.5):
+                state = self.sample(self.private(tmp, script))
+                self.assertEqual(set(state["sampler"]), {"error", "seconds"})
+                self.assertEqual(state["sampler"]["error"], error)
+                self.assertFalse(state["split_available"])
+                self.assertNotIn("split_source", state)
+        with tempfile.TemporaryDirectory() as tmp:
+            state = self.sample(self.private(tmp, command=[str(Path(tmp) / "missing-sampler")]))
+            self.assertEqual(state["sampler"]["error"], "FileNotFoundError")
+
+    def test_invalid_values_are_dropped(self):
+        odd = {"ram_objects": -1, "flash_objects": "5", "keys": True, "used_memory_bytes": 1.5,
+               "interval_end_utc": "yesterday", "interval_start_utc": "2026-11-26T18:43:26",
+               "source": "Management API", "ram_clean_objects": float("inf")}
+        with tempfile.TemporaryDirectory() as tmp:
+            script = f"print({json.dumps(odd).replace('Infinity', '1e999')!r})\n"
+            state = self.sample(self.private(tmp, script))
+            self.assertEqual(set(state["sampler"]), {"seconds"})
+            self.assertFalse(state["split_available"])
+
+    def test_no_sampler_means_no_sampler_field(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertNotIn("sampler", self.sample(self.private(tmp)))
+
+    def test_option_is_validated_before_any_engine(self):
+        for command in ("python3 sampler.py", [], ["python3", 2], [""], {"command": ["x"]}):
+            with self.subTest(command=command), tempfile.TemporaryDirectory() as tmp:
+                private = self.private(tmp, command=command)
+                with self.assertRaisesRegex(ValueError, "flex_tier_sampler"):
+                    diagnostics.tier_sampler(private)
+                (private / "tpch").mkdir()
+                args = argparse.Namespace(private=private, output=private, suite="tpch", query="19",
+                                          duckdb_only=False, include_duckdb_adbc=False)
+                runner = lambda cmd, **kwargs: self.fail("an engine ran with an invalid sampler option")
+                with self.assertRaisesRegex(ValueError, "flex_tier_sampler"), redirect_stdout(io.StringIO()):
+                    isolation.run_query(args, runner=runner)
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(diagnostics.tier_sampler(Path(tmp)))
+            self.assertEqual(diagnostics.tier_sampler(self.private(tmp, command=["sampler", "--x"])),
+                             ["sampler", "--x"])
+
+
 def fake_runner(events, folder):
     """Engine workers that succeed without running anything; logs phases and checkpoints."""
     def runner(cmd, **kwargs):

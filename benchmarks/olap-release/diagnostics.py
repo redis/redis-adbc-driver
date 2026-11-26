@@ -8,7 +8,10 @@ counts or presence flags in place of literal-bearing values.
 flex_tiers() samples INFO over RESP3 for the RAM/flash object split. On Redis
 Software 8.8 Flex the database endpoint does not report it (2026-11-26): its
 proxy answers no Bigredis section and keeps only keys/expires/avg_ttl on db0.
-The sample then says so, and never estimates a split.
+The sample then says so, and never estimates a split. A private profile may
+name a caller-owned command (flex_tier_sampler) that prints the split; its
+output is whitelisted like the sidecar. The bundled flex_tier_sampler.py reads
+the management API; this module and run.py never do.
 
 This module imports neither engine; redis-py is imported only when sampling.
 """
@@ -18,6 +21,8 @@ import json
 import math
 from pathlib import Path
 import re
+import subprocess
+import time
 
 
 OPTION = "adbc.redis.execution_diagnostics_file"
@@ -58,6 +63,12 @@ AGGREGATE_METRICS = ("workers", "partition_attempts", "group_limit_retries", "ro
                      "spill_write_worker_seconds", "spill_sort_worker_seconds",
                      "partition_fetch_worker_seconds", "merge_elapsed_seconds", "compact_tuple_worker_seconds")
 MAX_LIST = 256
+SAMPLER_OPTION = "flex_tier_sampler"
+SAMPLER_TIMEOUT_SECONDS = 30
+SAMPLER_MAX_OUTPUT = 64 << 10
+SAMPLER_COUNTS = ("ram_objects", "flash_objects", "ram_clean_objects", "ram_dirty_objects", "keys",
+                  "used_memory_bytes", "used_flash_bytes")
+SAMPLER_TIMES = ("interval_start_utc", "interval_end_utc")
 
 
 def _number(value):
@@ -150,8 +161,76 @@ def tiers(client):
             "split_available": ram is not None and flash is not None}
 
 
+def tier_sampler(private):
+    """The profile's flex_tier_sampler command (argv, no shell), or None."""
+    profile = Path(private) / "connection.json"
+    config = json.loads(profile.read_text()) if profile.exists() else {}
+    command = config.get(SAMPLER_OPTION)
+    if command is None:
+        return None
+    if not (isinstance(command, list) and command and all(isinstance(a, str) and a for a in command)):
+        raise ValueError(f"{SAMPLER_OPTION} must be a non-empty list of non-empty strings (a command run without a shell)")
+    return command
+
+
+def _sample_count(value):
+    if type(value) is int:
+        return value if value >= 0 else None
+    if type(value) is float and math.isfinite(value) and value >= 0 and value == int(value):
+        return int(value)
+    return None
+
+
+def _sample_time(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        moment = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return moment.astimezone(datetime.timezone.utc).isoformat() if moment.tzinfo else None
+
+
+def sanitize_sample(value):
+    clean = {k: _sample_count(value.get(k)) for k in SAMPLER_COUNTS}
+    clean.update({k: _sample_time(value.get(k)) for k in SAMPLER_TIMES})
+    if _identifier(value.get("source")):
+        clean["source"] = value["source"]
+    return {k: v for k, v in clean.items() if v is not None}
+
+
+def run_sampler(command):
+    """Run the caller's sampler; keep only whitelisted output, never its text on failure."""
+    started = time.monotonic()
+    result = {}
+    try:
+        done = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                              timeout=SAMPLER_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        result["error"] = f"timed out after {SAMPLER_TIMEOUT_SECONDS} s"
+    except Exception as exc:  # cannot start: missing executable, permissions
+        result["error"] = type(exc).__name__
+    else:
+        value = None
+        if done.returncode:
+            result["error"] = f"exited with code {done.returncode}"
+        elif len(done.stdout) > SAMPLER_MAX_OUTPUT:
+            result["error"] = "output is larger than 64 KiB"
+        else:
+            try:
+                value = json.loads(done.stdout)
+            except ValueError:
+                pass
+            if isinstance(value, dict):
+                result.update(sanitize_sample(value))
+            else:
+                result["error"] = "output is not one JSON object"
+    result["seconds"] = round(time.monotonic() - started, 3)
+    return result
+
+
 def flex_tiers(private):
-    """Sample tiers() over RESP3 with the profile's URI; failures are recorded, never raised."""
+    """Sample tiers() over RESP3, then the optional sampler; failures are recorded, never raised."""
     import flex_compaction
 
     state = {"captured_utc": utc_now().isoformat()}
@@ -168,4 +247,18 @@ def flex_tiers(private):
                 client.close()
             except Exception:
                 pass
+    if state.get("split_available"):
+        state["split_source"] = "endpoint_info"
+    try:
+        command = tier_sampler(private)
+    except Exception as exc:  # run_query validates the option before any engine
+        state["sampler"] = {"error": type(exc).__name__}
+        command = None
+    if command:
+        sample = state["sampler"] = run_sampler(command)
+        if not state.get("split_available"):
+            state["split_available"] = all(k in sample for k in ("ram_objects", "flash_objects"))
+            if state["split_available"]:
+                state.update(ram_objects=sample["ram_objects"], flash_objects=sample["flash_objects"],
+                             split_source="external_sampler")
     return state

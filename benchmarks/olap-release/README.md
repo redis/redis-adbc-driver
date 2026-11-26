@@ -57,6 +57,20 @@ Every query record also keeps what the SF1 Flex failure issues ([#696](https://g
   - **Redis Software 8.8 Flex does not report the split through the database endpoint.** Its proxy answers no `Bigredis*` section, keeps only `keys`, `expires` and `avg_ttl` on `db0`, and scripts may not call `INFO`. There the record shows `split_available: false` with null counts; the harness never estimates them.
   - `endpoint_used_memory` is the endpoint's `used_memory`. On Flex it tracked the shard's RAM-plus-flash total, not its RAM tier.
   - A failed sample records only `captured_utc` and the exception type in `error`, and the query still runs. A RAM profile is not sampled.
+- **External sampler (opt-in) for the split:** private `connection.json` may set `flex_tier_sampler` to a command, a list of strings run without a shell. `run_query` rejects a malformed value before any engine starts.
+  - **When it runs:** on a Flex profile, right after the `INFO` sample and before each Redis-backed engine starts.
+  - **How it runs:** stdin closed, stderr discarded, 30 s limit. It must print one JSON object (at most 64 KiB).
+  - **What is kept:**
+    - non-negative integer `ram_objects`, `flash_objects`, `ram_clean_objects`, `ram_dirty_objects`, `keys`, `used_memory_bytes` and `used_flash_bytes`;
+    - timezone-aware `interval_start_utc` and `interval_end_utc`;
+    - an identifier `source`.
+    - Nothing else is copied, so a sampler cannot leak credentials into a record.
+  - **Where it goes:** `<engine>_flex_tiers_before.sampler`, with the sampler's wall time in `seconds`. When the endpoint reported no split and the sample has both counts, the top-level `ram_objects` and `flash_objects` come from it, with `split_available: true` and `split_source: "external_sampler"`. An endpoint split wins (`split_source: "endpoint_info"`).
+  - **Failures:** a failure records only `sampler.error` (`exited with code N`, `timed out after 30 s`, `output is not one JSON object`, `output is larger than 64 KiB`, or a launch exception type), and the query still runs.
+  - **Reference sampler:** `flex_tier_sampler.py <private management.json>` reads the database's latest 1-second interval from the Redis Software management API (`GET /v1/bdbs/stats/last/<bdb_uid>`) and prints those fields. Example: `"flex_tier_sampler": ["python", "/harness/flex_tier_sampler.py", "/private/management.json"]`.
+    - The file holds `url` (`https://host:port`), `username`, `password`, `bdb_uid`, optional `ca_file`, and optional `verify_tls`.
+    - `verify_tls` defaults to true; false is accepted only for `localhost`, `127.0.0.1` or `::1`, such as the in-namespace client against the cluster's self-signed certificate. Keep the file owner-only, like `connection.json`.
+    - The coordinator runs it as a separate process, so `run.py` still makes no management API call. Its counts are the management API's 1-second gauges (`bigstore_objs_ram`, `bigstore_objs_flash`, `bigstore_objs_clean`, `bigstore_objs_dirty`), so `interval_end_utc` says how old the sample is.
 
 ## Explicit client thread profile
 
@@ -122,7 +136,10 @@ docker run --rm --privileged --memory 512m --memory-swap 512m --shm-size 256m -e
 - the sidecar whitelist, including that literals, names, index queries and LIMIT values never reach a record;
 - the endpoint's and the shard's `INFO` formats, and sampling errors;
 - in real child processes, warm-up-only instrumentation, a crashed worker's last sample, an option refusal and an unreadable sidecar;
-- sampling just before each Redis-backed engine on Flex only, and `pass_order`.
+- sampling just before each Redis-backed engine on Flex only, and `pass_order`;
+- the `flex_tier_sampler` hook with real sampler processes: the whitelist, which split wins, each failure mode, and option validation.
+
+`test_flex_tier_sampler.py` covers the reference sampler with a fake opener: request URL and authentication, metric mapping, TLS rules, and that credentials never reach its output.
 
 `test_flex_compaction.py` covers the Flex gate with synthetic RESP3/RESP2 `FT.INFO` replies and a fake clock: uncompacted, cycle-only, restart and missing-metric states, table mapping, the bounded wait, setup refusal, the per-query recheck and record provenance. Nine synthetic-adapter tests use real child processes without database queries: distinct PIDs/import isolation, crash attribution, missing references, mismatch/no-ratio, validator timeout, private cleanup, output reuse refusal, credential redaction, bounded multi-pass sorting, truncation and separate third-path reporting. Related harness issues: [#596](https://github.com/redis/redis-adbc-driver/issues/596) and [#660](https://github.com/redis/redis-adbc-driver/issues/660). Historical OOMs from a shared worker cannot establish the Redis driver's isolated memory requirement.
 

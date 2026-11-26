@@ -745,6 +745,7 @@ def run_query(args, runner=None):
         # The Flex compaction state checked just before this query (run.py).
         record["flex_index_compaction"] = args.flex_compaction
     flex = not args.duckdb_only and flex_profile(args.private)
+    diagnostics.tier_sampler(args.private)  # reject a malformed sampler option before any engine runs
     memory = worker_memory(args.private)
     with tempfile.TemporaryDirectory(prefix="query-", dir=args.private) as tmp:
         artifacts = Path(tmp)
