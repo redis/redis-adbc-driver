@@ -1,0 +1,356 @@
+{
+  "suite": "ssb",
+  "scale_factor": 1,
+  "warmups": 1,
+  "repeats": 3,
+  "statement_timeout_seconds": 60,
+  "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.36",
+  "architecture": "aarch64",
+  "client_cpus": 4,
+  "client_threads": 4,
+  "client_memory_limit_bytes": 8589934592,
+  "worker_memory_limit_bytes": null,
+  "worker_memory_isolation": "shared client cgroup: coordinator, supervisor and workers",
+  "duckdb_memory_limit": "8GB",
+  "route": "Linux client in Redis Software server network namespace; TLS localhost",
+  "table_mode": "managed",
+  "driver": "0.0.31",
+  "duckdb": "2.0.1",
+  "pyarrow": "26.0.1",
+  "adbc_driver_manager": "1.13.0",
+  "server": {
+    "aof_policy": "appendfsync-every-sec",
+    "bigstore": true,
+    "bigstore_ram_size": 8589934592,
+    "bigstore_version": 2,
+    "conns": 32,
+    "data_persistence": "aof",
+    "eviction_policy": "noeviction",
+    "memory_size": 68719476736,
+    "query_performance_factor": {
+      "active": true,
+      "scaling_factor": 4
+    },
+    "sched_policy": "mnp",
+    "search": {
+      "search-_bg-index-mem-pct-thr": 100,
+      "search-_bg-index-oom-pause-time": 5,
+      "search-_free-resource-on-thread": true,
+      "search-_numeric-compress": false,
+      "search-_numeric-ranges-parents": 0,
+      "search-_print-profile-clock": true,
+      "search-_prioritize-intersect-union-children": false,
+      "search-bg-index-sleep-duration-us": 1,
+      "search-bg-index-sleep-gap": 100,
+      "search-bm25std-tanh-factor": 4,
+      "search-conn-per-shard": 0,
+      "search-cursor-max-idle": 300000,
+      "search-cursor-reply-threshold": 1,
+      "search-default-dialect": 1,
+      "search-default-scorer": "BM25STD",
+      "search-disk-drop-read-cache": false,
+      "search-disk-max-open-files": 200,
+      "search-disk-memory-limit-percentage": 8,
+      "search-disk-use-direct-reads": false,
+      "search-disk-write-buffer-min-percentage": 2,
+      "search-disk-write-buffer-per-index-mb": 3,
+      "search-enable-unstable-features": false,
+      "search-ext-load": null,
+      "search-fork-gc-clean-threshold": 100,
+      "search-fork-gc-retry-interval": 5,
+      "search-fork-gc-run-interval": 30,
+      "search-fork-gc-sleep-before-exit": 0,
+      "search-friso-ini": null,
+      "search-gc-scan-size": 100,
+      "search-index-cursor-limit": 128,
+      "search-indexer-yield-every-ops": 1000,
+      "search-internal-resp-schema": false,
+      "search-io-threads": 1,
+      "search-max-aggregate-groups": 1000000,
+      "search-max-aggregate-results": 2147483648,
+      "search-max-doctablesize": 1000000,
+      "search-max-prefix-expansions": 200,
+      "search-max-search-results": 1000000,
+      "search-min-operation-workers": 4,
+      "search-min-phonetic-term-len": 3,
+      "search-min-prefix": 2,
+      "search-min-stem-len": 4,
+      "search-multi-text-slop": 100,
+      "search-no-gc": false,
+      "search-no-mem-pools": false,
+      "search-on-oom": "return",
+      "search-on-timeout": "RETURN",
+      "search-partial-indexed-docs": false,
+      "search-raw-docid-encoding": false,
+      "search-threads": 20,
+      "search-tiered-hnsw-buffer-limit": 1024,
+      "search-timeout": 500,
+      "search-topology-validation-timeout": 30000,
+      "search-union-iterator-heap": 20,
+      "search-vss-max-resize": 0,
+      "search-workers": 6,
+      "search-workers-priority-bias-threshold": 1
+    },
+    "search_on_bigstore": true,
+    "shards_count": 1,
+    "status": "active",
+    "tls_mode": "enabled",
+    "version": "8.8.0"
+  },
+  "engine_isolation": "sequential fresh processes; separate disk-backed validation",
+  "engines": [
+    "duckdb",
+    "redis"
+  ],
+  "numeric_tolerance": {
+    "relative": 1e-07,
+    "absolute": 1e-06
+  },
+  "ordering_validation": "row multiset (duplicates preserved); output ordering not validated",
+  "started_utc": "2026-11-26T05:41:11.980835+00:00",
+  "flex_index_compaction": {
+    "ready": true,
+    "tables": {
+      "customer": {
+        "ready": true,
+        "indexes": [
+          {
+            "state": "exempt_uncompacted",
+            "num_docs": 3000,
+            "gc_total_cycles": 0,
+            "max_numeric_disk_num_keys": 3000,
+            "numeric_disk_num_keys": {
+              "__adbc_snapshot_deleted": null,
+              "__rowid": 3000,
+              "c_custkey": 3000
+            },
+            "problems": [],
+            "uncompacted_reasons": [
+              "no completed disk GC cycle",
+              "disk_num_keys not below num_docs for NUMERIC __rowid, c_custkey"
+            ],
+            "ft_create_utc": "2026-11-26T05:28:20.794Z",
+            "minutes_since_ft_create": 12.9,
+            "point_term_profile": [
+              {
+                "field": "c_custkey",
+                "total_ms": 0.430167,
+                "iterator": "DISK_NUMERIC",
+                "iterator_ms": 0.331042,
+                "estimated_matches": 3000
+              }
+            ]
+          }
+        ]
+      },
+      "date_": {
+        "ready": true,
+        "indexes": [
+          {
+            "state": "exempt_uncompacted",
+            "num_docs": 2556,
+            "gc_total_cycles": 0,
+            "max_numeric_disk_num_keys": 2556,
+            "numeric_disk_num_keys": {
+              "__adbc_snapshot_deleted": null,
+              "__rowid": 2556,
+              "d_datekey": 2556,
+              "d_daynuminmonth": 2556,
+              "d_daynuminweek": 2556,
+              "d_daynuminyear": 2556,
+              "d_holidayfl": 2556,
+              "d_lastdayinmonthfl": 2556,
+              "d_lastdayinweekfl": 2556,
+              "d_monthnuminyear": 2556,
+              "d_weekdayfl": 2556,
+              "d_weeknuminyear": 2556,
+              "d_year": 2556,
+              "d_yearmonthnum": 2556
+            },
+            "problems": [],
+            "uncompacted_reasons": [
+              "no completed disk GC cycle",
+              "disk_num_keys not below num_docs for NUMERIC __rowid, d_datekey, d_daynuminmonth, d_daynuminweek, d_daynuminyear, d_holidayfl, d_lastdayinmonthfl, d_lastdayinweekfl, d_monthnuminyear, d_weekdayfl, d_weeknuminyear, d_year, d_yearmonthnum"
+            ],
+            "ft_create_utc": "2026-11-26T05:28:57.212Z",
+            "minutes_since_ft_create": 12.3,
+            "point_term_profile": [
+              {
+                "field": "d_datekey",
+                "total_ms": 0.37,
+                "iterator": "DISK_NUMERIC",
+                "iterator_ms": 0.292667,
+                "estimated_matches": 2556
+              }
+            ]
+          }
+        ]
+      },
+      "lineorder": {
+        "ready": true,
+        "indexes": [
+          {
+            "state": "compacted",
+            "num_docs": 600597,
+            "gc_total_cycles": 1,
+            "max_numeric_disk_num_keys": 50602,
+            "numeric_disk_num_keys": {
+              "__adbc_snapshot_deleted": null,
+              "__rowid": 50602,
+              "lo_commitdate": 40825,
+              "lo_custkey": 39768,
+              "lo_discount": 29321,
+              "lo_extendedprice": 40030,
+              "lo_linenumber": 24402,
+              "lo_orderdate": 40389,
+              "lo_orderkey": 40775,
+              "lo_ordtotalprice": 41288,
+              "lo_partkey": 39701,
+              "lo_quantity": 39924,
+              "lo_revenue": 49353,
+              "lo_suppkey": 40178,
+              "lo_supplycost": 39803,
+              "lo_tax": 27023
+            },
+            "problems": []
+          }
+        ]
+      },
+      "part": {
+        "ready": true,
+        "indexes": [
+          {
+            "state": "compacted",
+            "num_docs": 20000,
+            "gc_total_cycles": 1,
+            "max_numeric_disk_num_keys": 951,
+            "numeric_disk_num_keys": {
+              "__adbc_snapshot_deleted": null,
+              "__rowid": 951,
+              "p_partkey": 951,
+              "p_size": 609
+            },
+            "problems": []
+          }
+        ]
+      },
+      "supplier": {
+        "ready": true,
+        "indexes": [
+          {
+            "state": "exempt_uncompacted",
+            "num_docs": 200,
+            "gc_total_cycles": 0,
+            "max_numeric_disk_num_keys": 200,
+            "numeric_disk_num_keys": {
+              "__adbc_snapshot_deleted": null,
+              "__rowid": 200,
+              "s_suppkey": 200
+            },
+            "problems": [],
+            "uncompacted_reasons": [
+              "no completed disk GC cycle",
+              "disk_num_keys not below num_docs for NUMERIC __rowid, s_suppkey"
+            ],
+            "ft_create_utc": "2026-11-26T05:29:37.322Z",
+            "minutes_since_ft_create": 11.6,
+            "point_term_profile": [
+              {
+                "field": "s_suppkey",
+                "total_ms": 0.09,
+                "iterator": "DISK_NUMERIC",
+                "iterator_ms": 0.017292,
+                "estimated_matches": 200
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "unmatched_indexes": 32,
+    "gc_threshold": 100,
+    "problems": [],
+    "exemption": {
+      "max_docs": 10000,
+      "applied_to": [
+        "customer",
+        "date_",
+        "supplier"
+      ],
+      "not_needed": []
+    },
+    "polls": 1,
+    "waited_seconds": 0.0,
+    "wait_limit_seconds": 900,
+    "columns": {
+      "customer": [
+        "c_custkey",
+        "c_name",
+        "c_address",
+        "c_city",
+        "c_nation",
+        "c_region",
+        "c_phone",
+        "c_mktsegment"
+      ],
+      "date_": [
+        "d_datekey",
+        "d_date",
+        "d_dayofweek",
+        "d_month",
+        "d_year",
+        "d_yearmonthnum",
+        "d_yearmonth",
+        "d_daynuminweek",
+        "d_daynuminmonth",
+        "d_daynuminyear",
+        "d_monthnuminyear",
+        "d_weeknuminyear",
+        "d_sellingseason",
+        "d_lastdayinweekfl",
+        "d_lastdayinmonthfl",
+        "d_holidayfl",
+        "d_weekdayfl"
+      ],
+      "lineorder": [
+        "lo_orderkey",
+        "lo_linenumber",
+        "lo_custkey",
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_orderpriority",
+        "lo_shippriority",
+        "lo_quantity",
+        "lo_extendedprice",
+        "lo_ordtotalprice",
+        "lo_discount",
+        "lo_revenue",
+        "lo_supplycost",
+        "lo_tax",
+        "lo_commitdate",
+        "lo_shipmode"
+      ],
+      "part": [
+        "p_partkey",
+        "p_name",
+        "p_mfgr",
+        "p_category",
+        "p_brand1",
+        "p_color",
+        "p_type",
+        "p_size",
+        "p_container"
+      ],
+      "supplier": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_city",
+        "s_nation",
+        "s_region",
+        "s_phone"
+      ]
+    }
+  }
+}
