@@ -721,6 +721,9 @@ def run_query(args, runner=None):
     checkpoint = folder / f"checkpoint-{args.query}.json"
     record = {"suite": args.suite, "query": args.query,
               "engine_isolation": "sequential fresh processes; separate disk-backed validation"}
+    if getattr(args, "flex_compaction", None) is not None:
+        # The Flex compaction state checked just before this query (run.py).
+        record["flex_index_compaction"] = args.flex_compaction
     engines = ["duckdb"] if args.duckdb_only else ["duckdb", "redis"]
     if args.include_duckdb_adbc:
         engines.append("duckdb_adbc")

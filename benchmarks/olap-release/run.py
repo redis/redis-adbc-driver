@@ -189,13 +189,62 @@ def setup(args):
                 raise ValueError(f"load cardinality mismatch for {table}: {observed} != {expected}")
             emit(events, {"event": "load_done", "table": table, "rows": expected,
                           "ingest_returned_rows": count, "seconds": time.perf_counter() - start})
+        if r is not None and not args.query:
+            from flex_compaction import flex_profile
+            if flex_profile(args.private):
+                r.close()
+                r = None
+                wait_for_flex_compaction(args, c, tables, events, metadata, out)
     except Exception as exc:
-        emit(events, {"event": "suite_error", "error": safe_error(str(exc))})
+        from flex_compaction import CompactionGateError
+        failure = {"event": "suite_error", "error": safe_error(str(exc))}
+        if isinstance(exc, CompactionGateError):
+            failure["flex_index_compaction"] = exc.state
+        emit(events, failure)
         raise
     finally:
         if r is not None:
             r.close()
         c.close()
+
+
+def wait_for_flex_compaction(args, c, tables, events, metadata, out):
+    """Flex: wait (bounded) for each loaded table's indexes to be compacted.
+
+    Until the disk GC's first cycle a Flex index scans one entry per document
+    for every NUMERIC term; timings would measure that, not the driver. The
+    observation, including each index's cycles and disk keys, goes into
+    metadata.json, and every query rechecks it before timing.
+    """
+    import flex_compaction
+
+    columns = {table: [row[0] for row in c.execute(f'DESCRIBE "{table}"').fetchall()] for (table,) in tables}
+    emit(events, {"event": "flex_compaction_wait", "tables": sorted(columns),
+                  "wait_limit_seconds": flex_compaction.WAIT_SECONDS})
+    state = flex_compaction.gate(args.private, columns, progress=lambda s: emit(
+        events, {"event": "flex_compaction_waiting", **flex_compaction.summary(s)}))
+    emit(events, {"event": "flex_compaction_ready", **state})
+    metadata["flex_index_compaction"] = state
+    (out / "metadata.json").write_text(json.dumps(metadata, indent=2))
+
+
+def recheck_flex_compaction(args, folder):
+    """Before each Flex query, confirm the setup gate passed and still holds (no wait)."""
+    import flex_compaction
+
+    metadata = folder / "metadata.json"
+    recorded = json.loads(metadata.read_text()).get("flex_index_compaction") if metadata.exists() else None
+    try:
+        if not recorded or not recorded.get("ready") or not recorded.get("columns"):
+            raise flex_compaction.CompactionGateError(
+                "metadata.json has no passed Flex compaction gate; run setup (--load-only) first", {"ready": False})
+        state = flex_compaction.gate(args.private, recorded["columns"], wait_seconds=0)
+    except flex_compaction.CompactionGateError as exc:
+        emit(folder / "events.jsonl", {"event": "flex_compaction_refused", "query": args.query,
+                                       "error": safe_error(str(exc)), "flex_index_compaction": exc.state})
+        raise SystemExit(f"refusing to time query {args.query}: {safe_error(str(exc))}")
+    state.pop("columns", None)
+    return state
 
 
 def main():
@@ -224,10 +273,14 @@ def main():
     if args.query and not (folder / "queries" / f"{args.query}.sql").is_file():
         raise FileNotFoundError("query SQL must be exported by preparation before isolated execution")
     selected = args.query
+    from flex_compaction import flex_profile
+    flex = not args.duckdb_only and flex_profile(args.private)
     for query in queries:
         if selected and query.stem != selected:
             continue
         args.query = query.stem
+        if flex:
+            args.flex_compaction = recheck_flex_compaction(args, folder)
         run_query(args)
     if not selected:
         emit(folder / "events.jsonl", {"event": "complete", "suite": args.suite})
