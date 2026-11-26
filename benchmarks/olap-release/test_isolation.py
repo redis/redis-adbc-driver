@@ -26,14 +26,37 @@ import json, os, sys
 from pathlib import Path
 engine = sys.argv[sys.argv.index('--engine') + 1]
 private = Path(sys.argv[sys.argv.index('--private') + 1])
+DIAGNOSTICS = 'adbc.redis.execution_diagnostics_file'
+class Statement:
+    """The ADBC statement handle: records options, as the driver would accept them."""
+    def __init__(self, conn):
+        self.conn = conn
+    def set_options(self, **options):
+        if os.environ.get('REJECT_DIAGNOSTICS') == engine:
+            raise RuntimeError("NOT_IMPLEMENTED: [redis] unknown statement option at rediss://test:private-secret@localhost")
+        with (private / 'statement-options.jsonl').open('a') as f:
+            f.write(json.dumps({'engine': engine, 'options': options}) + '\\n')
+        self.conn.options.update(options)
 class Connection:
     description = [('n',)]
     sql = ''
+    def __init__(self):
+        self.options = {}
+    @property
+    def adbc_statement(self):
+        return Statement(self)
     def execute(self, sql):
         self.sql = sql
         with (private / 'calls.jsonl').open('a') as f:
             f.write(json.dumps({'engine': engine, 'sql': sql, 'pid': os.getpid()}) + '\\n')
-        if sql == 'SELECT synthetic' and os.environ.get('FAIL_ENGINE') == engine:
+        crash = sql == 'SELECT synthetic' and os.environ.get('FAIL_ENGINE') == engine
+        # Like the driver, write the sidecar while executing; a crash leaves 'running'.
+        sidecar = self.options.pop(DIAGNOSTICS, None)
+        if sidecar and os.environ.get('FAKE_SIDECAR'):
+            snapshot = json.loads(os.environ['FAKE_SIDECAR'])
+            snapshot['status'] = 'running' if crash else 'execute_returned'
+            Path(sidecar).write_text(json.dumps(snapshot))
+        if crash:
             os._exit(42)
         return self
     def fetchall(self):
@@ -120,10 +143,11 @@ class IsolationTests(unittest.TestCase):
 
     def exercise_workers(self, failure=None, mismatch=None, validator_timeout=False,
                          worker_artifact=None, validator_artifact=False, oom_counts=None,
-                         corrupt=None, inspect=None, engines_run=3):
+                         corrupt=None, inspect=None, engines_run=3, extra_env=None):
         with tempfile.TemporaryDirectory() as tmp:
             private = Path(tmp)
             args, env = synthetic_profile(private)
+            env.update(extra_env or {})
             output, library = args.output, Path(env['FAKE_LIBRARY'])
             if failure:
                 env['FAIL_ENGINE'] = failure
@@ -148,7 +172,9 @@ class IsolationTests(unittest.TestCase):
                 return child
 
             oom = patch('isolation.oom_kills', side_effect=oom_counts) if oom_counts else nullcontext()
-            with patch.dict(os.environ, env), redirect_stdout(io.StringIO()), oom:
+            # The synthetic profile is Flex; never reach a real server for the split.
+            tiers = patch('diagnostics.flex_tiers', return_value={'split_available': False})
+            with patch.dict(os.environ, env), redirect_stdout(io.StringIO()), oom, tiers:
                 record = isolation.run_query(args, runner=runner)
             calls = [json.loads(x) for x in (private / 'calls.jsonl').read_text().splitlines()]
             connections = [json.loads(x) for x in (private / 'connections.jsonl').read_text().splitlines()]
@@ -207,9 +233,13 @@ class IsolationTests(unittest.TestCase):
             folder = private / record['redis_retained_artifacts']
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
                              ['duckdb-0.pickle', 'duckdb.json', 'redis-0.pickle', 'redis-1.pickle',
-                              'redis-2.pickle', 'redis-3.pickle', 'redis-validation.json', 'redis.json'])
+                              'redis-2.pickle', 'redis-3.pickle', 'redis-validation.json',
+                              'redis-warmup-diagnostics.json', 'redis.json'])
+            # The raw sidecar keeps the plan's literals; it stays private.
+            self.assertIn('BRAZIL', (folder / 'redis-warmup-diagnostics.json').read_text())
 
-        record = self.exercise_workers(mismatch='redis', inspect=retained)
+        record = self.exercise_workers(mismatch='redis', inspect=retained,
+                                       extra_env={'FAKE_SIDECAR': json.dumps({'plan': {'residual': "'BRAZIL'"}})})
         self.assertEqual(record['redis_status'], 'mismatch')
         self.assertNotIn('redis_over_duckdb', record)
         # The shared reference is copied, so the third engine still validates.

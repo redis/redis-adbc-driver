@@ -10,7 +10,7 @@ Failures distinguish setup/execute/export, engine crashes, and separate validati
 
 Run inside a Linux ARM64 client sharing an owned Redis Software server's network namespace, with authenticated TLS and effective active 4× QPF verified before tests. Do not substitute Redis Community or unsupported services. The caller supplies a dedicated preloaded fixture or explicitly chooses to load it. No database is automatically reset.
 
-Install DuckDB, the Redis ADBC release wheel, PyArrow and ADBC driver manager, plus `redis-py` for the [Flex compaction gate](#flex-index-compaction-gate). A private directory supplies `connection.json` (`uri` and optional `db_kwargs`), `server.json` containing verified public settings only, and `tpch-sf1.duckdb` or `tpcds-sf1.duckdb`. First-time preparation uses the DuckDB TPC-H/TPC-DS extension generators at SF1. SSB also needs upstream `ssb-tools` and generated `ssb-dbgen` files. Set `SSL_CERT_FILE`. Data, credentials, license files and operational identifiers must stay outside public output.
+Install DuckDB, the Redis ADBC release wheel, PyArrow and ADBC driver manager, plus `redis-py` for the [Flex compaction gate](#flex-index-compaction-gate) and the [Flex object sample](#per-query-diagnostics). A private directory supplies `connection.json` (`uri` and optional `db_kwargs`), `server.json` containing verified public settings only, and `tpch-sf1.duckdb` or `tpcds-sf1.duckdb`. First-time preparation uses the DuckDB TPC-H/TPC-DS extension generators at SF1. SSB also needs upstream `ssb-tools` and generated `ssb-dbgen` files. Set `SSL_CERT_FILE`. Data, credentials, license files and operational identifiers must stay outside public output.
 
 The caller owns server topology, resource limits, source/release checksums, and provenance. `run.py` does not provision servers or verify their management API itself. Preparation/loading is separate from query timing. SQL is exported unchanged into `OUTPUT/SUITE/queries/`; the query-only path requires that export to exist. To avoid silently loading additional tables, focused debugging should preload only the referenced tables independently.
 
@@ -26,6 +26,37 @@ So on a Flex profile (`db_kwargs["adbc.redis.flex"]` is `"true"`, or `server.jso
 - **Provenance:** `metadata.json` (`flex_index_compaction`) and each query record keep, per table and index, `num_docs`, `gc_total_cycles`, the largest and each NUMERIC field's `disk_num_keys`, plus the wait. Exempt indexes add `uncompacted_reasons`, `ft_create_utc`, `minutes_since_ft_create` and `point_term_profile` (total and iterator milliseconds), and the state lists `exemption.applied_to`. Index names and key prefixes are left out. `events.jsonl` records the wait (`flex_compaction_wait`, `flex_compaction_waiting`, `flex_compaction_ready`).
 
 The gate reads `FT._LIST` and `FT.INFO` with `redis-py` over RESP3, using the profile's URI and `SSL_CERT_FILE`. It runs in the setup child and in the coordinator before each query; the coordinator still imports neither database engine. A RAM profile is not gated.
+
+## Per-query diagnostics
+
+Every query record also keeps what the SF1 Flex failure issues ([#696](https://github.com/redis/redis-adbc-driver/issues/696)–[#717](https://github.com/redis/redis-adbc-driver/issues/717)) could not name. These fields are additive; existing fields, timings and statuses are unchanged. See the [change record](../../docs/sdlc/changes/olap-query-diagnostics/spec.md).
+
+- **`pass_order`:** an output folder is one pass.
+  - `position` is 1-based.
+  - `queries_before` lists, in order, the `query` of every record already in the folder's `queries.jsonl`, including coordinator failures that `supervise.py` appended. A focused `--query` run in a fresh folder is position 1 with an empty list.
+  - `engines` is this query's engine order; DuckDB over Redis ADBC runs right after direct Redis ADBC.
+  - The checkpoint carries the field, so a supervisor-written failure record keeps it.
+- **`redis_warmup_execution_diagnostics` (direct Redis ADBC):** the worker sets the driver's [`adbc.redis.execution_diagnostics_file`](../../docs/execution-diagnostics.md) on the **warm-up** statement only.
+  - The timed runs are not instrumented, so their samples stay comparable with earlier records. The driver's sampler writes the file once per second.
+  - The sidecar is private, in the per-query mode-0700 directory. The coordinator reads it after the worker exits, whatever the outcome. A crashed or killed worker leaves the driver's last `running` sample, and that is what is recorded.
+  - The record keeps a whitelisted copy:
+    - `status` and `phase`, `worker_grant`, `processed_rows`, `matched_rows`, `redis_commands`, `redis_round_trip_worker_seconds`, `socket_read_worker_seconds`, `connection_read_bytes`, `connection_written_bytes`, `process_allocated_bytes_during_execute`, `process_heap_bytes`, `execute_elapsed_seconds` and `version`;
+    - `plan`: `kind`, the driver's booleans, sizes and worker counts, and the join-order `inputs` (position, source and candidate rows, flags), `order` and `scope`;
+    - `aggregate_metrics`: the partitioned-aggregate counters.
+  - Literal-bearing plan values are reduced to structure:
+    - `search_query` becomes `index_filter` (true unless empty or `*`), a residual expression becomes `residual: true`, and `pushed_limit` becomes `limit_pushed`;
+    - column, sort, input-column and group-expression lists become counts;
+    - `sql_limit`, `sql_offset`, names and every other string are dropped, apart from the driver identifiers `status`, `phase`, `kind`, `reason`, `source` and `strategy`.
+  - The metrics cover execute, not Arrow fetch; the driver's [metric scope](../../docs/execution-diagnostics.md#metric-scope) applies. A sidecar that does not parse is `{"unreadable": "<reason>"}`. No field means the warm-up never reached execute.
+  - A driver that rejects the option still runs the query, with the redacted message in `redis_execution_diagnostics_error`.
+  - After a failed validation, the raw sidecar moves to the private `failed-artifacts/` folder with the engine's other files. It contains SQL literals; never publish it.
+- **`duckdb_adbc_execution_diagnostics_unavailable`:** the option is a statement option, `adbc_scanner` opens its own statements, and the driver rejects it as an ATTACH option. So the third engine records why it has no diagnostics.
+- **`<engine>_flex_tiers_before` (Flex profiles; `redis` and `duckdb_adbc`):** the coordinator samples `INFO keyspace`, `INFO Bigredis-Keyspace` and `INFO memory` with `redis-py` over RESP3 just before starting each Redis-backed engine. It does not call the management API.
+  - Fields: `captured_utc`, `keys` (`db0`), `endpoint_used_memory`, `ram_objects` and `flash_objects` (the shard's `bigdb0` `ram=` and `disk=` counts), and `split_available`.
+  - The two counts overlap. On the measured shard `ram` was `clean + dirty`, and a clean object also has a flash copy, so they do not add up to `keys`.
+  - **Redis Software 8.8 Flex does not report the split through the database endpoint.** Its proxy answers no `Bigredis*` section, keeps only `keys`, `expires` and `avg_ttl` on `db0`, and scripts may not call `INFO`. There the record shows `split_available: false` with null counts; the harness never estimates them.
+  - `endpoint_used_memory` is the endpoint's `used_memory`. On Flex it tracked the shard's RAM-plus-flash total, not its RAM tier.
+  - A failed sample records only `captured_utc` and the exception type in `error`, and the query still runs. A RAM profile is not sampled.
 
 ## Explicit client thread profile
 
@@ -86,6 +117,12 @@ The worker-OOM containment test runs only when explicitly enabled. It rearranges
 ```sh
 docker run --rm --privileged --memory 512m --memory-swap 512m --shm-size 256m -e OLAP_HARNESS_CGROUP_TESTS=1 -v "$PWD:/src:ro" -w /src/benchmarks/olap-release python:3.14-slim python -m unittest -v test_isolation.WorkerMemoryCgroupTests
 ```
+
+`test_diagnostics.py` covers the per-query diagnostics:
+- the sidecar whitelist, including that literals, names, index queries and LIMIT values never reach a record;
+- the endpoint's and the shard's `INFO` formats, and sampling errors;
+- in real child processes, warm-up-only instrumentation, a crashed worker's last sample, an option refusal and an unreadable sidecar;
+- sampling just before each Redis-backed engine on Flex only, and `pass_order`.
 
 `test_flex_compaction.py` covers the Flex gate with synthetic RESP3/RESP2 `FT.INFO` replies and a fake clock: uncompacted, cycle-only, restart and missing-metric states, table mapping, the bounded wait, setup refusal, the per-query recheck and record provenance. Nine synthetic-adapter tests use real child processes without database queries: distinct PIDs/import isolation, crash attribution, missing references, mismatch/no-ratio, validator timeout, private cleanup, output reuse refusal, credential redaction, bounded multi-pass sorting, truncation and separate third-path reporting. Related harness issues: [#596](https://github.com/redis/redis-adbc-driver/issues/596) and [#660](https://github.com/redis/redis-adbc-driver/issues/660). Historical OOMs from a shared worker cannot establish the Redis driver's isolated memory requirement.
 

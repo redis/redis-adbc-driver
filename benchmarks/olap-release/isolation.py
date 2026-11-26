@@ -22,6 +22,8 @@ import tempfile
 import threading
 import time
 
+import diagnostics
+
 
 ENGINES = ("duckdb", "redis", "duckdb_adbc")
 
@@ -552,6 +554,9 @@ def engine_worker(args):
     path = args.artifacts / f"{args.engine}.json"
     conn = None
     deadline_fired = None
+    # Only the warm-up is instrumented, so the timed runs stay comparable with
+    # earlier records. The coordinator reads and sanitizes the private sidecar.
+    sidecar = args.artifacts / diagnostics.WARMUP_SIDECAR.format(engine=args.engine)
     try:
         conn, provenance = connect_engine(args)
         status["provenance"] = provenance
@@ -572,6 +577,11 @@ def engine_worker(args):
                 start = time.perf_counter()
                 if args.engine == "redis":
                     with conn.cursor() as cur:
+                        if repeat == 0:
+                            try:
+                                cur.adbc_statement.set_options(**{diagnostics.OPTION: str(sidecar)})
+                            except Exception as exc:  # an older driver: run without diagnostics
+                                status["redis_execution_diagnostics_error"] = safe_error(str(exc))[:200]
                         cur.execute(sql)
                         columns = len(cur.description)
                         data = cur.fetchall()
@@ -684,7 +694,8 @@ def retain_artifacts(private, artifacts, suite, query, engine):
     for name in ("duckdb.json", "duckdb-0.pickle"):
         if (artifacts / name).exists():
             shutil.copy2(artifacts / name, target / name)
-    moved = [f"{engine}.json", f"{engine}-validation.json"]
+    # The raw diagnostics sidecar keeps the plan's literals; it stays private.
+    moved = [f"{engine}.json", f"{engine}-validation.json", diagnostics.WARMUP_SIDECAR.format(engine=engine)]
     moved += sorted(p.name for p in artifacts.glob(f"{engine}-*.pickle") if p.name != "duckdb-0.pickle")
     for name in moved:
         if (artifacts / name).exists():
@@ -706,11 +717,14 @@ def leaf_label(*parts):
 
 def run_query(args, runner=None):
     """The parent imports neither engine; waiting for exit releases native caches."""
+    from flex_compaction import flex_profile
     from run import emit, safe_error
 
     runner = runner or subprocess.run
     folder = args.output / args.suite
     existing = folder / "queries.jsonl"
+    # One output folder is one pass: these queries ran before this one, in order.
+    queries_before = []
     if existing.exists():
         for line in existing.read_text().splitlines():
             previous = json.loads(line)
@@ -718,15 +732,19 @@ def run_query(args, runner=None):
                 raise ValueError("use a new output directory; historical shared-worker results must remain separate")
             if previous["query"] == args.query:
                 raise ValueError("query already recorded; use a new output directory for a rerun")
+            queries_before.append(previous["query"])
     checkpoint = folder / f"checkpoint-{args.query}.json"
-    record = {"suite": args.suite, "query": args.query,
-              "engine_isolation": "sequential fresh processes; separate disk-backed validation"}
-    if getattr(args, "flex_compaction", None) is not None:
-        # The Flex compaction state checked just before this query (run.py).
-        record["flex_index_compaction"] = args.flex_compaction
     engines = ["duckdb"] if args.duckdb_only else ["duckdb", "redis"]
     if args.include_duckdb_adbc:
         engines.append("duckdb_adbc")
+    record = {"suite": args.suite, "query": args.query,
+              "engine_isolation": "sequential fresh processes; separate disk-backed validation",
+              "pass_order": {"position": len(queries_before) + 1, "queries_before": queries_before,
+                             "engines": list(engines)}}
+    if getattr(args, "flex_compaction", None) is not None:
+        # The Flex compaction state checked just before this query (run.py).
+        record["flex_index_compaction"] = args.flex_compaction
+    flex = not args.duckdb_only and flex_profile(args.private)
     memory = worker_memory(args.private)
     with tempfile.TemporaryDirectory(prefix="query-", dir=args.private) as tmp:
         artifacts = Path(tmp)
@@ -734,6 +752,9 @@ def run_query(args, runner=None):
                 "--private", str(args.private), "--output", str(args.output),
                 "--query", args.query, "--artifacts", str(artifacts)]
         for engine in engines:
+            if flex and engine != "duckdb":
+                # The server's RAM/flash object split, sampled just before timing.
+                record[f"{engine}_flex_tiers_before"] = diagnostics.flex_tiers(args.private)
             record.update(active_engine=engine, active_phase="engine")
             atomic_json(checkpoint, record)
             before, started = oom_kills(), time.perf_counter()
@@ -764,6 +785,14 @@ def run_query(args, runner=None):
             if before is not None and after is not None:
                 record[f"{engine}_worker"]["oom_kills_delta"] = after - before
             record[f"{engine}_worker"]["memory"] = leaf.detail
+            if engine == "redis":
+                # Whatever the outcome: a killed worker leaves the driver's last sample.
+                sidecar, problem = read_status(artifacts / diagnostics.WARMUP_SIDECAR.format(engine=engine))
+                if problem != "missing":
+                    record["redis_warmup_execution_diagnostics"] = (
+                        {"unreadable": problem} if problem else diagnostics.sanitize(sidecar))
+            elif engine == "duckdb_adbc":
+                record["duckdb_adbc_execution_diagnostics_unavailable"] = diagnostics.DUCKDB_ADBC_UNAVAILABLE
             if failure:
                 record[f"{engine}_status"] = "worker_failed"
                 record[f"{engine}_error"] = failure
