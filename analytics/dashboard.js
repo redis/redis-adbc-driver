@@ -3,6 +3,19 @@ const format = n => Number(n || 0).toLocaleString();
 
 const tableStates = new Map();
 const cellText = value => String(value && typeof value === 'object' ? value.text : (value ?? '—'));
+// Filter text: every space-separated term must match. A leading '-' hides rows
+// containing the term. Quotes keep spaces or a literal minus: "not reported", -"ci / test", "-5".
+function filterTerms(text) {
+  const terms = [];
+  for (const [, minus, quoted, bare] of String(text || '').toLowerCase().matchAll(/(-?)(?:"([^"]*)"?|(\S+))/g)) {
+    const value = quoted ?? bare;
+    if (value && value !== '-') terms.push({exclude: minus === '-', value});
+  }
+  return terms;
+}
+const matchesTerms = (texts, terms) => terms.every(term =>
+  texts.some(text => text.includes(term.value)) !== term.exclude);
+const filterHelp = 'Space-separated terms must all match. Prefix a term with - to hide matching rows; quote phrases with spaces.';
 function sortValue(value, heading) {
   const text = cellText(value);
   if (['Unavailable', 'Not applicable', '—', 'Not measured'].includes(text)) return null;
@@ -14,8 +27,9 @@ function sortValue(value, heading) {
   return number ? Number(number[1]) : text;
 }
 function tableRows(rows, headings, state) {
-  const filtered = rows.filter(row => row.some(v => cellText(v).toLowerCase().includes(state.search))
-    && state.filters.every((filter, i) => cellText(row[i]).toLowerCase().includes(filter)));
+  const search = filterTerms(state.search), filters = state.filters.map(filterTerms);
+  const filtered = rows.filter(row => matchesTerms(row.map(v => cellText(v).toLowerCase()), search)
+    && filters.every((terms, i) => matchesTerms([cellText(row[i]).toLowerCase()], terms)));
   if (state.sort !== null) filtered.sort((a, b) => {
     const av = sortValue(a[state.sort], headings[state.sort]);
     const bv = sortValue(b[state.sort], headings[state.sort]);
@@ -33,7 +47,7 @@ function table(id, headings, rows) {
   const controls = document.createElement('div');
   controls.className = 'table-controls';
   const search = document.createElement('input');
-  search.type = 'search'; search.placeholder = 'Search this table'; search.value = state.search;
+  search.type = 'search'; search.placeholder = 'Search this table'; search.value = state.search; search.title = filterHelp;
   search.setAttribute('aria-label', id + ': search all columns');
   const size = document.createElement('select');
   size.setAttribute('aria-label', id + ': rows per page');
@@ -54,7 +68,7 @@ function table(id, headings, rows) {
     button.addEventListener('click', () => {state.direction = state.sort === i ? -state.direction : 1; state.sort = i; state.page = 0; draw();});
     cell.append(button); header.append(cell); headers.push(cell);
     const filterCell = document.createElement('th');
-    const input = document.createElement('input'); input.type = 'search'; input.placeholder = 'Filter'; input.value = state.filters[i];
+    const input = document.createElement('input'); input.type = 'search'; input.placeholder = 'Filter'; input.value = state.filters[i]; input.title = filterHelp;
     input.setAttribute('aria-label', id + ': filter ' + text);
     input.addEventListener('input', () => {state.filters[i] = input.value.trim().toLowerCase(); state.page = 0; draw();});
     filterCell.append(input); filters.append(filterCell); inputs.push(input);
@@ -154,10 +168,10 @@ const measured = (e, field) => hasMeasurement(e[field]) ? format(e[field]) : mis
 let latest = null;
 
 function renderExecutions(data) {
-  const filter = element('execution-filter').value.trim().toLowerCase();
+  const terms = filterTerms(element('execution-filter').value);
   const all = data.executions || [];
-  const rows = all.filter(e => [e.kind, e.source_hostname, e.reverse_dns, e.public_ip, e.application, e.status, e.id, e.driver_version, e.traffic_class, e.execution_path, e.error_class,
-    ...(e.features || [])].some(v => String(v || '').toLowerCase().includes(filter)));
+  const rows = all.filter(e => matchesTerms([e.kind, e.source_hostname, e.reverse_dns, e.public_ip, e.application, e.status, e.id, e.driver_version, e.traffic_class, e.execution_path, e.error_class,
+    ...(e.features || [])].map(v => String(v || '').toLowerCase()), terms));
   const inputWork = e => {
     const parts = [];
     if (e.rows_examined !== null && e.rows_examined !== undefined) parts.push(format(e.rows_examined) + ' driver candidates');
