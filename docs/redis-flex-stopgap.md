@@ -30,6 +30,18 @@ as well as overlays; the sorted Search candidate path is disabled. Filtering,
 sorting and aggregation execute in the driver. Broad reads can therefore cost
 more than the earlier Search-filtered stopgap; no performance parity is claimed.
 
+Approximate `GetStatistics` row counts don't read every row ID: they count each
+segment's rows with the same exact visibility queries (NUMERIC row-ID ranges
+and the deletion marker) used on RAM databases, including after DML
+([statistics](adbc-statistics.md)). DuckDB's ADBC scanner requests them for
+every table reference while binding a query
+([#627](https://github.com/redis/redis-adbc-driver/issues/627)). On Software
+8.2.6-58, those counts matched the directories, while paging Search candidates
+with SORTBY on the non-SORTABLE row ID re-sorted every remaining match per
+page, so scans keep the exact directories. SORTABLE, WITHCURSOR, FT.ALTER and
+FT.DROPINDEX DD were still rejected. See the
+[change record](sdlc/changes/flex-statistics-search-counts/validation.md).
+
 Eligible ungrouped COUNT/SUM/AVG/MIN/MAX scans can divide exact directory ranges
 across the existing bounded [aggregate workers](worker-autotuning.md#exact-managed-directory-ranges).
 The statement's pinned generation and full predicate are retained, including
