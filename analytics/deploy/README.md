@@ -24,6 +24,10 @@ module. See the [source recovery record](../../docs/sdlc/changes/serverless-tele
 > `aws_instance.collector` as stopped, and `main.tf` still declares it, so a plan
 > would propose creating a new legacy collector host. See
 > [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
+> Since 2026-11-26 the functions also run a package built outside Terraform (the
+> [dashboard exclusion filters](../../docs/sdlc/changes/dashboard-exclusion-filters/plan.md)).
+> Planning with an older `serverless_package` would revert all three functions'
+> code; supply the package whose SHA-256 matches the deployed `CodeSha256`.
 
 ## Open the dashboard
 
@@ -42,6 +46,10 @@ module. See the [source recovery record](../../docs/sdlc/changes/serverless-tele
 3. Summaries are regenerated every 15 minutes, not on each page load. The
    dashboard shows when the summary it displays was generated. An old time means
    the refresh worker is failing; the previous complete summary stays visible.
+4. To hide traffic, choose **All except CI, inferred CI and benchmark** or **All
+   except CI (labeled and inferred)** under *Reporting traffic*. To hide rows in a
+   table, prefix a search or filter term with `-` (for example `-runnervm`);
+   quote phrases with spaces (`-"ci / test"`).
 
 The read token was carried over from the EC2 collector. Its old location,
 `/etc/redis-adbc-analytics/collector.env` on the EC2 host, no longer exists.
@@ -73,6 +81,11 @@ The read token was carried over from the EC2 collector. Its old location,
 - Throttling is global, so a single noisy client can consume the shared limit.
 - Raw report history has no expiry, and storage plus worker cost grow with it.
   Worker size and time guards fail closed and keep the previous summary.
+- Every traffic filter, including the two exclusion presets, is precomputed into
+  one `summaries.json` per generation, which the `api` function reads on each
+  dashboard request. On 2026-11-26 the eight filters made a 9.49 MB file, a
+  66-second refresh (529 MB peak) and an `api` peak of 169–174 MB of 256 MB.
+  Adding filters raises all three; raise `api` memory before adding more.
 - Costs are usage-based (API requests, Lambda duration, S3 requests/storage,
   Route 53). There is no fixed monthly compute charge.
 - API access logs are disabled.
