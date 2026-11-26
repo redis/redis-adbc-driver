@@ -29,7 +29,25 @@ workflow or SQL behavior changed, and no Redis suite was run for it.
   Their release workflows can run only after merge. The PyPI upload also needs
   the Trusted Publisher.
 
-Not established here: a published downstream release, a PyPI upload of
-`redis-adbc-integrations`, or a community-registry build that embeds v0.0.31.
+## First releases (2026-11-26, later the same day)
+
+After the destination PRs merged and the PyPI Trusted Publisher was added,
+manually dispatched `Driver release` runs published both matched releases:
+
+- [redis-adbc-integrations run 45894168051](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations/actions/runs/45894168051).
+  It passed every framework suite against the PyPI `adbc-driver-redis` 0.0.31
+  wheel, created GitHub release `v0.0.31`, and uploaded `redis-adbc-integrations`
+  0.0.31 to PyPI requiring `adbc-driver-redis[dbapi]==0.0.31.*`. The PyPI wheel
+  and sdist SHA-256 digests match the GitHub release assets.
+- [redis-adbc-duckdb run 45894304221](https://github.com/Redislabs-Solution-Architects/redis-adbc-duckdb/actions/runs/45894304221).
+  It built and tested on Linux amd64/arm64 and macOS arm64, then published
+  `v0.0.31` with three platform archives and checksums. The tag commit pins
+  driver `d68f9a21` (driver v0.0.31); no pin move was needed. Its tagged source
+  still declares `v0.1.0`. The destination's follow-up commits each release's
+  version into the source.
+
+Not established here: a community-registry build that embeds v0.0.31
+([duckdb/community-extensions#3815](https://github.com/duckdb/community-extensions/pull/3815)
+was open, with its build running).
 
 See [intent](intent.md), [spec](spec.md) and [plan](plan.md).

@@ -1,6 +1,6 @@
 # Intent
 
-Date: 2026-11-26. Requestor: Albert Wong. Source: d65f3b52c9be0a2013711b0716137533f13e9d67. Status: documentation; destination automation in review.
+Date: 2026-11-26. Requestor: Albert Wong. Source: d65f3b52c9be0a2013711b0716137533f13e9d67. Status: released for driver v0.0.31; community-registry update in review.
 
 After the [2026-11-18 extraction](../extract-integrations/intent.md), both destination
 repositories built and tested a fixed driver commit (`3b40dd59`) that is in no
