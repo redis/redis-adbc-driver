@@ -26,10 +26,11 @@ The legacy collector is retired from Terraform (applied 2026-11-26, Pacific, wit
 > The legacy-retirement apply wrote state a minute before that deployment, so state
 > still records the previous package hash for all three functions. A plan with the
 > previous `serverless_package` may report no function change while AWS runs newer
-> code. Never apply a package built from a commit without those changes. To bring state
-> in line, supply the deployed package (SHA-256
-> `yMuypDzXJMDqSQcfU0meO/cWD0FTk/DivaVwbqqIc9Y=`); the resulting code update
-> uploads identical bytes.
+> code. Never apply a package built from a commit without those changes. The
+> operator's private package was replaced with the deployed one (SHA-256
+> `yMuypDzXJMDqSQcfU0meO/cWD0FTk/DivaVwbqqIc9Y=`), so the next plan shows code
+> updates for the three functions that upload identical bytes and bring the state
+> in line.
 
 ## Open the dashboard
 

@@ -61,8 +61,10 @@ older generation.
 Terraform: the legacy-retirement apply (PR #723, recorded in PR #724) last wrote
 the shared state at 21:21:49 UTC, before this deployment. The state's three
 `aws_lambda_function` entries still record the previous hash as both
-`source_code_hash` and `code_sha256`, and the operator's private
-`serverless_package` is still the previous package. The live functions kept the
-new hash after that apply. Replace the private package with the deployed one
-before the next plan, and never apply a package built from a commit without
-these changes.
+`source_code_hash` and `code_sha256`. The live functions kept the new hash after
+that apply. At 21:47 UTC, with the requestor's approval, the operator's private
+`serverless_package` was replaced with the deployed package (hash verified); the
+previous package is kept beside it as a backup. The next plan should therefore
+show in-place code updates for the three functions that upload identical bytes,
+which also brings the state hash in line. Never apply a package built from a
+commit without these changes.
