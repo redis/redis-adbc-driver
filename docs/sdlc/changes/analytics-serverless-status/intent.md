@@ -9,10 +9,14 @@ instructions now fail because the host no longer exists.
 
 Update the analytics documentation to describe the deployed collector: how to open
 the dashboard, where its read token is stored, how to check it and what is left
-for rollback. Warn operators that the serverless source and Terraform are not in
-this repository, and that planning from this checkout's Terraform would propose
-destroying the live collector. Keep the retired EC2 instructions as a labeled
-historical record.
+for rollback. Warn operators not to plan or apply the shared Terraform state until
+the deleted legacy instance is reconciled. Keep the retired EC2 instructions as a
+labeled historical record.
+
+The serverless source was missing from git when this record was started. It was
+recovered on `claude/serverless-collector-source` ([PR #721](https://github.com/redis/redis-adbc-driver/pull/721))
+and merged into this branch, so the README now links to it instead of warning
+that it is absent.
 
 Out of scope: landing the serverless source, changing infrastructure, rotating the
 token or repairing Terraform state.

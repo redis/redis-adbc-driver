@@ -4,20 +4,26 @@ Status (checked 2026-11-26): since the 2026-11-19 (Pacific) cutover, the hosted
 collector at `https://adbc-telemetry.sa.redislabs.com` runs on API Gateway and
 AWS Lambda with S3 storage. No EC2 host, Redis server or other database is
 involved. The driver's endpoint, payload, two-second delivery timeout and
-opt-out behavior are unchanged. Live checks are recorded in the
-[status change record](../../docs/sdlc/changes/analytics-serverless-status/plan.md).
+opt-out behavior are unchanged. Historical telemetry and the existing dashboard
+token were migrated. See the [serverless deployment and recovery guide](SERVERLESS.md)
+and the [status change record](../../docs/sdlc/changes/analytics-serverless-status/plan.md).
+
+The deployed code is in this repository: [`serverless.py`](../serverless.py) (all
+three functions), [`collector.py`](../collector.py) (shared validation and
+summaries), [`migrate_serverless.py`](../migrate_serverless.py),
+[`package-serverless.sh`](package-serverless.sh), and the Terraform in
+[`terraform/serverless.tf`](terraform/serverless.tf) and
+[`terraform/serverless/`](terraform/serverless/main.tf). A 2026-11-26 read-only
+comparison found the deployed application files byte-identical to these sources
+and the deployed function, API, schedule, IAM, log and alarm settings matching the
+module. See the [source recovery record](../../docs/sdlc/changes/serverless-telemetry/plan.md#source-recovery-2026-11-26).
 
 > [!WARNING]
-> The source, packaging script, migration tool and Terraform module for the
-> serverless collector have not been merged into this repository. Every other
-> file in this directory (`bootstrap.sh`, `update.sh`, `terraform/main.tf`)
-> describes the [retired EC2 collector](#retired-ec2-collector-2026-11-05-to-2026-11-19).
-> Do not run `terraform plan` or `apply` from this checkout against the shared
-> state. That state holds both the live serverless module and the retired EC2
-> resources. This configuration lacks the serverless module, and the recorded EC2
-> host no longer exists. A plan would propose destroying the live collector and
-> recreating the host. Land the serverless configuration and reconcile the state
-> first.
+> Do not run `terraform plan` or `apply` against the shared state until the
+> legacy instance is reconciled. The state still records the deleted
+> `aws_instance.collector` as stopped, and `main.tf` still declares it, so a plan
+> would propose creating a new legacy collector host. See
+> [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
 
 ## Open the dashboard
 
@@ -71,6 +77,13 @@ The read token was carried over from the EC2 collector. Its old location,
   Route 53). There is no fixed monthly compute charge.
 - API access logs are disabled.
 
+Migration verification preserved 125,031 historical reports and 90,649 sessions,
+with all traffic-filter totals, deployment IDs and recent execution identities
+matching the old collector. A scheduled refresh and authenticated public dashboard
+reads succeeded. A warm ingestion replay took about 0.3 seconds; its first request
+took about 3.2 seconds, exceeding the driver's two-second timeout despite durable
+storage. Duplicate retries remain safe.
+
 ## Checks
 
 ```sh
@@ -96,8 +109,10 @@ aws logs tail /aws/lambda/redis-adbc-telemetry-s3-refresh \
 The migration plan kept the stopped EC2 host and its encrypted disk for
 rollback. Both are gone. CloudTrail shows the host was terminated on 2026-11-19,
 about two hours after the migration stopped it and released its Elastic IP. No
-detached disk remains. The collector security group still exists. A return to an
-EC2 collector would need a new host. Its starting data could be:
+detached disk remains. The protected backup bucket remains, and the legacy
+security group (no attached interfaces), instance role and profile, and the
+approved FinOps lifecycle exception policy still exist. A return to an EC2
+collector would need a new host. Its starting data could be:
 
 - the last legacy Redis backup (`backups/2026/11/20/…rdb.gz`, taken
   2026-11-20 01:28 UTC). The 90-day `backups/` rule deletes it around

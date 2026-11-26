@@ -40,16 +40,18 @@ sent it only to the dashboard API and recorded the HTTP status.
   collector security group still exists.
 - Terraform state (resource addresses only, values not read): it holds the
   serverless module and the root EC2 resources, including the terminated host as
-  stopped. This checkout's Terraform has no serverless module.
-- Source: the serverless source, packaging script, migration tool, Terraform module
-  and the 2026-11-19 change record (`serverless-telemetry`) exist only in an
-  unmerged local stash commit and a local backup of untracked files. They are not
-  on any branch or PR.
+  stopped. At first observation, this checkout's Terraform had no serverless module.
+- Source: at first observation, the serverless source, packaging script, migration
+  tool, Terraform module and the 2026-11-19 change record (`serverless-telemetry`)
+  existed only in a local stash and a local backup of untracked files. They were
+  recovered on `claude/serverless-collector-source` ([PR #721](https://github.com/redis/redis-adbc-driver/pull/721)),
+  which compared them byte-for-byte with the deployed packages. That branch was
+  merged here, and the README now links the recovered files.
 
 ## Validation
 
-- Markdown links and the in-page anchor resolved against the working tree.
-- No driver or analytics code changed, so no tests were run.
+- Markdown links and the in-page anchors resolved against the working tree.
+- No driver or analytics code changed in this documentation change.
 - Stated facts match the observations above. The serverless behavior section
-  follows the unmerged `serverless-telemetry` specification, whose deployed
-  configuration matches the live readings.
+  follows the `serverless-telemetry` specification, whose deployed configuration
+  matches the live readings.

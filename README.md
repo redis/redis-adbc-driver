@@ -221,7 +221,8 @@ make -C go redis-down
 
 Framework adapters for Airflow, Dagster, Dask, Ray, Prefect, dlt, and Superset live
 in the separate [redis-adbc-integrations](https://github.com/Redislabs-Solution-Architects/redis-adbc-integrations)
-project. Follow each guide for installation and compatibility limits; the core
+project, whose releases share the driver's version and require that driver
+release. Follow each guide for installation and compatibility limits; the core
 driver package does not install those adapters. Superset 6.1 has a documented
 [compatibility blocker](docs/integrations/superset.md).
 

@@ -18,7 +18,21 @@ Setting `endpoint` to an empty string keeps collection local without network
 reporting. `REDIS_ADBC_TELEMETRY_DISABLED=true` changes the default to disabled;
 an explicit database `enabled` option takes precedence.
 
-## Run the collector and dashboard
+## Hosted serverless collector
+
+The S3 backend uses request-driven Lambda ingestion and scheduled summaries without
+a continuously running collector or database. It preserves the driver endpoint and
+payload. Reports are acknowledged after a durable S3 write; summaries refresh every
+15 minutes and show their generation time. See [deployment, migration and recovery](deploy/SERVERLESS.md).
+Deployment status is recorded in the deployment README; available code alone does
+not mean the public endpoint has switched.
+
+The public endpoint has used this backend since 2026-11-19. Its public ingestion
+needs no client secret, validates the same payload allowlist and 64 KiB body
+limit, and is throttled globally rather than per IP. Its dashboard read token is
+an encrypted SSM parameter, outside Terraform state.
+
+## Run the legacy collector and dashboard locally
 
 Requires Python 3.10+, the dependencies in `requirements.txt`, and a dedicated
 Redis database. Redis holds all analytics; no SQLite or RDS database is used.
@@ -37,13 +51,6 @@ loopback. `/api/summary` requires the read token; the dashboard shell contains n
 usage data and does not persist the token. `/health` checks Redis availability.
 Self-hosted clients use the write token. Public reports and labels remain
 unverified and can be spoofed. Access logs are disabled.
-
-The hosted AWS collector no longer runs this Redis collector. Since 2026-11-19 it
-has been a serverless API Gateway and Lambda service that stores reports in S3.
-Its public ingestion needs no client secret, validates the same payload allowlist
-and 64 KiB body limit, and is throttled globally rather than per IP. Its dashboard
-read token is an encrypted SSM parameter, outside Terraform state. Its source is
-not yet in this repository.
 
 Redis uses pooled RESP3 connections, per-session WATCH/MULTI retry deduplication,
 a report stream, bounded read pages and indexed download snapshots. A self-hosted

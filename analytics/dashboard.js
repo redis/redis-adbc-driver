@@ -323,7 +323,9 @@ async function load(event) {
     const data = await response.json();
     if (sequence !== loadSequence) return;
     render(data);
-    element('status').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    element('status').textContent = data.generated_at
+      ? 'Summary generated ' + new Date(data.generated_at).toLocaleString() + ' · refreshes every 15 minutes'
+      : 'Updated ' + new Date().toLocaleTimeString();
   } catch (error) {
     if (sequence !== loadSequence) return;
     // Clear previously authorized data if a later request fails.
