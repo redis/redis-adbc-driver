@@ -6,14 +6,7 @@ The deployed code is in this repository: [`serverless.py`](../serverless.py) (al
 
 The migration stopped the legacy EC2 collector and released its Elastic IP. A 2026-11-26 read-only check found that the instance and its root volume no longer exist, so the retained-disk rollback described in the migration plan is unavailable. The protected backup bucket remains. No continuously running collector or database is required. Operational deployment settings, packages and verification artifacts remain private.
 
-The Terraform configuration no longer declares the legacy collector. `removed` blocks forget the deleted instance and its instance-state resource. The unused legacy security group, instance role and profile, and the FinOps lifecycle exception policy still exist in AWS until an approved apply deletes them.
-
-> [!WARNING]
-> No apply has been run for this retirement. Before applying, review a plan
-> against the shared state and get the owner's approval. A 2026-11-26 plan
-> against a local copy of that state proposed only the two forgets and six
-> deletions, with no Lambda, API, DNS or bucket changes. See
-> [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
+The legacy collector is retired from Terraform (applied 2026-11-26, Pacific, with the owner's approval). The state no longer tracks the deleted instance or its instance-state resource. The apply deleted the unused legacy security group, instance role and its policies, instance profile and FinOps lifecycle exception policy. A follow-up plan reported no changes, and the public dashboard, health, summary authentication and ingestion validation checks passed. See [Terraform state reconciliation](SERVERLESS.md#terraform-state-reconciliation).
 
 Migration verification preserved 125,031 historical reports and 90,649 sessions, with all traffic-filter totals, deployment IDs and recent execution identities matching the old collector. A scheduled refresh and authenticated public dashboard reads succeeded. A warm ingestion replay took about 0.3 seconds; its first request took about 3.2 seconds, exceeding the driver's two-second timeout despite durable storage. Duplicate retries remain safe.
 

@@ -55,7 +55,7 @@ Checked 2026-11-26 with read-only AWS calls. The shared state holds the serverle
 
 `aws_eip.collector` was not in state; the migration released it. The backup bucket's settings were not compared. While the configuration still declared the instance, a plan would have created a new legacy host from the pinned AMI with the legacy bootstrap user data, stopped it, and repointed the FinOps exception at it. `prevent_destroy` blocks destruction, not creation.
 
-### Resolution (configuration only; not applied)
+### Resolution (applied 2026-11-26)
 
 The owner chose to retire the legacy compute and delete its unused leftovers. The configuration now:
 
@@ -64,8 +64,15 @@ The owner chose to retire the legacy compute and delete its unused leftovers. Th
 - drops the legacy variables, AMI lookup, user-data template and outputs, makes `serverless_package` required, and moves the module from `module.serverless[0]` to `module.serverless`;
 - declares the DNS record as the alias form only.
 
-A plan of this configuration against a local copy of the shared state (local backend, no lock, read-only AWS calls) reported `0 to add, 0 to change, 6 to destroy`: the two forgets, the six deletions above, and 37 no-op module moves. The Lambda functions, API, schedules, DNS record and bucket had no changes. It also warned that the private operator variables still set six undeclared variables (`source_commit`, `approved_finops_user`, `legacy_ami_id`, `serverless_cutover`, `serverless_stop_legacy` and `serverless_migration_access`). Remove them from that private file.
+A plan of this configuration against a local copy of the shared state (local backend, no lock, read-only AWS calls) reported `0 to add, 0 to change, 6 to destroy`: the two forgets, the six deletions above, and 34 no-op module moves. The Lambda functions, API, schedules, DNS record and bucket had no changes. It also warned that the private operator variables still set six undeclared variables (`source_commit`, `approved_finops_user`, `legacy_ami_id`, `serverless_cutover`, `serverless_stop_legacy` and `serverless_migration_access`). They are ignored, but should be removed from that private file.
 
-Before applying: plan against the shared state with the exact deployed package and check that it matches the result above. Get the owner's explicit approval. Confirm that the applying identity may delete the FinOps user's inline policy. After the apply, check that the state no longer lists any root legacy address and that the public health, summary authentication and ingestion checks still pass.
+The owner approved the apply after the configuration merged. A fresh plan of `main` against the shared state, using the exact deployed package, matched that result: the same two forgets and six deletions, 34 moves from `module.serverless[0]` to `module.serverless`, no other resource action, and only the `instance_id` output removed. The saved plan was then applied: `0 added, 0 changed, 6 destroyed`. The versioned state bucket keeps the previous state version.
+
+After the apply:
+
+- A new plan reported no changes.
+- The state lists only the DNS record and the backup bucket's resources at the root, and the serverless module at `module.serverless`.
+- The legacy IAM role, instance profile, security group and FinOps exception policy no longer exist.
+- The public dashboard and `/health` returned 200. `/api/summary` returned 401 without a token or with a bad one, and 200 with the dashboard token. An invalid ingestion payload returned 400, so no report was stored.
 
 Alternatives considered: `terraform state rm` alone edits shared state outside review and leaves the host declared, so the next plan still creates it. `terraform apply -refresh-only` alone has the same problem. A count-gated optional host would keep an EC2 path whose host would still start empty.
