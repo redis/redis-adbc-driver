@@ -1292,6 +1292,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		}
 	}
 	if jp != nil {
+		jp.reduceOuterJoins(sel.Where)
 		jp.planPushdown(sel.Where)
 	}
 	for _, o := range sel.OrderBy {
