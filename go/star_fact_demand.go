@@ -17,9 +17,11 @@ import (
 func starFactDimensionDemand(ctx context.Context, fact *tableMeta, dims []starDimension, limit int) (Expr, error) {
 	var combined Expr
 	for _, dim := range dims {
-		if dim.buckets == nil {
+		if dim.buckets == nil || dim.outer {
+			// No proof of emptiness before preparation; an outer dimension
+			// keeps every fact row, matched or not, so it demands nothing.
 			continue
-		} // no proof of emptiness before preparation
+		}
 		if len(dim.buckets) == 0 {
 			return &Literal{V: boolValue(false)}, nil
 		}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"github.com/apache/arrow-adbc/go/adbc"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,6 +28,10 @@ type starDimension struct {
 	// inner join drops anyway: with Flex it keeps maxUnionTerms
 	// (starFactDimensionDemand). False when not proven.
 	unfiltered bool
+	// outer marks the NULL-supplying table of a LEFT JOIN, a leaf joined to
+	// the fact by its own ON equalities (planSnowflakeShape): a fact row
+	// without a match, or with a NULL key, continues without its columns.
+	outer bool
 }
 type starShape struct {
 	fact     int
@@ -99,6 +104,19 @@ func freshDimensionRows(base *tableMeta) bool {
 	}
 	return base.isMem || managedRowIDTable(base)
 }
+
+// outerCount is the number of outer (NULL-extending) dimensions.
+func (s *starShape) outerCount() int {
+	n := 0
+	for _, d := range s.dims {
+		if d.outer {
+			n++
+		}
+	}
+	return n
+}
+
+func (s *starShape) hasOuter() bool { return s.outerCount() > 0 }
 
 func (s *starShape) dimensionCap() int {
 	if s.dimensionRows > 0 {
@@ -530,7 +548,9 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 	// to partition files instead (join_spill.go); spill.remove runs on every exit.
 	var spill *joinSpill
 	defer func() { spill.remove() }()
-	spillable := shape.snowflake && !testNoJoinSpill
+	// The spilled join (joinSpilledFacts) keeps only facts that match their
+	// partition, so a shape with an outer dimension falls back over the cap.
+	spillable := shape.snowflake && !testNoJoinSpill && !shape.hasOuter()
 	for d := range shape.dims {
 		dim := &shape.dims[d]
 		dim.buckets = map[string][]map[string]Value{}
@@ -655,7 +675,7 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 		e.diagnostics.setPhase(kind)
 		plan := map[string]any{"kind": kind, "fact": shape.fact, "dimension_rows": branchRows,
 			"dimension_cap": shape.dimensionCap(), "residual": shape.residual != nil, "output_page_rows": starOutputPage,
-			"parallel_dimensions": shape.parallelDimensions}
+			"parallel_dimensions": shape.parallelDimensions, "outer_dimensions": shape.outerCount()}
 		if spill != nil {
 			plan["spilled_dimension"], plan["spill_partitions"] = spill.dim, len(spillDimRows)
 		}
@@ -685,8 +705,10 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 	if shape.residual != nil {
 		env = shape.newEnv()
 	}
-	var probe func(int, map[string]Value) error
-	probe = func(d int, row map[string]Value) error {
+	// probe joins row with dims d…; merged says row is a fresh map (some
+	// dimension was merged into a copy), not the scanned fact row itself.
+	var probe func(int, map[string]Value, bool) error
+	probe = func(d int, row map[string]Value, merged bool) error {
 		if err := cancelled(ctx); err != nil {
 			return err
 		}
@@ -694,6 +716,10 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 			return nil
 		}
 		if d == len(shape.dims) {
+			if !merged {
+				// Only outer dimensions, none matched: emit a copy, as a merge would.
+				row = maps.Clone(row)
+			}
 			if env != nil {
 				if ok, err := starResidualPasses(env, shape.residual, row); err != nil || !ok {
 					return err
@@ -706,12 +732,16 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 			return nil
 		}
 		dim := &shape.dims[d]
-		key, ok := starRowKey(row, dim.factCols)
-		if !ok {
-			return nil
+		var matches []map[string]Value
+		if key, ok := starRowKey(row, dim.factCols); ok {
+			matches = dim.buckets[key]
 		}
-		for _, r := range dim.buckets[key] {
-			if err := probe(d+1, mergeRows(row, r)); err != nil {
+		if len(matches) == 0 && dim.outer {
+			// NULL-extended: the row goes on without the dimension's columns.
+			return probe(d+1, row, merged)
+		}
+		for _, r := range matches {
+			if err := probe(d+1, mergeRows(row, r), true); err != nil {
 				return err
 			}
 		}
@@ -720,14 +750,16 @@ func (e *executor) streamJoinPages(ctx context.Context, jp *joinPlan, reqNeed ma
 	if spill == nil {
 		err = scanItem(shape.fact, func(rows []map[string]Value) error {
 			for _, r := range rows {
-				if err := probe(0, r); err != nil {
+				if err := probe(0, r, false); err != nil {
 					return err
 				}
 			}
 			return nil
 		})
 	} else {
-		err = e.joinSpilledFacts(ctx, shape, spill, scanItem, probe, func() bool { return pending != nil })
+		// Never with an outer dimension (spillable).
+		err = e.joinSpilledFacts(ctx, shape, spill, scanItem, func(d int, row map[string]Value) error { return probe(d, row, false) },
+			func() bool { return pending != nil })
 	}
 	if err != nil {
 		return true, err

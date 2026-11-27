@@ -56,6 +56,15 @@ func snowflakePurePredicate(x Expr, types map[string]ColType) bool {
 		return v.V.Null || v.V.T.Kind == KindBool
 	case *Unary:
 		return v.Op == "NOT" && snowflakePurePredicate(v.X, types)
+	case *IsNull:
+		// A column's [NOT] NULL test can't fail (TPC-DS Q78's anti-join on
+		// the NULL-extended returns key).
+		c, ok := v.X.(*ColumnRef)
+		if !ok || v.field || c.Outer != 0 || c.whole != nil {
+			return false
+		}
+		_, known := types[c.Name]
+		return known
 	case *Binary:
 		switch v.Op {
 		case "AND", "OR":
@@ -153,10 +162,21 @@ func (e *executor) planSnowflakeShape(ctx context.Context, jp *joinPlan, need ma
 	types := map[string]ColType{}
 	sourceRows := make([]int64, len(jp.items))
 	s.fact = -1
+	// outer holds the NULL-supplying items of LEFT JOINs (TPC-DS Q40/Q75/
+	// Q78/Q80's returns tables). One is admitted only as a leaf that its own
+	// ON joins to the fact by equalities: its dimension NULL-extends a fact
+	// row it does not match (starDimension.outer). Its ON conjuncts on it
+	// alone build it; any other condition on it is a residual, checked on
+	// complete rows after the extension. No RIGHT or FULL join is admitted.
+	outer := map[int]bool{}
 	for i, it := range jp.items {
-		if it.kind != "" && it.kind != "INNER" && it.kind != "CROSS" || it.nullable || it.lateral != nil || it.isolated ||
+		left := it.kind == "LEFT" && it.nullable && it.on != nil
+		if it.kind != "" && it.kind != "INNER" && it.kind != "CROSS" && !left || it.nullable && !left || it.lateral != nil || it.isolated ||
 			it.tag != "" && need[it.tag] || len(it.scopeRels) > 0 || it.natural || len(it.using) > 0 || it.base.view != nil {
 			return nil, false
+		}
+		if left {
+			outer[i] = true
 		}
 		if !it.base.isMem {
 			for _, seg := range it.base.snapshotSegments() {
@@ -191,7 +211,13 @@ func (e *executor) planSnowflakeShape(ctx context.Context, jp *joinPlan, need ma
 	if residual != nil {
 		conds = append(conds, conjuncts(residual, nil)...)
 	}
-	var edges []snowflakeEdge
+	onOf := map[Expr]int{} // an outer item's ON conjuncts
+	for i := range outer {
+		for _, x := range conjuncts(jp.items[i].on, nil) {
+			onOf[x] = i
+		}
+	}
+	var edges, outerEdges []snowflakeEdge
 	var cross []Expr
 	seen := map[Expr]bool{}
 	for _, x := range conds {
@@ -202,6 +228,40 @@ func (e *executor) planSnowflakeShape(ctx context.Context, jp *joinPlan, need ma
 		idx, movable := jp.itemsOf(x)
 		if !movable || len(idx) == 0 {
 			return nil, false
+		}
+		if r, on := onOf[x]; on {
+			// The outer item's own filter, or an equality to one other item
+			// (the fact, checked once it is chosen). A condition on the
+			// preserved side alone, or any other one, decides which rows are
+			// NULL-extended rather than which are kept: never streamed.
+			if len(idx) == 1 && idx[0] == r {
+				if !pushed[x] && !snowflakePurePredicate(x, types) {
+					return nil, false
+				}
+				s.filters[r] = append(s.filters[r], x)
+				columnRefs(x, s.need)
+				continue
+			}
+			edge, ok := snowflakeEdgeOf(jp, x)
+			if len(idx) != 2 || !ok || edge.a != r && edge.b != r {
+				return nil, false
+			}
+			edges = append(edges, edge)
+			outerEdges = append(outerEdges, edge)
+			continue
+		}
+		onOuter := false
+		for _, i := range idx {
+			onOuter = onOuter || outer[i]
+		}
+		if onOuter {
+			// WHERE (or a later inner join's ON) applies to the joined rows,
+			// after NULL-extension: a residual, never a filter or an edge.
+			if !snowflakePurePredicate(x, types) {
+				return nil, false
+			}
+			cross = append(cross, x)
+			continue
 		}
 		if len(idx) == 1 {
 			if !pushed[x] && !snowflakePurePredicate(x, types) {
@@ -252,6 +312,16 @@ func (e *executor) planSnowflakeShape(ctx context.Context, jp *joinPlan, need ma
 	}
 	if sourceRows[s.fact] < snowflakeMinFactRows {
 		return nil, false
+	}
+	// The fact is the preserved side, and an outer item joins only it, so
+	// it is a leaf branch probed by fact columns alone.
+	if outer[s.fact] {
+		return nil, false
+	}
+	for _, edge := range outerEdges {
+		if edge.a != s.fact && edge.b != s.fact {
+			return nil, false
+		}
 	}
 
 	// Spanning tree by layers from the fact. A table reachable from several
@@ -318,7 +388,7 @@ func (e *executor) planSnowflakeShape(ctx context.Context, jp *joinPlan, need ma
 				members = append(members, i)
 			}
 		}
-		dim := starDimension{item: root}
+		dim := starDimension{item: root, outer: outer[root]}
 		for _, edge := range edges {
 			switch {
 			case edge.a == s.fact && edge.b == root:
