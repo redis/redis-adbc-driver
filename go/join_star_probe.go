@@ -40,6 +40,12 @@ func (p *starRowProbe) emitChecked(row map[string]Value, emit func(map[string]Va
 	}
 	return emit(row)
 }
+
+// outerMiss is the one empty match of an outer dimension for a fact row it
+// does not match: the row continues without the dimension's columns, which
+// read as NULL. It is shared and never written.
+var outerMiss = []map[string]Value{{}}
+
 func (p *starRowProbe) lookup(ctx context.Context, fact map[string]Value) (matched, single bool, err error) {
 	single = true
 	for i := range p.shape.dims {
@@ -48,12 +54,16 @@ func (p *starRowProbe) lookup(ctx context.Context, fact map[string]Value) (match
 		}
 		dim := &p.shape.dims[i]
 		key, ok := starRowKey(fact, dim.factCols)
-		if !ok {
-			return false, false, nil
+		if ok {
+			p.matches[i] = dim.buckets[key]
+		} else {
+			p.matches[i] = nil
 		}
-		p.matches[i] = dim.buckets[key]
 		if len(p.matches[i]) == 0 {
-			return false, false, nil
+			if !dim.outer {
+				return false, false, nil
+			}
+			p.matches[i] = outerMiss
 		}
 		single = single && len(p.matches[i]) == 1
 	}
