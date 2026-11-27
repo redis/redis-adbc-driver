@@ -1287,3 +1287,101 @@ func (e *executor) joinRows(env *evalEnv, kind string, left, right []map[string]
 	}
 	return out, nil
 }
+
+// reduceOuterJoinsEnabled lets tests compare results with and without
+// reduceOuterJoins.
+var reduceOuterJoinsEnabled = true
+
+// reduceOuterJoins turns a LEFT JOIN into an inner join when a WHERE
+// conjunct is strict in a column of its NULL-supplying item: on a row the
+// outer join adds with NULLs for that item, the conjunct is NULL or false,
+// so WHERE removes every such row and the inner join has the same rows
+// (Postgres's reduce_outer_joins). TPC-DS Q49 and Q93, for example, LEFT
+// JOIN a returns table and then filter or join on its columns. The inner
+// join can then be reordered, have WHERE predicates pushed into its scan
+// and be streamed (planSnowflakeShape admits only inner joins).
+//
+// Only plain LEFT joins are reduced, and only for the outer query's WHERE:
+// not when the FROM clause has a RIGHT or FULL join or merges columns
+// (NATURAL FULL), nor for NATURAL or USING joins, LATERAL items or
+// parenthesized groups. A conjunct with a subquery is never used.
+func (jp *joinPlan) reduceOuterJoins(where Expr) {
+	if !reduceOuterJoinsEnabled || where == nil || len(jp.merged) != 0 {
+		return
+	}
+	for _, it := range jp.items {
+		if it.kind == "RIGHT" || it.kind == "FULL" || it.isolated {
+			return
+		}
+	}
+	var conds []Expr
+	for _, c := range conjuncts(where, nil) {
+		if !containsSubquery(c) {
+			conds = append(conds, c)
+		}
+	}
+	for _, it := range jp.items {
+		if it.kind != "LEFT" || !it.nullable || it.natural || len(it.using) != 0 || it.usingOn != nil ||
+			it.lateral != nil || len(it.scopeRels) != 0 || it.base == nil || it.base.group != nil {
+			continue
+		}
+		for _, c := range conds {
+			if strictIn(c, it.prefix) {
+				it.kind, it.nullable = "INNER", false
+				break
+			}
+		}
+	}
+}
+
+// containsSubquery reports whether e has a subquery anywhere.
+func containsSubquery(e Expr) bool {
+	found := false
+	walkExpr(e, func(x Expr) {
+		if _, ok := x.(*Subquery); ok {
+			found = true
+		}
+	})
+	return found
+}
+
+// strictIn reports whether e is NULL or false whenever every column of the
+// join item with row-key prefix prefix is NULL. It is conservative: only
+// comparisons, arithmetic, NOT, unary minus, CAST, IS NOT NULL, LIKE and
+// ILIKE propagate a NULL column (BETWEEN is an AND of comparisons, an IN
+// list an OR of them); an AND needs one strict side, an OR both. Anything
+// else (COALESCE, CASE, IS NULL, IS DISTINCT FROM, other functions, row
+// comparisons, a whole-row reference) is not strict.
+func strictIn(e Expr, prefix string) bool {
+	switch v := e.(type) {
+	case *ColumnRef:
+		return v.Outer == 0 && v.whole == nil && v.outerAgg == nil && strings.HasPrefix(v.Name, prefix)
+	case *Binary:
+		if v.nested {
+			return false
+		}
+		switch v.Op {
+		case "=", "<>", "!=", "<", "<=", ">", ">=", "+", "-", "*", "/", "%", "AND":
+			return strictIn(v.L, prefix) || strictIn(v.R, prefix)
+		case "OR":
+			return strictIn(v.L, prefix) && strictIn(v.R, prefix)
+		}
+		return false
+	case *Unary:
+		switch v.Op {
+		case "NOT", "-", "+":
+			return strictIn(v.X, prefix)
+		}
+		return false
+	case *Cast:
+		return v.OnError == nil && strictIn(v.X, prefix)
+	case *IsNull:
+		return v.Not && !v.field && strictIn(v.X, prefix)
+	case *Func:
+		if (v.Name == "LIKE" || v.Name == "ILIKE") && len(v.Args) >= 2 {
+			return strictIn(v.Args[0], prefix) || strictIn(v.Args[1], prefix)
+		}
+		return false
+	}
+	return false
+}
