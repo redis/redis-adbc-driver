@@ -1,7 +1,7 @@
 """Fresh engine/validation processes and private, disk-backed reference exchange.
 
-Pickle files are created only by our own child processes in a mode-0700 temporary
-directory. Never point this module at untrusted result files.
+Pickle files are created only by our own child processes in mode-0700 temporary
+directories. Never point this module at untrusted result files.
 """
 
 from contextlib import contextmanager
@@ -152,27 +152,38 @@ def _inspect_artifact(path, offset=None):
     return size, digest.hexdigest(), zero_page, zeros
 
 
-def _artifact_error(path, role, expected, objects, offset=None, cause=None):
+def _artifact_error(path, role, expected, objects, stream, offset=None, cause=None):
+    """Report what the decoder consumed, separately from a later re-read.
+
+    The re-read (size, digest, zero run, zero page) happens after the failure,
+    so on a filesystem that shows data late it can differ from what the
+    decoder saw (TPC-DS Q72/Q78: the decoder found an empty file)."""
+    consumed, consumed_digest = stream.size, stream.sha256.hexdigest()
     size, digest, zero_page, zeros = _inspect_artifact(path, offset)
     detail = {"role": role, "file": path.name, "objects_decoded": objects,
+              "bytes_consumed": consumed, "sha256_consumed": consumed_digest[:16],
               "bytes_read_back": size, "sha256_read_back": digest[:16]}
-    parts = []
     if offset is not None:
         detail["decode_offset"] = offset
         detail["decode_error"] = f"{type(cause).__name__}: {cause}"
-        parts.append(f"decode failed at byte {offset} after {objects} objects ({detail['decode_error']})")
         detail["zero_bytes_at_offset"] = zeros
-        if zeros:
-            parts.append(f"{zeros} zero bytes start at byte {offset}")
+        parts = [f"decode failed at byte {offset} after {objects} objects ({detail['decode_error']})"]
     else:
-        parts.append(f"bytes differ from the writer's record after {objects} objects")
-    if zero_page is not None:
-        detail["first_zero_page_offset"] = zero_page
-        parts.append(f"first all-zero 4 KiB page at byte {zero_page}")
+        parts = [f"bytes differ from the writer's record after {objects} objects"]
+    parts.append(f"the decoder consumed {consumed} bytes sha256 {consumed_digest[:16]}")
     if expected is not None:
         detail.update(bytes_recorded=expected["bytes"], sha256_recorded=expected["sha256"][:16])
         parts.append(f"recorded {expected['bytes']} bytes sha256 {expected['sha256'][:16]}")
-    parts.append(f"read back {size} bytes sha256 {digest[:16]}")
+    facts = []
+    if expected is not None and (size, digest) == (expected["bytes"], expected["sha256"]):
+        facts.append("matching the record")
+    if zeros:
+        facts.append(f"{zeros} zero bytes starting at byte {offset}")
+    if zero_page is not None:
+        detail["first_zero_page_offset"] = zero_page
+        facts.append(f"first all-zero 4 KiB page at byte {zero_page}")
+    reread = f"a later re-read found {size} bytes sha256 {digest[:16]}"
+    parts.append(reread + (f" ({'; '.join(facts)})" if facts else ""))
     return ArtifactError(f"{role} {path.name} did not read back as written: " + "; ".join(parts), detail)
 
 
@@ -191,15 +202,15 @@ def verified_objects(path, expected, role):
             except EOFError as cause:
                 if stream.size == offset:
                     break
-                raise _artifact_error(path, role, expected, count, offset, cause) from cause
+                raise _artifact_error(path, role, expected, count, stream, offset, cause) from cause
             except MemoryError:
                 raise
             except Exception as cause:
-                raise _artifact_error(path, role, expected, count, offset, cause) from cause
+                raise _artifact_error(path, role, expected, count, stream, offset, cause) from cause
             count += 1
             yield value
     if expected is not None and (stream.size, stream.sha256.hexdigest()) != (expected["bytes"], expected["sha256"]):
-        raise _artifact_error(path, role, expected, count)
+        raise _artifact_error(path, role, expected, count, stream)
 
 
 def merge_runs(runs, target):
@@ -639,13 +650,19 @@ def recorded_digest(artifacts, engine, repeat, role="result"):
 
 
 def validation_worker(args):
+    """Validate one engine's results against the reference.
+
+    The result files cross processes through args.artifacts (the private
+    profile). The sort/merge scratch never leaves this process, so it uses the
+    coordinator's local args.scratch: on a macOS Docker Desktop bind mount, an
+    unsynced scratch run reopened empty (TPC-DS SF1 Q72, SF 0.1 Q78)."""
     from run import safe_error
 
     try:
         reference = recorded_digest(args.artifacts, "duckdb", 0, role="reference")
         for repeat in range(4):
             validate_files(args.artifacts / "duckdb-0.pickle",
-                           args.artifacts / f"{args.engine}-{repeat}.pickle", args.artifacts,
+                           args.artifacts / f"{args.engine}-{repeat}.pickle", args.scratch,
                            digests=(reference, recorded_digest(args.artifacts, args.engine, repeat)))
     except Exception as exc:
         message = safe_error(str(exc))
@@ -660,8 +677,9 @@ def validation_worker(args):
 
 
 ARTIFACT_PROBLEM_FIELDS = ("role", "file", "objects_decoded", "decode_offset", "decode_error",
-                           "zero_bytes_at_offset", "first_zero_page_offset", "bytes_recorded",
-                           "sha256_recorded", "bytes_read_back", "sha256_read_back")
+                           "bytes_consumed", "sha256_consumed", "zero_bytes_at_offset",
+                           "first_zero_page_offset", "bytes_recorded", "sha256_recorded",
+                           "bytes_read_back", "sha256_read_back")
 
 
 def artifact_problem(detail):
@@ -747,8 +765,14 @@ def run_query(args, runner=None):
     flex = not args.duckdb_only and flex_profile(args.private)
     diagnostics.tier_sampler(args.private)  # reject a malformed sampler option before any engine runs
     memory = worker_memory(args.private)
-    with tempfile.TemporaryDirectory(prefix="query-", dir=args.private) as tmp:
-        artifacts = Path(tmp)
+    # Result files cross processes in the private profile. The validator's own
+    # sort/merge scratch goes to the client's local temporary storage (TMPDIR,
+    # else /tmp), removed here even if the validator is killed.
+    with (tempfile.TemporaryDirectory(prefix="query-", dir=args.private) as tmp,
+          tempfile.TemporaryDirectory(prefix="olap-validate-") as local):
+        artifacts, scratch = Path(tmp), Path(local)
+        record["validation_scratch_filesystem"] = (
+            "same" if os.stat(scratch).st_dev == os.stat(artifacts).st_dev else "separate")
         base = [sys.executable, "-u", str(Path(__file__).with_name("run.py")), args.suite,
                 "--private", str(args.private), "--output", str(args.output),
                 "--query", args.query, "--artifacts", str(artifacts)]
@@ -807,7 +831,8 @@ def run_query(args, runner=None):
                     with worker_leaf(memory, leaf_label(args.query, engine, "validate")) as check_leaf:
                         if memory is not None:
                             record[f"{engine}_validation_memory"] = check_leaf.detail
-                        check = runner(check_leaf.wrap(base + ["--phase", "validate", "--engine", engine]),
+                        check = runner(check_leaf.wrap(base + ["--scratch", str(scratch),
+                                                               "--phase", "validate", "--engine", engine]),
                                        timeout=120, capture_output=True, text=True)
                     if check.returncode:
                         detail_path = artifacts / f"{engine}-validation.json"

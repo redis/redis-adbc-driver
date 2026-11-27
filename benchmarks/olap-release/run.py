@@ -119,11 +119,14 @@ def parse_args():
     p.add_argument("--phase", choices=["setup", "engine", "validate"], help=argparse.SUPPRESS)
     p.add_argument("--engine", choices=["duckdb", "redis", "duckdb_adbc"], help=argparse.SUPPRESS)
     p.add_argument("--artifacts", type=Path, help=argparse.SUPPRESS)
+    p.add_argument("--scratch", type=Path, help=argparse.SUPPRESS)
     args = p.parse_args()
     if args.duckdb_only and args.include_duckdb_adbc:
         p.error("--duckdb-only cannot include the Redis-backed third engine")
     if args.phase in ("engine", "validate") and not (args.query and args.engine and args.artifacts):
         p.error("engine/validation worker requires query, engine and private artifacts")
+    if args.phase == "validate" and not args.scratch:
+        p.error("validation worker requires local scratch storage")
     if args.prepare_only and args.load_only:
         p.error("choose prepare-only or load-only")
     return args
