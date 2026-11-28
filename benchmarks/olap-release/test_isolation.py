@@ -143,7 +143,7 @@ class IsolationTests(unittest.TestCase):
 
     def exercise_workers(self, failure=None, mismatch=None, validator_timeout=False,
                          worker_artifact=None, validator_artifact=False, oom_counts=None,
-                         corrupt=None, inspect=None, engines_run=3, extra_env=None):
+                         corrupt=None, inspect=None, engines_run=3, extra_env=None, on_command=None):
         with tempfile.TemporaryDirectory() as tmp:
             private = Path(tmp)
             args, env = synthetic_profile(private)
@@ -154,6 +154,8 @@ class IsolationTests(unittest.TestCase):
             if mismatch:
                 env['MISMATCH_ENGINE'] = mismatch
             def runner(cmd, **kwargs):
+                if on_command:
+                    on_command(private, cmd)
                 if validator_timeout and cmd[cmd.index('--phase') + 1] == 'validate' and cmd[-1] == 'redis':
                     raise subprocess.TimeoutExpired(cmd, kwargs['timeout'])
                 child = subprocess.run(cmd, **kwargs)
@@ -286,9 +288,9 @@ class IsolationTests(unittest.TestCase):
         self.assertIn('result duckdb_adbc-2.pickle did not read back as written', error)
         self.assertIn(f"decode failed at byte {written['bytes']} after 5 objects", error)
         self.assertIn("invalid load key, '\\x00'", error)
-        self.assertIn(f"4096 zero bytes start at byte {written['bytes']}", error)
+        self.assertIn(f"4096 zero bytes starting at byte {written['bytes']}", error)
         self.assertIn(f"recorded {written['bytes']} bytes", error)
-        self.assertIn(f"read back {written['bytes'] + 4096} bytes", error)
+        self.assertIn(f"a later re-read found {written['bytes'] + 4096} bytes", error)
         problem = record['duckdb_adbc_artifact_problem']
         self.assertEqual(problem['file'], 'duckdb_adbc-2.pickle')
         self.assertEqual(problem['role'], 'result')
@@ -296,6 +298,8 @@ class IsolationTests(unittest.TestCase):
         self.assertEqual(problem['zero_bytes_at_offset'], 4096)
         self.assertEqual(problem['bytes_recorded'], written['bytes'])
         self.assertEqual(problem['bytes_read_back'], written['bytes'] + 4096)
+        # The decoder reached the zeros itself: it consumed past the real data.
+        self.assertGreater(problem['bytes_consumed'], written['bytes'])
 
     def test_changed_but_decodable_artifact_is_not_a_result_mismatch(self):
         # A rewritten file can decode cleanly; it is still not what the engine returned.
@@ -366,6 +370,100 @@ class IsolationTests(unittest.TestCase):
                                             r'validator scratch merge-0-\d+ did not read back as written'):
                     list(isolation.sorted_rows(root / 'ref', scratch, chunk_size=100, fan_in=3,
                                                expected=recorded))
+
+    def test_validator_scratch_never_uses_the_shared_artifact_directory(self):
+        # TPC-DS SF1 Q72 and SF 0.1 Q78 on a macOS Docker Desktop bind mount:
+        # the validator's own unsynced sort-0 reopened empty, so the DuckDB
+        # reference failed validation and Redis never ran. Synthetic mount: an
+        # unsynced write under the shared artifact directory is not visible
+        # when reopened; the engines' fsynced result files are.
+        with tempfile.TemporaryDirectory() as mount, tempfile.TemporaryDirectory() as local:
+            artifacts, scratch = Path(mount), Path(local)
+            rows = [(i % 7, str(i)) for i in range(300)]
+            status = {'artifacts': {str(repeat): isolation.dump_rows(artifacts / f'duckdb-{repeat}.pickle', 2, rows)
+                                    for repeat in range(4)}}
+            (artifacts / 'duckdb.json').write_text(json.dumps(status))
+            real = isolation.dump_objects
+            unsynced = []
+
+            def mount_writer(path, values, sync=True):
+                result = real(path, values, sync)
+                if not sync:
+                    unsynced.append(path)
+                    if path.is_relative_to(artifacts):
+                        path.write_bytes(b'')  # the host has not caught up yet
+                return result
+
+            args = argparse.Namespace(artifacts=artifacts, scratch=scratch, engine='duckdb')
+            with patch('isolation.dump_objects', mount_writer):
+                code = isolation.validation_worker(args)
+            failure = artifacts / 'duckdb-validation.json'
+            self.assertEqual(code, 0, failure.read_text() if failure.exists() else '')
+            # Every sort run (one per side and repeat) was written outside the mount.
+            self.assertEqual(len(unsynced), 8)
+            self.assertTrue(all(path.is_relative_to(scratch) for path in unsynced), unsynced)
+            self.assertEqual(list(scratch.iterdir()), [])
+
+    def test_coordinator_gives_the_validator_local_scratch_outside_the_profile(self):
+        scratches = []
+
+        def on_command(private, cmd):
+            phase = cmd[cmd.index('--phase') + 1]
+            self.assertEqual('--scratch' in cmd, phase == 'validate')
+            if phase == 'validate':
+                scratch = Path(cmd[cmd.index('--scratch') + 1])
+                self.assertFalse(scratch.is_relative_to(private))
+                self.assertFalse(scratch.is_relative_to(Path(cmd[cmd.index('--artifacts') + 1])))
+                self.assertEqual(scratch.stat().st_mode & 0o777, 0o700)
+                scratches.append(scratch)
+
+        record = self.exercise_workers(on_command=on_command)
+        self.assertEqual(len(scratches), 3)
+        self.assertEqual(len(set(scratches)), 1)
+        self.assertFalse(scratches[0].exists())
+        # Same filesystem here; a bind-mounted profile in a container records "separate".
+        self.assertEqual(record['validation_scratch_filesystem'], 'same')
+        for engine in isolation.ENGINES:
+            self.assertEqual(record[f'{engine}_status'], 'ok')
+
+    def test_artifact_problem_separates_the_decoders_bytes_from_a_later_reread(self):
+        # Both retained records had no decode offset: the decoder found an empty
+        # sort-0. Their "read back" fields came from the error path's own later
+        # read, which found zeros (Q72) or exactly the recorded bytes (Q78).
+        for shape, later in (('zeros', lambda data: bytes(len(data))), ('recorded', lambda data: data)):
+            with self.subTest(shape), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'sort-0'
+                recorded = isolation.dump_objects(path, [(1, 'a'), (2, 'b')] * 500, sync=False)
+                data = path.read_bytes()
+                path.write_bytes(b'')  # what the decoder's open finds
+                real = isolation._inspect_artifact
+
+                def visible_later(p, offset=None):
+                    p.write_bytes(later(data))
+                    if shape == 'zeros':
+                        self.assertIn(b'\x00' * 4096, p.read_bytes())
+                    return real(p, offset)
+
+                with patch('isolation._inspect_artifact', visible_later):
+                    with self.assertRaises(isolation.ArtifactError) as caught:
+                        list(isolation.verified_objects(path, recorded, 'validator scratch'))
+                problem = isolation.artifact_problem({'artifact': caught.exception.detail})
+                message = str(caught.exception)
+                self.assertEqual(problem['objects_decoded'], 0)
+                self.assertNotIn('decode_offset', problem)
+                self.assertEqual(problem['bytes_consumed'], 0)
+                self.assertEqual(problem['sha256_consumed'], hashlib.sha256(b'').hexdigest()[:16])
+                self.assertEqual(problem['bytes_read_back'], len(data))
+                self.assertIn('the decoder consumed 0 bytes', message)
+                self.assertIn(f'a later re-read found {len(data)} bytes', message)
+                if shape == 'zeros':
+                    self.assertEqual(problem['first_zero_page_offset'], 0)
+                    self.assertEqual(problem['sha256_read_back'], hashlib.sha256(bytes(len(data))).hexdigest()[:16])
+                    self.assertNotIn('matching the record', message)
+                else:
+                    self.assertNotIn('first_zero_page_offset', problem)
+                    self.assertEqual(problem['sha256_read_back'], recorded['sha256'][:16])
+                    self.assertIn('matching the record', message)
 
     def test_malformed_crash_status_keeps_engine_code_and_oom(self):
         record = self.exercise_workers(failure='redis', worker_artifact='{',
