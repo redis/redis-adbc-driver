@@ -1330,6 +1330,24 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 					rel.meta = m
 					return rel, nil
 				}
+				if push := e.ctePush[table]; push != nil {
+					// One evaluation for the CTE's references in this FROM
+					// list, with the OR of their WHERE conjuncts pushed in.
+					if !push.done {
+						push.done = true
+						m, ok, err := e.pushedCTERelation(ctx, def, list, []Expr{push.pred})
+						if err != nil {
+							return relation{}, err
+						}
+						if ok {
+							push.meta = m
+						}
+					}
+					if push.meta != nil {
+						rel.meta = push.meta
+						return rel, nil
+					}
+				}
 				m, err := e.cteRelation(ctx, def, list)
 				if err != nil {
 					return relation{}, err

@@ -71,7 +71,10 @@ type executor struct {
 	// cteLevel[i] is the number of scopes when ctes[i] was pushed: the
 	// level of its query, whose enclosing scopes its CTEs see.
 	cteLevel []int
-	now      time.Time // CURRENT_TIMESTAMP etc., fixed per statement
+	// ctePush holds, while a SELECT's FROM items are resolved, the WHERE
+	// conjuncts each CTE reference among them can evaluate (cte_pushdown.go).
+	ctePush map[*TableName]*ctePushdown
+	now     time.Time // CURRENT_TIMESTAMP etc., fixed per statement
 	// noTemp stops unqualified names from resolving to temporary objects
 	// (inside permanent views).
 	noTemp bool
@@ -1087,6 +1090,9 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		return nil, err
 	}
 	defer pop()
+	savedPush := e.ctePush
+	e.ctePush = ctePushdowns(sel)
+	defer func() { e.ctePush = savedPush }()
 	if err := e.resolvePagination(ctx, sel); err != nil {
 		return nil, err
 	}
